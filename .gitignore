@@ -1,0 +1,5 @@
+*.ai
+quotation-*.png
+q-*.png
+docs/
+.playwright-mcp/

@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>奈拾設計 報價單</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "Microsoft JhengHei", "Noto Sans TC", sans-serif;
+      display: flex;
+      height: 100vh;
+      background: #f0f0f0;
+    }
+
+    /* 左側輸入區 */
+    #input-panel {
+      width: 420px;
+      min-width: 420px;
+      height: 100vh;
+      overflow-y: auto;
+      background: #fff;
+      border-right: 1px solid #ddd;
+      padding: 24px;
+    }
+
+    #input-panel h2 {
+      font-size: 14px;
+      color: #888;
+      margin-bottom: 16px;
+      letter-spacing: 1px;
+    }
+
+    .field-group {
+      margin-bottom: 20px;
+    }
+
+    .field-group label {
+      display: block;
+      font-size: 12px;
+      color: #555;
+      margin-bottom: 4px;
+    }
+
+    .field-group input,
+    .field-group select,
+    .field-group textarea {
+      width: 100%;
+      padding: 6px 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-family: "Microsoft JhengHei", sans-serif;
+      font-size: 13px;
+    }
+
+    .field-group textarea { resize: vertical; min-height: 60px; }
+
+    /* 右側預覽區 */
+    #preview-panel {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 32px;
+      background: #e0e0e0;
+    }
+
+    /* A4 預覽紙張 */
+    #a4-page {
+      width: 210mm;
+      min-height: 297mm;
+      background: #fff;
+      padding: 4mm 16mm 20mm 16mm;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+      font-family: "Microsoft JhengHei", "Noto Sans TC", sans-serif;
+      font-size: 11pt;
+      color: #1a1a1a;
+      position: relative;
+    }
+
+    /* 列印設定 */
+    @media print {
+      body { background: white; display: block; }
+      #input-panel { display: none !important; }
+      #preview-panel {
+        padding: 0;
+        background: white;
+        display: block;
+      }
+      #a4-page {
+        width: 100%;
+        min-height: auto;
+        box-shadow: none;
+        padding: 10mm 14mm 14mm 14mm;
+      }
+      .no-print { display: none !important; }
+      @page { size: A4; margin: 0; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 左側輸入區 -->
+  <div id="input-panel">
+    <button onclick="window.print()" class="no-print"
+      style="width:100%; padding:12px; background:#2C2C2C; color:#fff; border:none; border-radius:6px; cursor:pointer; font-size:14px; font-family:inherit; margin-bottom:20px;">
+      🖨 列印 / 儲存 PDF
+    </button>
+    <h2>填寫欄位</h2>
+    <p style="color:#aaa; font-size:12px; margin-bottom:20px;">右側即時預覽</p>
+
+    <div class="field-group">
+      <label>公司電話</label>
+      <input type="text" id="in-company-tel" placeholder="0911-970520">
+    </div>
+    <div class="field-group">
+      <label>公司 Email</label>
+      <input type="text" id="in-company-email" placeholder="nextdesign62@gmail.com">
+    </div>
+    <div class="field-group">
+      <label>官網</label>
+      <input type="text" id="in-company-web" placeholder="nextplus-design.com/design">
+    </div>
+    <hr style="margin:20px 0; border-color:#eee;">
+    <div class="field-group">
+      <label>合約編號</label>
+      <input type="text" id="in-contract-no" placeholder="NS-2026-001">
+    </div>
+    <div class="field-group">
+      <label>報價日期</label>
+      <input type="date" id="in-date">
+    </div>
+    <div class="field-group">
+      <label>委託人姓名</label>
+      <input type="text" id="in-client-name" placeholder="陳○○">
+    </div>
+    <div class="field-group">
+      <label>聯絡電話</label>
+      <input type="text" id="in-client-phone" placeholder="0912-345-678">
+    </div>
+    <div class="field-group">
+      <label>施工地址</label>
+      <input type="text" id="in-address" placeholder="台南市東區○○路○號">
+    </div>
+    <div class="field-group">
+      <label>設計師姓名</label>
+      <input type="text" id="in-designer" placeholder="柏">
+    </div>
+    <div class="field-group">
+      <label>工程期限（起）</label>
+      <input type="date" id="in-start-date">
+    </div>
+    <div class="field-group">
+      <label>工程期限（迄）</label>
+      <input type="date" id="in-end-date">
+    </div>
+
+    <hr style="margin:20px 0; border-color:#eee;">
+    <h2>品項明細</h2>
+    <div id="items-input-list"></div>
+    <button onclick="addItemRow()" style="margin-top:10px; width:100%; padding:8px; background:#2C2C2C; color:#fff; border:none; border-radius:4px; cursor:pointer; font-family:inherit;">＋ 新增品項</button>
+
+    <hr style="margin:20px 0; border-color:#eee;">
+    <h2>金額與付款</h2>
+    <div class="field-group" style="display:flex; align-items:center; gap:8px;">
+      <input type="checkbox" id="in-tax" style="width:auto;">
+      <label for="in-tax" style="margin:0;">含稅（5%）</label>
+    </div>
+    <div class="field-group">
+      <label>備註</label>
+      <textarea id="in-notes" placeholder="例：材料以實際採購為準，如有變更另行議定。"></textarea>
+    </div>
+    <hr style="margin:20px 0; border-color:#eee;">
+    <h2>付款條件</h2>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+      <div class="field-group">
+        <label>訂金 %</label>
+        <input type="number" id="in-p1" value="30" min="0" max="100">
+      </div>
+      <div class="field-group">
+        <label>第二期款 %</label>
+        <input type="number" id="in-p2" value="30" min="0" max="100">
+      </div>
+      <div class="field-group">
+        <label>第三期款 %</label>
+        <input type="number" id="in-p3" value="30" min="0" max="100">
+      </div>
+      <div class="field-group">
+        <label>尾款 %</label>
+        <input type="number" id="in-p4" value="10" min="0" max="100">
+      </div>
+    </div>
+    <div id="payment-sum-hint" style="font-size:12px; margin-top:4px;"></div>
+  </div>
+
+  <!-- 右側預覽區 -->
+  <div id="preview-panel">
+    <div id="a4-page">
+
+      <!-- 頁首 -->
+      <div id="prev-header" style="display:flex; justify-content:space-between; align-items:stretch; margin-bottom:6mm; border-bottom:2px solid #2C2C2C; padding-bottom:4mm;">
+        <!-- 左：Logo -->
+        <div style="display:flex; align-items:center;">
+          <img src="assets/奈拾設計LOGO2.png" alt="奈拾設計" style="height:240px; object-fit:contain; display:block;">
+        </div>
+        <!-- 右：合約資訊 -->
+        <div style="font-size:10pt; text-align:left; display:flex; flex-direction:column; justify-content:center;">
+          <div style="margin-bottom:4px;">合約編號：<span id="prev-contract-no">NS-2026-001</span></div>
+          <div style="margin-bottom:4px;">報價日期：<span id="prev-date">2026-05-12</span></div>
+          <div style="margin-bottom:4px; font-size:9pt; color:#555;">官網：<span id="prev-company-web">nextplus-design.com/design</span></div>
+          <div style="margin-bottom:4px; font-size:9pt; color:#555;">Email：<span id="prev-company-email">nextdesign62@gmail.com</span></div>
+          <div style="font-size:9pt; color:#555;">Tel：<span id="prev-company-tel">0911-970520</span></div>
+        </div>
+      </div>
+
+      <!-- 報價單標題 -->
+      <div style="text-align:center; font-size:20pt; font-weight:bold; letter-spacing:4px; margin-bottom:6mm;">報價單</div>
+
+      <!-- 委託人資訊 -->
+      <table style="width:100%; margin-bottom:8mm; font-size:10pt; border-collapse:collapse;">
+        <tr>
+          <td style="width:15%; color:#555; padding:3px 0;">委託人</td>
+          <td style="width:35%; font-weight:bold;" id="prev-client-name">陳○○</td>
+          <td style="width:15%; color:#555; padding:3px 0;">聯絡電話</td>
+          <td style="width:35%;" id="prev-client-phone">0912-345-678</td>
+        </tr>
+        <tr>
+          <td style="color:#555; padding:3px 0;">施工地址</td>
+          <td colspan="3" id="prev-address">台南市東區○○路○號</td>
+        </tr>
+        <tr>
+          <td style="color:#555; padding:3px 0;">設計師</td>
+          <td id="prev-designer">柏</td>
+          <td style="color:#555; padding:3px 0;">工程期限</td>
+          <td id="prev-duration">2026-06-01 ～ 2026-09-30</td>
+        </tr>
+      </table>
+
+      <!-- 品項表格 -->
+      <table id="prev-items-table" style="width:100%; border-collapse:collapse; margin-bottom:8mm; font-size:10pt;">
+        <thead>
+          <tr style="background:#2C2C2C; color:#fff;">
+            <th style="padding:6px 8px; text-align:left; width:15%;">工項</th>
+            <th style="padding:6px 8px; text-align:left; width:35%;">品名說明</th>
+            <th style="padding:6px 8px; text-align:center; width:8%;">單位</th>
+            <th style="padding:6px 8px; text-align:right; width:14%;">單價</th>
+            <th style="padding:6px 8px; text-align:right; width:10%;">數量</th>
+            <th style="padding:6px 8px; text-align:right; width:18%;">小計</th>
+          </tr>
+        </thead>
+        <tbody id="prev-items-body">
+          <!-- 動態產生 -->
+        </tbody>
+      </table>
+
+      <!-- 金額匯總 -->
+      <div style="display:flex; justify-content:flex-end; margin-bottom:6mm;">
+        <table style="width:200px; font-size:10pt; border-collapse:collapse;">
+          <tr>
+            <td style="padding:3px 8px; color:#555;">小計</td>
+            <td style="padding:3px 8px; text-align:right;" id="prev-subtotal">$0</td>
+          </tr>
+          <tr id="prev-tax-row" style="display:none;">
+            <td style="padding:3px 8px; color:#555;">稅金（5%）</td>
+            <td style="padding:3px 8px; text-align:right;" id="prev-tax">$0</td>
+          </tr>
+          <tr style="border-top:2px solid #2C2C2C; font-weight:bold; font-size:12pt;">
+            <td style="padding:6px 8px;">總額</td>
+            <td style="padding:6px 8px; text-align:right;" id="prev-total">$0</td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- 備註 -->
+      <div style="margin-bottom:6mm;">
+        <div style="font-weight:bold; margin-bottom:3px; font-size:10pt;">備註</div>
+        <div id="prev-notes" style="font-size:10pt; color:#444; min-height:20px; padding:6px; border:1px solid #eee; border-radius:3px;">—</div>
+      </div>
+
+      <!-- 付款條件 -->
+      <div style="margin-bottom:8mm;">
+        <div style="font-weight:bold; margin-bottom:4px; font-size:10pt;">付款條件</div>
+        <div style="display:flex; gap:16px; font-size:10pt;" id="prev-payment">
+          <span>訂金 30%</span>
+          <span>第二期款 30%</span>
+          <span>第三期款 30%</span>
+          <span>尾款 10%</span>
+        </div>
+      </div>
+
+      <!-- 合約條款 -->
+      <div style="margin-bottom:8mm; padding:8px 10px; border:1px solid #ddd; border-radius:3px; font-size:9pt; color:#444; line-height:1.8;">
+        <div style="font-weight:bold; font-size:10pt; margin-bottom:6px; color:#2C2C2C;">合約條款</div>
+        <ol style="padding-left:16px;">
+          <li><b>付款條款：</b>依付款條件約定期程給付，逾期每日加計千分之三違約金。</li>
+          <li><b>工程變更：</b>工程施作期間如需變更設計或材料，須雙方書面同意，並另行議定費用。</li>
+          <li><b>工期延誤：</b>因不可抗力（天災、疫情、供料延誤）造成工期延誤，雙方不互相追究。</li>
+          <li><b>驗收標準：</b>工程完工後，委託人應於 7 日內完成驗收；逾期視為驗收通過。</li>
+          <li><b>保固責任：</b>竣工驗收後，乙方提供 1 年工程保固，材料瑕疵不在此限。</li>
+          <li><b>爭議處理：</b>因本合約發生爭議，雙方同意以台灣台南地方法院為第一審管轄法院。</li>
+        </ol>
+      </div>
+
+      <!-- 簽名欄 -->
+      <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-top:10mm;">
+        <div style="text-align:center; width:45%;">
+          <div style="border-top:1px solid #333; padding-top:6px; font-size:10pt; color:#555;">委託人簽名</div>
+        </div>
+        <div style="text-align:center; width:45%; position:relative;">
+          <img src="assets/奈拾公司章.png" alt="公司章" style="width:180px; height:180px; object-fit:contain; display:block; margin:0 auto 6px;">
+          <div style="border-top:1px solid #333; padding-top:6px; font-size:10pt; color:#555;">奈拾室內裝修設計有限公司</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+<script>
+  function sync(inputId, previewId, fallback) {
+    const val = document.getElementById(inputId).value.trim();
+    document.getElementById(previewId).textContent = val || fallback;
+  }
+
+  function syncHeader() {
+    sync('in-company-tel',   'prev-company-tel',   '—');
+    sync('in-company-email', 'prev-company-email', '—');
+    sync('in-company-web',   'prev-company-web',   '—');
+    sync('in-contract-no', 'prev-contract-no', 'NS-2026-001');
+    sync('in-client-name', 'prev-client-name', '—');
+    sync('in-client-phone', 'prev-client-phone', '—');
+    sync('in-address', 'prev-address', '—');
+    sync('in-designer', 'prev-designer', '—');
+
+    const date = document.getElementById('in-date').value;
+    document.getElementById('prev-date').textContent = date || '—';
+
+    const s = document.getElementById('in-start-date').value;
+    const e = document.getElementById('in-end-date').value;
+    document.getElementById('prev-duration').textContent =
+      (s && e) ? `${s} ～ ${e}` : '—';
+  }
+
+  ['in-company-tel','in-company-email','in-company-web',
+   'in-contract-no','in-date','in-client-name','in-client-phone',
+   'in-address','in-designer','in-start-date','in-end-date']
+    .forEach(id => document.getElementById(id)
+      .addEventListener('input', syncHeader));
+
+  let items = [];
+  let itemIdCounter = 0;
+
+  const CATEGORIES = ['拆除','泥作','木作','水電','油漆','鋁窗','系統櫃','軟裝','其他'];
+
+  function addItemRow(data) {
+    const id = itemIdCounter++;
+    const item = data ? { ...data, id } : { id, cat:'拆除', desc:'', unit:'式', price:0, qty:1 };
+    items.push(item);
+    renderInputRow(item);
+    renderPreview();
+  }
+
+  function removeItemRow(id) {
+    items = items.filter(i => i.id !== id);
+    document.getElementById(`row-${id}`).remove();
+    renderPreview();
+  }
+
+  function renderInputRow(item) {
+    const div = document.createElement('div');
+    div.id = `row-${item.id}`;
+    div.style.cssText = 'border:1px solid #eee; border-radius:4px; padding:10px; margin-bottom:8px;';
+    div.innerHTML = `
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:6px;">
+        <div>
+          <label style="font-size:11px; color:#888;">工項類別</label>
+          <select onchange="updateItem(${item.id},'cat',this.value)" style="width:100%; padding:4px; border:1px solid #ccc; border-radius:3px; font-family:inherit;">
+            ${CATEGORIES.map(c => `<option ${c===item.cat?'selected':''}>${c}</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <label style="font-size:11px; color:#888;">單位</label>
+          <input type="text" value="${item.unit}" onchange="updateItem(${item.id},'unit',this.value)"
+            style="width:100%; padding:4px; border:1px solid #ccc; border-radius:3px; font-family:inherit;">
+        </div>
+      </div>
+      <div style="margin-bottom:6px;">
+        <label style="font-size:11px; color:#888;">品名說明</label>
+        <input type="text" value="${item.desc}" oninput="updateItem(${item.id},'desc',this.value)"
+          style="width:100%; padding:4px; border:1px solid #ccc; border-radius:3px; font-family:inherit;" placeholder="說明">
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr auto; gap:6px; align-items:flex-end;">
+        <div>
+          <label style="font-size:11px; color:#888;">單價</label>
+          <input type="number" value="${item.price}" oninput="updateItem(${item.id},'price',+this.value)"
+            style="width:100%; padding:4px; border:1px solid #ccc; border-radius:3px;" min="0">
+        </div>
+        <div>
+          <label style="font-size:11px; color:#888;">數量</label>
+          <input type="number" value="${item.qty}" oninput="updateItem(${item.id},'qty',+this.value)"
+            style="width:100%; padding:4px; border:1px solid #ccc; border-radius:3px;" min="0">
+        </div>
+        <button onclick="removeItemRow(${item.id})"
+          style="padding:4px 10px; background:#e55; color:#fff; border:none; border-radius:3px; cursor:pointer;">✕</button>
+      </div>
+    `;
+    document.getElementById('items-input-list').appendChild(div);
+  }
+
+  function updateItem(id, field, value) {
+    const item = items.find(i => i.id === id);
+    if (item) { item[field] = value; renderPreview(); }
+  }
+
+  function renderPreview() {
+    const tbody = document.getElementById('prev-items-body');
+    tbody.innerHTML = '';
+    items.forEach((item, idx) => {
+      const subtotal = (item.price || 0) * (item.qty || 0);
+      const tr = document.createElement('tr');
+      tr.style.background = idx % 2 === 0 ? '#fff' : '#f9f9f9';
+      tr.innerHTML = `
+        <td style="padding:5px 8px; border-bottom:1px solid #eee;">${item.cat}</td>
+        <td style="padding:5px 8px; border-bottom:1px solid #eee;">${item.desc || '—'}</td>
+        <td style="padding:5px 8px; border-bottom:1px solid #eee; text-align:center;">${item.unit}</td>
+        <td style="padding:5px 8px; border-bottom:1px solid #eee; text-align:right;">${item.price.toLocaleString()}</td>
+        <td style="padding:5px 8px; border-bottom:1px solid #eee; text-align:right;">${item.qty}</td>
+        <td style="padding:5px 8px; border-bottom:1px solid #eee; text-align:right; font-weight:bold;">${subtotal.toLocaleString()}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+    calcTotals();
+  }
+
+  function calcTotals() {
+    const subtotal = items.reduce((sum, i) => sum + (i.price||0)*(i.qty||0), 0);
+    const hasTax = document.getElementById('in-tax').checked;
+    const tax = hasTax ? Math.round(subtotal * 0.05) : 0;
+    const total = subtotal + tax;
+
+    document.getElementById('prev-subtotal').textContent = '$' + subtotal.toLocaleString();
+    document.getElementById('prev-tax').textContent = '$' + tax.toLocaleString();
+    document.getElementById('prev-total').textContent = '$' + total.toLocaleString();
+    document.getElementById('prev-tax-row').style.display = hasTax ? '' : 'none';
+
+    const notes = document.getElementById('in-notes').value.trim();
+    document.getElementById('prev-notes').textContent = notes || '—';
+
+    const p = ['in-p1','in-p2','in-p3','in-p4'].map(id => +document.getElementById(id).value || 0);
+    const sum = p.reduce((a,b) => a+b, 0);
+    const hint = document.getElementById('payment-sum-hint');
+    hint.textContent = `合計 ${sum}%` + (sum !== 100 ? '（請確認加總為 100%）' : ' ✓');
+    hint.style.color = sum !== 100 ? '#e55' : '#3a3';
+
+    document.getElementById('prev-payment').innerHTML =
+      `<span>訂金 ${p[0]}%</span><span>第二期款 ${p[1]}%</span><span>第三期款 ${p[2]}%</span><span>尾款 ${p[3]}%</span>`;
+  }
+
+  ['in-tax','in-notes','in-p1','in-p2','in-p3','in-p4']
+    .forEach(id => document.getElementById(id)
+      .addEventListener('input', calcTotals));
+
+  function initDemo() {
+    document.getElementById('in-company-tel').value   = '0911-970520';
+    document.getElementById('in-company-email').value = 'nextdesign62@gmail.com';
+    document.getElementById('in-company-web').value   = 'nextplus-design.com/design';
+    document.getElementById('in-contract-no').value = 'NS-2026-001';
+    document.getElementById('in-date').value = '2026-05-12';
+    document.getElementById('in-client-name').value = '陳○○';
+    document.getElementById('in-client-phone').value = '0912-345-678';
+    document.getElementById('in-address').value = '台南市東區○○路○號';
+    document.getElementById('in-designer').value = '柏';
+    document.getElementById('in-start-date').value = '2026-06-01';
+    document.getElementById('in-end-date').value = '2026-09-30';
+    document.getElementById('in-notes').value = '材料以實際採購為準，如有變更另行議定。';
+    document.getElementById('in-p1').value = 30;
+    document.getElementById('in-p2').value = 30;
+    document.getElementById('in-p3').value = 30;
+    document.getElementById('in-p4').value = 10;
+
+    syncHeader();
+
+    [
+      { cat:'拆除', desc:'全室拆除清運',    unit:'式', price:45000, qty:1  },
+      { cat:'泥作', desc:'浴室防水及貼磚',  unit:'式', price:60000, qty:1  },
+      { cat:'木作', desc:'主臥系統天花板',  unit:'坪', price:8000,  qty:8  },
+      { cat:'水電', desc:'全室水電配管更新',unit:'式', price:85000, qty:1  },
+      { cat:'油漆', desc:'全室批土乳膠漆',  unit:'坪', price:1800,  qty:30 },
+    ].forEach(d => addItemRow(d));
+
+    calcTotals();
+  }
+
+  initDemo();
+</script>
+</body>
+</html>
