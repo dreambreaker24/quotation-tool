@@ -95,6 +95,30 @@
         box-shadow: none;
         padding: 10mm 14mm 14mm 14mm;
       }
+      #prev-header {
+        margin: -10mm -14mm 0 -14mm !important;
+      }
+      /* 表格標題列每頁重複 */
+      #prev-items-table thead {
+        display: table-header-group;
+      }
+      /* 這些區塊不在中間斷頁 */
+      #prev-summary-section,
+      #prev-notes-section,
+      #prev-payment-section,
+      #prev-contract-section,
+      #prev-signature-section {
+        page-break-inside: avoid;
+      }
+      /* 第二頁列印設定 */
+      #a4-page-2 {
+        width: 100%;
+        min-height: auto;
+        box-shadow: none;
+        padding: 8mm 14mm 14mm 14mm;
+        margin-top: 0;
+        page-break-before: always;
+      }
       .no-print { display: none !important; }
       @page { size: A4; margin: 0; }
     }
@@ -108,13 +132,30 @@
       style="width:100%; padding:12px; background:#2C2C2C; color:#fff; border:none; border-radius:6px; cursor:pointer; font-size:14px; font-family:inherit; margin-bottom:20px;">
       🖨 列印 / 儲存 PDF
     </button>
+    <!-- 公司切換 -->
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:16px;">
+      <button id="btn-naiship" onclick="switchCompany('naiship')"
+        style="padding:10px; background:#2C2C2C; color:#fff; border:none; border-radius:6px; cursor:pointer; font-family:inherit; font-size:13px;">奈拾設計</button>
+      <button id="btn-baiting" onclick="switchCompany('baiting')"
+        style="padding:10px; background:#e0e0e0; color:#555; border:none; border-radius:6px; cursor:pointer; font-family:inherit; font-size:13px;">柏延</button>
+    </div>
+
+    <!-- 過往清單 -->
+    <h2>過往清單</h2>
+    <div style="display:flex; gap:6px; margin-bottom:10px;">
+      <input type="text" id="in-search-contract" placeholder="輸入合約編號搜尋…"
+        style="flex:1; padding:6px 10px; border:1px solid #ccc; border-radius:4px; font-family:inherit; font-size:13px;"
+        onkeydown="if(event.key==='Enter') searchQuote()">
+      <button onclick="searchQuote()"
+        style="padding:6px 12px; background:#2C2C2C; color:#fff; border:none; border-radius:4px; cursor:pointer; font-family:inherit; font-size:13px; white-space:nowrap;">搜尋</button>
+    </div>
+    <div id="search-hint" style="font-size:12px; margin-bottom:8px; min-height:16px;"></div>
+    <div id="history-list" style="margin-bottom:16px;"></div>
+    <hr style="margin:16px 0; border-color:#eee;">
+
     <h2>填寫欄位</h2>
     <p style="color:#aaa; font-size:12px; margin-bottom:20px;">右側即時預覽</p>
 
-    <div class="field-group">
-      <label>公司電話</label>
-      <input type="text" id="in-company-tel" placeholder="0911-970520">
-    </div>
     <div class="field-group">
       <label>公司 Email</label>
       <input type="text" id="in-company-email" placeholder="nextdesign62@gmail.com">
@@ -135,6 +176,10 @@
     <div class="field-group">
       <label>委託人姓名</label>
       <input type="text" id="in-client-name" placeholder="陳○○">
+    </div>
+    <div class="field-group">
+      <label>施工項目</label>
+      <input type="text" id="in-project" placeholder="台南市東區住宅翻新工程">
     </div>
     <div class="field-group">
       <label>聯絡電話</label>
@@ -158,12 +203,20 @@
     </div>
 
     <hr style="margin:20px 0; border-color:#eee;">
-    <h2>品項明細</h2>
-    <div id="items-input-list"></div>
-    <button onclick="addItemRow()" style="margin-top:10px; width:100%; padding:8px; background:#2C2C2C; color:#fff; border:none; border-radius:4px; cursor:pointer; font-family:inherit;">＋ 新增品項</button>
+    <h2>工程項目（大項）</h2>
+    <div id="categories-input-list"></div>
+    <button onclick="addCategory()" style="margin-top:10px; width:100%; padding:8px; background:#2C2C2C; color:#fff; border:none; border-radius:4px; cursor:pointer; font-family:inherit;">＋ 新增大項</button>
 
     <hr style="margin:20px 0; border-color:#eee;">
     <h2>金額與付款</h2>
+    <div class="field-group">
+      <label>工程管理費 %</label>
+      <input type="number" id="in-mgmt-pct" value="6" min="0" step="0.1">
+    </div>
+    <div class="field-group">
+      <label>折扣金額（選填）</label>
+      <input type="number" id="in-discount" value="" min="0" step="1" placeholder="0">
+    </div>
     <div class="field-group" style="display:flex; align-items:center; gap:8px;">
       <input type="checkbox" id="in-tax" style="width:auto;">
       <label for="in-tax" style="margin:0;">含稅（5%）</label>
@@ -174,22 +227,38 @@
     </div>
     <hr style="margin:20px 0; border-color:#eee;">
     <h2>付款條件</h2>
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px 8px;">
       <div class="field-group">
         <label>訂金 %</label>
         <input type="number" id="in-p1" value="30" min="0" max="100">
+      </div>
+      <div class="field-group">
+        <label>訂金金額</label>
+        <input type="number" id="in-p1-amt" placeholder="0">
       </div>
       <div class="field-group">
         <label>第二期款 %</label>
         <input type="number" id="in-p2" value="30" min="0" max="100">
       </div>
       <div class="field-group">
+        <label>第二期款金額</label>
+        <input type="number" id="in-p2-amt" placeholder="0">
+      </div>
+      <div class="field-group">
         <label>第三期款 %</label>
         <input type="number" id="in-p3" value="30" min="0" max="100">
       </div>
       <div class="field-group">
+        <label>第三期款金額</label>
+        <input type="number" id="in-p3-amt" placeholder="0">
+      </div>
+      <div class="field-group">
         <label>尾款 %</label>
         <input type="number" id="in-p4" value="10" min="0" max="100">
+      </div>
+      <div class="field-group">
+        <label>尾款金額</label>
+        <input type="number" id="in-p4-amt" placeholder="0">
       </div>
     </div>
     <div id="payment-sum-hint" style="font-size:12px; margin-top:4px;"></div>
@@ -197,57 +266,59 @@
 
   <!-- 右側預覽區 -->
   <div id="preview-panel">
+    <div style="display:flex; flex-direction:column; align-items:center; gap:16px;">
     <div id="a4-page">
 
       <!-- 頁首 -->
-      <div id="prev-header" style="display:flex; justify-content:space-between; align-items:center; background:#CCCCCC; margin: -4mm -16mm 8mm -16mm; padding: 6mm 16mm;">
+      <div id="prev-header" style="display:flex; justify-content:space-between; align-items:center; background:#CCCCCC; margin: -4mm -16mm 0 -16mm; padding: 0 16mm; height:50mm; overflow:hidden;">
         <!-- 左：Logo -->
         <div style="display:flex; align-items:center;">
-          <img src="assets/奈拾設計LOGO2.png" alt="奈拾設計" style="height:480px; object-fit:contain; display:block;">
+          <img id="prev-logo" src="assets/奈拾設計LOGO2.png" alt="奈拾設計" style="height:260px; object-fit:contain; display:block;">
         </div>
         <!-- 右：合約資訊 -->
         <div style="font-size:10pt; text-align:left; display:flex; flex-direction:column; justify-content:center; color:#1a1a1a;">
           <div style="margin-bottom:5px;">合約編號：<span id="prev-contract-no">NS-2026-001</span></div>
           <div style="margin-bottom:5px;">報價日期：<span id="prev-date">2026-05-12</span></div>
           <div style="margin-bottom:5px; font-size:9pt; color:#444;">官網：<span id="prev-company-web">nextplus-design.com/design</span></div>
-          <div style="margin-bottom:5px; font-size:9pt; color:#444;">Email：<span id="prev-company-email">nextdesign62@gmail.com</span></div>
-          <div style="font-size:9pt; color:#444;">Tel：<span id="prev-company-tel">0911-970520</span></div>
+          <div style="font-size:9pt; color:#444;">Email：<span id="prev-company-email">nextdesign62@gmail.com</span></div>
         </div>
       </div>
 
-      <!-- 報價單標題 -->
-      <div style="text-align:center; font-size:20pt; font-weight:bold; letter-spacing:4px; margin-bottom:6mm;">報價單</div>
+      <!-- 報價單標題 + 黑線 -->
+      <div style="text-align:center; font-size:18pt; font-weight:bold; letter-spacing:4px; padding: 3mm 0 2mm 0;">報價單</div>
+      <hr style="border:none; border-top:2px solid #2C2C2C; margin: 0 0 4mm 0;">
 
       <!-- 委託人資訊 -->
-      <table style="width:100%; margin-bottom:8mm; font-size:10pt; border-collapse:collapse;">
+      <table style="width:100%; margin-bottom:4mm; font-size:10pt; border-collapse:collapse;">
         <tr>
-          <td style="width:15%; color:#555; padding:3px 0;">委託人</td>
-          <td style="width:35%; font-weight:bold;" id="prev-client-name">陳○○</td>
-          <td style="width:15%; color:#555; padding:3px 0;">聯絡電話</td>
-          <td style="width:35%;" id="prev-client-phone">0912-345-678</td>
+          <td style="width:14%; color:#555; padding:2px 0;">委託人</td>
+          <td style="width:36%; font-weight:bold;" id="prev-client-name">陳○○</td>
+          <td style="width:14%; color:#555; padding:2px 0;">設計師</td>
+          <td style="width:36%;" id="prev-designer">柏</td>
         </tr>
         <tr>
-          <td style="color:#555; padding:3px 0;">施工地址</td>
-          <td colspan="3" id="prev-address">台南市東區○○路○號</td>
+          <td style="color:#555; padding:2px 0;">施工項目</td>
+          <td id="prev-project">台南市東區住宅翻新工程</td>
+          <td style="color:#555; padding:2px 0;">聯絡電話</td>
+          <td id="prev-client-phone">0912-345-678</td>
         </tr>
         <tr>
-          <td style="color:#555; padding:3px 0;">設計師</td>
-          <td id="prev-designer">柏</td>
-          <td style="color:#555; padding:3px 0;">工程期限</td>
+          <td style="color:#555; padding:2px 0;">施工地址</td>
+          <td id="prev-address">台南市東區○○路○號</td>
+          <td style="color:#555; padding:2px 0;">工程期限</td>
           <td id="prev-duration">2026-06-01 ～ 2026-09-30</td>
         </tr>
       </table>
 
       <!-- 品項表格 -->
-      <table id="prev-items-table" style="width:100%; border-collapse:collapse; margin-bottom:8mm; font-size:10pt;">
+      <table id="prev-items-table" style="width:100%; border-collapse:collapse; margin-bottom:4mm; font-size:10pt;">
         <thead>
           <tr style="background:#2C2C2C; color:#fff;">
-            <th style="padding:6px 8px; text-align:left; width:15%;">工項</th>
-            <th style="padding:6px 8px; text-align:left; width:35%;">品名說明</th>
-            <th style="padding:6px 8px; text-align:center; width:8%;">單位</th>
-            <th style="padding:6px 8px; text-align:right; width:14%;">單價</th>
+            <th style="padding:6px 8px; text-align:center; width:10%;">項次</th>
+            <th style="padding:6px 8px; text-align:left; width:44%;">工程項目</th>
             <th style="padding:6px 8px; text-align:right; width:10%;">數量</th>
-            <th style="padding:6px 8px; text-align:right; width:18%;">小計</th>
+            <th style="padding:6px 8px; text-align:center; width:10%;">單位</th>
+            <th style="padding:6px 8px; text-align:right; width:26%;">複價</th>
           </tr>
         </thead>
         <tbody id="prev-items-body">
@@ -256,11 +327,19 @@
       </table>
 
       <!-- 金額匯總 -->
-      <div style="display:flex; justify-content:flex-end; margin-bottom:6mm;">
-        <table style="width:200px; font-size:10pt; border-collapse:collapse;">
+      <div id="prev-summary-section" style="display:flex; justify-content:flex-end; margin-bottom:3mm;">
+        <table style="width:240px; font-size:10pt; border-collapse:collapse;">
           <tr>
-            <td style="padding:3px 8px; color:#555;">小計</td>
+            <td style="padding:3px 8px; color:#555;">工程小計</td>
             <td style="padding:3px 8px; text-align:right;" id="prev-subtotal">$0</td>
+          </tr>
+          <tr id="prev-mgmt-row" style="display:none;">
+            <td style="padding:3px 8px; color:#555;" id="prev-mgmt-label">工程管理費</td>
+            <td style="padding:3px 8px; text-align:right;" id="prev-mgmt">$0</td>
+          </tr>
+          <tr id="prev-discount-row" style="display:none;">
+            <td style="padding:3px 8px; color:#555;">折扣</td>
+            <td style="padding:3px 8px; text-align:right;" id="prev-discount">-$0</td>
           </tr>
           <tr id="prev-tax-row" style="display:none;">
             <td style="padding:3px 8px; color:#555;">稅金（5%）</td>
@@ -274,25 +353,20 @@
       </div>
 
       <!-- 備註 -->
-      <div style="margin-bottom:6mm;">
-        <div style="font-weight:bold; margin-bottom:3px; font-size:10pt;">備註</div>
-        <div id="prev-notes" style="font-size:10pt; color:#444; min-height:20px; padding:6px; border:1px solid #eee; border-radius:3px;">—</div>
+      <div id="prev-notes-section" style="margin-bottom:3mm;">
+        <div style="font-weight:bold; margin-bottom:2px; font-size:10pt;">備註</div>
+        <div id="prev-notes" style="font-size:10pt; color:#444; padding:4px 6px; border:1px solid #eee; border-radius:3px;">—</div>
       </div>
 
       <!-- 付款條件 -->
-      <div style="margin-bottom:8mm;">
-        <div style="font-weight:bold; margin-bottom:4px; font-size:10pt;">付款條件</div>
-        <div style="display:flex; gap:16px; font-size:10pt;" id="prev-payment">
-          <span>訂金 30%</span>
-          <span>第二期款 30%</span>
-          <span>第三期款 30%</span>
-          <span>尾款 10%</span>
-        </div>
+      <div id="prev-payment-section" style="margin-bottom:3mm;">
+        <div style="font-weight:bold; margin-bottom:2px; font-size:10pt;">付款條件</div>
+        <table id="prev-payment" style="width:100%; font-size:10pt; border-collapse:collapse;"></table>
       </div>
 
       <!-- 合約條款 -->
-      <div style="margin-bottom:8mm; padding:8px 10px; border:1px solid #ddd; border-radius:3px; font-size:9pt; color:#444; line-height:1.8;">
-        <div style="font-weight:bold; font-size:10pt; margin-bottom:6px; color:#2C2C2C;">合約條款</div>
+      <div id="prev-contract-section" style="margin-bottom:4mm; padding:5px 10px; border:1px solid #ddd; border-radius:3px; font-size:9pt; color:#444; line-height:1.5;">
+        <div style="font-weight:bold; font-size:10pt; margin-bottom:3px; color:#2C2C2C;">合約條款</div>
         <ol style="padding-left:16px;">
           <li><b>付款條款：</b>依付款條件約定期程給付，逾期每日加計千分之三違約金。</li>
           <li><b>工程變更：</b>工程施作期間如需變更設計或材料，須雙方書面同意，並另行議定費用。</li>
@@ -304,18 +378,36 @@
       </div>
 
       <!-- 簽名欄 -->
-      <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-top:10mm;">
+      <div id="prev-signature-section" style="display:flex; justify-content:space-between; align-items:flex-end; margin-top:4mm;">
         <div style="text-align:center; width:45%;">
           <div style="border-top:1px solid #333; padding-top:6px; font-size:10pt; color:#555;">委託人簽名</div>
         </div>
         <div style="text-align:center; width:45%; position:relative;">
-          <img src="assets/奈拾公司章.png" alt="公司章" style="width:180px; height:180px; object-fit:contain; display:block; margin:0 auto 6px;">
-          <div style="border-top:1px solid #333; padding-top:6px; font-size:10pt; color:#555;">奈拾室內裝修設計有限公司</div>
+          <img id="prev-stamp" src="assets/奈拾公司章.png" alt="公司章" style="width:130px; height:130px; object-fit:contain; display:block; margin:0 auto 4px;">
+          <div id="prev-company-name" style="border-top:1px solid #333; padding-top:6px; font-size:10pt; color:#555;">奈拾室內裝修設計有限公司</div>
         </div>
       </div>
 
     </div>
-  </div>
+
+    <!-- 第二頁：工程項目明細 -->
+    <div id="a4-page-2" style="width:210mm; min-height:297mm; background:#fff; padding:8mm 14mm 14mm 14mm; box-shadow:0 2px 12px rgba(0,0,0,0.15); font-family:'Microsoft JhengHei','Noto Sans TC',sans-serif; font-size:10pt; color:#1a1a1a; position:relative;">
+
+      <!-- 白底頁首（無色塊） -->
+      <div id="prev2-header" style="display:flex; justify-content:space-between; align-items:center; padding-bottom:3mm; border-bottom:2px solid #2C2C2C; margin-bottom:4mm;">
+        <img id="prev2-logo" src="assets/奈拾設計LOGO2.png" alt="奈拾設計" style="height:72px; object-fit:contain; display:block;">
+        <div style="font-size:9pt; text-align:right; color:#444; line-height:1.6;">
+          <div>合約編號：<span id="prev2-contract-no">NS-2026-001</span></div>
+          <div>報價日期：<span id="prev2-date">2026-05-13</span></div>
+        </div>
+      </div>
+
+      <!-- 各大項細項（動態產生） -->
+      <div id="prev-detail-content"></div>
+
+    </div>
+    </div><!-- end column wrapper -->
+  </div><!-- end preview-panel -->
 
 <script>
   function sync(inputId, previewId, fallback) {
@@ -324,11 +416,11 @@
   }
 
   function syncHeader() {
-    sync('in-company-tel',   'prev-company-tel',   '—');
     sync('in-company-email', 'prev-company-email', '—');
     sync('in-company-web',   'prev-company-web',   '—');
     sync('in-contract-no', 'prev-contract-no', 'NS-2026-001');
     sync('in-client-name', 'prev-client-name', '—');
+    sync('in-project',     'prev-project',     '—');
     sync('in-client-phone', 'prev-client-phone', '—');
     sync('in-address', 'prev-address', '—');
     sync('in-designer', 'prev-designer', '—');
@@ -340,134 +432,475 @@
     const e = document.getElementById('in-end-date').value;
     document.getElementById('prev-duration').textContent =
       (s && e) ? `${s} ～ ${e}` : '—';
+
+    // 同步第二頁頁首
+    sync('in-contract-no', 'prev2-contract-no', 'NS-2026-001');
+    document.getElementById('prev2-date').textContent = date || '—';
   }
 
-  ['in-company-tel','in-company-email','in-company-web',
-   'in-contract-no','in-date','in-client-name','in-client-phone',
+  ['in-company-email','in-company-web',
+   'in-contract-no','in-date','in-client-name','in-project','in-client-phone',
    'in-address','in-designer','in-start-date','in-end-date']
     .forEach(id => document.getElementById(id)
       .addEventListener('input', syncHeader));
 
-  let items = [];
-  let itemIdCounter = 0;
+  // ── 公司設定 ──────────────────────────────────────────
+  const COMPANIES = {
+    naiship: {
+      name: '奈拾室內裝修設計有限公司',
+      logo: 'assets/奈拾設計LOGO2.png',
+      stamp: 'assets/奈拾公司章.png',
+      email: 'nextdesign62@gmail.com',
+      web: 'nextplus-design.com/design',
+      logoHeight: '260px',
+    },
+    baiting: {
+      name: '柏延',
+      logo: 'assets/柏延LOGO.png',
+      stamp: 'assets/柏延公司章.png',
+      email: '',
+      web: '',
+      logoHeight: '208px',
+    }
+  };
 
-  const CATEGORIES = ['拆除','泥作','木作','水電','油漆','鋁窗','系統櫃','軟裝','其他'];
+  let currentCompany = 'naiship';
 
-  function addItemRow(data) {
-    const id = itemIdCounter++;
-    const item = data ? { ...data, id } : { id, cat:'拆除', desc:'', unit:'式', price:0, qty:1 };
-    items.push(item);
-    renderInputRow(item);
-    renderPreview();
+  function switchCompany(id) {
+    currentCompany = id;
+    const co = COMPANIES[id];
+    document.getElementById('prev-logo').src = co.logo;
+    document.getElementById('prev-logo').style.height = co.logoHeight;
+    document.getElementById('prev2-logo').src = co.logo;
+    document.getElementById('prev-stamp').src = co.stamp;
+    document.getElementById('prev-company-name').textContent = co.name;
+    document.getElementById('btn-naiship').style.background = id === 'naiship' ? '#2C2C2C' : '#e0e0e0';
+    document.getElementById('btn-naiship').style.color = id === 'naiship' ? '#fff' : '#555';
+    document.getElementById('btn-baiting').style.background = id === 'baiting' ? '#2C2C2C' : '#e0e0e0';
+    document.getElementById('btn-baiting').style.color = id === 'baiting' ? '#fff' : '#555';
   }
 
-  function removeItemRow(id) {
-    items = items.filter(i => i.id !== id);
-    document.getElementById(`row-${id}`).remove();
-    renderPreview();
+  // ── 過往清單資料 ────────────────────────────────────────
+  const SAVED_QUOTES = [
+    {
+      company: 'naiship',
+      contractNo: 'NS-2026-001', date: '2026-05-12',
+      clientName: '陳○○', project: '台南市東區住宅翻新工程',
+      clientPhone: '0912-345-678', address: '台南市東區○○路○號',
+      designer: '柏', startDate: '2026-06-01', endDate: '2026-09-30',
+      notes: '材料以實際採購為準，如有變更另行議定。',
+      mgmtPct: 6, discount: '', tax: false,
+      p1:30, p2:30, p3:30, p4:10,
+      p1amt:'', p2amt:'', p3amt:'', p4amt:'',
+      categories: [
+        { name:'拆除工程', unit:'式', qty:1, subItems:[
+            { desc:'全室拆除清運', spec:'含廢料清運處理', qty:1, unit:'式', price:45000 }
+        ]},
+        { name:'泥作工程', unit:'式', qty:1, subItems:[
+            { desc:'浴室防水及貼磚', spec:'防水高度120cm', qty:1, unit:'式', price:60000 }
+        ]},
+        { name:'木作工程', unit:'坪', qty:8, subItems:[
+            { desc:'主臥系統天花板', spec:'矽酸鈣板+輕鋼架', qty:8, unit:'坪', price:8000 }
+        ]},
+        { name:'水電工程', unit:'式', qty:1, subItems:[
+            { desc:'全室水電配管更新', spec:'含插座迴路更新', qty:1, unit:'式', price:85000 }
+        ]},
+        { name:'油漆工程', unit:'坪', qty:30, subItems:[
+            { desc:'全室批土乳膠漆', spec:'二底三度', qty:30, unit:'坪', price:1800 }
+        ]},
+      ]
+    },
+    {
+      company: 'naiship',
+      contractNo: 'NS-2026-002', date: '2026-04-20',
+      clientName: '李○○', project: '台南市北區辦公室裝修',
+      clientPhone: '0923-456-789', address: '台南市北區○○路○號',
+      designer: '柏', startDate: '2026-05-15', endDate: '2026-08-31',
+      notes: '請業主確認材料樣板後再施工。',
+      mgmtPct: 8, discount: 20000, tax: false,
+      p1:30, p2:40, p3:0, p4:30,
+      p1amt:'', p2amt:'', p3amt:'', p4amt:'',
+      categories: [
+        { name:'拆除工程', unit:'式', qty:1, subItems:[
+            { desc:'辦公室隔間拆除', spec:'含廢料清運', qty:1, unit:'式', price:30000 }
+        ]},
+        { name:'木作工程', unit:'式', qty:1, subItems:[
+            { desc:'辦公隔間牆施作', spec:'輕隔間+矽酸鈣板', qty:1, unit:'式', price:120000 },
+            { desc:'接待台木作', spec:'木心板貼木皮', qty:1, unit:'式', price:45000 }
+        ]},
+        { name:'油漆工程', unit:'坪', qty:50, subItems:[
+            { desc:'全室批土乳膠漆', spec:'二底三度', qty:50, unit:'坪', price:1800 }
+        ]},
+      ]
+    },
+    {
+      company: 'baiting',
+      contractNo: 'BY-2026-001', date: '2026-03-10',
+      clientName: '王○○', project: '台南市中西區老屋翻修',
+      clientPhone: '0934-567-890', address: '台南市中西區○○街○號',
+      designer: '柏', startDate: '2026-04-01', endDate: '2026-07-31',
+      notes: '老屋結構須於施工前再次確認，費用依現場狀況調整。',
+      mgmtPct: 7, discount: '', tax: true,
+      p1:30, p2:30, p3:30, p4:10,
+      p1amt:'', p2amt:'', p3amt:'', p4amt:'',
+      categories: [
+        { name:'拆除工程', unit:'式', qty:1, subItems:[
+            { desc:'全室拆除含磁磚', spec:'含廢料清運', qty:1, unit:'式', price:55000 }
+        ]},
+        { name:'泥作工程', unit:'式', qty:1, subItems:[
+            { desc:'浴廁防水貼磚', spec:'防水高度150cm', qty:1, unit:'式', price:75000 },
+            { desc:'地坪磁磚施作', spec:'60x60cm進口磁磚', qty:15, unit:'坪', price:4500 }
+        ]},
+        { name:'水電工程', unit:'式', qty:1, subItems:[
+            { desc:'全室水電更新', spec:'含弱電配線', qty:1, unit:'式', price:95000 }
+        ]},
+        { name:'木作工程', unit:'坪', qty:20, subItems:[
+            { desc:'全室天花板', spec:'矽酸鈣板+輕鋼架', qty:20, unit:'坪', price:7500 }
+        ]},
+      ]
+    }
+  ];
+
+  function searchQuote() {
+    const keyword = document.getElementById('in-search-contract').value.trim();
+    const hint = document.getElementById('search-hint');
+    if (!keyword) { hint.textContent = ''; return; }
+    const idx = SAVED_QUOTES.findIndex(q =>
+      q.contractNo.toLowerCase() === keyword.toLowerCase()
+    );
+    if (idx === -1) {
+      hint.style.color = '#e55';
+      hint.textContent = `找不到合約編號「${keyword}」`;
+    } else {
+      hint.style.color = '#3a3';
+      hint.textContent = `已載入：${SAVED_QUOTES[idx].contractNo}`;
+      loadQuote(idx);
+      document.getElementById('in-search-contract').value = '';
+    }
   }
 
-  function renderInputRow(item) {
+  function renderHistoryList() {
+    const container = document.getElementById('history-list');
+    container.innerHTML = '';
+    SAVED_QUOTES.forEach((q, idx) => {
+      const co = COMPANIES[q.company];
+      const div = document.createElement('div');
+      div.className = 'history-item';
+      div.style.cssText = 'cursor:pointer; padding:10px 12px; border:1px solid #eee; border-radius:6px; margin-bottom:8px; background:#fff;';
+      div.onclick = () => loadQuote(idx);
+      div.innerHTML = `
+        <div style="font-size:11px; color:#aaa; margin-bottom:2px;">${q.date} ｜ ${co.name}</div>
+        <div style="font-weight:bold; font-size:13px;">${q.contractNo}</div>
+        <div style="font-size:12px; color:#555;">${q.project}</div>
+      `;
+      container.appendChild(div);
+    });
+  }
+
+  function loadQuote(idx) {
+    const q = SAVED_QUOTES[idx];
+    const co = COMPANIES[q.company];
+    switchCompany(q.company);
+    document.getElementById('in-company-email').value = co.email;
+    document.getElementById('in-company-web').value = co.web;
+    document.getElementById('in-contract-no').value = q.contractNo;
+    document.getElementById('in-date').value = q.date;
+    document.getElementById('in-client-name').value = q.clientName;
+    document.getElementById('in-project').value = q.project;
+    document.getElementById('in-client-phone').value = q.clientPhone;
+    document.getElementById('in-address').value = q.address;
+    document.getElementById('in-designer').value = q.designer;
+    document.getElementById('in-start-date').value = q.startDate;
+    document.getElementById('in-end-date').value = q.endDate;
+    document.getElementById('in-notes').value = q.notes;
+    document.getElementById('in-mgmt-pct').value = q.mgmtPct;
+    document.getElementById('in-discount').value = q.discount || '';
+    document.getElementById('in-tax').checked = q.tax;
+    document.getElementById('in-p1').value = q.p1;
+    document.getElementById('in-p2').value = q.p2;
+    document.getElementById('in-p3').value = q.p3;
+    document.getElementById('in-p4').value = q.p4;
+    document.getElementById('in-p1-amt').value = q.p1amt || '';
+    document.getElementById('in-p2-amt').value = q.p2amt || '';
+    document.getElementById('in-p3-amt').value = q.p3amt || '';
+    document.getElementById('in-p4-amt').value = q.p4amt || '';
+    syncHeader();
+    categories = [];
+    catIdCounter = 0;
+    subIdCounter = 0;
+    document.getElementById('categories-input-list').innerHTML = '';
+    q.categories.forEach(d => addCategory(d));
+    renderAll();
+    document.querySelectorAll('.history-item').forEach((el, i) => {
+      el.style.background = i === idx ? '#f4f4f4' : '#fff';
+      el.style.borderColor = i === idx ? '#2C2C2C' : '#eee';
+    });
+  }
+
+  // ── 資料模型 ──────────────────────────────────────────
+  let categories = [];
+  let catIdCounter = 0;
+  let subIdCounter = 0;
+
+  const CN = ['壹','貳','參','肆','伍','陸','柒','捌','玖','拾',
+               '拾壹','拾貳','拾參','拾肆','拾伍','拾陸','拾柒','拾捌','拾玖','貳拾'];
+  const cnNum = n => CN[n] || String(n + 1);
+
+  function getCatTotal(cat) {
+    return cat.subItems.reduce((s, i) => s + (i.price||0)*(i.qty||0), 0);
+  }
+
+  // ── 大項（分類） ───────────────────────────────────────
+  function addCategory(data) {
+    const id = catIdCounter++;
+    const cat = { id, name: '', unit: '式', qty: 1, subItems: [] };
+    if (data) { cat.name = data.name || ''; cat.unit = data.unit || '式'; cat.qty = data.qty || 1; }
+    categories.push(cat);
+    renderCatInput(cat);
+    if (data && data.subItems) data.subItems.forEach(s => addSubItem(id, s));
+    renderAll();
+  }
+
+  function removeCategory(catId) {
+    categories = categories.filter(c => c.id !== catId);
+    document.getElementById(`cat-${catId}`).remove();
+    renderAll();
+  }
+
+  function updateCat(catId, field, value) {
+    const cat = categories.find(c => c.id === catId);
+    if (cat) { cat[field] = field === 'qty' ? +value : value; renderAll(); }
+  }
+
+  function renderCatInput(cat) {
     const div = document.createElement('div');
-    div.id = `row-${item.id}`;
-    div.style.cssText = 'border:1px solid #eee; border-radius:4px; padding:10px; margin-bottom:8px;';
+    div.id = `cat-${cat.id}`;
+    div.style.cssText = 'border:2px solid #ddd; border-radius:6px; padding:12px; margin-bottom:12px;';
     div.innerHTML = `
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:6px;">
-        <div>
-          <label style="font-size:11px; color:#888;">工項類別</label>
-          <select onchange="updateItem(${item.id},'cat',this.value)" style="width:100%; padding:4px; border:1px solid #ccc; border-radius:3px; font-family:inherit;">
-            ${CATEGORIES.map(c => `<option ${c===item.cat?'selected':''}>${c}</option>`).join('')}
-          </select>
-        </div>
-        <div>
-          <label style="font-size:11px; color:#888;">單位</label>
-          <input type="text" value="${item.unit}" onchange="updateItem(${item.id},'unit',this.value)"
-            style="width:100%; padding:4px; border:1px solid #ccc; border-radius:3px; font-family:inherit;">
-        </div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <strong style="font-size:13px; color:#333;">大項</strong>
+        <button onclick="removeCategory(${cat.id})" style="padding:2px 8px; background:#e55; color:#fff; border:none; border-radius:3px; cursor:pointer; font-size:12px;">✕ 刪除</button>
       </div>
       <div style="margin-bottom:6px;">
-        <label style="font-size:11px; color:#888;">品名說明</label>
-        <input type="text" value="${item.desc}" oninput="updateItem(${item.id},'desc',this.value)"
-          style="width:100%; padding:4px; border:1px solid #ccc; border-radius:3px; font-family:inherit;" placeholder="說明">
+        <label style="font-size:11px; color:#888;">工程項目名稱</label>
+        <input type="text" value="${cat.name}" oninput="updateCat(${cat.id},'name',this.value)"
+          style="width:100%; padding:4px; border:1px solid #ccc; border-radius:3px; font-family:inherit;" placeholder="例：拆除工程">
       </div>
-      <div style="display:grid; grid-template-columns:1fr 1fr auto; gap:6px; align-items:flex-end;">
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:8px;">
         <div>
-          <label style="font-size:11px; color:#888;">單價</label>
-          <input type="number" value="${item.price}" oninput="updateItem(${item.id},'price',+this.value)"
-            style="width:100%; padding:4px; border:1px solid #ccc; border-radius:3px;" min="0">
+          <label style="font-size:11px; color:#888;">單位</label>
+          <input type="text" value="${cat.unit}" onchange="updateCat(${cat.id},'unit',this.value)"
+            style="width:100%; padding:4px; border:1px solid #ccc; border-radius:3px; font-family:inherit;">
         </div>
         <div>
           <label style="font-size:11px; color:#888;">數量</label>
-          <input type="number" value="${item.qty}" oninput="updateItem(${item.id},'qty',+this.value)"
+          <input type="number" value="${cat.qty}" oninput="updateCat(${cat.id},'qty',this.value)"
             style="width:100%; padding:4px; border:1px solid #ccc; border-radius:3px;" min="0">
         </div>
-        <button onclick="removeItemRow(${item.id})"
-          style="padding:4px 10px; background:#e55; color:#fff; border:none; border-radius:3px; cursor:pointer;">✕</button>
+      </div>
+      <div style="background:#f7f7f7; border-radius:4px; padding:8px;" id="sub-list-${cat.id}">
+        <label style="font-size:11px; color:#888; display:block; margin-bottom:4px;">細項</label>
+      </div>
+      <button onclick="addSubItem(${cat.id})" style="margin-top:8px; width:100%; padding:6px; background:#555; color:#fff; border:none; border-radius:4px; cursor:pointer; font-family:inherit; font-size:12px;">＋ 新增細項</button>
+    `;
+    document.getElementById('categories-input-list').appendChild(div);
+  }
+
+  // ── 細項 ───────────────────────────────────────────────
+  function addSubItem(catId, data) {
+    const cat = categories.find(c => c.id === catId);
+    if (!cat) return;
+    const id = subIdCounter++;
+    const item = { id, catId, desc: '', spec: '', qty: 1, unit: '式', price: 0 };
+    if (data) Object.assign(item, { desc: data.desc||'', spec: data.spec||'', qty: data.qty||1, unit: data.unit||'式', price: data.price||0 });
+    cat.subItems.push(item);
+    renderSubInput(catId, item);
+    renderAll();
+  }
+
+  function removeSubItem(catId, itemId) {
+    const cat = categories.find(c => c.id === catId);
+    if (!cat) return;
+    cat.subItems = cat.subItems.filter(s => s.id !== itemId);
+    document.getElementById(`sub-${itemId}`).remove();
+    renderAll();
+  }
+
+  function updateSubItem(catId, itemId, field, value) {
+    const cat = categories.find(c => c.id === catId);
+    const item = cat && cat.subItems.find(s => s.id === itemId);
+    if (item) { item[field] = (field === 'qty' || field === 'price') ? +value : value; renderAll(); }
+  }
+
+  function renderSubInput(catId, item) {
+    const div = document.createElement('div');
+    div.id = `sub-${item.id}`;
+    div.style.cssText = 'border:1px solid #e0e0e0; background:#fff; border-radius:3px; padding:8px; margin-bottom:6px;';
+    div.innerHTML = `
+      <div style="display:grid; grid-template-columns:1fr auto; gap:6px; margin-bottom:4px;">
+        <div>
+          <label style="font-size:10px; color:#999;">工程項目</label>
+          <input type="text" value="${item.desc}" oninput="updateSubItem(${catId},${item.id},'desc',this.value)"
+            style="width:100%; padding:3px; border:1px solid #ddd; border-radius:3px; font-family:inherit; font-size:12px;" placeholder="項目說明">
+        </div>
+        <button onclick="removeSubItem(${catId},${item.id})"
+          style="padding:2px 8px; background:#e55; color:#fff; border:none; border-radius:3px; cursor:pointer; font-size:11px; align-self:flex-end;">✕</button>
+      </div>
+      <div style="margin-bottom:4px;">
+        <label style="font-size:10px; color:#999;">設備／工法／材料／規格</label>
+        <input type="text" value="${item.spec}" oninput="updateSubItem(${catId},${item.id},'spec',this.value)"
+          style="width:100%; padding:3px; border:1px solid #ddd; border-radius:3px; font-family:inherit; font-size:12px;" placeholder="規格說明">
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:4px;">
+        <div>
+          <label style="font-size:10px; color:#999;">單位</label>
+          <input type="text" value="${item.unit}" onchange="updateSubItem(${catId},${item.id},'unit',this.value)"
+            style="width:100%; padding:3px; border:1px solid #ddd; border-radius:3px; font-family:inherit; font-size:12px;">
+        </div>
+        <div>
+          <label style="font-size:10px; color:#999;">數量</label>
+          <input type="number" value="${item.qty}" oninput="updateSubItem(${catId},${item.id},'qty',+this.value)"
+            style="width:100%; padding:3px; border:1px solid #ddd; border-radius:3px; font-size:12px;" min="0">
+        </div>
+        <div>
+          <label style="font-size:10px; color:#999;">單價</label>
+          <input type="number" value="${item.price}" oninput="updateSubItem(${catId},${item.id},'price',+this.value)"
+            style="width:100%; padding:3px; border:1px solid #ddd; border-radius:3px; font-size:12px;" min="0">
+        </div>
       </div>
     `;
-    document.getElementById('items-input-list').appendChild(div);
+    document.getElementById(`sub-list-${catId}`).appendChild(div);
   }
 
-  function updateItem(id, field, value) {
-    const item = items.find(i => i.id === id);
-    if (item) { item[field] = value; renderPreview(); }
-  }
-
-  function renderPreview() {
+  // ── 渲染第一頁 ─────────────────────────────────────────
+  function renderPage1() {
     const tbody = document.getElementById('prev-items-body');
     tbody.innerHTML = '';
-    items.forEach((item, idx) => {
-      const subtotal = (item.price || 0) * (item.qty || 0);
+    categories.forEach((cat, idx) => {
+      const total = getCatTotal(cat);
       const tr = document.createElement('tr');
       tr.style.background = idx % 2 === 0 ? '#fff' : '#f9f9f9';
       tr.innerHTML = `
-        <td style="padding:5px 8px; border-bottom:1px solid #eee;">${item.cat}</td>
-        <td style="padding:5px 8px; border-bottom:1px solid #eee;">${item.desc || '—'}</td>
-        <td style="padding:5px 8px; border-bottom:1px solid #eee; text-align:center;">${item.unit}</td>
-        <td style="padding:5px 8px; border-bottom:1px solid #eee; text-align:right;">${item.price.toLocaleString()}</td>
-        <td style="padding:5px 8px; border-bottom:1px solid #eee; text-align:right;">${item.qty}</td>
-        <td style="padding:5px 8px; border-bottom:1px solid #eee; text-align:right; font-weight:bold;">${subtotal.toLocaleString()}</td>
+        <td style="padding:3px 8px; border-bottom:1px solid #eee; text-align:center;">${cnNum(idx)}</td>
+        <td style="padding:3px 8px; border-bottom:1px solid #eee;">${cat.name || '—'}</td>
+        <td style="padding:3px 8px; border-bottom:1px solid #eee; text-align:right;">${cat.qty}</td>
+        <td style="padding:3px 8px; border-bottom:1px solid #eee; text-align:center;">${cat.unit}</td>
+        <td style="padding:3px 8px; border-bottom:1px solid #eee; text-align:right; font-weight:bold;">${total.toLocaleString()}</td>
       `;
       tbody.appendChild(tr);
     });
-    calcTotals();
   }
 
+  // ── 渲染第二頁 ─────────────────────────────────────────
+  function renderPage2() {
+    const container = document.getElementById('prev-detail-content');
+    container.innerHTML = '';
+    categories.forEach((cat, catIdx) => {
+      const catTotal = getCatTotal(cat);
+      const section = document.createElement('div');
+      section.style.marginBottom = '6mm';
+
+      const subRows = cat.subItems.map((s, idx) => {
+        const subtotal = (s.price||0) * (s.qty||0);
+        return `<tr style="background:${idx%2===0?'#fff':'#f9f9f9'}">
+          <td style="padding:2px 5px; border-bottom:1px solid #eee; text-align:center;">${idx+1}</td>
+          <td style="padding:2px 5px; border-bottom:1px solid #eee;">${s.desc||'—'}</td>
+          <td style="padding:2px 5px; border-bottom:1px solid #eee; color:#555;">${s.spec||''}</td>
+          <td style="padding:2px 5px; border-bottom:1px solid #eee; text-align:right;">${s.qty}</td>
+          <td style="padding:2px 5px; border-bottom:1px solid #eee; text-align:center;">${s.unit}</td>
+          <td style="padding:2px 5px; border-bottom:1px solid #eee; text-align:right;">${(s.price||0).toLocaleString()}</td>
+          <td style="padding:2px 5px; border-bottom:1px solid #eee; text-align:right; font-weight:bold;">${subtotal.toLocaleString()}</td>
+        </tr>`;
+      }).join('');
+
+      section.innerHTML = `
+        <div style="background:#2C2C2C; color:#fff; padding:4px 8px; font-size:10pt; font-weight:bold; margin-bottom:0;">
+          ${cnNum(catIdx)}、${cat.name||'（未命名）'}
+        </div>
+        <table style="width:100%; border-collapse:collapse; font-size:9pt; margin-bottom:0;">
+          <thead>
+            <tr style="background:#555; color:#fff;">
+              <th style="padding:4px 5px; text-align:center; width:5%;">項次</th>
+              <th style="padding:4px 5px; text-align:left; width:20%;">工程項目</th>
+              <th style="padding:4px 5px; text-align:left; width:33%;">設備／工法／材料／規格</th>
+              <th style="padding:4px 5px; text-align:right; width:7%;">數量</th>
+              <th style="padding:4px 5px; text-align:center; width:6%;">單位</th>
+              <th style="padding:4px 5px; text-align:right; width:13%;">單價</th>
+              <th style="padding:4px 5px; text-align:right; width:16%;">複價</th>
+            </tr>
+          </thead>
+          <tbody>${subRows || '<tr><td colspan="7" style="padding:6px; color:#aaa; text-align:center;">（尚無細項）</td></tr>'}</tbody>
+          <tfoot>
+            <tr style="background:#f0f0f0; font-weight:bold;">
+              <td colspan="6" style="padding:3px 8px; text-align:right; font-size:10pt;">小計</td>
+              <td style="padding:3px 8px; text-align:right; font-size:10pt;">${catTotal.toLocaleString()}</td>
+            </tr>
+          </tfoot>
+        </table>`;
+      container.appendChild(section);
+    });
+  }
+
+  // ── 計算金額 ───────────────────────────────────────────
   function calcTotals() {
-    const subtotal = items.reduce((sum, i) => sum + (i.price||0)*(i.qty||0), 0);
+    const subtotal = categories.reduce((s, cat) => s + getCatTotal(cat), 0);
+    const mgmtPct = +document.getElementById('in-mgmt-pct').value || 0;
+    const mgmt = Math.round(subtotal * mgmtPct / 100);
+    const discount = +document.getElementById('in-discount').value || 0;
     const hasTax = document.getElementById('in-tax').checked;
-    const tax = hasTax ? Math.round(subtotal * 0.05) : 0;
-    const total = subtotal + tax;
+    const tax = hasTax ? Math.round((subtotal + mgmt - discount) * 0.05) : 0;
+    const total = subtotal + mgmt - discount + tax;
 
     document.getElementById('prev-subtotal').textContent = '$' + subtotal.toLocaleString();
+    document.getElementById('prev-mgmt').textContent = '$' + mgmt.toLocaleString();
+    document.getElementById('prev-mgmt-label').textContent = `工程管理費（${mgmtPct}%）`;
+    document.getElementById('prev-mgmt-row').style.display = mgmtPct > 0 ? '' : 'none';
+    document.getElementById('prev-discount').textContent = '-$' + discount.toLocaleString();
+    document.getElementById('prev-discount-row').style.display = discount > 0 ? '' : 'none';
     document.getElementById('prev-tax').textContent = '$' + tax.toLocaleString();
-    document.getElementById('prev-total').textContent = '$' + total.toLocaleString();
     document.getElementById('prev-tax-row').style.display = hasTax ? '' : 'none';
+    document.getElementById('prev-total').textContent = '$' + total.toLocaleString();
 
     const notes = document.getElementById('in-notes').value.trim();
     document.getElementById('prev-notes').textContent = notes || '—';
 
     const p = ['in-p1','in-p2','in-p3','in-p4'].map(id => +document.getElementById(id).value || 0);
-    const sum = p.reduce((a,b) => a+b, 0);
+    const sum = p.reduce((a,b)=>a+b,0);
     const hint = document.getElementById('payment-sum-hint');
     hint.textContent = `合計 ${sum}%` + (sum !== 100 ? '（請確認加總為 100%）' : ' ✓');
     hint.style.color = sum !== 100 ? '#e55' : '#3a3';
 
-    document.getElementById('prev-payment').innerHTML =
-      `<span>訂金 ${p[0]}%</span><span>第二期款 ${p[1]}%</span><span>第三期款 ${p[2]}%</span><span>尾款 ${p[3]}%</span>`;
+    const labels = ['訂金','第二期款','第三期款','尾款'];
+    const amounts = ['in-p1-amt','in-p2-amt','in-p3-amt','in-p4-amt']
+      .map(id => +document.getElementById(id).value || 0);
+    const tdS = 'padding:2px 6px;', tdG = 'padding:2px 6px; color:#555;';
+    const tdA = 'padding:2px 8px; font-weight:bold;', tdL2 = 'padding:2px 6px 2px 16px; color:#555;';
+    document.getElementById('prev-payment').innerHTML = [0,1].map(r => {
+      const i = r*2;
+      return `<tr>
+        <td style="${tdG}">${labels[i]}</td><td style="${tdS}">${p[i]}%</td>
+        <td style="${tdA}">${amounts[i] ? '$'+amounts[i].toLocaleString() : ''}</td>
+        <td style="${tdL2}">${labels[i+1]}</td><td style="${tdS}">${p[i+1]}%</td>
+        <td style="${tdA}">${amounts[i+1] ? '$'+amounts[i+1].toLocaleString() : ''}</td>
+      </tr>`;
+    }).join('');
   }
 
-  ['in-tax','in-notes','in-p1','in-p2','in-p3','in-p4']
-    .forEach(id => document.getElementById(id)
-      .addEventListener('input', calcTotals));
+  function renderAll() { renderPage1(); renderPage2(); calcTotals(); }
+
+  ['in-mgmt-pct','in-discount','in-tax','in-notes','in-p1','in-p2','in-p3','in-p4','in-p1-amt','in-p2-amt','in-p3-amt','in-p4-amt']
+    .forEach(id => document.getElementById(id).addEventListener('input', () => {
+      if (id === 'in-mgmt-pct' || id === 'in-tax' || id === 'in-notes') calcTotals();
+      else calcTotals();
+    }));
 
   function initDemo() {
-    document.getElementById('in-company-tel').value   = '0911-970520';
     document.getElementById('in-company-email').value = 'nextdesign62@gmail.com';
     document.getElementById('in-company-web').value   = 'nextplus-design.com/design';
     document.getElementById('in-contract-no').value = 'NS-2026-001';
     document.getElementById('in-date').value = '2026-05-12';
     document.getElementById('in-client-name').value = '陳○○';
+    document.getElementById('in-project').value = '台南市東區住宅翻新工程';
     document.getElementById('in-client-phone').value = '0912-345-678';
     document.getElementById('in-address').value = '台南市東區○○路○號';
     document.getElementById('in-designer').value = '柏';
@@ -478,18 +911,26 @@
     document.getElementById('in-p2').value = 30;
     document.getElementById('in-p3').value = 30;
     document.getElementById('in-p4').value = 10;
-
+    renderHistoryList();
     syncHeader();
-
     [
-      { cat:'拆除', desc:'全室拆除清運',    unit:'式', price:45000, qty:1  },
-      { cat:'泥作', desc:'浴室防水及貼磚',  unit:'式', price:60000, qty:1  },
-      { cat:'木作', desc:'主臥系統天花板',  unit:'坪', price:8000,  qty:8  },
-      { cat:'水電', desc:'全室水電配管更新',unit:'式', price:85000, qty:1  },
-      { cat:'油漆', desc:'全室批土乳膠漆',  unit:'坪', price:1800,  qty:30 },
-    ].forEach(d => addItemRow(d));
-
-    calcTotals();
+      { name:'拆除工程', unit:'式', qty:1, subItems:[
+          { desc:'全室拆除清運', spec:'含廢料清運處理', qty:1, unit:'式', price:45000 }
+      ]},
+      { name:'泥作工程', unit:'式', qty:1, subItems:[
+          { desc:'浴室防水及貼磚', spec:'防水高度120cm', qty:1, unit:'式', price:60000 }
+      ]},
+      { name:'木作工程', unit:'坪', qty:8, subItems:[
+          { desc:'主臥系統天花板', spec:'矽酸鈣板+輕鋼架', qty:8, unit:'坪', price:8000 }
+      ]},
+      { name:'水電工程', unit:'式', qty:1, subItems:[
+          { desc:'全室水電配管更新', spec:'含插座迴路更新', qty:1, unit:'式', price:85000 }
+      ]},
+      { name:'油漆工程', unit:'坪', qty:30, subItems:[
+          { desc:'全室批土乳膠漆', spec:'二底三度', qty:30, unit:'坪', price:1800 }
+      ]},
+    ].forEach(d => addCategory(d));
+    renderAll();
   }
 
   initDemo();
