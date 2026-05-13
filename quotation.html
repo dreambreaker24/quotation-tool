@@ -82,7 +82,7 @@
 
     /* 列印設定 */
     @media print {
-      body { background: white; display: block; }
+      body { background: white; display: block; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
       #input-panel { display: none !important; }
       #preview-panel {
         padding: 0;
@@ -91,12 +91,15 @@
       }
       #a4-page {
         width: 100%;
-        min-height: auto;
+        height: 297mm;
+        overflow: hidden;
         box-shadow: none;
-        padding: 10mm 14mm 14mm 14mm;
+        padding: 10mm 14mm 8mm 14mm;
       }
       #prev-header {
         margin: -10mm -14mm 0 -14mm !important;
+        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact;
       }
       /* 表格標題列每頁重複 */
       #prev-items-table thead {
@@ -110,6 +113,10 @@
       #prev-signature-section {
         page-break-inside: avoid;
       }
+      #prev2-header {
+        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact;
+      }
       /* 第二頁列印設定 */
       #a4-page-2 {
         width: 100%;
@@ -122,7 +129,8 @@
       .no-print { display: none !important; }
       .cost-col { display: none !important; }
       body.print-with-cost .cost-col { display: table-cell !important; }
-      body.print-with-cost .cost-block { display: block !important; }
+      .cost-block { display: none !important; }
+      body.print-with-cost .cost-block { display: flex !important; }
       @page { size: A4; margin: 0; }
     }
   </style>
@@ -131,10 +139,16 @@
 
   <!-- 左側輸入區 -->
   <div id="input-panel">
-    <button onclick="window.print()" class="no-print"
-      style="width:100%; padding:12px; background:#2C2C2C; color:#fff; border:none; border-radius:6px; cursor:pointer; font-size:14px; font-family:inherit; margin-bottom:20px;">
-      🖨 列印 / 儲存 PDF
-    </button>
+    <div class="no-print" style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:20px;">
+      <button onclick="window.print()"
+        style="padding:12px; background:#2C2C2C; color:#fff; border:none; border-radius:6px; cursor:pointer; font-size:14px; font-family:inherit;">
+        🖨 列印
+      </button>
+      <button id="btn-save-pdf" onclick="savePDF()"
+        style="padding:12px; background:#2C2C2C; color:#fff; border:none; border-radius:6px; cursor:pointer; font-size:14px; font-family:inherit;">
+        💾 儲存 PDF
+      </button>
+    </div>
     <!-- 公司切換 -->
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:16px;">
       <button id="btn-naiship" onclick="switchCompany('naiship')"
@@ -284,26 +298,26 @@
     <div id="a4-page">
 
       <!-- 頁首 -->
-      <div id="prev-header" style="display:flex; justify-content:space-between; align-items:center; background:#CCCCCC; margin: -4mm -16mm 0 -16mm; padding: 0 16mm; height:50mm; overflow:hidden;">
+      <div id="prev-header" style="display:flex; justify-content:space-between; align-items:center; background:#808080; margin: -4mm -16mm 0 -16mm; padding: 0 16mm; height:50mm; overflow:hidden;">
         <!-- 左：Logo -->
         <div style="display:flex; align-items:center;">
           <img id="prev-logo" src="assets/奈拾設計LOGO2.png" alt="奈拾設計" style="height:260px; object-fit:contain; display:block;">
         </div>
         <!-- 右：合約資訊 -->
-        <div style="font-size:10pt; text-align:left; display:flex; flex-direction:column; justify-content:center; color:#1a1a1a;">
+        <div style="font-size:10pt; text-align:left; display:flex; flex-direction:column; justify-content:center; color:#fff;">
           <div style="margin-bottom:5px;">合約編號：<span id="prev-contract-no">NS-2026-001</span></div>
           <div style="margin-bottom:5px;">報價日期：<span id="prev-date">2026-05-12</span></div>
-          <div style="margin-bottom:5px; font-size:9pt; color:#444;">官網：<span id="prev-company-web">nextplus-design.com/design</span></div>
-          <div style="font-size:9pt; color:#444;">Email：<span id="prev-company-email">nextdesign62@gmail.com</span></div>
+          <div style="margin-bottom:5px; font-size:9pt; color:#e0e0e0;">官網：<span id="prev-company-web">nextplus-design.com/design</span></div>
+          <div style="font-size:9pt; color:#e0e0e0;">Email：<span id="prev-company-email">nextdesign62@gmail.com</span></div>
         </div>
       </div>
 
       <!-- 報價單標題 + 黑線 -->
-      <div style="text-align:center; font-size:18pt; font-weight:bold; letter-spacing:4px; padding: 3mm 0 2mm 0;">報價單</div>
-      <hr style="border:none; border-top:2px solid #2C2C2C; margin: 0 0 4mm 0;">
+      <div style="text-align:center; font-size:18pt; font-weight:bold; letter-spacing:4px; padding: 2mm 0 1mm 0;">報價單</div>
+      <hr style="border:none; border-top:2px solid #2C2C2C; margin: 0 0 2mm 0;">
 
       <!-- 委託人資訊 -->
-      <table style="width:100%; margin-bottom:4mm; font-size:10pt; border-collapse:collapse;">
+      <table style="width:100%; margin-bottom:2mm; font-size:10pt; border-collapse:collapse;">
         <tr>
           <td style="width:14%; color:#555; padding:2px 0;">委託人</td>
           <td style="width:36%; font-weight:bold;" id="prev-client-name">陳○○</td>
@@ -325,15 +339,15 @@
       </table>
 
       <!-- 品項表格 -->
-      <table id="prev-items-table" style="width:100%; border-collapse:collapse; margin-bottom:4mm; font-size:10pt;">
+      <table id="prev-items-table" style="width:100%; border-collapse:collapse; margin-bottom:2mm; font-size:10pt;">
         <thead>
           <tr style="background:#2C2C2C; color:#fff;">
-            <th style="padding:6px 8px; text-align:center; width:9%;">項次</th>
-            <th style="padding:6px 8px; text-align:left; width:37%;">工程項目</th>
-            <th style="padding:6px 8px; text-align:right; width:9%;">數量</th>
-            <th style="padding:6px 8px; text-align:center; width:9%;">單位</th>
-            <th style="padding:6px 8px; text-align:right; width:18%;">複價</th>
-            <th class="cost-col" style="padding:6px 8px; text-align:right; width:18%;">成本</th>
+            <th style="padding:4px 8px; text-align:center; width:9%;">項次</th>
+            <th style="padding:4px 8px; text-align:left; width:37%;">工程項目</th>
+            <th style="padding:4px 8px; text-align:right; width:9%;">數量</th>
+            <th style="padding:4px 8px; text-align:center; width:9%;">單位</th>
+            <th style="padding:4px 8px; text-align:right; width:18%;">複價</th>
+            <th class="cost-col" style="padding:4px 8px; text-align:right; width:18%;">成本</th>
           </tr>
         </thead>
         <tbody id="prev-items-body">
@@ -342,7 +356,8 @@
       </table>
 
       <!-- 金額匯總 -->
-      <div id="prev-summary-section" style="display:flex; justify-content:flex-end; margin-bottom:3mm;">
+      <div id="prev-summary-section" style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:1mm;">
+        <div id="prev-bank-info" style="font-size:9pt; color:#444; line-height:1.8;"></div>
         <table style="width:240px; font-size:10pt; border-collapse:collapse;">
           <tr>
             <td style="padding:3px 8px; color:#555;">工程小計</td>
@@ -354,13 +369,13 @@
           </tr>
           <tr id="prev-discount-row" style="display:none;">
             <td style="padding:3px 8px; color:#555;">折扣</td>
-            <td style="padding:3px 8px; text-align:right;" id="prev-discount">-$0</td>
+            <td style="padding:3px 8px; text-align:right; color:#e53935;" id="prev-discount">-$0</td>
           </tr>
           <tr id="prev-tax-row" style="display:none;">
             <td style="padding:3px 8px; color:#555;">稅金（5%）</td>
             <td style="padding:3px 8px; text-align:right;" id="prev-tax">$0</td>
           </tr>
-          <tr style="border-top:2px solid #2C2C2C; font-weight:bold; font-size:12pt;">
+          <tr style="border-top:2px solid #2C2C2C; font-weight:bold; font-size:12pt; color:#e53935;">
             <td style="padding:6px 8px;">總額</td>
             <td style="padding:6px 8px; text-align:right;" id="prev-total">$0</td>
           </tr>
@@ -368,7 +383,7 @@
       </div>
 
       <!-- 成本分析（列印時依勾選顯示） -->
-      <div id="prev-cost-section" class="cost-block" style="display:none; justify-content:flex-end; margin-bottom:3mm;">
+      <div id="prev-cost-section" class="cost-block" style="display:none; justify-content:flex-end; margin-bottom:1mm;">
         <table style="width:280px; font-size:10pt; border-collapse:collapse; border-top:1px dashed #ccc; padding-top:4px;">
           <tr>
             <td style="padding:2px 8px; color:#888;">成本合計</td>
@@ -386,19 +401,19 @@
       </div>
 
       <!-- 備註 -->
-      <div id="prev-notes-section" style="margin-bottom:3mm;">
+      <div id="prev-notes-section" style="margin-bottom:1mm;">
         <div style="font-weight:bold; margin-bottom:2px; font-size:10pt;">備註</div>
-        <div id="prev-notes" style="font-size:10pt; color:#444; padding:4px 6px; border:1px solid #eee; border-radius:3px;">—</div>
+        <div id="prev-notes" style="font-size:10pt; color:#444; padding:2px 4px; border:1px solid #eee; border-radius:3px;">—</div>
       </div>
 
       <!-- 付款條件 -->
-      <div id="prev-payment-section" style="margin-bottom:3mm;">
+      <div id="prev-payment-section" style="margin-bottom:1mm;">
         <div style="font-weight:bold; margin-bottom:2px; font-size:10pt;">付款條件</div>
         <table id="prev-payment" style="width:100%; font-size:10pt; border-collapse:collapse;"></table>
       </div>
 
       <!-- 合約條款 -->
-      <div id="prev-contract-section" style="margin-bottom:4mm; padding:5px 10px; border:1px solid #ddd; border-radius:3px; font-size:9pt; color:#444; line-height:1.5;">
+      <div id="prev-contract-section" style="margin-bottom:2mm; padding:3px 8px; border:1px solid #ddd; border-radius:3px; font-size:9pt; color:#444; line-height:1.4;">
         <div style="font-weight:bold; font-size:10pt; margin-bottom:3px; color:#2C2C2C;">合約條款</div>
         <ol style="padding-left:16px;">
           <li><b>付款條款：</b>依付款條件約定期程給付，逾期每日加計千分之三違約金。</li>
@@ -411,7 +426,7 @@
       </div>
 
       <!-- 簽名欄 -->
-      <div id="prev-signature-section" style="display:flex; justify-content:space-between; align-items:flex-end; margin-top:4mm;">
+      <div id="prev-signature-section" style="display:flex; justify-content:space-between; align-items:flex-end; margin-top:2mm;">
         <div style="text-align:center; width:45%;">
           <div style="border-top:1px solid #333; padding-top:6px; font-size:10pt; color:#555;">委託人簽名</div>
         </div>
@@ -426,10 +441,10 @@
     <!-- 第二頁：工程項目明細 -->
     <div id="a4-page-2" style="width:210mm; min-height:297mm; background:#fff; padding:8mm 14mm 14mm 14mm; box-shadow:0 2px 12px rgba(0,0,0,0.15); font-family:'Microsoft JhengHei','Noto Sans TC',sans-serif; font-size:10pt; color:#1a1a1a; position:relative;">
 
-      <!-- 白底頁首（無色塊） -->
-      <div id="prev2-header" style="display:flex; justify-content:space-between; align-items:center; padding-bottom:3mm; border-bottom:2px solid #2C2C2C; margin-bottom:4mm;">
-        <img id="prev2-logo" src="assets/奈拾設計LOGO2.png" alt="奈拾設計" style="height:72px; object-fit:contain; display:block;">
-        <table style="font-size:9pt; color:#444; line-height:1.6; border-collapse:collapse;">
+      <!-- 頁首色塊 -->
+      <div id="prev2-header" style="display:flex; justify-content:space-between; align-items:center; background:#808080; margin:-8mm -14mm 4mm -14mm; padding:0 14mm; height:22mm; print-color-adjust:exact; -webkit-print-color-adjust:exact;">
+        <img id="prev2-logo" src="assets/奈拾設計LOGO2.png" alt="奈拾設計" style="height:60px; object-fit:contain; display:block;">
+        <table style="font-size:9pt; color:#fff; line-height:1.6; border-collapse:collapse;">
           <tr>
             <td style="white-space:nowrap; padding-right:4px;">合約編號：</td>
             <td id="prev2-contract-no">NS-2026-001</td>
@@ -492,6 +507,7 @@
       email: 'nextdesign62@gmail.com',
       web: 'nextplus-design.com/design',
       logoHeight: '260px',
+      bank: { name: '玉山銀行', code: '808-0761', account: '0761-940-050557', branch: '東台南分行', holder: '奈拾室內裝修設計有限公司' },
     },
     baiting: {
       name: '柏延',
@@ -500,6 +516,7 @@
       email: '',
       web: '',
       logoHeight: '208px',
+      bank: { name: '玉山銀行', code: '808-0761', account: '0761-940-050817', branch: '東台南分行', holder: '柏延有限公司' },
     }
   };
 
@@ -517,6 +534,13 @@
     document.getElementById('btn-naiship').style.color = id === 'naiship' ? '#fff' : '#555';
     document.getElementById('btn-baiting').style.background = id === 'baiting' ? '#2C2C2C' : '#e0e0e0';
     document.getElementById('btn-baiting').style.color = id === 'baiting' ? '#fff' : '#555';
+    const b = co.bank;
+    document.getElementById('prev-bank-info').innerHTML =
+      `<div style="font-weight:bold; margin-bottom:2px;">匯款資訊</div>` +
+      `<div>銀行：${b.name} | ${b.code}</div>` +
+      `<div>帳號：${b.account}</div>` +
+      `<div>分行：${b.branch}</div>` +
+      `<div>戶名：${b.holder}</div>`;
   }
 
   // ── 過往清單資料 ────────────────────────────────────────
@@ -900,8 +924,8 @@
           <tbody>${subRows || '<tr><td colspan="9" style="padding:6px; color:#aaa; text-align:center;">（尚無細項）</td></tr>'}</tbody>
           <tfoot>
             <tr style="background:#f0f0f0; font-weight:bold;">
-              <td colspan="6" style="padding:3px 8px; text-align:right; font-size:10pt;">小計</td>
-              <td style="padding:3px 8px; text-align:right; font-size:10pt;">${catTotal.toLocaleString()}</td>
+              <td colspan="6" style="padding:3px 8px; text-align:right; font-size:10pt; color:#1565c0;">小計</td>
+              <td style="padding:3px 8px; text-align:right; font-size:10pt; color:#1565c0;">${catTotal.toLocaleString()}</td>
               <td class="cost-col" style="padding:3px 8px; text-align:right; font-size:10pt; color:#888;" colspan="2">${catCost > 0 ? catCost.toLocaleString() : '—'}</td>
             </tr>
           </tfoot>
@@ -943,6 +967,7 @@
     document.getElementById('prev-cost-total').textContent = '$' + totalCost.toLocaleString();
     document.getElementById('prev-profit').textContent = '$' + profit.toLocaleString();
     document.getElementById('prev-profit-pct').textContent = profitPct;
+    document.getElementById('prev-profit-pct').style.color = '#e53935';
     const hasCost = totalCost > 0;
     document.getElementById('prev-cost-section').style.display = hasCost ? 'flex' : 'none';
 
@@ -956,10 +981,15 @@
     hint.style.color = sum !== 100 ? '#e55' : '#3a3';
 
     const labels = ['訂金','第二期款','第三期款','尾款'];
-    const amounts = ['in-p1-amt','in-p2-amt','in-p3-amt','in-p4-amt']
-      .map(id => +document.getElementById(id).value || 0);
+    const amtIds = ['in-p1-amt','in-p2-amt','in-p3-amt','in-p4-amt'];
+    // 依 % 自動計算金額，並回填輸入欄
+    const amounts = p.map((pct, i) => {
+      const auto = pct > 0 ? Math.round(total * pct / 100) : 0;
+      if (auto > 0) document.getElementById(amtIds[i]).value = auto;
+      return +document.getElementById(amtIds[i]).value || 0;
+    });
     const tdS = 'padding:2px 6px;', tdG = 'padding:2px 6px; color:#555;';
-    const tdA = 'padding:2px 8px; font-weight:bold;', tdL2 = 'padding:2px 6px 2px 16px; color:#555;';
+    const tdA = 'padding:2px 8px; font-weight:bold; color:#e53935;', tdL2 = 'padding:2px 6px 2px 16px; color:#555;';
     document.getElementById('prev-payment').innerHTML = [0,1].map(r => {
       const i = r*2;
       return `<tr>
@@ -973,6 +1003,91 @@
 
   function renderAll() { renderPage1(); renderPage2(); calcTotals(); }
 
+  function loadScript(src) {
+    return new Promise((resolve, reject) => {
+      if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
+      const s = document.createElement('script');
+      s.src = src; s.onload = resolve; s.onerror = reject;
+      document.head.appendChild(s);
+    });
+  }
+
+  async function savePDF() {
+    const btn = document.getElementById('btn-save-pdf');
+    const origLabel = btn.textContent;
+    const contractNo = document.getElementById('in-contract-no').value.trim() || '報價單';
+
+    // 必須在點擊手勢的當下立刻呼叫，不能放在 await 之後
+    let fileHandle = null;
+    if (window.showSaveFilePicker) {
+      try {
+        fileHandle = await window.showSaveFilePicker({
+          suggestedName: `${contractNo}.pdf`,
+          types: [{ description: 'PDF 檔案', accept: { 'application/pdf': ['.pdf'] } }]
+        });
+      } catch (e) {
+        return;
+      }
+    }
+
+    btn.disabled = true;
+    btn.textContent = '產生中…';
+    try {
+      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+
+      const showCost = document.getElementById('in-print-cost').checked;
+
+      // 根據「列印時顯示成本」暫時調整可見度
+      const costCols = document.querySelectorAll('.cost-col');
+      const costSection = document.getElementById('prev-cost-section');
+      const prevCostDisplay = costSection.style.display;
+      costCols.forEach(el => { el.style.display = showCost ? '' : 'none'; });
+      if (!showCost) costSection.style.display = 'none';
+
+      const captureOpts = { scale: 3, useCORS: true, backgroundColor: '#ffffff' };
+
+      // 擷取第一頁（固定 297mm 高度避免超高截圖）
+      const page1 = document.getElementById('a4-page');
+      const p1 = { height: page1.style.height, minHeight: page1.style.minHeight, overflow: page1.style.overflow };
+      page1.style.cssText += '; height:297mm; min-height:unset; overflow:hidden;';
+      const canvas1 = await html2canvas(page1, captureOpts);
+      page1.style.height = p1.height; page1.style.minHeight = p1.minHeight; page1.style.overflow = p1.overflow;
+
+      // 擷取第二頁
+      const page2 = document.getElementById('a4-page-2');
+      const p2 = { height: page2.style.height, overflow: page2.style.overflow };
+      page2.style.cssText += '; height:297mm; overflow:hidden;';
+      const canvas2 = await html2canvas(page2, captureOpts);
+      page2.style.height = p2.height; page2.style.overflow = p2.overflow;
+
+      // 還原可見度
+      costCols.forEach(el => { el.style.display = ''; });
+      costSection.style.display = prevCostDisplay;
+
+      // 產生 PDF
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      pdf.addImage(canvas1.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 210, 297);
+      pdf.addPage();
+      pdf.addImage(canvas2.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 210, 297);
+      const pdfBlob = pdf.output('blob');
+      if (fileHandle) {
+        const writable = await fileHandle.createWritable();
+        await writable.write(pdfBlob);
+        await writable.close();
+      } else {
+        pdf.save(`${contractNo}.pdf`);
+      }
+    } catch(e) {
+      alert('PDF 產生失敗，請改用「列印」按鈕，在對話框選擇「另存為 PDF」');
+      console.error(e);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = origLabel;
+    }
+  }
+
   ['in-mgmt-pct','in-discount','in-tax','in-notes','in-p1','in-p2','in-p3','in-p4','in-p1-amt','in-p2-amt','in-p3-amt','in-p4-amt']
     .forEach(id => document.getElementById(id).addEventListener('input', () => {
       if (id === 'in-mgmt-pct' || id === 'in-tax' || id === 'in-notes') calcTotals();
@@ -980,6 +1095,7 @@
     }));
 
   function initDemo() {
+    switchCompany('naiship');
     document.getElementById('in-company-email').value = 'nextdesign62@gmail.com';
     document.getElementById('in-company-web').value   = 'nextplus-design.com/design';
     document.getElementById('in-contract-no').value = 'NS-2026-001';
