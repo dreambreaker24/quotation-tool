@@ -709,7 +709,8 @@
       setTimeout(() => { hint.textContent = ''; }, 3000);
     } catch (e) {
       hint.style.color = '#e53935';
-      hint.textContent = '儲存失敗，請確認網路連線';
+      hint.textContent = '儲存失敗：' + (e.code || e.message || e);
+      console.error(e);
     }
   }
 
