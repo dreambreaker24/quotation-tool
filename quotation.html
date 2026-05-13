@@ -134,11 +134,45 @@
       @page { size: A4; margin: 0; }
     }
   </style>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 </head>
 <body>
 
+  <!-- 登入 overlay -->
+  <div id="login-overlay" style="position:fixed; top:0; left:0; width:100%; height:100%; background:#f0f0f0; display:flex; align-items:center; justify-content:center; z-index:9999;">
+    <div style="background:#fff; padding:40px; border-radius:12px; width:360px; box-shadow:0 4px 24px rgba(0,0,0,0.12);">
+      <h1 style="font-size:20px; margin-bottom:6px; color:#2C2C2C; font-family:'Microsoft JhengHei',sans-serif;">奈拾設計 報價系統</h1>
+      <p style="font-size:13px; color:#888; margin-bottom:24px; font-family:'Microsoft JhengHei',sans-serif;">請登入以繼續使用</p>
+      <div style="margin-bottom:12px;">
+        <input type="email" id="login-email" placeholder="Email" autocomplete="email"
+          style="width:100%; padding:10px; border:1px solid #ccc; border-radius:6px; font-size:14px; font-family:'Microsoft JhengHei',sans-serif;"
+          onkeydown="if(event.key==='Enter') document.getElementById('login-password').focus()">
+      </div>
+      <div style="margin-bottom:16px;">
+        <input type="password" id="login-password" placeholder="密碼" autocomplete="current-password"
+          style="width:100%; padding:10px; border:1px solid #ccc; border-radius:6px; font-size:14px; font-family:'Microsoft JhengHei',sans-serif;"
+          onkeydown="if(event.key==='Enter') loginUser()">
+      </div>
+      <div id="login-error" style="color:#e53935; font-size:13px; margin-bottom:12px; min-height:18px;"></div>
+      <button onclick="loginUser()"
+        style="width:100%; padding:12px; background:#2C2C2C; color:#fff; border:none; border-radius:6px; cursor:pointer; font-size:15px; font-family:'Microsoft JhengHei',sans-serif;">
+        登入
+      </button>
+    </div>
+  </div>
+
   <!-- 左側輸入區 -->
   <div id="input-panel">
+    <!-- 用戶狀態列 -->
+    <div id="user-status-bar" style="display:none; justify-content:space-between; align-items:center; padding-bottom:12px; margin-bottom:12px; border-bottom:1px solid #eee;">
+      <span id="user-display-name" style="font-size:12px; color:#888;"></span>
+      <button onclick="logoutUser()"
+        style="padding:4px 10px; background:#eee; color:#555; border:none; border-radius:4px; cursor:pointer; font-size:12px; font-family:'Microsoft JhengHei',sans-serif;">
+        登出
+      </button>
+    </div>
     <div class="no-print" style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:20px;">
       <button onclick="window.print()"
         style="padding:12px; background:#2C2C2C; color:#fff; border:none; border-radius:6px; cursor:pointer; font-size:14px; font-family:inherit;">
@@ -156,6 +190,13 @@
       <button id="btn-baiting" onclick="switchCompany('baiting')"
         style="padding:10px; background:#e0e0e0; color:#555; border:none; border-radius:6px; cursor:pointer; font-family:inherit; font-size:13px;">柏延</button>
     </div>
+
+    <!-- 儲存報價單 -->
+    <button onclick="saveQuote()"
+      style="width:100%; padding:10px; background:#2C2C2C; color:#fff; border:none; border-radius:6px; cursor:pointer; font-size:13px; font-family:'Microsoft JhengHei',sans-serif; margin-bottom:6px;">
+      ☁ 儲存報價單
+    </button>
+    <div id="save-hint" style="font-size:12px; margin-bottom:12px; min-height:16px;"></div>
 
     <!-- 過往清單 -->
     <h2>過往清單</h2>
@@ -464,6 +505,21 @@
   </div><!-- end preview-panel -->
 
 <script>
+  // ── Firebase 初始化 ───────────────────────────────────
+  const firebaseConfig = {
+    apiKey: "AIzaSyB9Ld-A0DDZG36T3xhbJ0BusYIwN_aB6aM",
+    authDomain: "quotation-system-ddc5c.firebaseapp.com",
+    projectId: "quotation-system-ddc5c",
+    storageBucket: "quotation-system-ddc5c.firebasestorage.app",
+    messagingSenderId: "556330231796",
+    appId: "1:556330231796:web:3a173778943b4d48c43ba1"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+  const auth = firebase.auth();
+  let liveQuotes = [];
+  let unsubscribeListener = null;
+
   function sync(inputId, previewId, fallback) {
     const val = document.getElementById(inputId).value.trim();
     document.getElementById(previewId).textContent = val || fallback;
@@ -543,101 +599,19 @@
       `<div>戶名：${b.holder}</div>`;
   }
 
-  // ── 過往清單資料 ────────────────────────────────────────
-  const SAVED_QUOTES = [
-    {
-      company: 'naiship',
-      contractNo: 'NS-2026-001', date: '2026-05-12',
-      clientName: '陳○○', project: '台南市東區住宅翻新工程',
-      clientPhone: '0912-345-678', address: '台南市東區○○路○號',
-      designer: '柏', startDate: '2026-06-01', endDate: '2026-09-30',
-      notes: '材料以實際採購為準，如有變更另行議定。',
-      mgmtPct: 6, discount: '', tax: false,
-      p1:30, p2:30, p3:30, p4:10,
-      p1amt:'', p2amt:'', p3amt:'', p4amt:'',
-      categories: [
-        { name:'拆除工程', unit:'式', qty:1, subItems:[
-            { desc:'全室拆除清運', spec:'含廢料清運處理', qty:1, unit:'式', price:45000, cost:32000 }
-        ]},
-        { name:'泥作工程', unit:'式', qty:1, subItems:[
-            { desc:'浴室防水及貼磚', spec:'防水高度120cm', qty:1, unit:'式', price:60000, cost:44000 }
-        ]},
-        { name:'木作工程', unit:'坪', qty:8, subItems:[
-            { desc:'主臥系統天花板', spec:'矽酸鈣板+輕鋼架', qty:8, unit:'坪', price:8000, cost:5800 }
-        ]},
-        { name:'水電工程', unit:'式', qty:1, subItems:[
-            { desc:'全室水電配管更新', spec:'含插座迴路更新', qty:1, unit:'式', price:85000, cost:64000 }
-        ]},
-        { name:'油漆工程', unit:'坪', qty:30, subItems:[
-            { desc:'全室批土乳膠漆', spec:'二底三度', qty:30, unit:'坪', price:1800, cost:1200 }
-        ]},
-      ]
-    },
-    {
-      company: 'naiship',
-      contractNo: 'NS-2026-002', date: '2026-04-20',
-      clientName: '李○○', project: '台南市北區辦公室裝修',
-      clientPhone: '0923-456-789', address: '台南市北區○○路○號',
-      designer: '柏', startDate: '2026-05-15', endDate: '2026-08-31',
-      notes: '請業主確認材料樣板後再施工。',
-      mgmtPct: 8, discount: 20000, tax: false,
-      p1:30, p2:40, p3:0, p4:30,
-      p1amt:'', p2amt:'', p3amt:'', p4amt:'',
-      categories: [
-        { name:'拆除工程', unit:'式', qty:1, subItems:[
-            { desc:'辦公室隔間拆除', spec:'含廢料清運', qty:1, unit:'式', price:30000, cost:22000 }
-        ]},
-        { name:'木作工程', unit:'式', qty:1, subItems:[
-            { desc:'辦公隔間牆施作', spec:'輕隔間+矽酸鈣板', qty:1, unit:'式', price:120000, cost:88000 },
-            { desc:'接待台木作', spec:'木心板貼木皮', qty:1, unit:'式', price:45000, cost:33000 }
-        ]},
-        { name:'油漆工程', unit:'坪', qty:50, subItems:[
-            { desc:'全室批土乳膠漆', spec:'二底三度', qty:50, unit:'坪', price:1800, cost:1200 }
-        ]},
-      ]
-    },
-    {
-      company: 'baiting',
-      contractNo: 'BY-2026-001', date: '2026-03-10',
-      clientName: '王○○', project: '台南市中西區老屋翻修',
-      clientPhone: '0934-567-890', address: '台南市中西區○○街○號',
-      designer: '柏', startDate: '2026-04-01', endDate: '2026-07-31',
-      notes: '老屋結構須於施工前再次確認，費用依現場狀況調整。',
-      mgmtPct: 7, discount: '', tax: true,
-      p1:30, p2:30, p3:30, p4:10,
-      p1amt:'', p2amt:'', p3amt:'', p4amt:'',
-      categories: [
-        { name:'拆除工程', unit:'式', qty:1, subItems:[
-            { desc:'全室拆除含磁磚', spec:'含廢料清運', qty:1, unit:'式', price:55000, cost:40000 }
-        ]},
-        { name:'泥作工程', unit:'式', qty:1, subItems:[
-            { desc:'浴廁防水貼磚', spec:'防水高度150cm', qty:1, unit:'式', price:75000, cost:55000 },
-            { desc:'地坪磁磚施作', spec:'60x60cm進口磁磚', qty:15, unit:'坪', price:4500, cost:3200 }
-        ]},
-        { name:'水電工程', unit:'式', qty:1, subItems:[
-            { desc:'全室水電更新', spec:'含弱電配線', qty:1, unit:'式', price:95000, cost:70000 }
-        ]},
-        { name:'木作工程', unit:'坪', qty:20, subItems:[
-            { desc:'全室天花板', spec:'矽酸鈣板+輕鋼架', qty:20, unit:'坪', price:7500, cost:5500 }
-        ]},
-      ]
-    }
-  ];
 
   function searchQuote() {
     const keyword = document.getElementById('in-search-contract').value.trim();
     const hint = document.getElementById('search-hint');
     if (!keyword) { hint.textContent = ''; return; }
-    const idx = SAVED_QUOTES.findIndex(q =>
-      q.contractNo.toLowerCase() === keyword.toLowerCase()
-    );
-    if (idx === -1) {
+    const q = liveQuotes.find(q => q.contractNo.toLowerCase() === keyword.toLowerCase());
+    if (!q) {
       hint.style.color = '#e55';
       hint.textContent = `找不到合約編號「${keyword}」`;
     } else {
       hint.style.color = '#3a3';
-      hint.textContent = `已載入：${SAVED_QUOTES[idx].contractNo}`;
-      loadQuote(idx);
+      hint.textContent = `已載入：${q.contractNo}`;
+      loadQuote(q);
       document.getElementById('in-search-contract').value = '';
     }
   }
@@ -645,24 +619,99 @@
   function renderHistoryList() {
     const container = document.getElementById('history-list');
     container.innerHTML = '';
-    SAVED_QUOTES.forEach((q, idx) => {
-      const co = COMPANIES[q.company];
+    if (liveQuotes.length === 0) {
+      container.innerHTML = '<div style="color:#aaa; font-size:12px; text-align:center; padding:16px;">尚無記錄</div>';
+      return;
+    }
+    liveQuotes.forEach(q => {
+      const co = COMPANIES[q.company] || COMPANIES.naiship;
       const div = document.createElement('div');
       div.className = 'history-item';
+      div.dataset.contractNo = q.contractNo;
       div.style.cssText = 'cursor:pointer; padding:10px 12px; border:1px solid #eee; border-radius:6px; margin-bottom:8px; background:#fff;';
-      div.onclick = () => loadQuote(idx);
+      div.onclick = () => loadQuote(q);
       div.innerHTML = `
-        <div style="font-size:11px; color:#aaa; margin-bottom:2px;">${q.date} ｜ ${co.name}</div>
-        <div style="font-weight:bold; font-size:13px;">${q.contractNo}</div>
-        <div style="font-size:12px; color:#555;">${q.project}</div>
+        <div style="font-weight:bold; font-size:13px; margin-bottom:2px;">${escHtml(co.name)}｜${escHtml(q.project)}｜${escHtml(q.contractNo)}</div>
+        <div style="font-size:11px; color:#aaa;">最後修改：${escHtml(q.updatedBy || q.createdBy || '—')} · ${timeAgo(q.updatedAt)}</div>
       `;
       container.appendChild(div);
     });
   }
 
-  function loadQuote(idx) {
-    const q = SAVED_QUOTES[idx];
-    const co = COMPANIES[q.company];
+  function serializeQuote() {
+    return {
+      company: currentCompany,
+      contractNo: document.getElementById('in-contract-no').value.trim(),
+      date: document.getElementById('in-date').value,
+      clientName: document.getElementById('in-client-name').value,
+      project: document.getElementById('in-project').value,
+      clientPhone: document.getElementById('in-client-phone').value,
+      address: document.getElementById('in-address').value,
+      designer: document.getElementById('in-designer').value,
+      startDate: document.getElementById('in-start-date').value,
+      endDate: document.getElementById('in-end-date').value,
+      notes: document.getElementById('in-notes').value,
+      mgmtPct: +document.getElementById('in-mgmt-pct').value || 0,
+      discount: +document.getElementById('in-discount').value || 0,
+      tax: document.getElementById('in-tax').checked,
+      p1: +document.getElementById('in-p1').value || 0,
+      p2: +document.getElementById('in-p2').value || 0,
+      p3: +document.getElementById('in-p3').value || 0,
+      p4: +document.getElementById('in-p4').value || 0,
+      p1amt: +document.getElementById('in-p1-amt').value || 0,
+      p2amt: +document.getElementById('in-p2-amt').value || 0,
+      p3amt: +document.getElementById('in-p3-amt').value || 0,
+      p4amt: +document.getElementById('in-p4-amt').value || 0,
+      categories: categories.map(cat => ({
+        name: cat.name,
+        unit: cat.unit,
+        qty: cat.qty,
+        subItems: cat.subItems.map(item => ({
+          desc: item.desc,
+          spec: item.spec,
+          qty: item.qty,
+          unit: item.unit,
+          price: item.price,
+          cost: item.cost,
+          margin: item.margin
+        }))
+      }))
+    };
+  }
+
+  async function saveQuote() {
+    const contractNo = document.getElementById('in-contract-no').value.trim();
+    const hint = document.getElementById('save-hint');
+    if (!contractNo) {
+      hint.style.color = '#e53935';
+      hint.textContent = '請先填寫合約編號';
+      return;
+    }
+    hint.style.color = '#888';
+    hint.textContent = '儲存中…';
+    try {
+      const data = serializeQuote();
+      const user = auth.currentUser;
+      const userName = user.displayName || user.email || '未知用戶';
+      const now = firebase.firestore.FieldValue.serverTimestamp();
+      const docRef = db.collection('quotations').doc(contractNo);
+      const existing = await docRef.get();
+      if (existing.exists) {
+        await docRef.update({ ...data, updatedBy: userName, updatedAt: now });
+      } else {
+        await docRef.set({ ...data, createdBy: userName, createdAt: now, updatedBy: userName, updatedAt: now });
+      }
+      hint.style.color = '#3a3';
+      hint.textContent = `已儲存：${contractNo}`;
+      setTimeout(() => { hint.textContent = ''; }, 3000);
+    } catch (e) {
+      hint.style.color = '#e53935';
+      hint.textContent = '儲存失敗，請確認網路連線';
+    }
+  }
+
+  function loadQuote(q) {
+    const co = COMPANIES[q.company] || COMPANIES.naiship;
     switchCompany(q.company);
     document.getElementById('in-company-email').value = co.email;
     document.getElementById('in-company-web').value = co.web;
@@ -675,14 +724,14 @@
     document.getElementById('in-designer').value = q.designer;
     document.getElementById('in-start-date').value = q.startDate;
     document.getElementById('in-end-date').value = q.endDate;
-    document.getElementById('in-notes').value = q.notes;
+    document.getElementById('in-notes').value = q.notes || '';
     document.getElementById('in-mgmt-pct').value = q.mgmtPct;
     document.getElementById('in-discount').value = q.discount || '';
     document.getElementById('in-tax').checked = q.tax;
-    document.getElementById('in-p1').value = q.p1;
-    document.getElementById('in-p2').value = q.p2;
-    document.getElementById('in-p3').value = q.p3;
-    document.getElementById('in-p4').value = q.p4;
+    document.getElementById('in-p1').value = q.p1 || 0;
+    document.getElementById('in-p2').value = q.p2 || 0;
+    document.getElementById('in-p3').value = q.p3 || 0;
+    document.getElementById('in-p4').value = q.p4 || 0;
     document.getElementById('in-p1-amt').value = q.p1amt || '';
     document.getElementById('in-p2-amt').value = q.p2amt || '';
     document.getElementById('in-p3-amt').value = q.p3amt || '';
@@ -692,11 +741,12 @@
     catIdCounter = 0;
     subIdCounter = 0;
     document.getElementById('categories-input-list').innerHTML = '';
-    q.categories.forEach(d => addCategory(d));
+    (q.categories || []).forEach(d => addCategory(d));
     renderAll();
-    document.querySelectorAll('.history-item').forEach((el, i) => {
-      el.style.background = i === idx ? '#f4f4f4' : '#fff';
-      el.style.borderColor = i === idx ? '#2C2C2C' : '#eee';
+    document.querySelectorAll('.history-item').forEach(el => {
+      const selected = el.dataset.contractNo === q.contractNo;
+      el.style.background = selected ? '#f4f4f4' : '#fff';
+      el.style.borderColor = selected ? '#2C2C2C' : '#eee';
     });
   }
 
@@ -1094,47 +1144,73 @@
       else calcTotals();
     }));
 
-  function initDemo() {
-    switchCompany('naiship');
-    document.getElementById('in-company-email').value = 'nextdesign62@gmail.com';
-    document.getElementById('in-company-web').value   = 'nextplus-design.com/design';
-    document.getElementById('in-contract-no').value = 'NS-2026-001';
-    document.getElementById('in-date').value = '2026-05-12';
-    document.getElementById('in-client-name').value = '陳○○';
-    document.getElementById('in-project').value = '台南市東區住宅翻新工程';
-    document.getElementById('in-client-phone').value = '0912-345-678';
-    document.getElementById('in-address').value = '台南市東區○○路○號';
-    document.getElementById('in-designer').value = '柏';
-    document.getElementById('in-start-date').value = '2026-06-01';
-    document.getElementById('in-end-date').value = '2026-09-30';
-    document.getElementById('in-notes').value = '材料以實際採購為準，如有變更另行議定。';
-    document.getElementById('in-p1').value = 30;
-    document.getElementById('in-p2').value = 30;
-    document.getElementById('in-p3').value = 30;
-    document.getElementById('in-p4').value = 10;
-    renderHistoryList();
-    syncHeader();
-    [
-      { name:'拆除工程', unit:'式', qty:1, subItems:[
-          { desc:'全室拆除清運', spec:'含廢料清運處理', qty:1, unit:'式', price:45000, cost:32000 }
-      ]},
-      { name:'泥作工程', unit:'式', qty:1, subItems:[
-          { desc:'浴室防水及貼磚', spec:'防水高度120cm', qty:1, unit:'式', price:60000, cost:44000 }
-      ]},
-      { name:'木作工程', unit:'坪', qty:8, subItems:[
-          { desc:'主臥系統天花板', spec:'矽酸鈣板+輕鋼架', qty:8, unit:'坪', price:8000, cost:5800 }
-      ]},
-      { name:'水電工程', unit:'式', qty:1, subItems:[
-          { desc:'全室水電配管更新', spec:'含插座迴路更新', qty:1, unit:'式', price:85000, cost:64000 }
-      ]},
-      { name:'油漆工程', unit:'坪', qty:30, subItems:[
-          { desc:'全室批土乳膠漆', spec:'二底三度', qty:30, unit:'坪', price:1800, cost:1200 }
-      ]},
-    ].forEach(d => addCategory(d));
-    renderAll();
+  // ── Firebase Auth 函式 ───────────────────────────────
+  function loginUser() {
+    const email = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+    const errorEl = document.getElementById('login-error');
+    errorEl.textContent = '';
+    if (!email || !password) {
+      errorEl.textContent = 'Email 和密碼不能為空';
+      return;
+    }
+    auth.signInWithEmailAndPassword(email, password)
+      .catch(err => {
+        errorEl.textContent = '帳號或密碼錯誤，請重試。';
+      });
   }
 
-  initDemo();
+  function logoutUser() {
+    auth.signOut();
+  }
+
+  function escHtml(s) {
+    return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function timeAgo(ts) {
+    if (!ts || typeof ts.toMillis !== 'function') return '';
+    const seconds = Math.floor((Date.now() - ts.toMillis()) / 1000);
+    if (seconds < 60) return '剛剛';
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes} 分鐘前`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours} 小時前`;
+    const days = Math.floor(hours / 24);
+    return `${days} 天前`;
+  }
+
+  function startRealtimeListener() {
+    if (unsubscribeListener) unsubscribeListener();
+    unsubscribeListener = db.collection('quotations')
+      .orderBy('updatedAt', 'desc')
+      .onSnapshot(
+        snapshot => {
+          liveQuotes = snapshot.docs.map(doc => doc.data());
+          renderHistoryList();
+        },
+        err => { console.error('Firestore 監聽失敗:', err); }
+      );
+  }
+
+
+  auth.onAuthStateChanged(user => {
+    if (user) {
+      document.getElementById('login-overlay').style.display = 'none';
+      document.getElementById('user-status-bar').style.display = 'flex';
+      document.getElementById('user-display-name').textContent = user.displayName || user.email || '未知用戶';
+      switchCompany('naiship');
+      syncHeader();
+      renderAll();
+      startRealtimeListener();
+    } else {
+      document.getElementById('login-overlay').style.display = 'flex';
+      document.getElementById('user-status-bar').style.display = 'none';
+      if (unsubscribeListener) { unsubscribeListener(); unsubscribeListener = null; }
+      liveQuotes = [];
+      renderHistoryList();
+    }
+  });
 </script>
 </body>
 </html>
