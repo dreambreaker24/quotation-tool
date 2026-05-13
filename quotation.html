@@ -706,7 +706,9 @@
     try {
       const data = serializeQuote();
       const user = auth.currentUser;
+      if (!user) throw new Error('尚未登入');
       const userName = user.displayName || user.email || '未知用戶';
+      console.log('儲存資料：', JSON.stringify(data, (k, v) => v === undefined ? '__undefined__' : v));
       const now = firebase.firestore.FieldValue.serverTimestamp();
       const docRef = db.collection('quotations').doc(contractNo);
       const existing = await docRef.get();
@@ -720,8 +722,8 @@
       setTimeout(() => { hint.textContent = ''; }, 3000);
     } catch (e) {
       hint.style.color = '#e53935';
-      hint.textContent = '儲存失敗，請確認網路連線';
-      console.error(e);
+      hint.textContent = '儲存失敗：' + (e.code || e.message || String(e));
+      console.error('儲存錯誤：', e);
     }
   }
 
