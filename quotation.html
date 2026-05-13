@@ -569,8 +569,8 @@
       name: '柏延',
       logo: 'assets/柏延LOGO.png',
       stamp: 'assets/柏延公司章.png',
-      email: '',
-      web: '',
+      email: 'nextdesign62@gmail.com',
+      web: 'nextplus-design.com/design',
       logoHeight: '208px',
       bank: { name: '玉山銀行', code: '808-0761', account: '0761-940-050817', branch: '東台南分行', holder: '柏延有限公司' },
     }
@@ -590,6 +590,9 @@
     document.getElementById('btn-naiship').style.color = id === 'naiship' ? '#fff' : '#555';
     document.getElementById('btn-baiting').style.background = id === 'baiting' ? '#2C2C2C' : '#e0e0e0';
     document.getElementById('btn-baiting').style.color = id === 'baiting' ? '#fff' : '#555';
+    document.getElementById('in-company-email').value = co.email;
+    document.getElementById('in-company-web').value = co.web;
+    syncHeader();
     const b = co.bank;
     document.getElementById('prev-bank-info').innerHTML =
       `<div style="font-weight:bold; margin-bottom:2px;">匯款資訊</div>` +
