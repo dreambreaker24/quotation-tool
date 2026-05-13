@@ -120,6 +120,9 @@
         page-break-before: always;
       }
       .no-print { display: none !important; }
+      .cost-col { display: none !important; }
+      body.print-with-cost .cost-col { display: table-cell !important; }
+      body.print-with-cost .cost-block { display: block !important; }
       @page { size: A4; margin: 0; }
     }
   </style>
@@ -221,6 +224,17 @@
       <input type="checkbox" id="in-tax" style="width:auto;">
       <label for="in-tax" style="margin:0;">含稅（5%）</label>
     </div>
+    <div class="field-group" style="display:flex; align-items:center; gap:8px;">
+      <input type="checkbox" id="in-print-cost" style="width:auto;" onchange="document.body.classList.toggle('print-with-cost', this.checked)">
+      <label for="in-print-cost" style="margin:0;">列印時顯示成本</label>
+    </div>
+    <!-- 成本分析（左側即時顯示，不受列印開關影響） -->
+    <div id="cost-summary-panel" style="background:#f7f7f7; border-radius:6px; padding:10px 12px; margin-top:4px; font-size:12px; line-height:1.8;">
+      <div style="font-weight:bold; color:#555; margin-bottom:4px;">成本分析</div>
+      <div style="display:flex; justify-content:space-between;"><span style="color:#888;">成本合計</span><span id="in-cost-total">$0</span></div>
+      <div style="display:flex; justify-content:space-between;"><span style="color:#888;">預估利潤</span><span id="in-profit">$0</span></div>
+      <div style="display:flex; justify-content:space-between; font-weight:bold;"><span style="color:#888;">利潤比例</span><span id="in-profit-pct">—</span></div>
+    </div>
     <div class="field-group">
       <label>備註</label>
       <textarea id="in-notes" placeholder="例：材料以實際採購為準，如有變更另行議定。"></textarea>
@@ -314,11 +328,12 @@
       <table id="prev-items-table" style="width:100%; border-collapse:collapse; margin-bottom:4mm; font-size:10pt;">
         <thead>
           <tr style="background:#2C2C2C; color:#fff;">
-            <th style="padding:6px 8px; text-align:center; width:10%;">項次</th>
-            <th style="padding:6px 8px; text-align:left; width:44%;">工程項目</th>
-            <th style="padding:6px 8px; text-align:right; width:10%;">數量</th>
-            <th style="padding:6px 8px; text-align:center; width:10%;">單位</th>
-            <th style="padding:6px 8px; text-align:right; width:26%;">複價</th>
+            <th style="padding:6px 8px; text-align:center; width:9%;">項次</th>
+            <th style="padding:6px 8px; text-align:left; width:37%;">工程項目</th>
+            <th style="padding:6px 8px; text-align:right; width:9%;">數量</th>
+            <th style="padding:6px 8px; text-align:center; width:9%;">單位</th>
+            <th style="padding:6px 8px; text-align:right; width:18%;">複價</th>
+            <th class="cost-col" style="padding:6px 8px; text-align:right; width:18%;">成本</th>
           </tr>
         </thead>
         <tbody id="prev-items-body">
@@ -348,6 +363,24 @@
           <tr style="border-top:2px solid #2C2C2C; font-weight:bold; font-size:12pt;">
             <td style="padding:6px 8px;">總額</td>
             <td style="padding:6px 8px; text-align:right;" id="prev-total">$0</td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- 成本分析（列印時依勾選顯示） -->
+      <div id="prev-cost-section" class="cost-block" style="display:none; justify-content:flex-end; margin-bottom:3mm;">
+        <table style="width:280px; font-size:10pt; border-collapse:collapse; border-top:1px dashed #ccc; padding-top:4px;">
+          <tr>
+            <td style="padding:2px 8px; color:#888;">成本合計</td>
+            <td style="padding:2px 8px; text-align:right;" id="prev-cost-total">$0</td>
+          </tr>
+          <tr>
+            <td style="padding:2px 8px; color:#888;">預估利潤</td>
+            <td style="padding:2px 8px; text-align:right;" id="prev-profit">$0</td>
+          </tr>
+          <tr style="font-weight:bold;">
+            <td style="padding:2px 8px; color:#888;">利潤比例</td>
+            <td style="padding:2px 8px; text-align:right;" id="prev-profit-pct">—</td>
           </tr>
         </table>
       </div>
@@ -650,6 +683,10 @@
     return cat.subItems.reduce((s, i) => s + (i.price||0)*(i.qty||0), 0);
   }
 
+  function getCatCost(cat) {
+    return cat.subItems.reduce((s, i) => s + (i.cost||0)*(i.qty||0), 0);
+  }
+
   // ── 大項（分類） ───────────────────────────────────────
   function addCategory(data) {
     const id = catIdCounter++;
@@ -711,8 +748,8 @@
     const cat = categories.find(c => c.id === catId);
     if (!cat) return;
     const id = subIdCounter++;
-    const item = { id, catId, desc: '', spec: '', qty: 1, unit: '式', price: 0 };
-    if (data) Object.assign(item, { desc: data.desc||'', spec: data.spec||'', qty: data.qty||1, unit: data.unit||'式', price: data.price||0 });
+    const item = { id, catId, desc: '', spec: '', qty: 1, unit: '式', price: 0, cost: 0 };
+    if (data) Object.assign(item, { desc: data.desc||'', spec: data.spec||'', qty: data.qty||1, unit: data.unit||'式', price: data.price||0, cost: data.cost||0 });
     cat.subItems.push(item);
     renderSubInput(catId, item);
     renderAll();
@@ -751,7 +788,7 @@
         <input type="text" value="${item.spec}" oninput="updateSubItem(${catId},${item.id},'spec',this.value)"
           style="width:100%; padding:3px; border:1px solid #ddd; border-radius:3px; font-family:inherit; font-size:12px;" placeholder="規格說明">
       </div>
-      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:4px;">
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:4px;">
         <div>
           <label style="font-size:10px; color:#999;">單位</label>
           <input type="text" value="${item.unit}" onchange="updateSubItem(${catId},${item.id},'unit',this.value)"
@@ -767,6 +804,11 @@
           <input type="number" value="${item.price}" oninput="updateSubItem(${catId},${item.id},'price',+this.value)"
             style="width:100%; padding:3px; border:1px solid #ddd; border-radius:3px; font-size:12px;" min="0">
         </div>
+        <div>
+          <label style="font-size:10px; color:#e09000;">成本單價</label>
+          <input type="number" value="${item.cost||''}" placeholder="0" oninput="updateSubItem(${catId},${item.id},'cost',+this.value)"
+            style="width:100%; padding:3px; border:1px solid #f0d080; border-radius:3px; font-size:12px; background:#fffdf0;" min="0">
+        </div>
       </div>
     `;
     document.getElementById(`sub-list-${catId}`).appendChild(div);
@@ -778,6 +820,7 @@
     tbody.innerHTML = '';
     categories.forEach((cat, idx) => {
       const total = getCatTotal(cat);
+      const catCost = getCatCost(cat);
       const tr = document.createElement('tr');
       tr.style.background = idx % 2 === 0 ? '#fff' : '#f9f9f9';
       tr.innerHTML = `
@@ -786,6 +829,7 @@
         <td style="padding:3px 8px; border-bottom:1px solid #eee; text-align:right;">${cat.qty}</td>
         <td style="padding:3px 8px; border-bottom:1px solid #eee; text-align:center;">${cat.unit}</td>
         <td style="padding:3px 8px; border-bottom:1px solid #eee; text-align:right; font-weight:bold;">${total.toLocaleString()}</td>
+        <td class="cost-col" style="padding:3px 8px; border-bottom:1px solid #eee; text-align:right; color:#888;">${catCost > 0 ? catCost.toLocaleString() : '—'}</td>
       `;
       tbody.appendChild(tr);
     });
@@ -800,8 +844,10 @@
       const section = document.createElement('div');
       section.style.marginBottom = '6mm';
 
+      const catCost = getCatCost(cat);
       const subRows = cat.subItems.map((s, idx) => {
         const subtotal = (s.price||0) * (s.qty||0);
+        const costTotal = (s.cost||0) * (s.qty||0);
         return `<tr style="background:${idx%2===0?'#fff':'#f9f9f9'}">
           <td style="padding:2px 5px; border-bottom:1px solid #eee; text-align:center;">${idx+1}</td>
           <td style="padding:2px 5px; border-bottom:1px solid #eee;">${s.desc||'—'}</td>
@@ -810,6 +856,8 @@
           <td style="padding:2px 5px; border-bottom:1px solid #eee; text-align:center;">${s.unit}</td>
           <td style="padding:2px 5px; border-bottom:1px solid #eee; text-align:right;">${(s.price||0).toLocaleString()}</td>
           <td style="padding:2px 5px; border-bottom:1px solid #eee; text-align:right; font-weight:bold;">${subtotal.toLocaleString()}</td>
+          <td class="cost-col" style="padding:2px 5px; border-bottom:1px solid #eee; text-align:right; color:#888;">${s.cost ? (s.cost||0).toLocaleString() : '—'}</td>
+          <td class="cost-col" style="padding:2px 5px; border-bottom:1px solid #eee; text-align:right; color:#888;">${s.cost ? costTotal.toLocaleString() : '—'}</td>
         </tr>`;
       }).join('');
 
@@ -821,19 +869,22 @@
           <thead>
             <tr style="background:#555; color:#fff;">
               <th style="padding:4px 5px; text-align:center; width:5%;">項次</th>
-              <th style="padding:4px 5px; text-align:left; width:20%;">工程項目</th>
-              <th style="padding:4px 5px; text-align:left; width:33%;">設備／工法／材料／規格</th>
-              <th style="padding:4px 5px; text-align:right; width:7%;">數量</th>
-              <th style="padding:4px 5px; text-align:center; width:6%;">單位</th>
-              <th style="padding:4px 5px; text-align:right; width:13%;">單價</th>
-              <th style="padding:4px 5px; text-align:right; width:16%;">複價</th>
+              <th style="padding:4px 5px; text-align:left; width:18%;">工程項目</th>
+              <th style="padding:4px 5px; text-align:left; width:27%;">設備／工法／材料／規格</th>
+              <th style="padding:4px 5px; text-align:right; width:6%;">數量</th>
+              <th style="padding:4px 5px; text-align:center; width:5%;">單位</th>
+              <th style="padding:4px 5px; text-align:right; width:11%;">單價</th>
+              <th style="padding:4px 5px; text-align:right; width:13%;">複價</th>
+              <th class="cost-col" style="padding:4px 5px; text-align:right; width:8%;">成本單價</th>
+              <th class="cost-col" style="padding:4px 5px; text-align:right; width:7%;">成本複價</th>
             </tr>
           </thead>
-          <tbody>${subRows || '<tr><td colspan="7" style="padding:6px; color:#aaa; text-align:center;">（尚無細項）</td></tr>'}</tbody>
+          <tbody>${subRows || '<tr><td colspan="9" style="padding:6px; color:#aaa; text-align:center;">（尚無細項）</td></tr>'}</tbody>
           <tfoot>
             <tr style="background:#f0f0f0; font-weight:bold;">
               <td colspan="6" style="padding:3px 8px; text-align:right; font-size:10pt;">小計</td>
               <td style="padding:3px 8px; text-align:right; font-size:10pt;">${catTotal.toLocaleString()}</td>
+              <td class="cost-col" style="padding:3px 8px; text-align:right; font-size:10pt; color:#888;" colspan="2">${catCost > 0 ? catCost.toLocaleString() : '—'}</td>
             </tr>
           </tfoot>
         </table>`;
@@ -860,6 +911,22 @@
     document.getElementById('prev-tax').textContent = '$' + tax.toLocaleString();
     document.getElementById('prev-tax-row').style.display = hasTax ? '' : 'none';
     document.getElementById('prev-total').textContent = '$' + total.toLocaleString();
+
+    // 成本分析
+    const totalCost = categories.reduce((s, cat) => s + getCatCost(cat), 0);
+    const profit = total - totalCost;
+    const profitPct = total > 0 ? (profit / total * 100).toFixed(1) + '%' : '—';
+    const profitColor = profit >= 0 ? '#2a7' : '#e55';
+    document.getElementById('in-cost-total').textContent = '$' + totalCost.toLocaleString();
+    document.getElementById('in-profit').textContent = '$' + profit.toLocaleString();
+    document.getElementById('in-profit').style.color = profitColor;
+    document.getElementById('in-profit-pct').textContent = profitPct;
+    document.getElementById('in-profit-pct').style.color = profitColor;
+    document.getElementById('prev-cost-total').textContent = '$' + totalCost.toLocaleString();
+    document.getElementById('prev-profit').textContent = '$' + profit.toLocaleString();
+    document.getElementById('prev-profit-pct').textContent = profitPct;
+    const hasCost = totalCost > 0;
+    document.getElementById('prev-cost-section').style.display = hasCost ? 'flex' : 'none';
 
     const notes = document.getElementById('in-notes').value.trim();
     document.getElementById('prev-notes').textContent = notes || '—';
