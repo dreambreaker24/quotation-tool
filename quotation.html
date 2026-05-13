@@ -754,8 +754,8 @@
     const cat = categories.find(c => c.id === catId);
     if (!cat) return;
     const id = subIdCounter++;
-    const item = { id, catId, desc: '', spec: '', qty: 1, unit: '式', price: 0, cost: 0 };
-    if (data) Object.assign(item, { desc: data.desc||'', spec: data.spec||'', qty: data.qty||1, unit: data.unit||'式', price: data.price||0, cost: data.cost||0 });
+    const item = { id, catId, desc: '', spec: '', qty: 1, unit: '式', price: 0, cost: 0, margin: 0 };
+    if (data) Object.assign(item, { desc: data.desc||'', spec: data.spec||'', qty: data.qty||1, unit: data.unit||'式', price: data.price||0, cost: data.cost||0, margin: data.margin||0 });
     cat.subItems.push(item);
     renderSubInput(catId, item);
     renderAll();
@@ -772,7 +772,14 @@
   function updateSubItem(catId, itemId, field, value) {
     const cat = categories.find(c => c.id === catId);
     const item = cat && cat.subItems.find(s => s.id === itemId);
-    if (item) { item[field] = (field === 'qty' || field === 'price') ? +value : value; renderAll(); }
+    if (!item) return;
+    item[field] = (field === 'qty' || field === 'price' || field === 'cost' || field === 'margin') ? +value : value;
+    if ((field === 'cost' || field === 'margin') && item.cost > 0 && item.margin > 0) {
+      item.price = Math.round(item.cost * (1 + item.margin / 100));
+      const priceEl = document.getElementById(`sub-price-${item.id}`);
+      if (priceEl) priceEl.value = item.price;
+    }
+    renderAll();
   }
 
   function renderSubInput(catId, item) {
@@ -794,7 +801,7 @@
         <input type="text" value="${item.spec}" oninput="updateSubItem(${catId},${item.id},'spec',this.value)"
           style="width:100%; padding:3px; border:1px solid #ddd; border-radius:3px; font-family:inherit; font-size:12px;" placeholder="規格說明">
       </div>
-      <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:4px;">
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr 1fr; gap:4px;">
         <div>
           <label style="font-size:10px; color:#999;">單位</label>
           <input type="text" value="${item.unit}" onchange="updateSubItem(${catId},${item.id},'unit',this.value)"
@@ -807,13 +814,18 @@
         </div>
         <div>
           <label style="font-size:10px; color:#999;">單價</label>
-          <input type="number" value="${item.price}" oninput="updateSubItem(${catId},${item.id},'price',+this.value)"
+          <input id="sub-price-${item.id}" type="number" value="${item.price}" oninput="updateSubItem(${catId},${item.id},'price',+this.value)"
             style="width:100%; padding:3px; border:1px solid #ddd; border-radius:3px; font-size:12px;" min="0">
         </div>
         <div>
           <label style="font-size:10px; color:#e09000;">成本單價</label>
           <input type="number" value="${item.cost||''}" placeholder="0" oninput="updateSubItem(${catId},${item.id},'cost',+this.value)"
             style="width:100%; padding:3px; border:1px solid #f0d080; border-radius:3px; font-size:12px; background:#fffdf0;" min="0">
+        </div>
+        <div>
+          <label style="font-size:10px; color:#e09000;">毛利 %</label>
+          <input type="number" value="${item.margin||''}" placeholder="—" oninput="updateSubItem(${catId},${item.id},'margin',+this.value)"
+            style="width:100%; padding:3px; border:1px solid #f0d080; border-radius:3px; font-size:12px; background:#fffdf0;" min="0" step="0.5">
         </div>
       </div>
     `;
