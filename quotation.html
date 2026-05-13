@@ -641,8 +641,19 @@
     });
   }
 
+  function sanitize(v) {
+    if (Array.isArray(v)) return v.map(item => sanitize(item));
+    if (v !== null && typeof v === 'object') {
+      const r = {};
+      for (const [k, val] of Object.entries(v)) r[k] = sanitize(val);
+      return r;
+    }
+    if (typeof v === 'number') return isNaN(v) || !isFinite(v) ? 0 : v;
+    return v === undefined ? '' : v;
+  }
+
   function serializeQuote() {
-    return {
+    return sanitize({
       company: currentCompany,
       contractNo: document.getElementById('in-contract-no').value.trim(),
       date: document.getElementById('in-date').value,
@@ -679,7 +690,7 @@
           margin: item.margin
         }))
       }))
-    };
+    });
   }
 
   async function saveQuote() {
@@ -709,7 +720,7 @@
       setTimeout(() => { hint.textContent = ''; }, 3000);
     } catch (e) {
       hint.style.color = '#e53935';
-      hint.textContent = '儲存失敗：' + (e.code || e.message || e);
+      hint.textContent = '儲存失敗，請確認網路連線';
       console.error(e);
     }
   }
