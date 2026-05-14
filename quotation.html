@@ -191,11 +191,17 @@
         style="padding:10px; background:#e0e0e0; color:#555; border:none; border-radius:6px; cursor:pointer; font-family:inherit; font-size:13px;">柏延</button>
     </div>
 
-    <!-- 儲存報價單 -->
-    <button onclick="saveQuote()"
-      style="width:100%; padding:10px; background:#2C2C2C; color:#fff; border:none; border-radius:6px; cursor:pointer; font-size:13px; font-family:'Microsoft JhengHei',sans-serif; margin-bottom:6px;">
-      ☁ 儲存報價單
-    </button>
+    <!-- 新增 / 儲存 -->
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:6px;">
+      <button onclick="newQuote()"
+        style="padding:10px; background:#fff; color:#2C2C2C; border:1px solid #2C2C2C; border-radius:6px; cursor:pointer; font-size:13px; font-family:'Microsoft JhengHei',sans-serif;">
+        ＋ 新增空白報價單
+      </button>
+      <button onclick="saveQuote()"
+        style="padding:10px; background:#2C2C2C; color:#fff; border:none; border-radius:6px; cursor:pointer; font-size:13px; font-family:'Microsoft JhengHei',sans-serif;">
+        ☁ 儲存報價單
+      </button>
+    </div>
     <div id="save-hint" style="font-size:12px; margin-bottom:12px; min-height:16px;"></div>
 
     <!-- 過往清單 -->
@@ -729,6 +735,44 @@
       hint.textContent = '儲存失敗：' + msg;
       console.error('儲存錯誤：', e.code, e);
     }
+  }
+
+  function newQuote() {
+    const co = COMPANIES[currentCompany];
+    document.getElementById('in-company-email').value = co.email;
+    document.getElementById('in-company-web').value = co.web;
+    document.getElementById('in-contract-no').value = '';
+    document.getElementById('in-date').value = '';
+    document.getElementById('in-client-name').value = '';
+    document.getElementById('in-project').value = '';
+    document.getElementById('in-client-phone').value = '';
+    document.getElementById('in-address').value = '';
+    document.getElementById('in-designer').value = '';
+    document.getElementById('in-start-date').value = '';
+    document.getElementById('in-end-date').value = '';
+    document.getElementById('in-notes').value = '';
+    document.getElementById('in-mgmt-pct').value = 6;
+    document.getElementById('in-discount').value = '';
+    document.getElementById('in-tax').checked = false;
+    document.getElementById('in-p1').value = 30;
+    document.getElementById('in-p2').value = 30;
+    document.getElementById('in-p3').value = 30;
+    document.getElementById('in-p4').value = 10;
+    document.getElementById('in-p1-amt').value = '';
+    document.getElementById('in-p2-amt').value = '';
+    document.getElementById('in-p3-amt').value = '';
+    document.getElementById('in-p4-amt').value = '';
+    document.getElementById('save-hint').textContent = '';
+    categories = [];
+    catIdCounter = 0;
+    subIdCounter = 0;
+    document.getElementById('categories-input-list').innerHTML = '';
+    document.querySelectorAll('.history-item').forEach(el => {
+        el.style.background = '#fff';
+        el.style.borderColor = '#eee';
+    });
+    syncHeader();
+    renderAll();
   }
 
   function loadQuote(q) {
