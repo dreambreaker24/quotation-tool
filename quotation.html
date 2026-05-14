@@ -707,8 +707,8 @@
       const data = serializeQuote();
       const user = auth.currentUser;
       if (!user) throw new Error('尚未登入');
+      await user.getIdToken(true);
       const userName = user.displayName || user.email || '未知用戶';
-      console.log('儲存資料：', JSON.stringify(data, (k, v) => v === undefined ? '__undefined__' : v));
       const now = firebase.firestore.FieldValue.serverTimestamp();
       const docRef = db.collection('quotations').doc(contractNo);
       const existing = await docRef.get();
@@ -722,8 +722,11 @@
       setTimeout(() => { hint.textContent = ''; }, 3000);
     } catch (e) {
       hint.style.color = '#e53935';
-      hint.textContent = '儲存失敗：' + (e.code || e.message || String(e));
-      console.error('儲存錯誤：', e);
+      const msg = e.code === 'permission-denied' ? '權限不足，請重新登入後再試'
+                : e.code === 'unauthenticated' ? '登入已過期，請重新登入'
+                : e.message || e.code || String(e);
+      hint.textContent = '儲存失敗：' + msg;
+      console.error('儲存錯誤：', e.code, e);
     }
   }
 
