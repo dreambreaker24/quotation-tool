@@ -1277,6 +1277,7 @@
     if (unsubscribeListener) unsubscribeListener();
     unsubscribeListener = db.collection('quotations')
       .orderBy('updatedAt', 'desc')
+      .limit(4)
       .onSnapshot(
         snapshot => {
           liveQuotes = snapshot.docs.map(doc => doc.data());
