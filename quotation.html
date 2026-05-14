@@ -710,7 +710,8 @@
       await user.getIdToken(true);
       const userName = user.displayName || user.email || '未知用戶';
       const now = firebase.firestore.FieldValue.serverTimestamp();
-      const docRef = db.collection('quotations').doc(contractNo);
+      const docId = contractNo.replace(/\//g, '_');
+      const docRef = db.collection('quotations').doc(docId);
       const existing = await docRef.get();
       if (existing.exists) {
         await docRef.update({ ...data, updatedBy: userName, updatedAt: now });
