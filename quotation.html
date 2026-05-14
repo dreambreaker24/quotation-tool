@@ -208,7 +208,7 @@
     <h2>過往清單</h2>
     <div style="position:relative; margin-bottom:10px;">
       <div style="display:flex; gap:6px;">
-        <input type="text" id="in-search-contract" placeholder="輸入至少 5 個字即時搜尋…"
+        <input type="text" id="in-search-contract" placeholder="輸入至少 4 個字即時搜尋…"
           style="flex:1; padding:6px 10px; border:1px solid #ccc; border-radius:4px; font-family:inherit; font-size:13px;"
           oninput="liveSearch(this.value)"
           onkeydown="if(event.key==='Enter') pickFirstResult(); if(event.key==='Escape') clearSearch();">
@@ -636,7 +636,7 @@
     const results = document.getElementById('search-results');
     const hint = document.getElementById('search-hint');
     hint.textContent = '';
-    if (val.length < 5) { results.style.display = 'none'; results.innerHTML = ''; return; }
+    if (val.length < 4) { results.style.display = 'none'; results.innerHTML = ''; return; }
     clearTimeout(_searchDebounce);
     _searchDebounce = setTimeout(async () => {
       try {
