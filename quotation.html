@@ -328,6 +328,22 @@
         <input type="number" id="in-p3-amt" placeholder="0">
       </div>
       <div class="field-group">
+        <label>第四期款 %</label>
+        <input type="number" id="in-p5" value="0" min="0" max="100">
+      </div>
+      <div class="field-group">
+        <label>第四期款金額</label>
+        <input type="number" id="in-p5-amt" placeholder="0">
+      </div>
+      <div class="field-group">
+        <label>第五期款 %</label>
+        <input type="number" id="in-p6" value="0" min="0" max="100">
+      </div>
+      <div class="field-group">
+        <label>第五期款金額</label>
+        <input type="number" id="in-p6-amt" placeholder="0">
+      </div>
+      <div class="field-group">
         <label>尾款 %</label>
         <input type="number" id="in-p4" value="10" min="0" max="100">
       </div>
@@ -678,10 +694,14 @@
       p2: +document.getElementById('in-p2').value || 0,
       p3: +document.getElementById('in-p3').value || 0,
       p4: +document.getElementById('in-p4').value || 0,
+      p5: +document.getElementById('in-p5').value || 0,
+      p6: +document.getElementById('in-p6').value || 0,
       p1amt: +document.getElementById('in-p1-amt').value || 0,
       p2amt: +document.getElementById('in-p2-amt').value || 0,
       p3amt: +document.getElementById('in-p3-amt').value || 0,
       p4amt: +document.getElementById('in-p4-amt').value || 0,
+      p5amt: +document.getElementById('in-p5-amt').value || 0,
+      p6amt: +document.getElementById('in-p6-amt').value || 0,
       categories: categories.map(cat => ({
         name: cat.name,
         unit: cat.unit,
@@ -758,10 +778,14 @@
     document.getElementById('in-p2').value = 30;
     document.getElementById('in-p3').value = 30;
     document.getElementById('in-p4').value = 10;
+    document.getElementById('in-p5').value = 0;
+    document.getElementById('in-p6').value = 0;
     document.getElementById('in-p1-amt').value = '';
     document.getElementById('in-p2-amt').value = '';
     document.getElementById('in-p3-amt').value = '';
     document.getElementById('in-p4-amt').value = '';
+    document.getElementById('in-p5-amt').value = '';
+    document.getElementById('in-p6-amt').value = '';
     document.getElementById('save-hint').textContent = '';
     categories = [];
     catIdCounter = 0;
@@ -797,10 +821,14 @@
     document.getElementById('in-p2').value = q.p2 || 0;
     document.getElementById('in-p3').value = q.p3 || 0;
     document.getElementById('in-p4').value = q.p4 || 0;
+    document.getElementById('in-p5').value = q.p5 || 0;
+    document.getElementById('in-p6').value = q.p6 || 0;
     document.getElementById('in-p1-amt').value = q.p1amt || '';
     document.getElementById('in-p2-amt').value = q.p2amt || '';
     document.getElementById('in-p3-amt').value = q.p3amt || '';
     document.getElementById('in-p4-amt').value = q.p4amt || '';
+    document.getElementById('in-p5-amt').value = q.p5amt || '';
+    document.getElementById('in-p6-amt').value = q.p6amt || '';
     syncHeader();
     categories = [];
     catIdCounter = 0;
@@ -1089,15 +1117,15 @@
     const notes = document.getElementById('in-notes').value.trim();
     document.getElementById('prev-notes').textContent = notes || '—';
 
-    const p = ['in-p1','in-p2','in-p3','in-p4'].map(id => +document.getElementById(id).value || 0);
+    const pIds = ['in-p1','in-p2','in-p3','in-p5','in-p6','in-p4'];
+    const p = pIds.map(id => +document.getElementById(id).value || 0);
     const sum = p.reduce((a,b)=>a+b,0);
     const hint = document.getElementById('payment-sum-hint');
     hint.textContent = `合計 ${sum}%` + (sum !== 100 ? '（請確認加總為 100%）' : ' ✓');
     hint.style.color = sum !== 100 ? '#e55' : '#3a3';
 
-    const labels = ['訂金','第二期款','第三期款','尾款'];
-    const amtIds = ['in-p1-amt','in-p2-amt','in-p3-amt','in-p4-amt'];
-    // 依 % 自動計算金額，並回填輸入欄
+    const labels = ['訂金','第二期款','第三期款','第四期款','第五期款','尾款'];
+    const amtIds = ['in-p1-amt','in-p2-amt','in-p3-amt','in-p5-amt','in-p6-amt','in-p4-amt'];
     const amounts = p.map((pct, i) => {
       const auto = pct > 0 ? Math.round(total * pct / 100) : 0;
       if (auto > 0) document.getElementById(amtIds[i]).value = auto;
@@ -1105,7 +1133,7 @@
     });
     const tdS = 'padding:2px 6px;', tdG = 'padding:2px 6px; color:#555;';
     const tdA = 'padding:2px 8px; font-weight:bold; color:#e53935;', tdL2 = 'padding:2px 6px 2px 16px; color:#555;';
-    document.getElementById('prev-payment').innerHTML = [0,1].map(r => {
+    document.getElementById('prev-payment').innerHTML = [0,1,2].map(r => {
       const i = r*2;
       return `<tr>
         <td style="${tdG}">${labels[i]}</td><td style="${tdS}">${p[i]}%</td>
@@ -1203,7 +1231,7 @@
     }
   }
 
-  ['in-mgmt-pct','in-discount','in-tax','in-notes','in-p1','in-p2','in-p3','in-p4','in-p1-amt','in-p2-amt','in-p3-amt','in-p4-amt']
+  ['in-mgmt-pct','in-discount','in-tax','in-notes','in-p1','in-p2','in-p3','in-p4','in-p5','in-p6','in-p1-amt','in-p2-amt','in-p3-amt','in-p4-amt','in-p5-amt','in-p6-amt']
     .forEach(id => document.getElementById(id).addEventListener('input', () => {
       if (id === 'in-mgmt-pct' || id === 'in-tax' || id === 'in-notes') calcTotals();
       else calcTotals();
