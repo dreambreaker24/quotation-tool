@@ -625,19 +625,30 @@
   }
 
 
-  function searchQuote() {
+  async function searchQuote() {
     const keyword = document.getElementById('in-search-contract').value.trim();
     const hint = document.getElementById('search-hint');
     if (!keyword) { hint.textContent = ''; return; }
-    const q = liveQuotes.find(q => q.contractNo.toLowerCase() === keyword.toLowerCase());
-    if (!q) {
+    hint.style.color = '#888';
+    hint.textContent = '搜尋中…';
+    try {
+      const snap = await db.collection('quotations')
+        .where('contractNo', '==', keyword)
+        .limit(1)
+        .get();
+      if (snap.empty) {
+        hint.style.color = '#e55';
+        hint.textContent = `找不到合約編號「${keyword}」`;
+      } else {
+        const q = snap.docs[0].data();
+        hint.style.color = '#3a3';
+        hint.textContent = `已載入：${q.contractNo}`;
+        loadQuote(q);
+        document.getElementById('in-search-contract').value = '';
+      }
+    } catch (e) {
       hint.style.color = '#e55';
-      hint.textContent = `找不到合約編號「${keyword}」`;
-    } else {
-      hint.style.color = '#3a3';
-      hint.textContent = `已載入：${q.contractNo}`;
-      loadQuote(q);
-      document.getElementById('in-search-contract').value = '';
+      hint.textContent = '搜尋失敗：' + (e.message || e.code);
     }
   }
 
