@@ -206,12 +206,16 @@
 
     <!-- 過往清單 -->
     <h2>過往清單</h2>
-    <div style="display:flex; gap:6px; margin-bottom:10px;">
-      <input type="text" id="in-search-contract" placeholder="輸入合約編號搜尋…"
-        style="flex:1; padding:6px 10px; border:1px solid #ccc; border-radius:4px; font-family:inherit; font-size:13px;"
-        onkeydown="if(event.key==='Enter') searchQuote()">
-      <button onclick="searchQuote()"
-        style="padding:6px 12px; background:#2C2C2C; color:#fff; border:none; border-radius:4px; cursor:pointer; font-family:inherit; font-size:13px; white-space:nowrap;">搜尋</button>
+    <div style="position:relative; margin-bottom:10px;">
+      <div style="display:flex; gap:6px;">
+        <input type="text" id="in-search-contract" placeholder="輸入至少 5 個字即時搜尋…"
+          style="flex:1; padding:6px 10px; border:1px solid #ccc; border-radius:4px; font-family:inherit; font-size:13px;"
+          oninput="liveSearch(this.value)"
+          onkeydown="if(event.key==='Enter') pickFirstResult(); if(event.key==='Escape') clearSearch();">
+        <button onclick="clearSearch()"
+          style="padding:6px 12px; background:#e0e0e0; color:#555; border:none; border-radius:4px; cursor:pointer; font-family:inherit; font-size:13px; white-space:nowrap;">✕</button>
+      </div>
+      <div id="search-results" style="position:absolute; left:0; right:0; background:#fff; border:1px solid #ddd; border-radius:4px; box-shadow:0 4px 12px rgba(0,0,0,.1); z-index:100; display:none; max-height:220px; overflow-y:auto;"></div>
     </div>
     <div id="search-hint" style="font-size:12px; margin-bottom:8px; min-height:16px;"></div>
     <div id="history-list" style="margin-bottom:16px;"></div>
@@ -625,31 +629,58 @@
   }
 
 
-  async function searchQuote() {
-    const keyword = document.getElementById('in-search-contract').value.trim();
+  let _searchDebounce = null;
+  let _searchMatches = [];
+
+  function liveSearch(val) {
+    const results = document.getElementById('search-results');
     const hint = document.getElementById('search-hint');
-    if (!keyword) { hint.textContent = ''; return; }
-    hint.style.color = '#888';
-    hint.textContent = '搜尋中…';
-    try {
-      const snap = await db.collection('quotations')
-        .where('contractNo', '==', keyword)
-        .limit(1)
-        .get();
-      if (snap.empty) {
+    hint.textContent = '';
+    if (val.length < 5) { results.style.display = 'none'; results.innerHTML = ''; return; }
+    clearTimeout(_searchDebounce);
+    _searchDebounce = setTimeout(async () => {
+      try {
+        const snap = await db.collection('quotations').get();
+        _searchMatches = snap.docs.map(d => d.data())
+          .filter(q => q.contractNo && q.contractNo.toLowerCase().includes(val.toLowerCase()));
+        if (_searchMatches.length === 0) {
+          results.innerHTML = '<div style="padding:10px 12px; color:#aaa; font-size:12px;">無符合結果</div>';
+        } else {
+          results.innerHTML = _searchMatches.map((q, i) => {
+            const co = COMPANIES[q.company] || COMPANIES.naiship;
+            return `<div onclick="selectSearchResult(${i})"
+              style="padding:10px 12px; cursor:pointer; border-bottom:1px solid #f0f0f0; font-size:13px;"
+              onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background=''"
+            >${escHtml(co.name)}｜${escHtml(q.contractNo)}</div>`;
+          }).join('');
+        }
+        results.style.display = 'block';
+      } catch (e) {
         hint.style.color = '#e55';
-        hint.textContent = `找不到合約編號「${keyword}」`;
-      } else {
-        const q = snap.docs[0].data();
-        hint.style.color = '#3a3';
-        hint.textContent = `已載入：${q.contractNo}`;
-        loadQuote(q);
-        document.getElementById('in-search-contract').value = '';
+        hint.textContent = '搜尋失敗：' + (e.message || e.code);
       }
-    } catch (e) {
-      hint.style.color = '#e55';
-      hint.textContent = '搜尋失敗：' + (e.message || e.code);
-    }
+    }, 300);
+  }
+
+  function selectSearchResult(i) {
+    const q = _searchMatches[i];
+    loadQuote(q);
+    document.getElementById('in-search-contract').value = '';
+    document.getElementById('search-results').style.display = 'none';
+    document.getElementById('search-hint').style.color = '#3a3';
+    document.getElementById('search-hint').textContent = `已載入：${q.contractNo}`;
+  }
+
+  function pickFirstResult() {
+    if (_searchMatches.length > 0) selectSearchResult(0);
+  }
+
+  function clearSearch() {
+    document.getElementById('in-search-contract').value = '';
+    document.getElementById('search-results').style.display = 'none';
+    document.getElementById('search-results').innerHTML = '';
+    document.getElementById('search-hint').textContent = '';
+    _searchMatches = [];
   }
 
   function renderHistoryList() {
