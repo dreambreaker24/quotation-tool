@@ -436,11 +436,18 @@ async function scanFlow(model, scanFolder, masterPath, defaultCaseNames) {
                 }
             }
         } else {
-            console.log(`\n⚠ 無法辨識：${name}`);
-            const yn = await ask('  是否手動輸入？(y/n)：');
+            console.log(`\n⚠ 整份文件無法辨識：${name}`);
+            const yn = await ask('  是否手動逐張輸入？(y/n)：');
             if (yn.toLowerCase() === 'y') {
-                const manual = await manualInput();
-                fileResults.push({ ok: true, manual: true, file: files[i], data: manual });
+                let invoiceNo = 0;
+                while (true) {
+                    invoiceNo++;
+                    console.log(`\n  ── 第 ${invoiceNo} 張 ──`);
+                    const manual = await manualInput();
+                    fileResults.push({ ok: true, manual: true, file: files[i], data: manual });
+                    const more = await ask('  還有下一張？(y/n)：');
+                    if (more.toLowerCase() !== 'y') break;
+                }
             } else {
                 fileResults.push({ ok: false, file: files[i], error: r.error });
             }
@@ -510,7 +517,7 @@ async function main() {
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
 
     // 選擇公司
     console.log('\n══════════════════════════');
