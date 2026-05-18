@@ -1,0 +1,11 @@
+{
+    "name": "invoice-manager",
+    "version": "1.0.0",
+    "description": "發票整理報帳系統",
+    "main": "invoice.js",
+    "dependencies": {
+        "@anthropic-ai/sdk": "^0.39.0",
+        "@google/generative-ai": "^0.24.1",
+        "exceljs": "^4.4.0"
+    }
+}

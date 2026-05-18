@@ -1,0 +1,15 @@
+{
+    "gemini_api_key": "AIzaSyBHb6QWRckmG_VV5r3Oo-3nBOaGrti6jPI",
+    "companies": {
+        "奈拾設計": {
+            "scan_folder": "C:\\scan\\發票\\奈拾設計",
+            "excel_name": "奈拾設計_發票報帳總表.xlsx",
+            "case_names": ["御永樹林", "馬修廠辦", "奈拾設計", "北區公園路", "永康大橋一街", "衛民街民宿"]
+        },
+        "柏延": {
+            "scan_folder": "C:\\scan\\發票\\柏延",
+            "excel_name": "柏延_發票報帳總表.xlsx",
+            "case_names": []
+        }
+    }
+}
