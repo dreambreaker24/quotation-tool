@@ -106,12 +106,20 @@ async function processFiles(model, files) {
             try {
                 const items = await extractInvoice(model, p);
                 results[i]  = { ok: true, items };
-                items.forEach(d => console.log(
-                    `✓ [${++completed}/${files.length}] ${path.basename(p)}  ${d.date || '?'}  ${d.store_name || '?'}  $${Number(d.total || 0).toLocaleString()}`
-                ));
+                completed++;
+                if (items.length === 1) {
+                    const d = items[0];
+                    console.log(`✓ [${completed}/${files.length}] ${path.basename(p)}  ${d.date || '?'}  ${d.store_name || '?'}  $${Number(d.total || 0).toLocaleString()}`);
+                } else {
+                    console.log(`✓ [${completed}/${files.length}] ${path.basename(p)}  → ${items.length} 張`);
+                    items.forEach((d, j) => console.log(
+                        `     第 ${j+1}/${items.length} 張  ${d.date || '?'}  ${d.store_name || '?'}  $${Number(d.total || 0).toLocaleString()}`
+                    ));
+                }
             } catch (err) {
                 results[i] = { ok: false, error: err.message };
-                console.log(`✗ [${++completed}/${files.length}] ${path.basename(p)}  辨識失敗：${err.message}`);
+                completed++;
+                console.log(`✗ [${completed}/${files.length}] ${path.basename(p)}  辨識失敗：${err.message}`);
             }
         }
     }
@@ -429,11 +437,41 @@ async function scanFlow(model, scanFolder, masterPath, defaultCaseNames) {
         return Number(item.total) === 0 && Number(item.amount) === 0;
     }
 
+    function isSuspiciousBatch(items) {
+        if (items.length < 5) return false;
+        const first = items[0];
+        return items.every(item => item.store_name === first.store_name && item.date === first.date);
+    }
+
     const fileResults = [];
     for (let i = 0; i < files.length; i++) {
         const r    = apiResults[i];
         const name = path.basename(files[i]);
         if (r.ok) {
+            if (isSuspiciousBatch(r.items)) {
+                console.log(`\n⚠ 疑似 AI 幻覺：${name}`);
+                console.log(`   辨識出 ${r.items.length} 張，但全部是「${r.items[0].store_name}」${r.items[0].date}，不合理`);
+                console.log('   1. 略過整份文件');
+                console.log('   2. 手動逐張輸入');
+                console.log('   3. 強制匯入（信任辨識結果）');
+                const c = await ask('   請選擇 (1/2/3)：');
+                if (c === '1') {
+                    fileResults.push({ ok: false, file: files[i], error: '疑似 AI 幻覺，已略過' });
+                    continue;
+                } else if (c === '2') {
+                    let invoiceNo = 0;
+                    while (true) {
+                        invoiceNo++;
+                        console.log(`\n  ── 第 ${invoiceNo} 張 ──`);
+                        const manual = await manualInput();
+                        fileResults.push({ ok: true, manual: true, file: files[i], data: manual });
+                        const more = await ask('  還有下一張？(y/n)：');
+                        if (more.toLowerCase() !== 'y') break;
+                    }
+                    continue;
+                }
+                // c === '3'：信任結果，fall-through 正常流程
+            }
             const total = r.items.length;
             for (let j = 0; j < total; j++) {
                 const data = r.items[j];
