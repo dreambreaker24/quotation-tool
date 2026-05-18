@@ -414,7 +414,7 @@ async function manualInput() {
     const tax            = parseFloat(await ask('  稅額：')) || 0;
     const total          = amount + tax;
     console.log(`  總金額（自動加總）：$${total.toLocaleString()}`);
-    return { date: parseDate(date), invoice_number, tax_id, store_name, items, amount, tax, total, case_name: '' };
+    return { date: parseDate(date), invoice_number: cleanInvoiceNum(invoice_number), tax_id: cleanStr(tax_id), store_name: cleanStr(store_name), items: cleanStr(items), amount, tax, total, case_name: '' };
 }
 
 // ── 工作流程 ──────────────────────────────────────────────────────────────────
