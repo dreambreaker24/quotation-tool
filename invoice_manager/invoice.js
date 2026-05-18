@@ -17,9 +17,8 @@ const CONCURRENCY = 2;
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
-const CFG_PATH    = path.join(__dirname, 'config.json');
-const MASTER_PATH = path.join(os.homedir(), 'Desktop', '發票報帳總表.xlsx');
-const LOG_PATH    = path.join(__dirname, 'log.txt');
+const CFG_PATH = path.join(__dirname, 'config.json');
+const LOG_PATH = path.join(__dirname, 'log.txt');
 
 function loadConfig() {
     try { return JSON.parse(fs.readFileSync(CFG_PATH, 'utf8')); }
@@ -63,6 +62,10 @@ const PROMPT = `請從這份發票提取所有發票的資訊。若有多張發�
 }
 注意：台灣電子發票號碼為兩英文字母加8數字（如 AB12345678）。日期用西元 YYYY-MM-DD。金額只填數字。`;
 
+function cleanStr(s) {
+    return String(s || '').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '').trim();
+}
+
 async function extractInvoice(model, filePath) {
     const ext      = path.extname(filePath).toLowerCase();
     const data     = fs.readFileSync(filePath).toString('base64');
@@ -77,7 +80,17 @@ async function extractInvoice(model, filePath) {
         .replace(/^```json\s*/i, '').replace(/\s*```$/, '');
     const parsed = JSON.parse(text);
     const items  = Array.isArray(parsed) ? parsed : [parsed];
-    return items.map(item => ({ ...item, date: parseDate(item.date), case_name: '' }));
+    return items.map(item => ({
+        date:           parseDate(item.date),
+        invoice_number: cleanStr(item.invoice_number),
+        tax_id:         cleanStr(item.tax_id),
+        store_name:     cleanStr(item.store_name),
+        items:          cleanStr(item.items),
+        amount:         Number(item.amount) || 0,
+        tax:            Number(item.tax)    || 0,
+        total:          Number(item.total)  || 0,
+        case_name:      '',
+    }));
 }
 
 async function processFiles(model, files) {
@@ -337,7 +350,7 @@ async function updateExcel(newData, onDuplicate, masterPath, defaultCaseNames = 
     try {
         await wb.xlsx.writeFile(masterPath);
     } catch (err) {
-        if (err.code === 'EBUSY') throw new Error('請先關閉桌面的「發票報帳總表.xlsx」再執行');
+        if (err.code === 'EBUSY') throw new Error(`請先關閉桌面的「${path.basename(masterPath)}」再執行`);
         throw err;
     }
     return { added, skipped };
@@ -409,7 +422,11 @@ async function scanFlow(model, scanFolder, masterPath, defaultCaseNames) {
 
     function isQuestionable(item) {
         const hasQ = v => !v || String(v).includes('?') || String(v).trim() === '';
-        return hasQ(item.store_name) || (Number(item.total) === 0 && Number(item.amount) === 0);
+        return hasQ(item.store_name);
+    }
+
+    function isZeroAmount(item) {
+        return Number(item.total) === 0 && Number(item.amount) === 0;
     }
 
     const fileResults = [];
@@ -430,6 +447,18 @@ async function scanFlow(model, scanFolder, masterPath, defaultCaseNames) {
                         fileResults.push({ ok: true, manual: true, file: files[i], data: manual });
                     } else {
                         fileResults.push({ ok: false, file: files[i], error: '辨識不完整且未手動輸入' });
+                    }
+                } else if (isZeroAmount(data)) {
+                    console.log(`\n⚠ 金額為 0${tag}：${name}`);
+                    console.log(`   店家：${data.store_name}  發票號碼：${data.invoice_number || '(空)'}`);
+                    console.log('   1. 金額確實為 0（直接匯入）');
+                    console.log('   2. 手動重新輸入');
+                    const c = await ask('   請選擇 (1/2)：');
+                    if (c === '2') {
+                        const manual = await manualInput();
+                        fileResults.push({ ok: true, manual: true, file: files[i], data: manual });
+                    } else {
+                        fileResults.push({ ok: true, file: files[i], data });
                     }
                 } else {
                     fileResults.push({ ok: true, file: files[i], data });
@@ -474,7 +503,7 @@ async function scanFlow(model, scanFolder, masterPath, defaultCaseNames) {
     appendLog(folder, fileResults, added, skipped);
 
     console.log(`\n完成！新增 ${added} 筆，略過重複 ${skipped} 筆`);
-    console.log(`請開啟桌面的「發票報帳總表.xlsx」，在案場名稱欄選擇下拉選項`);
+    console.log(`請開啟桌面的「${path.basename(masterPath)}」，在案場名稱欄選擇下拉選項`);
     console.log(`執行紀錄：${LOG_PATH}`);
 }
 
