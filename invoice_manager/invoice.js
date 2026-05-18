@@ -437,6 +437,13 @@ async function scanFlow(model, scanFolder, masterPath, defaultCaseNames) {
         return Number(item.total) === 0 && Number(item.amount) === 0;
     }
 
+    const currentYear = new Date().getFullYear();
+    function isWrongYear(item) {
+        if (!item.date) return false;
+        const y = new Date(item.date).getFullYear();
+        return isNaN(y) ? false : Math.abs(y - currentYear) > 1;
+    }
+
     function isSuspiciousBatch(items) {
         if (items.length < 5) return false;
         const first = items[0];
@@ -498,6 +505,15 @@ async function scanFlow(model, scanFolder, masterPath, defaultCaseNames) {
                     } else {
                         fileResults.push({ ok: true, file: files[i], data });
                     }
+                } else if (isWrongYear(data)) {
+                    console.log(`\n⚠ 年份可能有誤${tag}：${name}`);
+                    console.log(`   辨識日期：${data.date}（今年是 ${currentYear} 年）`);
+                    console.log(`   店家：${data.store_name}  金額：$${Number(data.total || 0).toLocaleString()}`);
+                    const ans = await ask(`   輸入正確年份（如 ${currentYear}），或 Enter 保留原日期：`);
+                    if (ans.trim() && /^\d{4}$/.test(ans.trim())) {
+                        data.date = data.date.replace(/^\d{4}/, ans.trim());
+                    }
+                    fileResults.push({ ok: true, file: files[i], data });
                 } else {
                     fileResults.push({ ok: true, file: files[i], data });
                 }
