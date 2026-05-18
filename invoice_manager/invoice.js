@@ -426,7 +426,7 @@ async function scanFlow(model, scanFolder, masterPath, defaultCaseNames, ownName
     const currentYear = new Date().getFullYear();
 
     function isSuspiciousBatch(items) {
-        if (items.length < 5) return false;
+        if (items.length < 3) return false;
         const first = items[0];
         return items.every(item => item.store_name === first.store_name && item.date === first.date);
     }
@@ -563,14 +563,6 @@ async function scanFlow(model, scanFolder, masterPath, defaultCaseNames, ownName
         return;
     }
 
-    // 移動已處理檔案（候選檔、自動略過的幻覺檔）
-    const filesToMove = new Set([
-        ...candidates.map(c => c.sourceFile),
-        ...autoSkipped,
-    ]);
-    moveToProcessed([...filesToMove], folder);
-    console.log(`\n已移動 ${filesToMove.size} 個檔案至「已處理」資料夾`);
-
     const { added, skipped } = await updateExcel(toImport, async (num, item) => {
         console.log(`\n⚠ 重複發票：${num}  ${item.store_name || ''}  ${item.date || ''}  $${Number(item.total || 0).toLocaleString()}`);
         console.log('   1. 略過（保留原有資料）');
@@ -603,6 +595,14 @@ async function scanFlow(model, scanFolder, masterPath, defaultCaseNames, ownName
     }
     logLines.push(`  → 新增 ${added} 筆，略過重複 ${skipped} 筆`);
     fs.appendFileSync(LOG_PATH, logLines.join('\n') + '\n', 'utf8');
+
+    // Excel 寫入成功後才移動檔案
+    const filesToMove = new Set([
+        ...candidates.map(c => c.sourceFile),
+        ...autoSkipped,
+    ]);
+    moveToProcessed([...filesToMove], folder);
+    console.log(`\n已移動 ${filesToMove.size} 個檔案至「已處理」資料夾`);
 
     console.log(`\n完成！新增 ${added} 筆，略過重複 ${skipped} 筆`);
     console.log(`請開啟桌面的「${path.basename(masterPath)}」，在案場名稱欄選擇下拉選項`);
