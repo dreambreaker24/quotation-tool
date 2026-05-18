@@ -66,6 +66,10 @@ function cleanStr(s) {
     return String(s || '').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '').trim();
 }
 
+function cleanInvoiceNum(s) {
+    return cleanStr(s).replace(/[\s\-]/g, '').toUpperCase();
+}
+
 async function extractInvoice(model, filePath) {
     const ext      = path.extname(filePath).toLowerCase();
     const data     = fs.readFileSync(filePath).toString('base64');
@@ -82,7 +86,7 @@ async function extractInvoice(model, filePath) {
     const items  = Array.isArray(parsed) ? parsed : [parsed];
     return items.map(item => ({
         date:           parseDate(item.date),
-        invoice_number: cleanStr(item.invoice_number),
+        invoice_number: cleanInvoiceNum(item.invoice_number),
         tax_id:         cleanStr(item.tax_id),
         store_name:     cleanStr(item.store_name),
         items:          cleanStr(item.items),
