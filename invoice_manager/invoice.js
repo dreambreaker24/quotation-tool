@@ -522,7 +522,28 @@ async function scanFlow(model, scanFolder, masterPath, defaultCaseNames, ownName
         }
     }
 
-    // 手動輸入/修改指定筆數（w 指令）
+    // 沒有任何非略過項目時提前結束
+    if (candidates.every((_, i) => skipIndices.has(i))) {
+        console.log('\n沒有選擇匯入任何資料');
+        return;
+    }
+
+    // 重複發票處理回呼（共用）
+    const onDuplicate = async (num, item) => {
+        console.log(`\n⚠ 重複發票：${num}  ${item.store_name || ''}  ${item.date || ''}  $${Number(item.total || 0).toLocaleString()}`);
+        console.log('   1. 略過（保留原有資料）');
+        console.log('   2. 覆蓋舊資料');
+        console.log('   3. 兩筆都保留');
+        const c = await ask('   請選擇 (1/2/3)：');
+        if (c === '2') return 'overwrite';
+        if (c === '3') return 'keep';
+        return 'skip';
+    };
+
+    let totalAdded = 0, totalSkipped = 0;
+
+    // w 指令：每填完一筆立即寫入 Excel
+    const alreadyImported = new Set();
     for (const idx of [...editIndices].sort((a, b) => a - b)) {
         const c = candidates[idx];
         if (c.failed) {
@@ -530,14 +551,19 @@ async function scanFlow(model, scanFolder, masterPath, defaultCaseNames, ownName
         } else {
             console.log(`\n── 修改第 ${idx + 1} 筆（原：${c.invoice.store_name || '?'}  $${Number(c.invoice.total || 0).toLocaleString()}）──`);
         }
-        candidates[idx] = { ...c, invoice: await manualInput(), failed: false };
+        const manual = await manualInput();
+        candidates[idx] = { ...c, invoice: manual, failed: false };
+        const { added, skipped } = await updateExcel([manual], onDuplicate, masterPath, defaultCaseNames);
+        totalAdded += added; totalSkipped += skipped;
+        console.log(`  ✓ 已寫入 Excel（${added > 0 ? '新增 1 筆' : '略過重複'}）`);
+        alreadyImported.add(idx);
     }
 
-    // 建立最終匯入清單（辨識失敗且未用 w 指定的，詢問是否手動輸入）
+    // 其餘項目：手動輸入（辨識失敗）立即寫入，AI 辨識結果批次寫入
     const toImport = [];
     const inlineManualIndices = new Set();
     for (let i = 0; i < candidates.length; i++) {
-        if (skipIndices.has(i)) continue;
+        if (skipIndices.has(i) || alreadyImported.has(i)) continue;
         const c = candidates[i];
         if (c.failed) {
             console.log(`\n⚠ 辨識失敗：${path.basename(c.sourceFile)}`);
@@ -548,7 +574,10 @@ async function scanFlow(model, scanFolder, masterPath, defaultCaseNames, ownName
                 while (true) {
                     n++;
                     console.log(`\n  ── 第 ${n} 張 ──`);
-                    toImport.push(await manualInput());
+                    const manual = await manualInput();
+                    const { added, skipped } = await updateExcel([manual], onDuplicate, masterPath, defaultCaseNames);
+                    totalAdded += added; totalSkipped += skipped;
+                    console.log(`  ✓ 已寫入 Excel（${added > 0 ? '新增 1 筆' : '略過重複'}）`);
                     const more = await ask('  還有下一張？(y/n)：');
                     if (more.toLowerCase() !== 'y') break;
                 }
@@ -558,21 +587,11 @@ async function scanFlow(model, scanFolder, masterPath, defaultCaseNames, ownName
         toImport.push(c.invoice);
     }
 
-    if (toImport.length === 0) {
-        console.log('\n沒有選擇匯入任何資料');
-        return;
+    // AI 辨識結果批次寫入
+    if (toImport.length > 0) {
+        const { added, skipped } = await updateExcel(toImport, onDuplicate, masterPath, defaultCaseNames);
+        totalAdded += added; totalSkipped += skipped;
     }
-
-    const { added, skipped } = await updateExcel(toImport, async (num, item) => {
-        console.log(`\n⚠ 重複發票：${num}  ${item.store_name || ''}  ${item.date || ''}  $${Number(item.total || 0).toLocaleString()}`);
-        console.log('   1. 略過（保留原有資料）');
-        console.log('   2. 覆蓋舊資料');
-        console.log('   3. 兩筆都保留');
-        const c = await ask('   請選擇 (1/2/3)：');
-        if (c === '2') return 'overwrite';
-        if (c === '3') return 'keep';
-        return 'skip';
-    }, masterPath, defaultCaseNames);
 
     // 寫入 log
     const ts = new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' });
@@ -593,10 +612,10 @@ async function scanFlow(model, scanFolder, masterPath, defaultCaseNames, ownName
     for (const file of autoSkipped) {
         logLines.push(`  ⚠ ${path.basename(file)}  自動略過（疑似 AI 幻覺）`);
     }
-    logLines.push(`  → 新增 ${added} 筆，略過重複 ${skipped} 筆`);
+    logLines.push(`  → 新增 ${totalAdded} 筆，略過重複 ${totalSkipped} 筆`);
     fs.appendFileSync(LOG_PATH, logLines.join('\n') + '\n', 'utf8');
 
-    // Excel 寫入成功後才移動檔案
+    // Excel 全部寫完後移動檔案
     const filesToMove = new Set([
         ...candidates.map(c => c.sourceFile),
         ...autoSkipped,
@@ -604,7 +623,7 @@ async function scanFlow(model, scanFolder, masterPath, defaultCaseNames, ownName
     moveToProcessed([...filesToMove], folder);
     console.log(`\n已移動 ${filesToMove.size} 個檔案至「已處理」資料夾`);
 
-    console.log(`\n完成！新增 ${added} 筆，略過重複 ${skipped} 筆`);
+    console.log(`\n完成！新增 ${totalAdded} 筆，略過重複 ${totalSkipped} 筆`);
     console.log(`請開啟桌面的「${path.basename(masterPath)}」，在案場名稱欄選擇下拉選項`);
     console.log(`執行紀錄：${LOG_PATH}`);
 }
