@@ -377,22 +377,6 @@ async function updateExcel(newData, onDuplicate, masterPath, defaultCaseNames = 
 
 // ── Log & 移動檔案 ────────────────────────────────────────────────────────────
 
-function appendLog(folder, fileResults, added, skipped) {
-    const ts    = new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' });
-    const lines = [`\n=== ${ts}  資料夾：${path.resolve(folder)} ===`];
-    for (const r of fileResults) {
-        const name = path.basename(r.file);
-        if (r.ok && !r.manual)
-            lines.push(`  ✓ ${name}  ${r.data.date || '?'}  ${r.data.store_name || '?'}  $${Number(r.data.total || 0).toLocaleString()}`);
-        else if (r.manual)
-            lines.push(`  ✎ ${name}  手動輸入  ${r.data.store_name || '?'}  $${Number(r.data.total || 0).toLocaleString()}`);
-        else
-            lines.push(`  ✗ ${name}  略過（${r.error}）`);
-    }
-    lines.push(`  → 新增 ${added} 筆，略過重複 ${skipped} 筆`);
-    fs.appendFileSync(LOG_PATH, lines.join('\n') + '\n', 'utf8');
-}
-
 function moveToProcessed(files, folder) {
     const dest = path.join(folder, '已處理');
     if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
@@ -439,26 +423,7 @@ async function scanFlow(model, scanFolder, masterPath, defaultCaseNames, ownName
 
     const apiResults = await processFiles(model, files);
 
-    function isQuestionable(item) {
-        const hasQ = v => !v || String(v).includes('?') || String(v).trim() === '';
-        return hasQ(item.store_name);
-    }
-
-    function isZeroAmount(item) {
-        return Number(item.total) === 0 && Number(item.amount) === 0;
-    }
-
     const currentYear = new Date().getFullYear();
-    function isWrongYear(item) {
-        if (!item.date) return false;
-        const y = new Date(item.date).getFullYear();
-        return isNaN(y) ? false : Math.abs(y - currentYear) > 1;
-    }
-
-    function isOwnCompany(item) {
-        if (!item.store_name || ownNames.length === 0) return false;
-        return ownNames.some(name => item.store_name.includes(name));
-    }
 
     function isSuspiciousBatch(items) {
         if (items.length < 5) return false;
@@ -466,112 +431,144 @@ async function scanFlow(model, scanFolder, masterPath, defaultCaseNames, ownName
         return items.every(item => item.store_name === first.store_name && item.date === first.date);
     }
 
-    const fileResults = [];
+    function getFlags(item) {
+        const flags = [];
+        if (!item.store_name || String(item.store_name).trim() === '') flags.push('⚠店家空白');
+        else if (ownNames.some(name => item.store_name.includes(name))) flags.push('⚠自家公司');
+        if (Number(item.total) === 0 && Number(item.amount) === 0) flags.push('⚠金額為0');
+        if (item.date) {
+            const y = new Date(item.date).getFullYear();
+            if (!isNaN(y) && Math.abs(y - currentYear) > 1) flags.push(`⚠年份${y}`);
+        }
+        return flags;
+    }
+
+    // 分類辨識結果
+    const candidates  = [];  // { invoice, sourceFile, flags }
+    const failedFiles = [];  // { file, error }
+    const autoSkipped = [];  // 疑似幻覺被自動略過的檔案路徑
+
     for (let i = 0; i < files.length; i++) {
         const r    = apiResults[i];
-        const name = path.basename(files[i]);
-        if (r.ok) {
-            if (isSuspiciousBatch(r.items)) {
-                console.log(`\n⚠ 疑似 AI 幻覺：${name}`);
-                console.log(`   辨識出 ${r.items.length} 張，但全部是「${r.items[0].store_name}」${r.items[0].date}，不合理`);
-                console.log('   1. 略過整份文件');
-                console.log('   2. 手動逐張輸入');
-                console.log('   3. 強制匯入（信任辨識結果）');
-                const c = await ask('   請選擇 (1/2/3)：');
-                if (c === '1') {
-                    fileResults.push({ ok: false, file: files[i], error: '疑似 AI 幻覺，已略過' });
-                    continue;
-                } else if (c === '2') {
-                    let invoiceNo = 0;
-                    while (true) {
-                        invoiceNo++;
-                        console.log(`\n  ── 第 ${invoiceNo} 張 ──`);
-                        const manual = await manualInput();
-                        fileResults.push({ ok: true, manual: true, file: files[i], data: manual });
-                        const more = await ask('  還有下一張？(y/n)：');
-                        if (more.toLowerCase() !== 'y') break;
-                    }
-                    continue;
-                }
-                // c === '3'：信任結果，fall-through 正常流程
-            }
-            const total = r.items.length;
-            for (let j = 0; j < total; j++) {
-                const data = r.items[j];
-                const tag  = total > 1 ? ` [第 ${j+1}/${total} 張]` : '';
-                if (isOwnCompany(data)) {
-                    console.log(`\n⚠ 疑似自家開出的發票${tag}：${name}`);
-                    console.log(`   店家：${data.store_name}  金額：$${Number(data.total || 0).toLocaleString()}`);
-                    console.log('   1. 略過（不匯入）');
-                    console.log('   2. 強制匯入');
-                    const c = await ask('   請選擇 (1/2)：');
-                    if (c === '2') {
-                        fileResults.push({ ok: true, file: files[i], data });
-                    } else {
-                        fileResults.push({ ok: false, file: files[i], error: '自家發票，已略過' });
-                    }
-                } else if (isQuestionable(data)) {
-                    console.log(`\n⚠ 辨識不完整${tag}：${name}`);
-                    console.log(`   店家：${data.store_name || '(空)'}  日期：${data.date || '(空)'}  金額：$${Number(data.total || 0).toLocaleString()}`);
-                    const yn = await ask('   是否手動輸入這筆？(y/n)：');
-                    if (yn.toLowerCase() === 'y') {
-                        const manual = await manualInput();
-                        fileResults.push({ ok: true, manual: true, file: files[i], data: manual });
-                    } else {
-                        fileResults.push({ ok: false, file: files[i], error: '辨識不完整且未手動輸入' });
-                    }
-                } else if (isZeroAmount(data)) {
-                    console.log(`\n⚠ 金額為 0${tag}：${name}`);
-                    console.log(`   店家：${data.store_name}  發票號碼：${data.invoice_number || '(空)'}`);
-                    console.log('   1. 金額確實為 0（直接匯入）');
-                    console.log('   2. 手動重新輸入');
-                    const c = await ask('   請選擇 (1/2)：');
-                    if (c === '2') {
-                        const manual = await manualInput();
-                        fileResults.push({ ok: true, manual: true, file: files[i], data: manual });
-                    } else {
-                        fileResults.push({ ok: true, file: files[i], data });
-                    }
-                } else if (isWrongYear(data)) {
-                    console.log(`\n⚠ 年份可能有誤${tag}：${name}`);
-                    console.log(`   辨識日期：${data.date}（今年是 ${currentYear} 年）`);
-                    console.log(`   店家：${data.store_name}  金額：$${Number(data.total || 0).toLocaleString()}`);
-                    const ans = await ask(`   輸入正確年份（如 ${currentYear}），或 Enter 保留原日期：`);
-                    if (ans.trim() && /^\d{4}$/.test(ans.trim())) {
-                        data.date = data.date.replace(/^\d{4}/, ans.trim());
-                    }
-                    fileResults.push({ ok: true, file: files[i], data });
-                } else {
-                    fileResults.push({ ok: true, file: files[i], data });
-                }
-            }
-        } else {
-            console.log(`\n⚠ 整份文件無法辨識：${name}`);
-            const yn = await ask('  是否手動逐張輸入？(y/n)：');
-            if (yn.toLowerCase() === 'y') {
-                let invoiceNo = 0;
-                while (true) {
-                    invoiceNo++;
-                    console.log(`\n  ── 第 ${invoiceNo} 張 ──`);
-                    const manual = await manualInput();
-                    fileResults.push({ ok: true, manual: true, file: files[i], data: manual });
-                    const more = await ask('  還有下一張？(y/n)：');
-                    if (more.toLowerCase() !== 'y') break;
-                }
+        const file = files[i];
+        if (!r.ok) {
+            failedFiles.push({ file, error: r.error });
+            continue;
+        }
+        if (isSuspiciousBatch(r.items)) {
+            console.log(`\n⚠ 疑似 AI 幻覺，自動略過：${path.basename(file)}`);
+            console.log(`   （${r.items.length} 張全是「${r.items[0].store_name}」${r.items[0].date}）`);
+            autoSkipped.push(file);
+            continue;
+        }
+        for (const item of r.items) {
+            candidates.push({ invoice: item, sourceFile: file, flags: getFlags(item) });
+        }
+    }
+
+    // 顯示預覽表格
+    console.log('\n══════════════════════════════════════════════════════════════');
+    console.log('  辨識結果預覽（確認後才會匯入 Excel）');
+    console.log('══════════════════════════════════════════════════════════════');
+
+    if (candidates.length === 0) {
+        console.log('  （無可預覽的發票）');
+    } else {
+        console.log('  #    日期        店家抬頭               總金額    發票號碼');
+        console.log('  ──────────────────────────────────────────────────────────');
+        for (let i = 0; i < candidates.length; i++) {
+            const { invoice, flags } = candidates[i];
+            const idx   = String(i + 1).padStart(3);
+            const date  = (invoice.date || '').padEnd(10);
+            const store = (invoice.store_name || '(空)').slice(0, 20).padEnd(20);
+            const total = `$${Number(invoice.total || 0).toLocaleString()}`.padStart(9);
+            const num   = (invoice.invoice_number || '').padEnd(12);
+            const flagStr = flags.length > 0 ? `  ${flags.join(' ')}` : '';
+            console.log(`  ${idx}. ${date}  ${store}  ${total}  ${num}${flagStr}`);
+        }
+    }
+
+    if (failedFiles.length > 0) {
+        console.log(`\n  ⚠ 另有 ${failedFiles.length} 個檔案辨識失敗，確認後可手動輸入`);
+    }
+    console.log('══════════════════════════════════════════════════════════════');
+
+    if (candidates.length === 0 && failedFiles.length === 0) {
+        console.log('\n沒有可匯入的發票');
+        return;
+    }
+
+    console.log('\n  Enter = 全部匯入  |  數字 = 略過（如 1,3）  |  w2 = 手動修改第 2 筆  |  q = 取消');
+    const ans = await ask('請輸入：');
+
+    if (ans.toLowerCase() === 'q') {
+        console.log('已取消，未匯入任何資料');
+        return;
+    }
+
+    // 解析略過號碼與手動編輯號碼
+    const skipIndices = new Set();
+    const editIndices = new Set();
+    if (ans.trim()) {
+        for (const s of ans.split(',')) {
+            const token = s.trim();
+            if (/^w\d+$/i.test(token)) {
+                const n = parseInt(token.slice(1));
+                if (n >= 1 && n <= candidates.length) editIndices.add(n - 1);
             } else {
-                fileResults.push({ ok: false, file: files[i], error: r.error });
+                const n = parseInt(token);
+                if (!isNaN(n) && n >= 1 && n <= candidates.length) skipIndices.add(n - 1);
             }
         }
     }
 
-    const allData = fileResults.filter(r => r.ok).map(r => r.data);
-    if (allData.length === 0) { console.log('\n沒有可匯入的發票'); return; }
+    // 手動修改指定筆數
+    for (const idx of [...editIndices].sort((a, b) => a - b)) {
+        const { invoice } = candidates[idx];
+        console.log(`\n── 修改第 ${idx + 1} 筆（原：${invoice.store_name || '?'}  $${Number(invoice.total || 0).toLocaleString()}）──`);
+        candidates[idx].invoice = await manualInput();
+    }
 
-    const processedFiles = [...new Set(fileResults.filter(r => r.ok).map(r => r.file))];
-    moveToProcessed(processedFiles, folder);
-    console.log(`\n已移動 ${processedFiles.length} 個檔案至「已處理」資料夾`);
+    const toImport = candidates
+        .filter((_, i) => !skipIndices.has(i))
+        .map(c => c.invoice);
 
-    const { added, skipped } = await updateExcel(allData, async (num, item) => {
+    // 處理辨識失敗的檔案（手動輸入）
+    const manualEntries = [];
+    const manualFiles   = [];
+    for (const { file, error } of failedFiles) {
+        console.log(`\n⚠ 辨識失敗：${path.basename(file)}（${error}）`);
+        const yn = await ask('  是否手動輸入？(y/n)：');
+        if (yn.toLowerCase() === 'y') {
+            let n = 0;
+            while (true) {
+                n++;
+                console.log(`\n  ── 第 ${n} 張 ──`);
+                const manual = await manualInput();
+                manualEntries.push(manual);
+                const more = await ask('  還有下一張？(y/n)：');
+                if (more.toLowerCase() !== 'y') break;
+            }
+            manualFiles.push(file);
+        }
+    }
+
+    const finalData = [...toImport, ...manualEntries];
+    if (finalData.length === 0) {
+        console.log('\n沒有選擇匯入任何資料');
+        return;
+    }
+
+    // 移動已處理檔案（候選檔、手動輸入的失敗檔、自動略過的幻覺檔）
+    const filesToMove = new Set([
+        ...candidates.map(c => c.sourceFile),
+        ...manualFiles,
+        ...autoSkipped,
+    ]);
+    moveToProcessed([...filesToMove], folder);
+    console.log(`\n已移動 ${filesToMove.size} 個檔案至「已處理」資料夾`);
+
+    const { added, skipped } = await updateExcel(finalData, async (num, item) => {
         console.log(`\n⚠ 重複發票：${num}  ${item.store_name || ''}  ${item.date || ''}  $${Number(item.total || 0).toLocaleString()}`);
         console.log('   1. 略過（保留原有資料）');
         console.log('   2. 覆蓋舊資料');
@@ -581,7 +578,26 @@ async function scanFlow(model, scanFolder, masterPath, defaultCaseNames, ownName
         if (c === '3') return 'keep';
         return 'skip';
     }, masterPath, defaultCaseNames);
-    appendLog(folder, fileResults, added, skipped);
+
+    // 寫入 log
+    const ts = new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' });
+    const logLines = [`\n=== ${ts}  資料夾：${path.resolve(folder)} ===`];
+    for (let i = 0; i < candidates.length; i++) {
+        const { invoice, sourceFile } = candidates[i];
+        if (skipIndices.has(i)) {
+            logLines.push(`  ✗ ${path.basename(sourceFile)}  手動略過  ${invoice.store_name || '?'}  $${Number(invoice.total || 0).toLocaleString()}`);
+        } else {
+            logLines.push(`  ✓ ${path.basename(sourceFile)}  ${invoice.date || '?'}  ${invoice.store_name || '?'}  $${Number(invoice.total || 0).toLocaleString()}`);
+        }
+    }
+    for (const entry of manualEntries) {
+        logLines.push(`  ✎ 手動輸入  ${entry.store_name || '?'}  $${Number(entry.total || 0).toLocaleString()}`);
+    }
+    for (const file of autoSkipped) {
+        logLines.push(`  ⚠ ${path.basename(file)}  自動略過（疑似 AI 幻覺）`);
+    }
+    logLines.push(`  → 新增 ${added} 筆，略過重複 ${skipped} 筆`);
+    fs.appendFileSync(LOG_PATH, logLines.join('\n') + '\n', 'utf8');
 
     console.log(`\n完成！新增 ${added} 筆，略過重複 ${skipped} 筆`);
     console.log(`請開啟桌面的「${path.basename(masterPath)}」，在案場名稱欄選擇下拉選項`);
