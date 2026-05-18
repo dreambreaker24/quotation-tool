@@ -419,7 +419,7 @@ async function manualInput() {
 
 // ── 工作流程 ──────────────────────────────────────────────────────────────────
 
-async function scanFlow(model, scanFolder, masterPath, defaultCaseNames) {
+async function scanFlow(model, scanFolder, masterPath, defaultCaseNames, ownNames = []) {
     const folder = scanFolder;
     if (!fs.existsSync(folder)) { console.log(`找不到資料夾：${folder}`); return; }
 
@@ -446,6 +446,11 @@ async function scanFlow(model, scanFolder, masterPath, defaultCaseNames) {
         if (!item.date) return false;
         const y = new Date(item.date).getFullYear();
         return isNaN(y) ? false : Math.abs(y - currentYear) > 1;
+    }
+
+    function isOwnCompany(item) {
+        if (!item.store_name || ownNames.length === 0) return false;
+        return ownNames.some(name => item.store_name.includes(name));
     }
 
     function isSuspiciousBatch(items) {
@@ -487,7 +492,18 @@ async function scanFlow(model, scanFolder, masterPath, defaultCaseNames) {
             for (let j = 0; j < total; j++) {
                 const data = r.items[j];
                 const tag  = total > 1 ? ` [第 ${j+1}/${total} 張]` : '';
-                if (isQuestionable(data)) {
+                if (isOwnCompany(data)) {
+                    console.log(`\n⚠ 疑似自家開出的發票${tag}：${name}`);
+                    console.log(`   店家：${data.store_name}  金額：$${Number(data.total || 0).toLocaleString()}`);
+                    console.log('   1. 略過（不匯入）');
+                    console.log('   2. 強制匯入');
+                    const c = await ask('   請選擇 (1/2)：');
+                    if (c === '2') {
+                        fileResults.push({ ok: true, file: files[i], data });
+                    } else {
+                        fileResults.push({ ok: false, file: files[i], error: '自家發票，已略過' });
+                    }
+                } else if (isQuestionable(data)) {
                     console.log(`\n⚠ 辨識不完整${tag}：${name}`);
                     console.log(`   店家：${data.store_name || '(空)'}  日期：${data.date || '(空)'}  金額：$${Number(data.total || 0).toLocaleString()}`);
                     const yn = await ask('   是否手動輸入這筆？(y/n)：');
@@ -620,13 +636,14 @@ async function main() {
     const scanFolder     = co.scan_folder || `C:\\scan\\發票\\${companyKey}`;
     const masterPath     = path.join(os.homedir(), 'Desktop', co.excel_name || `${companyKey}_發票報帳總表.xlsx`);
     const defaultCaseNames = co.case_names || [];
+    const ownNames         = co.own_names  || [];
     console.log(`\n已選擇：${companyKey}\n`);
 
     while (true) {
         printMenu();
         const choice = await ask('請選擇：');
         switch (choice) {
-            case '1': await scanFlow(model, scanFolder, masterPath, defaultCaseNames); break;
+            case '1': await scanFlow(model, scanFolder, masterPath, defaultCaseNames, ownNames); break;
             case '2': await manualFlow(masterPath, defaultCaseNames);                  break;
             case '3': rl.close(); process.exit(0);
             default:  console.log('請輸入 1-3');
