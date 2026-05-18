@@ -307,7 +307,7 @@ async function updateExcel(newData, onDuplicate, masterPath, defaultCaseNames = 
                 if (String(v[5] || '').trim() === '合　計') return;
                 const dateVal    = v[1];
                 const dateStr    = dateVal instanceof Date ? dateVal.toISOString().slice(0, 10) : String(dateVal || '');
-                const invoiceNum = String(v[2] || '').trim();
+                const invoiceNum = String(v[2] || '').replace(/[\s\-]/g, '').toUpperCase().trim();
                 allData.push({
                     date: dateStr, invoice_number: invoiceNum,
                     tax_id: String(v[3] || ''), store_name: String(v[4] || ''),
