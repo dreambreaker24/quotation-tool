@@ -443,16 +443,15 @@ async function scanFlow(model, scanFolder, masterPath, defaultCaseNames, ownName
         return flags;
     }
 
-    // 分類辨識結果
-    const candidates  = [];  // { invoice, sourceFile, flags }
-    const failedFiles = [];  // { file, error }
-    const autoSkipped = [];  // 疑似幻覺被自動略過的檔案路徑
+    // 分類辨識結果（failed: true = 辨識失敗，顯示在表格中）
+    const candidates  = [];
+    const autoSkipped = [];
 
     for (let i = 0; i < files.length; i++) {
         const r    = apiResults[i];
         const file = files[i];
         if (!r.ok) {
-            failedFiles.push({ file, error: r.error });
+            candidates.push({ invoice: null, sourceFile: file, flags: ['⚠辨識失敗'], failed: true });
             continue;
         }
         if (isSuspiciousBatch(r.items)) {
@@ -462,7 +461,7 @@ async function scanFlow(model, scanFolder, masterPath, defaultCaseNames, ownName
             continue;
         }
         for (const item of r.items) {
-            candidates.push({ invoice: item, sourceFile: file, flags: getFlags(item) });
+            candidates.push({ invoice: item, sourceFile: file, flags: getFlags(item), failed: false });
         }
     }
 
@@ -477,28 +476,29 @@ async function scanFlow(model, scanFolder, masterPath, defaultCaseNames, ownName
         console.log('  #    日期        店家抬頭               總金額    發票號碼');
         console.log('  ──────────────────────────────────────────────────────────');
         for (let i = 0; i < candidates.length; i++) {
-            const { invoice, flags } = candidates[i];
-            const idx   = String(i + 1).padStart(3);
-            const date  = (invoice.date || '').padEnd(10);
-            const store = (invoice.store_name || '(空)').slice(0, 20).padEnd(20);
-            const total = `$${Number(invoice.total || 0).toLocaleString()}`.padStart(9);
-            const num   = (invoice.invoice_number || '').padEnd(12);
-            const flagStr = flags.length > 0 ? `  ${flags.join(' ')}` : '';
-            console.log(`  ${idx}. ${date}  ${store}  ${total}  ${num}${flagStr}`);
+            const { invoice, flags, failed, sourceFile } = candidates[i];
+            const idx = String(i + 1).padStart(3);
+            if (failed) {
+                console.log(`  ${idx}. ${path.basename(sourceFile).slice(0, 42)}  ⚠辨識失敗`);
+            } else {
+                const date    = (invoice.date || '').padEnd(10);
+                const store   = (invoice.store_name || '(空)').slice(0, 20).padEnd(20);
+                const total   = `$${Number(invoice.total || 0).toLocaleString()}`.padStart(9);
+                const num     = (invoice.invoice_number || '').padEnd(12);
+                const flagStr = flags.length > 0 ? `  ${flags.join(' ')}` : '';
+                console.log(`  ${idx}. ${date}  ${store}  ${total}  ${num}${flagStr}`);
+            }
         }
     }
 
-    if (failedFiles.length > 0) {
-        console.log(`\n  ⚠ 另有 ${failedFiles.length} 個檔案辨識失敗，確認後可手動輸入`);
-    }
     console.log('══════════════════════════════════════════════════════════════');
 
-    if (candidates.length === 0 && failedFiles.length === 0) {
+    if (candidates.length === 0) {
         console.log('\n沒有可匯入的發票');
         return;
     }
 
-    console.log('\n  Enter = 全部匯入  |  數字 = 略過（如 1,3）  |  w2 = 手動修改第 2 筆  |  q = 取消');
+    console.log('\n  Enter = 全部匯入  |  數字 = 略過（如 1,3）  |  w2 = 手動輸入/修改第 2 筆  |  q = 取消');
     const ans = await ask('請輸入：');
 
     if (ans.toLowerCase() === 'q') {
@@ -522,53 +522,56 @@ async function scanFlow(model, scanFolder, masterPath, defaultCaseNames, ownName
         }
     }
 
-    // 手動修改指定筆數
+    // 手動輸入/修改指定筆數（w 指令）
     for (const idx of [...editIndices].sort((a, b) => a - b)) {
-        const { invoice } = candidates[idx];
-        console.log(`\n── 修改第 ${idx + 1} 筆（原：${invoice.store_name || '?'}  $${Number(invoice.total || 0).toLocaleString()}）──`);
-        candidates[idx].invoice = await manualInput();
-    }
-
-    const toImport = candidates
-        .filter((_, i) => !skipIndices.has(i))
-        .map(c => c.invoice);
-
-    // 處理辨識失敗的檔案（手動輸入）
-    const manualEntries = [];
-    const manualFiles   = [];
-    for (const { file, error } of failedFiles) {
-        console.log(`\n⚠ 辨識失敗：${path.basename(file)}（${error}）`);
-        const yn = await ask('  是否手動輸入？(y/n)：');
-        if (yn.toLowerCase() === 'y') {
-            let n = 0;
-            while (true) {
-                n++;
-                console.log(`\n  ── 第 ${n} 張 ──`);
-                const manual = await manualInput();
-                manualEntries.push(manual);
-                const more = await ask('  還有下一張？(y/n)：');
-                if (more.toLowerCase() !== 'y') break;
-            }
-            manualFiles.push(file);
+        const c = candidates[idx];
+        if (c.failed) {
+            console.log(`\n── 手動輸入：${path.basename(c.sourceFile)} ──`);
+        } else {
+            console.log(`\n── 修改第 ${idx + 1} 筆（原：${c.invoice.store_name || '?'}  $${Number(c.invoice.total || 0).toLocaleString()}）──`);
         }
+        candidates[idx] = { ...c, invoice: await manualInput(), failed: false };
     }
 
-    const finalData = [...toImport, ...manualEntries];
-    if (finalData.length === 0) {
+    // 建立最終匯入清單（辨識失敗且未用 w 指定的，詢問是否手動輸入）
+    const toImport = [];
+    const inlineManualIndices = new Set();
+    for (let i = 0; i < candidates.length; i++) {
+        if (skipIndices.has(i)) continue;
+        const c = candidates[i];
+        if (c.failed) {
+            console.log(`\n⚠ 辨識失敗：${path.basename(c.sourceFile)}`);
+            const yn = await ask('  是否手動輸入？(y/n)：');
+            if (yn.toLowerCase() === 'y') {
+                inlineManualIndices.add(i);
+                let n = 0;
+                while (true) {
+                    n++;
+                    console.log(`\n  ── 第 ${n} 張 ──`);
+                    toImport.push(await manualInput());
+                    const more = await ask('  還有下一張？(y/n)：');
+                    if (more.toLowerCase() !== 'y') break;
+                }
+            }
+            continue;
+        }
+        toImport.push(c.invoice);
+    }
+
+    if (toImport.length === 0) {
         console.log('\n沒有選擇匯入任何資料');
         return;
     }
 
-    // 移動已處理檔案（候選檔、手動輸入的失敗檔、自動略過的幻覺檔）
+    // 移動已處理檔案（候選檔、自動略過的幻覺檔）
     const filesToMove = new Set([
         ...candidates.map(c => c.sourceFile),
-        ...manualFiles,
         ...autoSkipped,
     ]);
     moveToProcessed([...filesToMove], folder);
     console.log(`\n已移動 ${filesToMove.size} 個檔案至「已處理」資料夾`);
 
-    const { added, skipped } = await updateExcel(finalData, async (num, item) => {
+    const { added, skipped } = await updateExcel(toImport, async (num, item) => {
         console.log(`\n⚠ 重複發票：${num}  ${item.store_name || ''}  ${item.date || ''}  $${Number(item.total || 0).toLocaleString()}`);
         console.log('   1. 略過（保留原有資料）');
         console.log('   2. 覆蓋舊資料');
@@ -583,15 +586,17 @@ async function scanFlow(model, scanFolder, masterPath, defaultCaseNames, ownName
     const ts = new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' });
     const logLines = [`\n=== ${ts}  資料夾：${path.resolve(folder)} ===`];
     for (let i = 0; i < candidates.length; i++) {
-        const { invoice, sourceFile } = candidates[i];
+        const { invoice, sourceFile, failed } = candidates[i];
+        const name = path.basename(sourceFile);
         if (skipIndices.has(i)) {
-            logLines.push(`  ✗ ${path.basename(sourceFile)}  手動略過  ${invoice.store_name || '?'}  $${Number(invoice.total || 0).toLocaleString()}`);
+            logLines.push(`  ✗ ${name}  略過`);
+        } else if (failed && !inlineManualIndices.has(i)) {
+            logLines.push(`  ✗ ${name}  辨識失敗略過`);
+        } else if (editIndices.has(i) || inlineManualIndices.has(i)) {
+            logLines.push(`  ✎ ${name}  手動輸入  ${invoice ? (invoice.store_name || '?') : '?'}  $${Number((invoice || {}).total || 0).toLocaleString()}`);
         } else {
-            logLines.push(`  ✓ ${path.basename(sourceFile)}  ${invoice.date || '?'}  ${invoice.store_name || '?'}  $${Number(invoice.total || 0).toLocaleString()}`);
+            logLines.push(`  ✓ ${name}  ${invoice.date || '?'}  ${invoice.store_name || '?'}  $${Number(invoice.total || 0).toLocaleString()}`);
         }
-    }
-    for (const entry of manualEntries) {
-        logLines.push(`  ✎ 手動輸入  ${entry.store_name || '?'}  $${Number(entry.total || 0).toLocaleString()}`);
     }
     for (const file of autoSkipped) {
         logLines.push(`  ⚠ ${path.basename(file)}  自動略過（疑似 AI 幻覺）`);
