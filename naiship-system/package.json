@@ -9,10 +9,12 @@
     "preview": "vite preview",
     "test": "vitest",
     "server": "node server.js",
-    "dev:all": "concurrently \"npm run dev\" \"npm run server\""
+    "dev:all": "concurrently \"npm run dev\" \"npm run server\"",
+    "seed": "node scripts/seed.js"
   },
   "dependencies": {
     "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
     "echarts": "^6.1.0",
     "express": "^5.2.1",
     "firebase": "^12.13.0",

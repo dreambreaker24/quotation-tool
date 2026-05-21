@@ -47,12 +47,9 @@ const activeCasesByRegion = computed(() => {
 })
 
 onMounted(() => {
-    // Inject mock data for development until Firestore is connected in Task 18
-    casesStore.cases = [
-        { id: '1', name: '台南東區翻新', status: 'construction', companyId: 'south', signedAmount: 1200000, estimatedAmount: 1300000, assigneeName: '柯其宏', signedDate: { toDate: () => new Date('2026-01-15') } },
-        { id: '2', name: '永康老屋改造', status: 'negotiating', companyId: 'south', estimatedAmount: 800000, assigneeName: '黃怡君', signedDate: null },
-        { id: '3', name: '安平商業空間', status: 'negotiating', companyId: 'south', estimatedAmount: 2000000, assigneeName: '蔡明哲', signedDate: null },
-        { id: '4', name: '台北信義住宅', status: 'construction', companyId: 'north', signedAmount: 1800000, estimatedAmount: 2000000, assigneeName: '林志遠', signedDate: { toDate: () => new Date('2026-02-20') } }
-    ]
+    const regions = authStore.isAdmin
+        ? ['south', 'north', 'central']
+        : [authStore.companyId]
+    casesStore.subscribe(regions.filter(Boolean))
 })
 </script>
