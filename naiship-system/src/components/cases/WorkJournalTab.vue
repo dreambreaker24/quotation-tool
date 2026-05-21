@@ -1,12 +1,11 @@
 <template>
   <div class="flex gap-4">
-    <!-- Left: employee selector (200px) -->
+    <!-- Left: employee selector -->
     <div class="bg-white rounded-2xl shadow-sm flex-shrink-0 overflow-hidden" style="width:200px">
       <div class="px-4 py-3 border-b border-gray-100">
         <div class="text-xs font-semibold text-gray-500 mb-2">選擇員工</div>
         <input v-model="search" type="text" placeholder="搜尋..."
-          class="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1"
-          style="focus-ring-color:#c9a96e">
+          class="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1">
       </div>
       <div class="py-1">
         <div @click="selectedEmployee = null"
@@ -22,7 +21,7 @@
           :style="selectedEmployee?.id === emp.id ? 'background:rgba(201,169,110,0.1);border-left:2px solid #c9a96e' : ''"
           :class="selectedEmployee?.id !== emp.id ? 'hover:bg-gray-50' : ''">
           <span class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
-            :style="`background:${empColor(emp.id)}`">{{ emp.name[0] }}</span>
+            :style="`background:${empColor(emp.id)}`">{{ emp.name?.[0] ?? '?' }}</span>
           <div>
             <div class="text-xs font-semibold text-gray-800">{{ emp.name }}</div>
             <div class="text-[10px]" :class="emp.hasLog ? 'text-gray-400' : 'text-amber-500'">
@@ -35,18 +34,20 @@
 
     <!-- Right: log entries -->
     <div class="flex-1 flex flex-col gap-4">
-      <!-- Header -->
       <div class="bg-white rounded-2xl shadow-sm px-5 py-3 flex items-center justify-between">
         <div>
           <div class="text-sm font-semibold text-gray-800">
             {{ selectedEmployee ? `${selectedEmployee.name} 的工作日誌` : '全部員工工作日誌' }}
           </div>
-          <div class="text-[11px] text-gray-400 mt-0.5">{{ todayLabel }}</div>
+          <div class="flex items-center gap-2 mt-1">
+            <button @click="shiftDate(-1)" class="text-gray-400 hover:text-gray-700 text-xs leading-none px-1">◀</button>
+            <span class="text-[11px] text-gray-500">{{ dateLabel }}</span>
+            <button @click="shiftDate(1)" :disabled="isToday" class="text-gray-400 hover:text-gray-700 text-xs leading-none px-1 disabled:opacity-30">▶</button>
+          </div>
         </div>
-        <button class="text-xs text-white px-3 py-1.5 rounded-lg" style="background:#1e2533">+ 填寫今日日誌</button>
+        <button v-if="isToday" @click="openLogForm" class="text-xs text-white px-3 py-1.5 rounded-lg" style="background:#1e2533">+ 填寫今日日誌</button>
       </div>
 
-      <!-- Log cards -->
       <div v-for="log in displayedLogs" :key="log.id" class="bg-white rounded-2xl shadow-sm p-5">
         <div class="flex items-start justify-between mb-3">
           <div class="flex items-center gap-2">
@@ -61,19 +62,47 @@
           </div>
         </div>
 
-        <!-- Case report entries -->
-        <div class="mb-3 bg-gray-50 rounded-xl p-3">
+        <!-- Case entries -->
+        <div v-if="log.caseEntries?.length || log.content" class="mb-3 bg-gray-50 rounded-xl p-3">
           <div class="text-[10px] text-gray-400 font-semibold mb-2 uppercase tracking-wide">負責案件回報</div>
-          <div v-for="entry in log.caseEntries" :key="entry.caseId"
-            class="bg-white rounded-lg p-2.5 border border-gray-100 mb-2 last:mb-0">
-            <div class="flex items-center gap-2 mb-1">
-              <span class="px-2 py-0.5 rounded-full text-[10px] bg-blue-100 text-blue-700">{{ entry.caseName }}</span>
+          <template v-if="log.caseEntries?.length">
+            <div v-for="entry in log.caseEntries" :key="entry.caseId"
+              class="bg-white rounded-lg p-2.5 border border-gray-100 mb-2 last:mb-0">
+              <div class="flex items-center gap-2 mb-1">
+                <span class="px-2 py-0.5 rounded-full text-[10px] bg-blue-100 text-blue-700">{{ entry.caseName }}</span>
+              </div>
+              <div class="text-xs text-gray-600">{{ entry.content }}</div>
             </div>
-            <div class="text-xs text-gray-600">{{ entry.content }}</div>
+          </template>
+          <div v-else class="bg-white rounded-lg p-2.5 border border-gray-100">
+            <div class="text-xs text-gray-600">{{ log.content }}</div>
           </div>
         </div>
 
-        <!-- Replies section -->
+        <!-- Other items -->
+        <div v-if="log.otherItems?.length" class="mb-3 bg-gray-50 rounded-xl p-3">
+          <div class="text-[10px] text-gray-400 font-semibold mb-2 uppercase tracking-wide">其他工作項目</div>
+          <div v-for="(item, i) in log.otherItems" :key="i"
+            class="bg-white rounded-lg p-2.5 border border-gray-100 mb-2 last:mb-0 text-xs text-gray-600">
+            {{ item.content }}
+          </div>
+        </div>
+
+        <!-- Fuel expense -->
+        <div v-if="log.fuelExpense" class="mb-3 bg-amber-50 rounded-xl p-3">
+          <div class="text-[10px] text-amber-600 font-semibold mb-2 uppercase tracking-wide">申請油資</div>
+          <div class="flex gap-3 items-start">
+            <img v-if="log.fuelExpense.photoUrl" :src="log.fuelExpense.photoUrl"
+              class="w-16 h-16 rounded-lg object-cover cursor-pointer flex-shrink-0"
+              @click="previewUrl = log.fuelExpense.photoUrl">
+            <div>
+              <div class="text-xs text-gray-700 mb-1"><span class="text-gray-400">原因：</span>{{ log.fuelExpense.reason }}</div>
+              <div class="text-xs text-gray-700"><span class="text-gray-400">路程：</span>{{ log.fuelExpense.distance }} 公里</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Replies -->
         <div class="border-t border-gray-100 pt-3">
           <div v-for="reply in (log.replies || [])" :key="reply.id" class="flex items-start gap-2 mb-2">
             <span class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] text-white font-bold flex-shrink-0" style="background:#1e2533">
@@ -97,37 +126,213 @@
         </div>
       </div>
 
-      <!-- Empty state -->
       <div v-if="displayedLogs.length === 0" class="bg-white rounded-2xl shadow-sm p-8 text-center text-gray-400 text-sm">
         今日尚無工作日誌
       </div>
     </div>
   </div>
+
+  <!-- 照片預覽 -->
+  <div v-if="previewUrl" @click="previewUrl = null"
+    class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 cursor-pointer">
+    <img :src="previewUrl" class="max-h-[80vh] max-w-[90vw] rounded-xl">
+  </div>
+
+  <!-- 填寫今日日誌 Modal -->
+  <div v-if="showLogForm" class="fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.4)">
+    <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-base font-bold text-gray-800">填寫今日工作日誌</h3>
+        <button @click="showLogForm = false" class="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
+      </div>
+      <div class="text-xs text-gray-400 mb-4">{{ todayLabel }}</div>
+
+      <!-- 負責案件 -->
+      <div v-if="myCases.length > 0" class="mb-4">
+        <div class="text-xs font-semibold text-gray-600 mb-2">負責案件回報</div>
+        <div v-for="c in myCases" :key="c.id" class="border border-gray-100 rounded-xl p-3 mb-2">
+          <span class="px-2 py-0.5 rounded-full text-[10px] bg-blue-100 text-blue-700 mb-2 inline-block">{{ c.name }}</span>
+          <textarea v-model="logEntries[c.id]" rows="2"
+            class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 resize-none"
+            :placeholder="`今日工作回報...`"></textarea>
+        </div>
+      </div>
+
+      <!-- 其他工作項目 -->
+      <div class="mb-4">
+        <div class="flex items-center justify-between mb-2">
+          <div class="text-xs font-semibold text-gray-600">其他工作項目</div>
+          <button @click="addOtherItem" class="text-xs" style="color:#c9a96e">+ 新增</button>
+        </div>
+        <div v-if="otherItems.length === 0" class="text-xs text-gray-400 py-1">無其他工作（可點右上新增）</div>
+        <div v-for="(item, idx) in otherItems" :key="idx" class="flex items-start gap-2 mb-2">
+          <textarea v-model="otherItems[idx].content" rows="2"
+            class="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 resize-none"
+            placeholder="描述工作內容..."></textarea>
+          <button @click="otherItems.splice(idx, 1)" class="text-red-400 hover:text-red-600 mt-2">✕</button>
+        </div>
+      </div>
+
+      <!-- 申請油資 -->
+      <div class="border border-amber-200 rounded-xl p-4 bg-amber-50/50">
+        <div class="flex items-center justify-between mb-3">
+          <div class="text-xs font-semibold text-amber-700">申請油資（選填）</div>
+          <label class="flex items-center gap-1.5 cursor-pointer">
+            <input type="checkbox" v-model="fuelEnabled" class="rounded">
+            <span class="text-xs text-gray-500">本次有油資申請</span>
+          </label>
+        </div>
+        <div v-if="fuelEnabled" class="flex flex-col gap-3">
+          <div>
+            <label class="text-xs text-gray-500 mb-1 block">申請原因</label>
+            <textarea v-model="fuelExpense.reason" rows="2"
+              class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 resize-none bg-white"
+              placeholder="例：前往台南東區翻新工地勘查"></textarea>
+          </div>
+          <div>
+            <label class="text-xs text-gray-500 mb-1 block">路程（公里）</label>
+            <input v-model.number="fuelExpense.distance" type="number" min="0"
+              class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 bg-white"
+              placeholder="0">
+          </div>
+          <div>
+            <label class="text-xs text-gray-500 mb-1 block">上傳憑證照片</label>
+            <div class="flex items-center gap-3">
+              <button @click="fuelFileInput?.click()"
+                class="text-xs border border-dashed border-amber-300 rounded-lg px-4 py-2 text-amber-600 hover:border-amber-500 transition-colors">
+                {{ fuelExpense.photoFile ? '重新選擇' : '選擇照片' }}
+              </button>
+              <span v-if="fuelExpense.photoFile" class="text-xs text-gray-500">{{ fuelExpense.photoFile.name }}</span>
+              <img v-if="fuelPreviewUrl" :src="fuelPreviewUrl" class="w-12 h-12 rounded-lg object-cover">
+            </div>
+            <input ref="fuelFileInput" type="file" accept="image/*" class="hidden" @change="handleFuelPhoto">
+          </div>
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 mt-5">
+        <button @click="showLogForm = false" class="text-sm text-gray-400 px-4 py-2">取消</button>
+        <button @click="submitLog" :disabled="submitting" class="text-sm text-white px-5 py-2 rounded-xl disabled:opacity-60" style="background:#1e2533">{{ submitting ? '送出中…' : '送出日誌' }}</button>
+      </div>
+    </div>
+  </div>
 </template>
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
+import { Timestamp } from 'firebase/firestore'
 import { useWorkLogsStore } from '@/stores/workLogs'
 import { useAuthStore } from '@/stores/auth'
+import { useCasesStore } from '@/stores/cases'
+import { uploadPhoto } from '@/composables/useStorage'
+import { useToast } from '@/composables/useToast'
 
 const props = defineProps({ region: String })
 const logsStore = useWorkLogsStore()
 const authStore = useAuthStore()
+const casesStore = useCasesStore()
 
 const selectedEmployee = ref(null)
 const search = ref('')
 const replyTarget = ref(null)
 const replyContent = ref('')
+const showLogForm = ref(false)
+const previewUrl = ref(null)
+const logEntries = ref({})
+const otherItems = ref([])
+const fuelEnabled = ref(false)
+const fuelExpense = reactive({ reason: '', distance: 0, photoFile: null })
+const fuelPreviewUrl = ref(null)
+const fuelFileInput = ref(null)
+const selectedDate = ref(new Date())
+const submitting = ref(false)
+const { toast } = useToast()
 
-onMounted(() => {
-  if (props.region) {
-    logsStore.subscribe(props.region, new Date())
+const myCases = computed(() =>
+  casesStore.cases.filter(c =>
+    c.companyId === props.region &&
+    (authStore.isAdmin || authStore.isManager || c.assignedTo === authStore.user?.uid)
+  )
+)
+
+function openLogForm() {
+  logEntries.value = {}
+  otherItems.value = []
+  fuelEnabled.value = false
+  Object.assign(fuelExpense, { reason: '', distance: 0, photoFile: null })
+  fuelPreviewUrl.value = null
+  if (fuelFileInput.value) fuelFileInput.value.value = ''
+  showLogForm.value = true
+}
+
+function addOtherItem() {
+  otherItems.value.push({ content: '' })
+}
+
+function handleFuelPhoto(e) {
+  const file = e.target.files[0]
+  if (!file) return
+  fuelExpense.photoFile = file
+  fuelPreviewUrl.value = URL.createObjectURL(file)
+}
+
+async function submitLog() {
+  const caseEntries = myCases.value
+    .filter(c => logEntries.value[c.id]?.trim())
+    .map(c => ({ caseId: c.id, caseName: c.name, content: logEntries.value[c.id].trim() }))
+  const other = otherItems.value.filter(i => i.content.trim()).map(i => ({ content: i.content.trim() }))
+  if (caseEntries.length === 0 && other.length === 0 && !fuelEnabled.value) return
+  if (submitting.value) return
+  submitting.value = true
+
+  let fuelData = null
+  if (fuelEnabled.value && fuelExpense.reason) {
+    let photoUrl = ''
+    if (fuelExpense.photoFile) {
+      try { photoUrl = await uploadPhoto(fuelExpense.photoFile, 'fuel') } catch (_) {}
+    }
+    fuelData = { reason: fuelExpense.reason, distance: fuelExpense.distance || 0, photoUrl }
   }
+
+  const logDoc = {
+    userId: authStore.user?.uid ?? '',
+    userName: authStore.name ?? '',
+    companyId: props.region,
+    date: Timestamp.fromDate(new Date()),
+    ...(caseEntries.length > 0 && { caseEntries }),
+    ...(other.length > 0 && { otherItems: other }),
+    ...(fuelData && { fuelExpense: fuelData }),
+  }
+  await logsStore.addLog(logDoc)
+  showLogForm.value = false
+  submitting.value = false
+  toast('日誌已送出')
+}
+
+const isToday = computed(() => {
+  const t = new Date()
+  const s = selectedDate.value
+  return t.getFullYear() === s.getFullYear() && t.getMonth() === s.getMonth() && t.getDate() === s.getDate()
 })
 
-const todayLabel = computed(() => {
-  const d = new Date()
-  return `${d.getFullYear()} / ${String(d.getMonth()+1).padStart(2,'0')} / ${String(d.getDate()).padStart(2,'0')}（今日）`
+const dateLabel = computed(() => {
+  const d = selectedDate.value
+  const today = new Date()
+  if (isToday.value) return `${d.getFullYear()} / ${String(d.getMonth()+1).padStart(2,'0')} / ${String(d.getDate()).padStart(2,'0')}（今日）`
+  return `${d.getFullYear()} / ${String(d.getMonth()+1).padStart(2,'0')} / ${String(d.getDate()).padStart(2,'0')}`
 })
+
+function shiftDate(delta) {
+  const d = new Date(selectedDate.value)
+  d.setDate(d.getDate() + delta)
+  if (d > new Date()) return
+  selectedDate.value = d
+}
+
+watch([() => props.region, selectedDate], ([region]) => {
+  if (region) logsStore.subscribe(region, selectedDate.value)
+}, { immediate: true })
+
+onUnmounted(() => logsStore.unsubscribe?.())
 
 const empColors = ['#c9a96e','#a855f7','#3b82f6','#22c55e','#f59e0b','#ef4444']
 function empColor(uid) { return empColors[(uid?.charCodeAt(0) ?? 0) % empColors.length] }
@@ -142,8 +347,8 @@ const filteredEmployees = computed(() => {
   const seen = new Set()
   return logsStore.logs
     .filter(l => { if (seen.has(l.userId)) return false; seen.add(l.userId); return true })
-    .map(l => ({ id: l.userId, name: l.userName, hasLog: true, color: empColor(l.userId) }))
-    .filter(e => !search.value || e.name.includes(search.value))
+    .map(l => ({ id: l.userId, name: l.userName, hasLog: true }))
+    .filter(e => !search.value || (e.name?.includes(search.value) ?? false))
 })
 
 const displayedLogs = computed(() =>
@@ -154,7 +359,7 @@ const displayedLogs = computed(() =>
 
 async function submitReply(logId) {
   if (!replyContent.value.trim()) return
-  await logsStore.addReply(logId, replyContent.value, authStore.user?.uid ?? 'unknown')
+  await logsStore.addReply(logId, replyContent.value, authStore.user?.uid ?? 'unknown', authStore.name ?? '')
   replyContent.value = ''
   replyTarget.value = null
 }

@@ -7,11 +7,13 @@ export const useClientsStore = defineStore('clients', () => {
     const clients = ref([])
     let unsubscribe = null
 
-    function subscribe(companyId) {
+    function subscribe(companyIds) {
+        const valid = (companyIds ?? []).filter(Boolean)
+        if (valid.length === 0) return
         if (unsubscribe) unsubscribe()
         const q = query(
             collection(db, 'clients'),
-            where('companyId', '==', companyId),
+            where('companyId', 'in', valid),
             orderBy('createdAt', 'desc')
         )
         unsubscribe = onSnapshot(q, snap => {

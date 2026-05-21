@@ -20,6 +20,7 @@ import StatCard from '@/components/ui/StatCard.vue'
 import PieChart from './PieChart.vue'
 import { useCasesStore } from '@/stores/cases'
 
+const props = defineProps({ year: Number })
 const casesStore = useCasesStore()
 
 function formatAmount(n) {
@@ -28,7 +29,11 @@ function formatAmount(n) {
 }
 
 const stats = computed(() => {
-    const all = casesStore.cases
+    const all = casesStore.cases.filter(c => {
+        if (!props.year) return true
+        const d = c.createdAt?.toDate?.()
+        return !d || d.getFullYear() === props.year
+    })
     return {
         totalCount: all.length,
         negotiatingCount: all.filter(c => c.status === 'negotiating').length,

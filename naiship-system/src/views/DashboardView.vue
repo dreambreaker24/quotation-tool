@@ -19,8 +19,8 @@
         </select>
       </div>
     </div>
-    <StatsSection />
-    <EmployeeTable class="mt-6" />
+    <StatsSection :year="selectedYear" />
+    <EmployeeTable :year="selectedYear" class="mt-6" />
   </main>
 </template>
 <script setup>

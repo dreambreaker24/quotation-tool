@@ -46,6 +46,7 @@
 import { ref, computed } from 'vue'
 import { useCasesStore } from '@/stores/cases'
 
+const props = defineProps({ year: Number })
 const casesStore = useCasesStore()
 const selectedRegion = ref('')
 const months = [1,2,3,4,5,6,7,8,9,10,11,12]
@@ -57,25 +58,31 @@ function formatAmount(n) {
 }
 
 const employeeRows = computed(() => {
-  const filtered = casesStore.cases.filter(c =>
-    !selectedRegion.value || c.companyId === selectedRegion.value
-  )
+  const filtered = casesStore.cases.filter(c => {
+    if (selectedRegion.value && c.companyId !== selectedRegion.value) return false
+    if (props.year && c.signedDate) {
+      const y = c.signedDate.toDate?.().getFullYear()
+      if (y !== props.year) return false
+    }
+    return true
+  })
   const map = {}
   filtered.forEach(c => {
-    if (!c.assignedTo) return
-    if (!map[c.assignedTo]) {
-      map[c.assignedTo] = { userId: c.assignedTo, name: c.assigneeName, lostCount: 0, monthly: {}, totalAmount: 0, totalCount: 0 }
-    }
-    const emp = map[c.assignedTo]
-    if (c.status === 'lost') { emp.lostCount++; return }
-    if (!c.signedDate) return
-    const month = c.signedDate.toDate?.().getMonth() + 1
-    if (!month) return
-    if (!emp.monthly[month]) emp.monthly[month] = { count: 0, amount: 0 }
-    emp.monthly[month].count++
-    emp.monthly[month].amount += c.signedAmount || 0
-    emp.totalCount++
-    emp.totalAmount += c.signedAmount || 0
+    const names = c.assignees?.filter(Boolean) ?? (c.assigneeName ? [c.assigneeName] : [])
+    if (names.length === 0) return
+    names.forEach(name => {
+      if (!map[name]) map[name] = { userId: name, name, lostCount: 0, monthly: {}, totalAmount: 0, totalCount: 0 }
+      const emp = map[name]
+      if (c.status === 'lost') { emp.lostCount++; return }
+      if (!c.signedDate) return
+      const month = c.signedDate.toDate?.().getMonth() + 1
+      if (!month) return
+      if (!emp.monthly[month]) emp.monthly[month] = { count: 0, amount: 0 }
+      emp.monthly[month].count++
+      emp.monthly[month].amount += c.signedAmount || 0
+      emp.totalCount++
+      emp.totalAmount += c.signedAmount || 0
+    })
   })
   return Object.values(map)
 })

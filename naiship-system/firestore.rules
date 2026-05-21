@@ -1,0 +1,51 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() { return request.auth != null; }
+    function getUser() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
+    function isAdmin() { return getUser().role == 'admin'; }
+    function isManager() { return getUser().role in ['admin', 'manager']; }
+
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    match /companies/{companyId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    match /cases/{caseId} {
+      allow read: if isSignedIn();
+      allow create, update: if isManager();
+      allow delete: if isAdmin();
+      match /{subcollection}/{docId} {
+        allow read: if isSignedIn();
+        allow write: if isSignedIn();
+      }
+    }
+    match /clients/{clientId} {
+      allow read: if isSignedIn();
+      allow write: if isManager();
+      match /notes/{noteId} {
+        allow read: if isSignedIn();
+        allow write: if isSignedIn();
+      }
+    }
+    match /workLogs/{logId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+      match /replies/{replyId} {
+        allow read: if isSignedIn();
+        allow write: if isSignedIn();
+      }
+    }
+    match /leaveRequests/{requestId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+    match /calendarEvents/{eventId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+  }
+}

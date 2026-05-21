@@ -104,6 +104,8 @@ async function createUser() {
 }
 
 async function removeUser(id) {
+    const u = users.value.find(u => u.id === id)
+    if (!confirm(`確定要停用「${u?.name ?? '此帳號'}」？`)) return
     await updateDoc(doc(db, 'users', id), { disabled: true })
     await loadUsers()
 }

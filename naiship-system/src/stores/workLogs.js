@@ -27,11 +27,13 @@ export const useWorkLogsStore = defineStore('workLogs', () => {
     return addDoc(collection(db, 'workLogs'), { ...data, createdAt: serverTimestamp() })
   }
 
-  async function addReply(logId, content, userId) {
+  async function addReply(logId, content, userId, userName) {
     return addDoc(collection(db, 'workLogs', logId, 'replies'), {
-      content, createdBy: userId, createdAt: serverTimestamp()
+      content, createdBy: userId, creatorName: userName ?? '', createdAt: serverTimestamp()
     })
   }
 
-  return { logs, subscribe, addLog, addReply }
+  function cleanup() { if (unsubscribe) { unsubscribe(); unsubscribe = null } }
+
+  return { logs, subscribe, addLog, addReply, unsubscribe: cleanup }
 })

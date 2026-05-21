@@ -8,10 +8,12 @@ export const useCasesStore = defineStore('cases', () => {
     let unsubscribe = null
 
     function subscribe(companyIds) {
+        const valid = (companyIds ?? []).filter(Boolean)
+        if (valid.length === 0) return
         if (unsubscribe) unsubscribe()
         const q = query(
             collection(db, 'cases'),
-            where('companyId', 'in', companyIds),
+            where('companyId', 'in', valid),
             orderBy('createdAt', 'desc')
         )
         unsubscribe = onSnapshot(q, (snap) => {
