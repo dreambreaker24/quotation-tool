@@ -105,7 +105,7 @@
   </div>
 </template>
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useWorkLogsStore } from '@/stores/workLogs'
 import { useAuthStore } from '@/stores/auth'
 
@@ -117,6 +117,12 @@ const selectedEmployee = ref(null)
 const search = ref('')
 const replyTarget = ref(null)
 const replyContent = ref('')
+
+onMounted(() => {
+  if (props.region) {
+    logsStore.subscribe(props.region, new Date())
+  }
+})
 
 const todayLabel = computed(() => {
   const d = new Date()
