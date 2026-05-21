@@ -1,1 +1,11 @@
-<template><div class="p-6"><h1 class="text-xl font-bold text-gray-800">客戶管理</h1></div></template>
+<template>
+  <ClientList :selected="selectedClient" @select="selectedClient = $event" @add="showForm = true" />
+  <ClientDetail :client="selectedClient" :notes="[]" />
+</template>
+<script setup>
+import { ref } from 'vue'
+import ClientList from '@/components/clients/ClientList.vue'
+import ClientDetail from '@/components/clients/ClientDetail.vue'
+const selectedClient = ref(null)
+const showForm = ref(false)
+</script>
