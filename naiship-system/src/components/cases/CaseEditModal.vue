@@ -157,7 +157,7 @@ watch(caseData, (c) => {
         address: c.address ?? '',
         companyId: c.companyId ?? 'south',
         status: c.status ?? 'negotiating',
-        assignees: c.assignees?.length ? [...c.assignees] : [''],
+        assignees: c.assignees?.length ? [...c.assignees] : (c.assigneeName ? c.assigneeName.split('、') : ['']),
         estimatedAmount: c.estimatedAmount ?? 0,
         signedAmount: c.signedAmount ?? 0,
         startDate: tsToDate(c.startDate),
