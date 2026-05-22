@@ -100,11 +100,29 @@
         </div>
       </div>
 
-      <div class="flex justify-end gap-2 mt-5">
+      <!-- 刪除區域 -->
+      <div v-if="caseData" class="mt-5 pt-4 border-t border-gray-100">
+        <div v-if="!confirmDelete" class="flex justify-between items-center">
+          <button @click="confirmDelete = true" class="text-xs text-red-400 hover:text-red-600">刪除此案件</button>
+          <div class="flex gap-2">
+            <button @click="$emit('close')" class="text-sm text-gray-400 px-4 py-2">取消</button>
+            <button @click="save" :disabled="saving" class="text-sm text-white px-5 py-2 rounded-xl disabled:opacity-60" style="background:#1e2533">
+              {{ saving ? '儲存中…' : '儲存' }}
+            </button>
+          </div>
+        </div>
+        <div v-else class="flex flex-col gap-3">
+          <p class="text-sm text-red-600 font-medium">⚠ 確定刪除「{{ caseData.name }}」？此操作無法復原。</p>
+          <div class="flex gap-2 justify-end">
+            <button @click="confirmDelete = false" class="text-sm text-gray-400 px-4 py-2">取消</button>
+            <button @click="deleteThisCase" :disabled="deleting" class="text-sm text-white px-5 py-2 rounded-xl bg-red-500 hover:bg-red-600 disabled:opacity-60">
+              {{ deleting ? '刪除中…' : '確認刪除' }}
+            </button>
+          </div>
+        </div>
+      </div>
+      <div v-else class="flex justify-end gap-2 mt-5">
         <button @click="$emit('close')" class="text-sm text-gray-400 px-4 py-2">取消</button>
-        <button @click="save" :disabled="saving || !caseData" class="text-sm text-white px-5 py-2 rounded-xl disabled:opacity-60" style="background:#1e2533">
-          {{ saving ? '儲存中…' : '儲存' }}
-        </button>
       </div>
     </div>
   </div>
@@ -124,6 +142,19 @@ const authStore = useAuthStore()
 const { toast } = useToast()
 
 const saving = ref(false)
+const confirmDelete = ref(false)
+const deleting = ref(false)
+
+async function deleteThisCase() {
+    if (deleting.value) return
+    deleting.value = true
+    try {
+        await casesStore.deleteCase(props.caseId)
+        emit('close')
+    } finally {
+        deleting.value = false
+    }
+}
 
 const caseData = computed(() => casesStore.cases.find(c => c.id === props.caseId) ?? null)
 
@@ -151,6 +182,7 @@ const originalStatus = ref('')
 
 watch(caseData, (c) => {
     if (!c) return
+    confirmDelete.value = false
     originalStatus.value = c.status
     form.value = {
         name: c.name ?? '',

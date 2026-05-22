@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { collection, query, where, orderBy, onSnapshot, addDoc, updateDoc, doc, serverTimestamp } from 'firebase/firestore'
+import { collection, query, where, orderBy, onSnapshot, addDoc, updateDoc, deleteDoc, getDocs, doc, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/firebase'
 
 export const useCasesStore = defineStore('cases', () => {
@@ -43,5 +43,11 @@ export const useCasesStore = defineStore('cases', () => {
         return updateDoc(doc(db, 'cases', id), data)
     }
 
-    return { cases, activeCases, subscribe, casesByStatus, statusCount, addCase, updateCase }
+    async function deleteCase(id) {
+        const taskSnap = await getDocs(collection(db, 'cases', id, 'tasks'))
+        await Promise.all(taskSnap.docs.map(d => deleteDoc(d.ref)))
+        await deleteDoc(doc(db, 'cases', id))
+    }
+
+    return { cases, activeCases, subscribe, casesByStatus, statusCount, addCase, updateCase, deleteCase }
 })
