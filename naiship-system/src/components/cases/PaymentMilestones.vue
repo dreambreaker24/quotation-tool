@@ -10,6 +10,8 @@
           應收 <span style="color:#c9a96e" class="font-medium">${{ totalDue.toLocaleString() }}</span>
           ／已收 <span class="font-medium text-green-600">${{ totalPaid.toLocaleString() }}</span>
         </span>
+        <button v-if="milestones.length < 6" @click="openTemplate"
+          class="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">套用模板</button>
         <button v-if="milestones.length < 6" @click="openAdd"
           class="text-xs px-3 py-1.5 rounded-lg text-white" style="background:#1e2533">+ 新增期款</button>
       </div>
@@ -119,6 +121,38 @@
       </div>
     </div>
   </div>
+  <!-- 套用模板 Modal -->
+  <div v-if="showTemplate" class="fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.4)">
+    <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-sm font-bold text-gray-800">套用收款模板</h3>
+        <button @click="showTemplate = false" class="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
+      </div>
+      <p class="text-xs text-gray-400 mb-4">金額填 0 的期款將略過不建立</p>
+      <div class="flex flex-col gap-2">
+        <div class="grid grid-cols-3 gap-2 mb-1">
+          <span class="text-[10px] text-gray-400 font-semibold">期數名稱</span>
+          <span class="text-[10px] text-gray-400 font-semibold">金額（0=略過）</span>
+          <span class="text-[10px] text-gray-400 font-semibold">到期日（選填）</span>
+        </div>
+        <div v-for="(row, i) in templateRows" :key="i" class="grid grid-cols-3 gap-2 items-center">
+          <span class="text-xs text-gray-700 font-medium">{{ row.label }}</span>
+          <input v-model.number="row.amount" type="number" min="0" placeholder="0"
+            class="text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1">
+          <input :value="row.dueDate" type="date"
+            @input="row.dueDate = $event.target.value"
+            @change="row.dueDate = $event.target.value"
+            class="text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1">
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 mt-5">
+        <button @click="showTemplate = false" class="text-sm text-gray-400 px-4 py-2">取消</button>
+        <button @click="submitTemplate" :disabled="saving" class="text-sm text-white px-5 py-2 rounded-xl disabled:opacity-60" style="background:#1e2533">
+          {{ saving ? '建立中…' : '建立期款' }}
+        </button>
+      </div>
+    </div>
+  </div>
 </template>
 <script setup>
 import { ref, computed } from 'vue'
@@ -129,6 +163,38 @@ const casesStore = useCasesStore()
 
 const LABEL_OPTIONS = ['訂金（簽約款）', '第二期款', '第三期款', '第四期款', '第五期款', '尾款']
 const TODAY = new Date().toISOString().slice(0, 10)
+
+const TEMPLATE_LABELS = ['訂金（簽約款）', '第二期款', '第三期款', '第四期款', '第五期款', '尾款']
+
+const showTemplate = ref(false)
+const templateRows = ref([])
+
+function openTemplate() {
+    templateRows.value = TEMPLATE_LABELS.map(label => ({ label, amount: 0, dueDate: '' }))
+    showTemplate.value = true
+}
+
+async function submitTemplate() {
+    if (saving.value) return
+    const rows = templateRows.value.filter(r => (r.amount || 0) > 0)
+    if (rows.length === 0) { showTemplate.value = false; return }
+    saving.value = true
+    try {
+        const newEntries = rows.map(r => ({
+            id: `pm_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+            label: r.label,
+            amount: r.amount,
+            dueDate: r.dueDate || '',
+            paidAmount: 0,
+            paidDate: '',
+        }))
+        const updated = [...milestones.value, ...newEntries].slice(0, 6)
+        await casesStore.updateCase(props.caseId, { paymentMilestones: updated })
+        showTemplate.value = false
+    } finally {
+        saving.value = false
+    }
+}
 
 const showForm = ref(false)
 const saving = ref(false)
