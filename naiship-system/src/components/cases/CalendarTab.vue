@@ -11,6 +11,7 @@
         <div class="flex items-center gap-1.5"><span class="w-3 h-3 rounded" style="background:#c9a96e"></span>案件里程碑</div>
         <div class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-blue-400"></span>員工請假</div>
         <div class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-red-400"></span>重要記事</div>
+        <div class="flex items-center gap-1.5"><span class="w-3 h-3 rounded" style="background:#a855f7"></span>客戶跟進</div>
         <button @click="showAddEvent = true" class="ml-2 text-xs text-white px-3 py-1.5 rounded-lg" style="background:#1e2533">+ 新增</button>
       </div>
     </div>
@@ -45,7 +46,7 @@
           @click.stop="openEditEvent(event)"
           class="mt-1 text-[10px] rounded px-1.5 py-0.5 truncate text-white cursor-pointer hover:opacity-80 transition-opacity"
           :class="event.type === 'leave' ? 'bg-blue-400' : event.type === 'note' ? 'bg-red-400' : ''"
-          :style="event.type === 'milestone' ? 'background:#c9a96e' : ''">
+          :style="event.type === 'milestone' ? 'background:#c9a96e' : event.type === 'followup' ? 'background:#a855f7' : ''">
           {{ event.label }}
         </div>
       </div>
@@ -149,6 +150,7 @@ const eventTypes = [
   { key: 'milestone', label: '案件里程碑', color: '#c9a96e' },
   { key: 'leave',     label: '員工請假',   color: '#60a5fa' },
   { key: 'note',      label: '重要記事',   color: '#f87171' },
+  { key: 'followup',  label: '客戶跟進',   color: '#a855f7' },
 ]
 const blankEvent = () => ({ type: 'milestone', date: '', label: '' })
 const eventForm = ref(blankEvent())

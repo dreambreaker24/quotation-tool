@@ -22,7 +22,13 @@
         <div><span class="text-gray-400 text-xs block mb-0.5">坪數</span><p class="text-gray-700">{{ client.area ? `${client.area} 坪` : '—' }}</p></div>
         <div>
           <span class="text-gray-400 text-xs block mb-0.5">下次跟進</span>
-          <p class="text-gray-700">{{ client.followUpDate || '—' }}</p>
+          <div class="flex items-center gap-2">
+            <p class="text-gray-700">{{ client.followUpDate || '—' }}</p>
+            <button v-if="client.followUpDate" @click="addToCalendar" :disabled="addingToCalendar"
+              class="text-[10px] border border-purple-200 rounded px-1.5 py-0.5 text-purple-600 hover:bg-purple-50 disabled:opacity-50">
+              {{ addingToCalendar ? '…' : '＋行事曆' }}
+            </button>
+          </div>
         </div>
         <div>
           <span class="text-gray-400 text-xs block mb-0.5">狀態</span>
@@ -102,9 +108,12 @@
 </template>
 <script setup>
 import { ref, computed } from 'vue'
+import { Timestamp } from 'firebase/firestore'
 import ClientContactLog from './ClientContactLog.vue'
 import { useClientsStore } from '@/stores/clients'
 import { useCasesStore } from '@/stores/cases'
+import { useCalendarEventsStore } from '@/stores/calendarEvents'
+import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
 import { useClientSources } from '@/composables/useClientSources'
 
@@ -120,9 +129,29 @@ const legacySource = computed(() => {
     return isKnown ? null : src
 })
 
+const eventsStore = useCalendarEventsStore()
+const authStore = useAuthStore()
 const editing = ref(false)
 const editForm = ref({})
+const addingToCalendar = ref(false)
 const { toast } = useToast()
+
+async function addToCalendar() {
+    if (!props.client?.followUpDate || addingToCalendar.value) return
+    addingToCalendar.value = true
+    try {
+        await eventsStore.addEvent({
+            companyId: props.client.companyId,
+            type: 'followup',
+            date: Timestamp.fromDate(new Date(props.client.followUpDate)),
+            label: `跟進：${props.client.name}`,
+            createdBy: authStore.user?.uid ?? '',
+        })
+        toast('已加入行事曆')
+    } finally {
+        addingToCalendar.value = false
+    }
+}
 
 const linkedCase = computed(() =>
   props.client?.linkedCaseId
