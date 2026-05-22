@@ -10,10 +10,12 @@
         </div>
         <!-- Case rows -->
         <div v-for="c in regionCases" :key="c.id" class="border-b border-gray-100">
-          <div @click="toggleCase(c.id)"
-            class="px-3 py-2 flex items-center gap-2 bg-white hover:bg-gray-50 cursor-pointer" style="height:36px">
+          <div @click="selectCase(c.id)"
+            class="px-3 py-2 flex items-center gap-2 cursor-pointer transition-colors" style="height:36px"
+            :style="selectedCaseId === c.id ? 'background:rgba(201,169,110,0.12);border-left:2px solid #c9a96e' : ''">
             <span class="text-gray-400 text-[10px] w-4 select-none">{{ expanded[c.id] ? '▼' : '▶' }}</span>
-            <span class="flex-1 text-xs font-semibold text-gray-800 truncate">{{ c.name }}</span>
+            <span class="flex-1 text-xs font-semibold truncate"
+              :style="selectedCaseId === c.id ? 'color:#c9a96e' : 'color:#1f2937'">{{ c.name }}</span>
             <span class="w-16 text-center text-[11px] text-gray-500">{{ c.assigneeName }}</span>
           </div>
           <!-- Work type sub-rows (when expanded) -->
@@ -43,7 +45,8 @@
           </div>
           <!-- Case rows -->
           <template v-for="c in regionCases" :key="c.id">
-            <div class="flex border-b border-gray-100 relative" style="height:36px">
+            <div class="flex border-b border-gray-100 relative" style="height:36px"
+              :style="selectedCaseId === c.id ? 'background:rgba(201,169,110,0.05)' : ''">
               <div v-for="d in 31" :key="d"
                 class="flex-shrink-0 border-r border-gray-50" style="width:28px"
                 :style="d === todayDate ? 'background:rgba(251,191,36,0.08)' : ''">
@@ -75,61 +78,81 @@
       今日：{{ currentMonthLabel }} 第 {{ todayDate }} 日
     </div>
 
-    <!-- Photo upload section (when a case is expanded) -->
+    <!-- Photo upload section (when expanded) -->
     <PhotoUpload v-if="expandedCaseId" :case-id="expandedCaseId" :case-name="expandedCaseName" />
+
+    <!-- Case tasks section (when selected) -->
+    <CaseTasks v-if="selectedCaseId" :case-id="selectedCaseId" :case-name="selectedCaseName" />
   </div>
 </template>
 <script setup>
-import { ref, computed, reactive } from 'vue'
+import { ref, computed, reactive, watch, onUnmounted } from 'vue'
 import { useCasesStore } from '@/stores/cases'
+import { useCaseTasksStore } from '@/stores/caseTasks'
 import PhotoUpload from './PhotoUpload.vue'
+import CaseTasks from './CaseTasks.vue'
 
 const props = defineProps({ region: String, month: String })
 const casesStore = useCasesStore()
+const tasksStore = useCaseTasksStore()
+
 const expanded = reactive({})
 const expandedCaseId = ref(null)
 const expandedCaseName = ref('')
+const selectedCaseId = ref(null)
+const selectedCaseName = ref('')
 const todayDate = new Date().getDate()
+
 const currentMonthLabel = computed(() => {
-  const now = new Date()
-  return `${now.getFullYear()}年${now.getMonth()+1}月`
+    const now = new Date()
+    return `${now.getFullYear()}年${now.getMonth()+1}月`
 })
 
-// Placeholder work types for UI preview (real data comes from Firestore sub-collection in future)
 const defaultWorkTypes = [
-  { id: 'wt1', name: '水電', color: '#3b82f6', ganttBar: null },
-  { id: 'wt2', name: '泥作', color: '#f59e0b', ganttBar: null }
+    { id: 'wt1', name: '水電', color: '#3b82f6', ganttBar: null },
+    { id: 'wt2', name: '泥作', color: '#f59e0b', ganttBar: null }
 ]
 
-function toggleCase(id) {
-  expanded[id] = !expanded[id]
-  const c = casesStore.cases.find(x => x.id === id)
-  if (expanded[id]) {
-    expandedCaseId.value = id
-    expandedCaseName.value = c?.name ?? ''
-  } else if (expandedCaseId.value === id) {
-    expandedCaseId.value = null
-  }
+function selectCase(id) {
+    expanded[id] = !expanded[id]
+    const c = casesStore.cases.find(x => x.id === id)
+
+    if (expanded[id]) {
+        expandedCaseId.value = id
+        expandedCaseName.value = c?.name ?? ''
+        selectedCaseId.value = id
+        selectedCaseName.value = c?.name ?? ''
+        tasksStore.subscribe(id)
+    } else {
+        if (expandedCaseId.value === id) expandedCaseId.value = null
+        if (selectedCaseId.value === id) {
+            selectedCaseId.value = null
+            selectedCaseName.value = ''
+            tasksStore.cleanup()
+        }
+    }
 }
 
 function dayToLeft(day) { return (day - 1) * 28 }
 function daysWidth(start, end) { return Math.max(28, (end - start + 1) * 28) }
 
 const regionCases = computed(() =>
-  casesStore.cases
-    .filter(c => c.companyId === props.region)
-    .map(c => {
-      const startDay = c.startDate?.toDate?.().getDate()
-      const endDay = c.endDate?.toDate?.().getDate()
-      return {
-        ...c,
-        _workTypes: c.workTypes || null,
-        ganttBar: startDay ? {
-          left: dayToLeft(startDay),
-          width: endDay ? daysWidth(startDay, endDay) : 56,
-          color: '#c9a96e'
-        } : null
-      }
-    })
+    casesStore.cases
+        .filter(c => c.companyId === props.region)
+        .map(c => {
+            const startDay = c.startDate?.toDate?.().getDate()
+            const endDay = c.endDate?.toDate?.().getDate()
+            return {
+                ...c,
+                _workTypes: c.workTypes || null,
+                ganttBar: startDay ? {
+                    left: dayToLeft(startDay),
+                    width: endDay ? daysWidth(startDay, endDay) : 56,
+                    color: '#c9a96e'
+                } : null
+            }
+        })
 )
+
+onUnmounted(() => tasksStore.cleanup())
 </script>
