@@ -56,8 +56,12 @@
                 :class="wt.costIncludesTax ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'">
                 {{ wt.costIncludesTax ? '含稅' : '未稅' }}
               </span>
-              <div v-if="totalVendorPaid(wt) > 0" class="text-[10px] text-gray-400 mt-0.5">
+              <div v-if="wt.vendorCost > 0" class="text-[10px] mt-0.5"
+                :class="totalVendorPaid(wt) >= wt.vendorCost ? 'text-green-600'
+                      : totalVendorPaid(wt) > 0 ? 'text-orange-500'
+                      : 'text-gray-400'">
                 已付 ${{ totalVendorPaid(wt).toLocaleString() }}
+                <span v-if="totalVendorPaid(wt) >= wt.vendorCost" class="ml-0.5">✓</span>
               </div>
             </div>
             <div>
