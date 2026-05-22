@@ -4,7 +4,8 @@
     <div v-for="(regionCases, region) in activeCasesByRegion" :key="region" class="px-3 mt-2">
       <div class="text-[11px] font-semibold px-2 py-1" style="color:#c9a96e">{{ regionName[region] }}</div>
       <div v-for="c in regionCases" :key="c.id"
-        class="rounded-lg px-3 py-2 cursor-pointer hover:bg-white/5">
+        @click="goToCase(c.companyId)"
+        class="rounded-lg px-3 py-2 cursor-pointer hover:bg-white/5 transition-colors">
         <div class="text-xs font-medium text-white">{{ c.name }}</div>
         <div class="text-[10px] text-gray-400">負責：{{ c.assigneeName }}</div>
       </div>
@@ -25,17 +26,23 @@
 </template>
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import StatsSection from '@/components/dashboard/StatsSection.vue'
 import EmployeeTable from '@/components/dashboard/EmployeeTable.vue'
 import { useCasesStore } from '@/stores/cases'
 import { useAuthStore } from '@/stores/auth'
 
+const router = useRouter()
 const casesStore = useCasesStore()
 const authStore = useAuthStore()
 const selectedYear = ref(new Date().getFullYear())
-const years = [selectedYear.value, selectedYear.value - 1, selectedYear.value - 2]
+const years = Array.from({ length: 5 }, (_, i) => selectedYear.value - i)
 
 const regionName = { north: '奈拾北區', central: '奈拾中區', south: '奈拾南區' }
+
+function goToCase(companyId) {
+    router.push({ name: 'cases', query: { region: companyId } })
+}
 
 const activeCasesByRegion = computed(() => {
     const result = {}

@@ -4,9 +4,17 @@
       <span class="text-sm font-semibold text-gray-700">客戶列表</span>
       <button @click="emit('add')" class="text-xs text-white px-2 py-1 rounded-lg" style="background:#1e2533">+ 新增</button>
     </div>
-    <div class="px-4 py-2 border-b border-gray-100">
+    <div class="px-4 py-2 border-b border-gray-100 flex flex-col gap-1.5">
       <input v-model="search" type="text" placeholder="搜尋客戶..."
         class="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1">
+      <select v-model="statusFilter" class="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-1">
+        <option value="">全部狀態</option>
+        <option value="contacted">初次接觸</option>
+        <option value="negotiating">洽談中</option>
+        <option value="signed">已簽約</option>
+        <option value="completed">已完工</option>
+        <option value="lost">已流失</option>
+      </select>
     </div>
     <div class="flex-1 overflow-y-auto">
       <div v-for="c in filteredClients" :key="c.id"
@@ -34,11 +42,14 @@ const props = defineProps({ selected: Object })
 const emit = defineEmits(['select', 'add'])
 const clientsStore = useClientsStore()
 const search = ref('')
+const statusFilter = ref('')
 
 const filteredClients = computed(() =>
-    clientsStore.clients.filter(c =>
-        !search.value || c.name?.includes(search.value) || c.phone?.includes(search.value)
-    )
+    clientsStore.clients.filter(c => {
+        if (search.value && !c.name?.includes(search.value) && !c.phone?.includes(search.value)) return false
+        if (statusFilter.value && c.status !== statusFilter.value) return false
+        return true
+    })
 )
 
 const statusMap = { contacted: '初次接觸', negotiating: '洽談中', signed: '已簽約', completed: '已完工', lost: '已流失' }

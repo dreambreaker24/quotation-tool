@@ -130,10 +130,13 @@ function openAdd(type) {
 async function submitAdd() {
     if (!addContent.value.trim() || submitting.value) return
     submitting.value = true
-    await tasksStore.addTask(props.caseId, addType.value, addContent.value.trim(), authStore.name ?? '', authStore.user?.uid ?? '')
-    addContent.value = ''
-    showAdd.value = false
-    submitting.value = false
-    toast('已送出')
+    try {
+        await tasksStore.addTask(props.caseId, addType.value, addContent.value.trim(), authStore.name ?? '', authStore.user?.uid ?? '')
+        addContent.value = ''
+        showAdd.value = false
+        toast('已送出')
+    } finally {
+        submitting.value = false
+    }
 }
 </script>

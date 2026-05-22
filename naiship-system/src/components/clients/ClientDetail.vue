@@ -64,6 +64,7 @@
               <option v-for="name in employeeNames" :key="name" :value="name">{{ name }}</option>
             </optgroup>
             <option value="其他">其他</option>
+            <option v-if="legacySource" :value="legacySource">{{ legacySource }}（舊）</option>
           </select></div>
         <div><label class="text-xs text-gray-400 block mb-0.5">狀態</label>
           <select v-model="editForm.status" class="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1">
@@ -104,7 +105,14 @@ import { useClientSources } from '@/composables/useClientSources'
 const props = defineProps({ client: Object, notes: { type: Array, default: () => [] } })
 const clientsStore = useClientsStore()
 const casesStore = useCasesStore()
-const { sourceOptions, employeeNames } = useClientSources()
+const { sourceOptions, employeeNames, normalizeSource } = useClientSources()
+
+const legacySource = computed(() => {
+    const src = props.client?.source
+    if (!src) return null
+    const isKnown = sourceOptions.value.includes(src) || employeeNames.value.includes(src) || src === '其他'
+    return isKnown ? null : src
+})
 
 const editing = ref(false)
 const editForm = ref({})

@@ -25,7 +25,10 @@
           </div>
           <!-- Work type sub-rows (when expanded) -->
           <div v-if="expanded[c.id]" class="bg-gray-50/50">
-            <div v-for="wt in (c.workTypes?.length ? c.workTypes : defaultWorkTypes)" :key="wt.id"
+            <div v-if="!c.workTypes?.length" class="px-5 flex items-center border-t border-gray-100 text-[11px] text-gray-400" style="height:28px">
+              尚無工種安排
+            </div>
+            <div v-for="wt in c.workTypes" :key="wt.id"
               class="px-3 flex items-center gap-2 border-t border-gray-100" style="height:28px">
               <span class="w-4"></span>
               <span class="w-2 h-2 rounded-full flex-shrink-0" :style="`background:${wt.color}`"></span>
@@ -64,14 +67,15 @@
             </div>
             <!-- Work type sub-rows (when expanded) -->
             <template v-if="expanded[c.id]">
-              <div v-for="wt in (c.workTypes?.length ? c.workTypes : defaultWorkTypes)" :key="wt.id"
+              <div v-if="!c.workTypes?.length" class="flex border-b border-gray-100" style="height:28px"></div>
+              <div v-for="wt in c.workTypes" :key="wt.id"
                 class="flex border-b border-gray-100 relative" style="height:28px">
                 <div v-for="d in 31" :key="d"
                   class="flex-shrink-0 border-r border-gray-50" style="width:28px">
                 </div>
-                <div v-if="getWtGanttBar(wt, currentYear, currentMonth)"
+                <div v-if="getWtGanttBar(wt, displayYear, displayMonth)"
                   class="absolute top-1 bottom-1 rounded"
-                  :style="`left:${getWtGanttBar(wt, currentYear, currentMonth).left}px;width:${getWtGanttBar(wt, currentYear, currentMonth).width}px;background:${wt.color}`">
+                  :style="`left:${getWtGanttBar(wt, displayYear, displayMonth).left}px;width:${getWtGanttBar(wt, displayYear, displayMonth).width}px;background:${wt.color}`">
                 </div>
               </div>
             </template>
@@ -99,11 +103,13 @@
 import { ref, computed, reactive, watch, onUnmounted } from 'vue'
 import { useCasesStore } from '@/stores/cases'
 import { useCaseTasksStore } from '@/stores/caseTasks'
+import { deadlineInfo } from '@/composables/useDeadlineInfo'
 import PhotoUpload from './PhotoUpload.vue'
 import CaseTasks from './CaseTasks.vue'
 import WorkTypePanel from './WorkTypePanel.vue'
 
-const props = defineProps({ region: String, month: String })
+const props = defineProps({ region: String, month: String, jumpCaseId: String })
+const emit = defineEmits(['jumped'])
 const casesStore = useCasesStore()
 const tasksStore = useCaseTasksStore()
 
@@ -113,28 +119,11 @@ const expandedCaseName = ref('')
 const selectedCaseId = ref(null)
 const selectedCaseName = ref('')
 const todayDate = new Date().getDate()
-const currentYear = new Date().getFullYear()
-const currentMonth = new Date().getMonth() + 1
 
-const currentMonthLabel = computed(() => {
-    const now = new Date()
-    return `${now.getFullYear()}年${now.getMonth() + 1}月`
-})
+const displayYear = computed(() => props.month ? Number(props.month.split('-')[0]) : new Date().getFullYear())
+const displayMonth = computed(() => props.month ? Number(props.month.split('-')[1]) : new Date().getMonth() + 1)
 
-const defaultWorkTypes = [
-    { id: 'wt1', name: '水電', color: '#3b82f6', vendorName: '' },
-    { id: 'wt2', name: '泥作', color: '#f59e0b', vendorName: '' }
-]
-
-function deadlineInfo(c) {
-    if (!c.deadline) return null
-    const d = c.deadline.toDate?.() ?? new Date(c.deadline)
-    const days = Math.ceil((d - new Date()) / (1000 * 60 * 60 * 24))
-    if (days < 0) return { label: `逾期 ${Math.abs(days)} 天`, color: '#ef4444' }
-    if (days <= 14) return { label: `剩 ${days} 天`, color: '#f97316' }
-    if (days <= 30) return { label: `剩 ${days} 天`, color: '#f59e0b' }
-    return null
-}
+const currentMonthLabel = computed(() => `${displayYear.value}年${displayMonth.value}月`)
 
 function getWtGanttBar(wt, year, month) {
     if (!wt.startDate) return null
@@ -172,21 +161,35 @@ function selectCase(id) {
     }
 }
 
+watch(() => props.jumpCaseId, (id) => {
+    if (!id) return
+    const c = casesStore.cases.find(x => x.id === id)
+    if (!c) return
+    if (!expanded[id]) selectCase(id)
+    emit('jumped')
+})
+
+function getCaseGanttBar(c, year, month) {
+    if (!c.startDate) return null
+    const start = c.startDate.toDate?.() ?? new Date(c.startDate)
+    const end = c.endDate ? (c.endDate.toDate?.() ?? new Date(c.endDate)) : start
+    const daysInMonth = new Date(year, month, 0).getDate()
+    const sy = start.getFullYear(), sm = start.getMonth() + 1
+    const ey = end.getFullYear(), em = end.getMonth() + 1
+    if ((sy > year || (sy === year && sm > month)) || (ey < year || (ey === year && em < month))) return null
+    const startDay = (sy === year && sm === month) ? start.getDate() : 1
+    const endDay = (ey === year && em === month) ? end.getDate() : daysInMonth
+    return {
+        left: (startDay - 1) * 28,
+        width: Math.max(28, (endDay - startDay + 1) * 28),
+        color: '#c9a96e'
+    }
+}
+
 const regionCases = computed(() =>
     casesStore.cases
         .filter(c => c.companyId === props.region)
-        .map(c => {
-            const startDay = c.startDate?.toDate?.().getDate()
-            const endDay = c.endDate?.toDate?.().getDate()
-            return {
-                ...c,
-                ganttBar: startDay ? {
-                    left: (startDay - 1) * 28,
-                    width: endDay ? Math.max(28, (endDay - startDay + 1) * 28) : 56,
-                    color: '#c9a96e'
-                } : null
-            }
-        })
+        .map(c => ({ ...c, ganttBar: getCaseGanttBar(c, displayYear.value, displayMonth.value) }))
 )
 
 onUnmounted(() => tasksStore.cleanup())

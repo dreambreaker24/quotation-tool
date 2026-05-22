@@ -1,5 +1,5 @@
 <template>
-  <CaseSidebar :model-value="selectedRegion" @select-region="selectedRegion = $event" />
+  <CaseSidebar :model-value="selectedRegion" @select-region="selectedRegion = $event" @select-case="jumpToCase" />
   <main class="flex-1 flex flex-col overflow-hidden">
     <div class="bg-white border-b border-gray-200 px-6 flex items-center gap-1 flex-shrink-0">
       <button v-for="tab in tabs" :key="tab.id"
@@ -18,7 +18,7 @@
     </div>
     <div class="flex-1 overflow-auto p-6">
       <CalendarTab v-if="activeTab === 'cal'" :region="selectedRegion" />
-      <GanttTab v-else-if="activeTab === 'gantt'" :region="selectedRegion" :month="selectedMonth" />
+      <GanttTab v-else-if="activeTab === 'gantt'" :region="selectedRegion" :month="selectedMonth" :jump-case-id="jumpCaseId" @jumped="jumpCaseId = null" />
       <WorkJournalTab v-else-if="activeTab === 'log'" :region="selectedRegion" />
     </div>
   </main>
@@ -122,6 +122,7 @@
 </template>
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { Timestamp } from 'firebase/firestore'
 import { useToast } from '@/composables/useToast'
 import CaseSidebar from '@/components/cases/CaseSidebar.vue'
@@ -132,8 +133,16 @@ import { useCasesStore } from '@/stores/cases'
 import { useClientsStore } from '@/stores/clients'
 import { useAuthStore } from '@/stores/auth'
 
-const selectedRegion = ref('south')
+const route = useRoute()
+const validRegions = ['south', 'north', 'central']
+const selectedRegion = ref(validRegions.includes(route.query.region) ? route.query.region : 'south')
 const activeTab = ref('cal')
+const jumpCaseId = ref(null)
+
+function jumpToCase(caseId) {
+    activeTab.value = 'gantt'
+    jumpCaseId.value = caseId
+}
 const showAddCase = ref(false)
 const submitting = ref(false)
 const casesStore = useCasesStore()
@@ -190,16 +199,17 @@ async function submitCase() {
     if (!data.deadline) delete data.deadline
     if (!data.linkedClientId) delete data.linkedClientId
 
-    const docRef = await casesStore.addCase(data)
-
-    if (caseForm.value.linkedClientId && docRef?.id) {
-        await clientsStore.updateClient(caseForm.value.linkedClientId, { linkedCaseId: docRef.id })
+    try {
+        const docRef = await casesStore.addCase(data)
+        if (caseForm.value.linkedClientId && docRef?.id) {
+            await clientsStore.updateClient(caseForm.value.linkedClientId, { linkedCaseId: docRef.id })
+        }
+        caseForm.value = blankCase()
+        showAddCase.value = false
+        toast('案件已建立')
+    } finally {
+        submitting.value = false
     }
-
-    caseForm.value = blankCase()
-    showAddCase.value = false
-    submitting.value = false
-    toast('案件已建立')
 }
 
 const monthOptions = computed(() => {

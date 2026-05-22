@@ -76,10 +76,10 @@
             <option v-for="v in vendorsStore.vendors" :key="v.id" :value="v.id">
               {{ v.name }}（{{ v.specialty }}）
             </option>
-            <template v-if="vendorsStore.vendors.length === 0">
-              <option disabled value="">尚無廠商，請至系統設定 › 廠商管理新增</option>
-            </template>
           </select>
+          <p v-if="vendorsStore.vendors.length === 0" class="text-[11px] text-gray-400 mt-1">
+            尚無廠商，請至系統設定 › 廠商管理新增
+          </p>
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
