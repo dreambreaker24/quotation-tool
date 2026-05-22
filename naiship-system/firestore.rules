@@ -5,6 +5,7 @@ service cloud.firestore {
     function getUser() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
     function isAdmin() { return getUser().role == 'admin'; }
     function isManager() { return getUser().role in ['admin', 'manager']; }
+    function isSameRegion(companyId) { return isAdmin() || getUser().companyId == companyId; }
 
     match /users/{userId} {
       allow read: if isSignedIn();
@@ -15,8 +16,8 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
     match /cases/{caseId} {
-      allow read: if isSignedIn();
-      allow create, update: if isManager();
+      allow read: if isSignedIn() && isSameRegion(resource.data.companyId);
+      allow create, update: if isManager() && isSameRegion(request.resource.data.companyId);
       allow delete: if isAdmin();
       match /{subcollection}/{docId} {
         allow read: if isSignedIn();
@@ -24,9 +25,14 @@ service cloud.firestore {
       }
     }
     match /clients/{clientId} {
-      allow read: if isSignedIn();
-      allow write: if isManager();
+      allow read: if isSignedIn() && isSameRegion(resource.data.companyId);
+      allow create, update: if isManager() && isSameRegion(request.resource.data.companyId);
+      allow delete: if isAdmin();
       match /notes/{noteId} {
+        allow read: if isSignedIn();
+        allow write: if isSignedIn();
+      }
+      match /contactLogs/{logId} {
         allow read: if isSignedIn();
         allow write: if isSignedIn();
       }

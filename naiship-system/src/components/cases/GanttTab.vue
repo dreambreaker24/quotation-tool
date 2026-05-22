@@ -89,8 +89,23 @@
       今日：{{ currentMonthLabel }} 第 {{ todayDate }} 日
     </div>
 
+    <!-- Case action bar (when selected) -->
+    <div v-if="selectedCaseId" class="px-4 py-2 border-t border-gray-100 flex items-center gap-2">
+      <button @click="editingCaseId = selectedCaseId"
+        class="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">
+        ✎ 編輯案件
+      </button>
+      <button @click="copyCase"
+        class="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">
+        ⧉ 複製案件
+      </button>
+    </div>
+
     <!-- Work type panel (when expanded) -->
     <WorkTypePanel v-if="selectedCaseId" :case-id="selectedCaseId" :case-name="selectedCaseName" />
+
+    <!-- Payment milestones panel (when selected) -->
+    <PaymentMilestones v-if="selectedCaseId" :case-id="selectedCaseId" :case-name="selectedCaseName" />
 
     <!-- Photo upload section (when expanded) -->
     <PhotoUpload v-if="expandedCaseId" :case-id="expandedCaseId" :case-name="expandedCaseName" />
@@ -98,26 +113,34 @@
     <!-- Case tasks section (when selected) -->
     <CaseTasks v-if="selectedCaseId" :case-id="selectedCaseId" :case-name="selectedCaseName" />
   </div>
+
+  <!-- Case edit modal -->
+  <CaseEditModal v-if="editingCaseId" :case-id="editingCaseId" @close="editingCaseId = null" />
 </template>
 <script setup>
 import { ref, computed, reactive, watch, onUnmounted } from 'vue'
 import { useCasesStore } from '@/stores/cases'
 import { useCaseTasksStore } from '@/stores/caseTasks'
 import { deadlineInfo } from '@/composables/useDeadlineInfo'
+import { useToast } from '@/composables/useToast'
 import PhotoUpload from './PhotoUpload.vue'
 import CaseTasks from './CaseTasks.vue'
 import WorkTypePanel from './WorkTypePanel.vue'
+import PaymentMilestones from './PaymentMilestones.vue'
+import CaseEditModal from './CaseEditModal.vue'
 
 const props = defineProps({ region: String, month: String, jumpCaseId: String })
 const emit = defineEmits(['jumped'])
 const casesStore = useCasesStore()
 const tasksStore = useCaseTasksStore()
+const { toast } = useToast()
 
 const expanded = reactive({})
 const expandedCaseId = ref(null)
 const expandedCaseName = ref('')
 const selectedCaseId = ref(null)
 const selectedCaseName = ref('')
+const editingCaseId = ref(null)
 const todayDate = new Date().getDate()
 
 const displayYear = computed(() => props.month ? Number(props.month.split('-')[0]) : new Date().getFullYear())
@@ -191,6 +214,25 @@ const regionCases = computed(() =>
         .filter(c => c.companyId === props.region)
         .map(c => ({ ...c, ganttBar: getCaseGanttBar(c, displayYear.value, displayMonth.value) }))
 )
+
+async function copyCase() {
+    const c = casesStore.cases.find(x => x.id === selectedCaseId.value)
+    if (!c) return
+    const workTypes = (c.workTypes ?? []).map(wt => ({ ...wt, id: Date.now().toString(36) + Math.random().toString(36).slice(2) }))
+    await casesStore.addCase({
+        name: `${c.name}（複製）`,
+        companyId: c.companyId,
+        status: 'negotiating',
+        assignees: c.assignees ?? [],
+        assigneeName: c.assigneeName ?? '',
+        assignedTo: c.assignedTo ?? '',
+        address: c.address ?? '',
+        estimatedAmount: 0,
+        signedAmount: 0,
+        workTypes,
+    })
+    toast('案件已複製')
+}
 
 onUnmounted(() => tasksStore.cleanup())
 </script>

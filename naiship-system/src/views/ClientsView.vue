@@ -12,9 +12,11 @@
             :style="`background:${sourceColor(src)}`">{{ count }}</span>
         </div>
         <span class="text-[10px] text-gray-400 ml-auto">共 {{ totalRecentClients }} 位</span>
+        <button @click="exportClients(clientsStore.clients)"
+          class="text-xs border border-gray-200 rounded-lg px-2.5 py-1 text-gray-500 hover:border-gray-400">匯出</button>
       </div>
     </div>
-    <ClientDetail :client="selectedClient" :notes="clientNotes" />
+    <ClientDetail :client="selectedClient" />
   </div>
 
   <!-- 新增客戶 Modal -->
@@ -109,10 +111,9 @@
 </template>
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
-import { collection, getDocs, orderBy, query } from 'firebase/firestore'
-import { db } from '@/firebase'
 import { useToast } from '@/composables/useToast'
 import { useClientSources } from '@/composables/useClientSources'
+import { useExport } from '@/composables/useExport'
 import ClientList from '@/components/clients/ClientList.vue'
 import ClientDetail from '@/components/clients/ClientDetail.vue'
 import { useClientsStore } from '@/stores/clients'
@@ -120,7 +121,6 @@ import { useAuthStore } from '@/stores/auth'
 import { useCasesStore } from '@/stores/cases'
 
 const selectedClient = ref(null)
-const clientNotes = ref([])
 const showForm = ref(false)
 const submitting = ref(false)
 const clientsStore = useClientsStore()
@@ -128,6 +128,7 @@ const authStore = useAuthStore()
 const casesStore = useCasesStore()
 const { toast } = useToast()
 const { sourceOptions, sourceColor, normalizeSource, employeeNames } = useClientSources()
+const { exportClients } = useExport()
 
 const sourceStats = computed(() => {
     const threeMonthsAgo = new Date()
@@ -158,23 +159,15 @@ watch(() => clientsStore.clients, (clients) => {
     }
 })
 
-const blankClient = () => ({ name: '', phone: '', email: '', lineId: '', address: '', source: 'IG', status: 'contacted', budget: 0, area: 0, companyId: authStore.companyId || 'south', linkedCaseId: '' })
+const blankClient = () => ({ name: '', phone: '', email: '', lineId: '', address: '', source: 'IG', status: 'contacted', budget: 0, area: 0, companyId: authStore.companyId || 'south', linkedCaseId: '', followUpDate: '' })
 const clientForm = ref(blankClient())
 
 const casesForRegion = computed(() =>
     casesStore.cases.filter(c => c.companyId === clientForm.value.companyId)
 )
 
-async function loadNotes(clientId) {
-    if (!clientId) { clientNotes.value = []; return }
-    const q = query(collection(db, 'clients', clientId, 'notes'), orderBy('createdAt', 'desc'))
-    const snap = await getDocs(q)
-    clientNotes.value = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-}
-
-async function selectClient(client) {
+function selectClient(client) {
     selectedClient.value = client
-    await loadNotes(client?.id)
 }
 
 async function submitClient() {

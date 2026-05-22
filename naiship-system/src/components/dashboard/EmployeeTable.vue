@@ -20,6 +20,7 @@
         <thead>
           <tr class="bg-gray-50">
             <th class="text-left px-3 py-2 text-gray-500 font-semibold sticky left-0 bg-gray-50 min-w-[110px]">員工</th>
+            <th class="text-center px-2 py-2 text-gray-500 font-semibold min-w-[70px]">本月出勤</th>
             <th class="text-center px-2 py-2 text-gray-500 font-semibold min-w-[60px]">未成案</th>
             <th v-for="m in months" :key="m" class="text-center px-2 py-2 text-gray-500 font-semibold min-w-[70px]">
               {{ String(m).padStart(2, '0') }}
@@ -34,6 +35,10 @@
               <div v-if="monthlyKm[emp.name]" class="text-[10px] text-amber-600 mt-0.5">
                 本月 {{ monthlyKm[emp.name] }} km
               </div>
+            </td>
+            <td class="text-center px-2 py-2.5">
+              <span class="text-gray-700 font-medium">{{ attendanceMap[emp.name] ?? 0 }}</span>
+              <span class="text-gray-400 text-[10px]"> 天</span>
             </td>
             <td class="text-center px-2 py-2.5 text-gray-500">{{ emp.lostCount }}</td>
             <td v-for="m in months" :key="m" class="text-center px-2 py-2.5">
@@ -64,15 +69,18 @@ const logsStore = useWorkLogsStore()
 const selectedRegion = ref('')
 const months = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
 const monthlyKm = ref({})
+const attendanceMap = ref({})
 const refreshing = ref(false)
 
 onMounted(async () => {
     monthlyKm.value = await logsStore.fetchMonthlyKm()
+    attendanceMap.value = await logsStore.fetchMonthlyAttendance()
 })
 
 async function refreshKm() {
     refreshing.value = true
     monthlyKm.value = await logsStore.fetchMonthlyKm()
+    attendanceMap.value = await logsStore.fetchMonthlyAttendance()
     refreshing.value = false
 }
 

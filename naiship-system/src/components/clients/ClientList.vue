@@ -23,8 +23,9 @@
         :style="selected?.id === c.id ? 'background:rgba(201,169,110,0.1);border-left:2px solid #c9a96e' : ''"
         :class="selected?.id !== c.id ? 'hover:bg-gray-50' : ''">
         <div class="text-sm font-medium text-gray-800">{{ c.name }}</div>
-        <div class="flex items-center gap-2 mt-1">
+        <div class="flex items-center gap-2 mt-1 flex-wrap">
           <span class="text-[10px] px-2 py-0.5 rounded-full" :class="statusClass(c.status)">{{ statusLabel(c.status) }}</span>
+          <span v-if="isDueFollowUp(c)" class="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">跟進</span>
           <span class="text-[10px] text-gray-400">{{ c.phone }}</span>
         </div>
       </div>
@@ -62,4 +63,8 @@ const statusClassMap = {
 }
 function statusLabel(s) { return statusMap[s] ?? s }
 function statusClass(s) { return statusClassMap[s] ?? 'bg-gray-100 text-gray-500' }
+function isDueFollowUp(c) {
+    if (!c.followUpDate) return false
+    return c.followUpDate <= new Date().toISOString().slice(0, 10)
+}
 </script>

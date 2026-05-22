@@ -20,8 +20,10 @@
         </select>
       </div>
     </div>
+    <DashboardTodo class="mb-4" />
     <StatsSection :year="selectedYear" />
     <EmployeeTable :year="selectedYear" class="mt-6" />
+    <MonthlyCashFlow :year="selectedYear" :month="currentMonth" class="mt-6" />
   </main>
 </template>
 <script setup>
@@ -29,13 +31,18 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import StatsSection from '@/components/dashboard/StatsSection.vue'
 import EmployeeTable from '@/components/dashboard/EmployeeTable.vue'
+import DashboardTodo from '@/components/dashboard/DashboardTodo.vue'
+import MonthlyCashFlow from '@/components/dashboard/MonthlyCashFlow.vue'
 import { useCasesStore } from '@/stores/cases'
+import { useClientsStore } from '@/stores/clients'
 import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
 const casesStore = useCasesStore()
+const clientsStore = useClientsStore()
 const authStore = useAuthStore()
 const selectedYear = ref(new Date().getFullYear())
+const currentMonth = new Date().getMonth() + 1
 const years = Array.from({ length: 5 }, (_, i) => selectedYear.value - i)
 
 const regionName = { north: '奈拾北區', central: '奈拾中區', south: '奈拾南區' }
@@ -57,6 +64,8 @@ onMounted(() => {
     const regions = authStore.isAdmin
         ? ['south', 'north', 'central']
         : [authStore.companyId]
-    casesStore.subscribe(regions.filter(Boolean))
+    const filtered = regions.filter(Boolean)
+    casesStore.subscribe(filtered)
+    clientsStore.subscribe(filtered)
 })
 </script>

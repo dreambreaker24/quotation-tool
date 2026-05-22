@@ -1,7 +1,7 @@
 <template>
   <div class="flex gap-4">
-    <!-- Left: employee selector -->
-    <div class="bg-white rounded-2xl shadow-sm flex-shrink-0 overflow-hidden" style="width:200px">
+    <!-- Left: employee selector (desktop only) -->
+    <div class="hidden lg:block bg-white rounded-2xl shadow-sm flex-shrink-0 overflow-hidden" style="width:200px">
       <div class="px-4 py-3 border-b border-gray-100">
         <div class="text-xs font-semibold text-gray-500 mb-2">選擇員工</div>
         <input v-model="search" type="text" placeholder="搜尋..."
@@ -34,18 +34,35 @@
 
     <!-- Right: log entries -->
     <div class="flex-1 flex flex-col gap-4">
-      <div class="bg-white rounded-2xl shadow-sm px-5 py-3 flex items-center justify-between">
+      <div class="bg-white rounded-2xl shadow-sm px-5 py-3 flex items-center justify-between flex-wrap gap-2">
         <div>
+          <!-- Mobile employee select -->
+          <select v-model="mobileSelectedEmployee" class="lg:hidden text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white mb-2 w-full">
+            <option :value="null">全部員工</option>
+            <option v-for="emp in filteredEmployees" :key="emp.id" :value="emp">{{ emp.name }}</option>
+          </select>
           <div class="text-sm font-semibold text-gray-800">
             {{ selectedEmployee ? `${selectedEmployee.name} 的工作日誌` : '全部員工工作日誌' }}
           </div>
           <div class="flex items-center gap-2 mt-1">
             <button @click="shiftDate(-1)" class="text-gray-400 hover:text-gray-700 text-xs leading-none px-1">◀</button>
             <span class="text-[11px] text-gray-500">{{ dateLabel }}</span>
-            <button @click="shiftDate(1)" :disabled="isToday" class="text-gray-400 hover:text-gray-700 text-xs leading-none px-1 disabled:opacity-30">▶</button>
+            <button @click="shiftDate(1)" :disabled="isAtEnd" class="text-gray-400 hover:text-gray-700 text-xs leading-none px-1 disabled:opacity-30">▶</button>
           </div>
         </div>
-        <button v-if="isToday" @click="openLogForm" class="text-xs text-white px-3 py-1.5 rounded-lg" style="background:#1e2533">+ 填寫今日日誌</button>
+        <div class="flex items-center gap-2 flex-wrap">
+          <div class="flex rounded-lg border border-gray-200 overflow-hidden text-xs">
+            <button @click="viewMode = 'day'"
+              class="px-2.5 py-1.5 transition-colors"
+              :class="viewMode === 'day' ? 'text-white' : 'text-gray-500 hover:bg-gray-50'"
+              :style="viewMode === 'day' ? 'background:#1e2533' : ''">單日</button>
+            <button @click="viewMode = 'week'"
+              class="px-2.5 py-1.5 transition-colors border-l border-gray-200"
+              :class="viewMode === 'week' ? 'text-white' : 'text-gray-500 hover:bg-gray-50'"
+              :style="viewMode === 'week' ? 'background:#1e2533' : ''">週檢視</button>
+          </div>
+          <button v-if="isToday" @click="openLogForm" class="text-xs text-white px-3 py-1.5 rounded-lg" style="background:#1e2533">+ 填寫今日日誌</button>
+        </div>
       </div>
 
       <div v-for="log in displayedLogs" :key="log.id" class="bg-white rounded-2xl shadow-sm p-5">
@@ -101,6 +118,7 @@
             <div>
               <div class="text-xs text-gray-700 mb-1"><span class="text-gray-400">原因：</span>{{ f.reason }}</div>
               <div class="text-xs text-gray-700"><span class="text-gray-400">路程：</span>{{ f.distance }} 公里</div>
+              <div class="text-xs text-amber-600 font-semibold mt-0.5">補貼金額：{{ f.distance * 6 }} 元</div>
             </div>
           </div>
         </div>
@@ -114,6 +132,7 @@
             <div>
               <div class="text-xs text-gray-700 mb-1"><span class="text-gray-400">原因：</span>{{ log.fuelExpense.reason }}</div>
               <div class="text-xs text-gray-700"><span class="text-gray-400">路程：</span>{{ log.fuelExpense.distance }} 公里</div>
+              <div class="text-xs text-amber-600 font-semibold mt-0.5">補貼金額：{{ log.fuelExpense.distance * 6 }} 元</div>
             </div>
           </div>
         </div>
@@ -143,7 +162,7 @@
       </div>
 
       <div v-if="displayedLogs.length === 0" class="bg-white rounded-2xl shadow-sm p-8 text-center text-gray-400 text-sm">
-        今日尚無工作日誌
+        {{ viewMode === 'week' ? '本週尚無工作日誌' : '今日尚無工作日誌' }}
       </div>
     </div>
   </div>
@@ -155,8 +174,8 @@
   </div>
 
   <!-- 填寫今日日誌 Modal -->
-  <div v-if="showLogForm" class="fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.4)">
-    <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+  <div v-if="showLogForm" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center" style="background:rgba(0,0,0,0.4)">
+    <div class="bg-white sm:rounded-2xl rounded-t-2xl shadow-xl p-6 w-full sm:max-w-lg sm:mx-4 max-h-[100vh] sm:max-h-[90vh] overflow-y-auto">
       <div class="flex items-center justify-between mb-4">
         <h3 class="text-base font-bold text-gray-800">填寫今日工作日誌</h3>
         <button @click="showLogForm = false" class="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
@@ -215,6 +234,9 @@
                 <input v-model.number="item.distance" type="number" min="0"
                   class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 bg-white"
                   placeholder="0">
+                <div v-if="item.distance > 0" class="text-xs text-amber-600 font-semibold mt-1">
+                  補貼金額：${{ item.distance * 6 }} 元（$6/公里）
+                </div>
               </div>
               <div>
                 <label class="text-xs text-gray-500 mb-1 block">憑證照片</label>
@@ -253,6 +275,7 @@ const authStore = useAuthStore()
 const casesStore = useCasesStore()
 
 const selectedEmployee = ref(null)
+const mobileSelectedEmployee = ref(null)
 const search = ref('')
 const replyTarget = ref(null)
 const replyContent = ref('')
@@ -262,6 +285,7 @@ const logEntries = ref({})
 const otherItems = ref([])
 const fuelItems = ref([])
 const selectedDate = ref(new Date())
+const viewMode = ref('day')
 const submitting = ref(false)
 const { toast } = useToast()
 
@@ -346,28 +370,74 @@ async function submitLog() {
     toast('日誌已送出')
 }
 
+// Week helpers
+function getWeekStart(date) {
+    const d = new Date(date)
+    const day = d.getDay() // 0=Sun
+    const diff = day === 0 ? -6 : 1 - day // adjust to Monday
+    d.setDate(d.getDate() + diff)
+    d.setHours(0, 0, 0, 0)
+    return d
+}
+function getWeekEnd(date) {
+    const start = getWeekStart(date)
+    const end = new Date(start)
+    end.setDate(end.getDate() + 6)
+    end.setHours(23, 59, 59, 999)
+    return end
+}
+
 const isToday = computed(() => {
     const t = new Date()
     const s = selectedDate.value
     return t.getFullYear() === s.getFullYear() && t.getMonth() === s.getMonth() && t.getDate() === s.getDate()
 })
 
+const isAtEnd = computed(() => {
+    const today = new Date()
+    if (viewMode.value === 'week') {
+        const weekEnd = getWeekEnd(selectedDate.value)
+        return weekEnd >= today
+    }
+    return isToday.value
+})
+
+function fmtDate(d) {
+    return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
+}
+
 const dateLabel = computed(() => {
+    if (viewMode.value === 'week') {
+        const ws = getWeekStart(selectedDate.value)
+        const we = getWeekEnd(selectedDate.value)
+        return `${fmtDate(ws)} - ${fmtDate(we)}`
+    }
     const d = selectedDate.value
-    if (isToday.value) return `${d.getFullYear()} / ${String(d.getMonth() + 1).padStart(2, '0')} / ${String(d.getDate()).padStart(2, '0')}（今日）`
-    return `${d.getFullYear()} / ${String(d.getMonth() + 1).padStart(2, '0')} / ${String(d.getDate()).padStart(2, '0')}`
+    if (isToday.value) return `${fmtDate(d)}（今日）`
+    return fmtDate(d)
 })
 
 function shiftDate(delta) {
     const d = new Date(selectedDate.value)
-    d.setDate(d.getDate() + delta)
+    const step = viewMode.value === 'week' ? delta * 7 : delta
+    d.setDate(d.getDate() + step)
     if (d > new Date()) return
     selectedDate.value = d
 }
 
-watch([() => props.region, selectedDate], ([region]) => {
-    if (region) logsStore.subscribe(region, selectedDate.value)
+watch([() => props.region, selectedDate, viewMode], ([region]) => {
+    if (!region) return
+    if (viewMode.value === 'week') {
+        const ws = getWeekStart(selectedDate.value)
+        const we = getWeekEnd(selectedDate.value)
+        logsStore.subscribe(region, ws, we)
+    } else {
+        logsStore.subscribe(region, selectedDate.value)
+    }
 }, { immediate: true })
+
+// Sync mobile dropdown with the desktop sidebar selection
+watch(mobileSelectedEmployee, val => { selectedEmployee.value = val })
 
 onUnmounted(() => logsStore.unsubscribe?.())
 

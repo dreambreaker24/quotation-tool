@@ -21,6 +21,10 @@
         <div><span class="text-gray-400 text-xs block mb-0.5">預算</span><p class="text-gray-700">{{ client.budget ? `$${client.budget.toLocaleString()}` : '—' }}</p></div>
         <div><span class="text-gray-400 text-xs block mb-0.5">坪數</span><p class="text-gray-700">{{ client.area ? `${client.area} 坪` : '—' }}</p></div>
         <div>
+          <span class="text-gray-400 text-xs block mb-0.5">下次跟進</span>
+          <p class="text-gray-700">{{ client.followUpDate || '—' }}</p>
+        </div>
+        <div>
           <span class="text-gray-400 text-xs block mb-0.5">狀態</span>
           <select :value="client.status" @change="updateStatus($event.target.value)"
             class="text-sm border border-gray-200 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-1">
@@ -75,6 +79,8 @@
           <input v-model.number="editForm.budget" type="number" class="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1"></div>
         <div><label class="text-xs text-gray-400 block mb-0.5">坪數</label>
           <input v-model.number="editForm.area" type="number" class="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1"></div>
+        <div><label class="text-xs text-gray-400 block mb-0.5">下次跟進日期（選填）</label>
+          <input v-model="editForm.followUpDate" type="date" class="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1"></div>
         <div class="col-span-2"><label class="text-xs text-gray-400 block mb-0.5">連結案件</label>
           <select v-model="editForm.linkedCaseId" class="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1">
             <option value="">— 不連結 —</option>
@@ -87,7 +93,7 @@
       </div>
     </div>
     <div class="bg-white rounded-2xl shadow-sm p-6">
-      <ClientNotes :client-id="client.id" :notes="notes" />
+      <ClientContactLog :client-id="client.id" />
     </div>
   </div>
   <div v-else class="flex-1 flex items-center justify-center">
@@ -96,13 +102,13 @@
 </template>
 <script setup>
 import { ref, computed } from 'vue'
-import ClientNotes from './ClientNotes.vue'
+import ClientContactLog from './ClientContactLog.vue'
 import { useClientsStore } from '@/stores/clients'
 import { useCasesStore } from '@/stores/cases'
 import { useToast } from '@/composables/useToast'
 import { useClientSources } from '@/composables/useClientSources'
 
-const props = defineProps({ client: Object, notes: { type: Array, default: () => [] } })
+const props = defineProps({ client: Object })
 const clientsStore = useClientsStore()
 const casesStore = useCasesStore()
 const { sourceOptions, employeeNames, normalizeSource } = useClientSources()
@@ -140,6 +146,7 @@ function startEdit() {
     area: props.client.area ?? 0,
     linkedCaseId: props.client.linkedCaseId ?? '',
     lostReason: props.client.lostReason ?? '',
+    followUpDate: props.client.followUpDate ?? '',
   }
   editing.value = true
 }

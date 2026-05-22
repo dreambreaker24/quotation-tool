@@ -1,0 +1,227 @@
+<template>
+  <div class="fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.4)">
+    <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-5">
+        <h3 class="text-base font-bold text-gray-800">編輯案件</h3>
+        <button @click="$emit('close')" class="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
+      </div>
+
+      <div v-if="!caseData" class="text-sm text-gray-400 py-4 text-center">載入中…</div>
+
+      <div v-else class="flex flex-col gap-3">
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">案件名稱 *</label>
+          <input v-model="form.name" type="text" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1" placeholder="例：台南東區翻新">
+        </div>
+
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">施工地址</label>
+          <input v-model="form.address" type="text" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1" placeholder="例：台南市東區某路1號">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs text-gray-500 mb-1 block">分區 *</label>
+            <select v-model="form.companyId" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
+              <option value="south">奈拾南區</option>
+              <option value="north">奈拾北區</option>
+              <option value="central">奈拾中區</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-xs text-gray-500 mb-1 block">狀態 *</label>
+            <select v-model="form.status" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
+              <option value="negotiating">洽談中</option>
+              <option value="drafting">製圖中</option>
+              <option value="construction">施工中</option>
+              <option value="pending_settlement">待結算</option>
+              <option value="aftercare">售後</option>
+              <option value="completed">已完工</option>
+              <option value="lost">未成案</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Status history -->
+        <div v-if="caseData.statusHistory?.length" class="bg-gray-50 rounded-xl px-3 py-2.5">
+          <div class="text-xs font-semibold text-gray-500 mb-2">狀態變更紀錄</div>
+          <div v-for="(h, i) in caseData.statusHistory" :key="i" class="flex items-center justify-between text-[11px] text-gray-500 py-0.5">
+            <span>{{ statusLabel(h.status) }}</span>
+            <span class="text-gray-400">{{ h.changedBy }} · {{ formatTs(h.changedAt) }}</span>
+          </div>
+        </div>
+
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">負責人（最多 4 位）</label>
+          <div class="flex flex-col gap-2">
+            <div v-for="(a, idx) in form.assignees" :key="idx" class="flex items-center gap-2">
+              <input v-model="form.assignees[idx]" type="text"
+                class="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1"
+                :placeholder="`負責人 ${idx + 1}`">
+              <button v-if="form.assignees.length > 1" @click="form.assignees.splice(idx, 1)"
+                class="text-red-400 hover:text-red-600 px-1">✕</button>
+            </div>
+            <button v-if="form.assignees.length < 4" @click="form.assignees.push('')"
+              class="text-xs text-left px-1" style="color:#c9a96e">+ 新增負責人</button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs text-gray-500 mb-1 block">預估金額</label>
+            <input v-model.number="form.estimatedAmount" type="number" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1" placeholder="0">
+          </div>
+          <div>
+            <label class="text-xs text-gray-500 mb-1 block">簽約金額</label>
+            <input v-model.number="form.signedAmount" type="number" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1" placeholder="0">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs text-gray-500 mb-1 block">開始日期</label>
+            <input v-model="form.startDate" type="date" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1">
+          </div>
+          <div>
+            <label class="text-xs text-gray-500 mb-1 block">結束日期（預估）</label>
+            <input v-model="form.endDate" type="date" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs text-gray-500 mb-1 block">簽約日期（選填）</label>
+            <input v-model="form.signedDate" type="date" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1">
+          </div>
+          <div>
+            <label class="text-xs text-gray-500 mb-1 block">完工期限（業主要求）</label>
+            <input v-model="form.deadline" type="date" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1">
+          </div>
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 mt-5">
+        <button @click="$emit('close')" class="text-sm text-gray-400 px-4 py-2">取消</button>
+        <button @click="save" :disabled="saving || !caseData" class="text-sm text-white px-5 py-2 rounded-xl disabled:opacity-60" style="background:#1e2533">
+          {{ saving ? '儲存中…' : '儲存' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</template>
+<script setup>
+import { ref, computed, watch } from 'vue'
+import { Timestamp } from 'firebase/firestore'
+import { useCasesStore } from '@/stores/cases'
+import { useAuthStore } from '@/stores/auth'
+import { useToast } from '@/composables/useToast'
+
+const props = defineProps({ caseId: String })
+const emit = defineEmits(['close'])
+
+const casesStore = useCasesStore()
+const authStore = useAuthStore()
+const { toast } = useToast()
+
+const saving = ref(false)
+
+const caseData = computed(() => casesStore.cases.find(c => c.id === props.caseId) ?? null)
+
+function tsToDate(ts) {
+    if (!ts) return ''
+    const d = ts.toDate?.() ?? new Date(ts)
+    return d.toISOString().slice(0, 10)
+}
+
+const form = ref({
+    name: '',
+    address: '',
+    companyId: 'south',
+    status: 'negotiating',
+    assignees: [''],
+    estimatedAmount: 0,
+    signedAmount: 0,
+    startDate: '',
+    endDate: '',
+    signedDate: '',
+    deadline: '',
+})
+
+const originalStatus = ref('')
+
+watch(caseData, (c) => {
+    if (!c) return
+    originalStatus.value = c.status
+    form.value = {
+        name: c.name ?? '',
+        address: c.address ?? '',
+        companyId: c.companyId ?? 'south',
+        status: c.status ?? 'negotiating',
+        assignees: c.assignees?.length ? [...c.assignees] : [''],
+        estimatedAmount: c.estimatedAmount ?? 0,
+        signedAmount: c.signedAmount ?? 0,
+        startDate: tsToDate(c.startDate),
+        endDate: tsToDate(c.endDate),
+        signedDate: tsToDate(c.signedDate),
+        deadline: tsToDate(c.deadline),
+    }
+}, { immediate: true })
+
+const STATUS_LABELS = {
+    negotiating: '洽談中',
+    drafting: '製圖中',
+    construction: '施工中',
+    pending_settlement: '待結算',
+    aftercare: '售後',
+    completed: '已完工',
+    lost: '未成案',
+}
+
+function statusLabel(s) { return STATUS_LABELS[s] ?? s }
+
+function formatTs(ts) {
+    if (!ts) return ''
+    const d = ts.toDate?.() ?? new Date(ts)
+    return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`
+}
+
+async function save() {
+    if (!form.value.name || saving.value) return
+    saving.value = true
+    try {
+        const assignees = form.value.assignees.filter(a => a.trim())
+        const data = {
+            name: form.value.name,
+            address: form.value.address || '',
+            companyId: form.value.companyId,
+            status: form.value.status,
+            assignees,
+            assigneeName: assignees.join('、'),
+            estimatedAmount: form.value.estimatedAmount || 0,
+            signedAmount: form.value.signedAmount || 0,
+            startDate: form.value.startDate ? Timestamp.fromDate(new Date(form.value.startDate)) : null,
+            endDate: form.value.endDate ? Timestamp.fromDate(new Date(form.value.endDate)) : null,
+            signedDate: form.value.signedDate ? Timestamp.fromDate(new Date(form.value.signedDate)) : null,
+            deadline: form.value.deadline ? Timestamp.fromDate(new Date(form.value.deadline)) : null,
+        }
+        if (!data.startDate) delete data.startDate
+        if (!data.endDate) delete data.endDate
+        if (!data.signedDate) delete data.signedDate
+        if (!data.deadline) delete data.deadline
+
+        if (form.value.status !== originalStatus.value) {
+            const existing = caseData.value?.statusHistory ?? []
+            data.statusHistory = [
+                ...existing,
+                { status: form.value.status, changedAt: Timestamp.now(), changedBy: authStore.name ?? '' }
+            ]
+        }
+
+        await casesStore.updateCase(props.caseId, data)
+        toast('案件已儲存')
+        emit('close')
+    } finally {
+        saving.value = false
+    }
+}
+</script>

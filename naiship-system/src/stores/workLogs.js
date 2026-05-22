@@ -7,10 +7,11 @@ export const useWorkLogsStore = defineStore('workLogs', () => {
     const logs = ref([])
     let unsubscribe = null
 
-    function subscribe(companyId, date) {
+    function subscribe(companyId, date, endDate) {
         if (unsubscribe) unsubscribe()
         const start = new Date(date); start.setHours(0, 0, 0, 0)
-        const end = new Date(date); end.setHours(23, 59, 59, 999)
+        const end = endDate ? new Date(endDate) : new Date(date)
+        end.setHours(23, 59, 59, 999)
         const q = query(
             collection(db, 'workLogs'),
             where('companyId', '==', companyId),
@@ -59,7 +60,28 @@ export const useWorkLogsStore = defineStore('workLogs', () => {
         return km
     }
 
+    async function fetchMonthlyAttendance() {
+        const now = new Date()
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+        const q = query(
+            collection(db, 'workLogs'),
+            where('date', '>=', Timestamp.fromDate(startOfMonth))
+        )
+        const snap = await getDocs(q)
+        const map = {}
+        snap.docs.forEach(d => {
+            const data = d.data()
+            const name = data.userName
+            if (!map[name]) map[name] = new Set()
+            const date = data.date?.toDate?.()
+            if (date) map[name].add(date.toDateString())
+        })
+        const result = {}
+        Object.entries(map).forEach(([name, days]) => { result[name] = days.size })
+        return result
+    }
+
     function cleanup() { if (unsubscribe) { unsubscribe(); unsubscribe = null } }
 
-    return { logs, subscribe, addLog, addReply, fetchMonthlyKm, unsubscribe: cleanup }
+    return { logs, subscribe, addLog, addReply, fetchMonthlyKm, fetchMonthlyAttendance, unsubscribe: cleanup }
 })
