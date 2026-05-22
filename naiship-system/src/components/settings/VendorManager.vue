@@ -23,6 +23,7 @@
             <th class="text-left px-3 py-2 text-gray-500 font-semibold">聯絡人 / 電話</th>
             <th class="text-left px-3 py-2 text-gray-500 font-semibold">統編 / Line</th>
             <th class="text-center px-3 py-2 text-gray-500 font-semibold">廠商資料表</th>
+            <th class="text-center px-3 py-2 text-gray-500 font-semibold">評分</th>
             <th class="text-center px-3 py-2 text-gray-500 font-semibold w-16">操作</th>
           </tr>
         </thead>
@@ -46,6 +47,9 @@
                 <span v-if="v.formDate" class="text-[10px] text-gray-400">{{ v.formDate }}</span>
               </span>
               <span v-else class="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-400">未繳交</span>
+            </td>
+            <td class="px-3 py-2.5 text-center text-xs text-amber-400">
+              {{ v.rating ? '★'.repeat(v.rating) + '☆'.repeat(5 - v.rating) : '—' }}
             </td>
             <td class="px-3 py-2.5 text-center">
               <div class="flex items-center justify-center gap-2">
@@ -119,6 +123,21 @@
               class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 bg-white">
           </div>
         </div>
+        <div>
+          <label class="text-xs text-gray-500 mb-2 block">廠商評分</label>
+          <div class="flex gap-1">
+            <button v-for="n in 5" :key="n" @click="form.rating = form.rating === n ? 0 : n"
+              type="button"
+              class="text-xl transition-colors"
+              :class="n <= form.rating ? 'text-amber-400' : 'text-gray-200 hover:text-amber-300'">★</button>
+          </div>
+        </div>
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">備注</label>
+          <textarea v-model="form.notes" rows="3"
+            class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 resize-none"
+            placeholder="廠商合作評價、注意事項…"></textarea>
+        </div>
       </div>
       <div class="flex justify-end gap-2 mt-5">
         <button @click="showForm = false" class="text-sm text-gray-400 px-4 py-2">取消</button>
@@ -149,7 +168,7 @@ const filteredVendors = computed(() => {
 const showForm = ref(false)
 const submitting = ref(false)
 const editingId = ref(null)
-const blankForm = () => ({ name: '', specialty: '', contact: '', phone: '', taxId: '', lineId: '', formSubmitted: false, formDate: '', companyId: '' })
+const blankForm = () => ({ name: '', specialty: '', contact: '', phone: '', taxId: '', lineId: '', formSubmitted: false, formDate: '', companyId: '', rating: 0, notes: '' })
 const form = ref(blankForm())
 
 function openAdd() {
@@ -165,7 +184,9 @@ function openEdit(v) {
         contact: v.contact || '', phone: v.phone || '',
         taxId: v.taxId || '', lineId: v.lineId || '',
         formSubmitted: v.formSubmitted || false, formDate: v.formDate || '',
-        companyId: v.companyId || ''
+        companyId: v.companyId || '',
+        rating: v.rating || 0,
+        notes: v.notes || '',
     }
     showForm.value = true
 }
