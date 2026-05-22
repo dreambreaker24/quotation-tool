@@ -20,6 +20,7 @@
         <thead>
           <tr class="bg-gray-50">
             <th class="text-left px-3 py-2 text-gray-500 font-semibold sticky left-0 bg-gray-50 min-w-[110px]">員工</th>
+            <th class="text-center px-2 py-2 text-gray-500 font-semibold min-w-[80px]">本月油資</th>
             <th class="text-center px-2 py-2 text-gray-500 font-semibold min-w-[70px]">本月出勤</th>
             <th class="text-center px-2 py-2 text-gray-500 font-semibold min-w-[60px]">未成案</th>
             <th v-for="m in months" :key="m" class="text-center px-2 py-2 text-gray-500 font-semibold min-w-[70px]">
@@ -32,9 +33,13 @@
           <tr v-for="emp in employeeRows" :key="emp.userId" class="border-t border-gray-100 hover:bg-gray-50">
             <td class="px-3 py-2.5 sticky left-0 bg-white">
               <div class="font-semibold text-gray-700">{{ emp.name }}</div>
-              <div v-if="monthlyKm[emp.name]" class="text-[10px] text-amber-600 mt-0.5">
-                本月 {{ monthlyKm[emp.name] }} km
-              </div>
+            </td>
+            <td class="text-center px-2 py-2.5">
+              <template v-if="monthlyKm[emp.name]">
+                <div class="text-amber-600 font-medium">{{ monthlyKm[emp.name] }} km</div>
+                <div class="text-[10px] text-amber-500">${{ monthlyKm[emp.name] * 6 }}</div>
+              </template>
+              <span v-else class="text-gray-300">—</span>
             </td>
             <td class="text-center px-2 py-2.5">
               <span class="text-gray-700 font-medium">{{ attendanceMap[emp.name] ?? 0 }}</span>

@@ -85,11 +85,13 @@ import { ref, onMounted } from 'vue'
 import { collection, addDoc, getDocs, query, orderBy, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/firebase'
 import { useAuthStore } from '@/stores/auth'
+import { useClientsStore } from '@/stores/clients'
 import { useToast } from '@/composables/useToast'
 
 const props = defineProps({ clientId: { type: String, required: true } })
 
 const authStore = useAuthStore()
+const clientsStore = useClientsStore()
 const { toast } = useToast()
 
 const logs = ref([])
@@ -136,6 +138,11 @@ async function submitLog() {
         toast('聯繫記錄已新增')
         closeModal()
         await loadLogs()
+        if (form.value.outcome === '準備簽約') {
+            if (confirm('是否同步將此客戶狀態更新為「已簽約」？')) {
+                await clientsStore.updateClient(props.clientId, { status: 'signed' })
+            }
+        }
     } finally {
         submitting.value = false
     }

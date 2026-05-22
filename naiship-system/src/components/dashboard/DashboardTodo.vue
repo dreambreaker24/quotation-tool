@@ -27,7 +27,7 @@
       </div>
 
       <!-- 今日跟進客戶 -->
-      <div v-if="followUpClients.length > 0">
+      <div v-if="followUpClients.length > 0" class="mb-3">
         <div class="text-[10px] font-semibold text-gray-400 mb-1.5 uppercase tracking-wide">今日跟進客戶</div>
         <div v-for="c in followUpClients" :key="c.id"
           @click="router.push({ name: 'clients' })"
@@ -39,6 +39,22 @@
           <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ml-2"
             style="background:#c9a96e;color:#fff">
             {{ c.followUpDate }}
+          </span>
+        </div>
+      </div>
+
+      <!-- 逾期未收款 -->
+      <div v-if="overduePayments.length > 0">
+        <div class="text-[10px] font-semibold text-gray-400 mb-1.5 uppercase tracking-wide">逾期未收款</div>
+        <div v-for="p in overduePayments" :key="`${p.caseId}-${p.label}`"
+          @click="router.push({ name: 'cases', query: { region: p.companyId } })"
+          class="flex items-center justify-between px-3 py-2 rounded-xl border border-orange-100 bg-orange-50 mb-1.5 last:mb-0 cursor-pointer hover:bg-orange-100 transition-colors">
+          <div>
+            <div class="text-xs font-semibold text-gray-800">{{ p.caseName }}</div>
+            <div class="text-[10px] text-gray-500">{{ p.label }} · 到期 {{ p.dueStr }}</div>
+          </div>
+          <span class="text-[10px] font-semibold text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full flex-shrink-0 ml-2">
+            ${{ (p.amount - p.paidAmount).toLocaleString() }} 未收
           </span>
         </div>
       </div>
@@ -80,7 +96,22 @@ const followUpClients = computed(() =>
         .sort((a, b) => a.followUpDate.localeCompare(b.followUpDate))
 )
 
-const totalCount = computed(() => urgentCases.value.length + followUpClients.value.length)
+const overduePayments = computed(() => {
+    const result = []
+    casesStore.cases.forEach(c => {
+        if (!c.paymentMilestones?.length) return
+        c.paymentMilestones.forEach(p => {
+            if (!p.dueDate || p.dueDate >= todayStr) return
+            const paidAmount = p.paidAmount || 0
+            const amount = p.amount || 0
+            if (amount <= 0 || paidAmount >= amount) return
+            result.push({ caseName: c.name, caseId: c.id, companyId: c.companyId, label: p.label, amount, paidAmount, dueStr: p.dueDate })
+        })
+    })
+    return result.sort((a, b) => a.dueStr.localeCompare(b.dueStr))
+})
+
+const totalCount = computed(() => urgentCases.value.length + followUpClients.value.length + overduePayments.value.length)
 
 function deadlineLabel(deadline) {
     const dl = deadline.toDate?.()

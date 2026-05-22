@@ -15,6 +15,12 @@
         <option value="completed">已完工</option>
         <option value="lost">已流失</option>
       </select>
+      <select v-model="regionFilter" class="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-1">
+        <option value="">全部分區</option>
+        <option value="south">奈拾南區</option>
+        <option value="north">奈拾北區</option>
+        <option value="central">奈拾中區</option>
+      </select>
     </div>
     <div class="flex-1 overflow-y-auto">
       <div v-for="c in filteredClients" :key="c.id"
@@ -44,11 +50,13 @@ const emit = defineEmits(['select', 'add'])
 const clientsStore = useClientsStore()
 const search = ref('')
 const statusFilter = ref('')
+const regionFilter = ref('')
 
 const filteredClients = computed(() =>
     clientsStore.clients.filter(c => {
         if (search.value && !c.name?.includes(search.value) && !c.phone?.includes(search.value)) return false
         if (statusFilter.value && c.status !== statusFilter.value) return false
+        if (regionFilter.value && c.companyId !== regionFilter.value) return false
         return true
     })
 )

@@ -84,9 +84,15 @@
       </div>
     </div>
 
-    <!-- Today legend -->
-    <div class="px-4 py-2 border-t border-gray-100 bg-gray-50 text-[11px] text-gray-500">
-      今日：{{ currentMonthLabel }} 第 {{ todayDate }} 日
+    <!-- Legend -->
+    <div class="px-4 py-2 border-t border-gray-100 bg-gray-50 text-[11px] text-gray-500 flex items-center gap-3 flex-wrap">
+      <span>今日：{{ currentMonthLabel }} 第 {{ todayDate }} 日</span>
+      <div class="flex items-center gap-2 ml-2 flex-wrap">
+        <span v-for="[status, color] in statusLegend" :key="status" class="flex items-center gap-1">
+          <span class="w-2.5 h-2.5 rounded-sm inline-block flex-shrink-0" :style="`background:${color}`"></span>
+          <span>{{ STATUS_LABELS[status] }}</span>
+        </span>
+      </div>
     </div>
 
     <!-- Case action bar (when selected) -->
@@ -192,6 +198,21 @@ watch(() => props.jumpCaseId, (id) => {
     emit('jumped')
 })
 
+const STATUS_BAR_COLORS = {
+    negotiating: '#9ca3af',
+    drafting: '#60a5fa',
+    construction: '#3b82f6',
+    pending_settlement: '#f97316',
+    aftercare: '#a855f7',
+    completed: '#22c55e',
+    lost: '#ef4444',
+}
+const STATUS_LABELS = {
+    negotiating: '洽談中', drafting: '製圖中', construction: '施工中',
+    pending_settlement: '待結算', aftercare: '售後', completed: '已完工', lost: '未成案',
+}
+const statusLegend = Object.entries(STATUS_BAR_COLORS)
+
 function getCaseGanttBar(c, year, month) {
     if (!c.startDate) return null
     const start = c.startDate.toDate?.() ?? new Date(c.startDate)
@@ -205,7 +226,7 @@ function getCaseGanttBar(c, year, month) {
     return {
         left: (startDay - 1) * 28,
         width: Math.max(28, (endDay - startDay + 1) * 28),
-        color: '#c9a96e'
+        color: STATUS_BAR_COLORS[c.status] ?? '#c9a96e'
     }
 }
 
@@ -219,7 +240,7 @@ async function copyCase() {
     const c = casesStore.cases.find(x => x.id === selectedCaseId.value)
     if (!c) return
     const workTypes = (c.workTypes ?? []).map(wt => ({ ...wt, id: Date.now().toString(36) + Math.random().toString(36).slice(2) }))
-    await casesStore.addCase({
+    const docRef = await casesStore.addCase({
         name: `${c.name}（複製）`,
         companyId: c.companyId,
         status: 'negotiating',
@@ -231,7 +252,8 @@ async function copyCase() {
         signedAmount: 0,
         workTypes,
     })
-    toast('案件已複製')
+    toast('案件已複製，請補充資料')
+    if (docRef?.id) editingCaseId.value = docRef.id
 }
 
 onUnmounted(() => tasksStore.cleanup())

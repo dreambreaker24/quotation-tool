@@ -2,28 +2,48 @@
   <div class="bg-white rounded-2xl shadow-sm p-5">
     <div class="flex items-center justify-between mb-4">
       <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide">月度現金流</h2>
-      <div class="flex items-center gap-2">
-        <select v-model="localMonth" class="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white">
-          <option v-for="m in monthOptions" :key="m.value" :value="m.value">{{ m.label }}</option>
-        </select>
-      </div>
+      <select v-model="localMonth" class="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white">
+        <option v-for="m in monthOptions" :key="m.value" :value="m.value">{{ m.label }}</option>
+      </select>
     </div>
     <div class="grid grid-cols-2 gap-3">
-      <div class="rounded-xl p-4" style="background:#faf7f2">
+      <div class="rounded-xl p-4 cursor-pointer transition-colors"
+        :style="expandedStat === 'receivable' ? 'background:#f0e8d5' : 'background:#faf7f2'"
+        @click="toggle('receivable')">
         <div class="text-[10px] text-gray-400 font-semibold uppercase tracking-wide mb-1">本月應收</div>
         <div class="text-lg font-bold" style="color:#c9a96e">{{ formatAmount(stats.receivable) }}</div>
       </div>
-      <div class="rounded-xl p-4" style="background:#f0faf4">
+      <div class="rounded-xl p-4 cursor-pointer transition-colors"
+        :style="expandedStat === 'received' ? 'background:#d6f5e3' : 'background:#f0faf4'"
+        @click="toggle('received')">
         <div class="text-[10px] text-gray-400 font-semibold uppercase tracking-wide mb-1">本月已收</div>
         <div class="text-lg font-bold text-green-600">{{ formatAmount(stats.received) }}</div>
       </div>
-      <div class="rounded-xl p-4" style="background:#fdf2f2">
+      <div class="rounded-xl p-4 cursor-pointer transition-colors"
+        :style="expandedStat === 'payable' ? 'background:#fcd9d9' : 'background:#fdf2f2'"
+        @click="toggle('payable')">
         <div class="text-[10px] text-gray-400 font-semibold uppercase tracking-wide mb-1">本月應付</div>
         <div class="text-lg font-bold text-red-500">{{ formatAmount(stats.payable) }}</div>
       </div>
-      <div class="rounded-xl p-4 bg-gray-50">
+      <div class="rounded-xl p-4 cursor-pointer transition-colors"
+        :style="expandedStat === 'paid' ? 'background:#e5e7eb' : 'background:#f9fafb'"
+        @click="toggle('paid')">
         <div class="text-[10px] text-gray-400 font-semibold uppercase tracking-wide mb-1">本月已付</div>
         <div class="text-lg font-bold text-gray-600">{{ formatAmount(stats.paid) }}</div>
+      </div>
+    </div>
+
+    <!-- 展開明細 -->
+    <div v-if="expandedStat" class="mt-3 border-t border-gray-100 pt-3">
+      <div class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">{{ detailTitle }}</div>
+      <div v-if="currentDetails.length === 0" class="text-xs text-gray-400 py-1">無資料</div>
+      <div v-for="(item, i) in currentDetails" :key="i"
+        class="flex items-center justify-between text-xs py-1.5 border-b border-gray-50 last:border-0">
+        <div>
+          <span class="font-medium text-gray-700">{{ item.caseName }}</span>
+          <span class="text-gray-400 ml-2">{{ item.label }}</span>
+        </div>
+        <span class="font-semibold text-gray-800">${{ (item.amount || 0).toLocaleString() }}</span>
       </div>
     </div>
   </div>
@@ -32,13 +52,11 @@
 import { ref, computed } from 'vue'
 import { useCasesStore } from '@/stores/cases'
 
-const props = defineProps({
-    year: Number,
-    month: Number,
-})
+const props = defineProps({ year: Number, month: Number })
 
 const now = new Date()
 const localMonth = ref(props.month ?? now.getMonth() + 1)
+const expandedStat = ref(null)
 
 const monthOptions = computed(() => {
     const opts = []
@@ -51,52 +69,90 @@ const monthOptions = computed(() => {
 
 const casesStore = useCasesStore()
 
-const stats = computed(() => {
+function toggle(stat) {
+    expandedStat.value = expandedStat.value === stat ? null : stat
+}
+
+const detailTitles = {
+    receivable: '應收明細（到期日在本月的期款）',
+    received: '已收明細（收款日期在本月的期款）',
+    payable: '應付明細（施工中案件廠商工程款）',
+    paid: '已付明細（本月廠商付款記錄）',
+}
+const detailTitle = computed(() => detailTitles[expandedStat.value] ?? '')
+
+const computed_data = computed(() => {
     const y = props.year ?? now.getFullYear()
     const m = localMonth.value
 
-    let receivable = 0
-    let received = 0
-    let payable = 0
-    let paid = 0
+    let receivable = 0, received = 0, payable = 0, paid = 0
+    const receivableItems = [], receivedItems = [], payableItems = [], paidItems = []
 
     casesStore.cases.forEach(c => {
-        // 應收：paymentMilestones dueDate in this month
         if (Array.isArray(c.paymentMilestones)) {
             c.paymentMilestones.forEach(p => {
-                const due = p.dueDate?.toDate?.()
-                if (due && due.getFullYear() === y && due.getMonth() + 1 === m) {
-                    receivable += p.amount || 0
+                if (p.dueDate) {
+                    const [py, pm] = p.dueDate.split('-').map(Number)
+                    if (py === y && pm === m) {
+                        receivable += p.amount || 0
+                        receivableItems.push({ caseName: c.name, label: p.label, amount: p.amount || 0 })
+                    }
                 }
-                const paid_ = p.paidDate?.toDate?.()
-                if (paid_ && paid_.getFullYear() === y && paid_.getMonth() + 1 === m) {
-                    received += p.paidAmount || p.amount || 0
+                if (p.paidDate) {
+                    const [py, pm] = p.paidDate.split('-').map(Number)
+                    if (py === y && pm === m) {
+                        const amt = p.paidAmount || p.amount || 0
+                        received += amt
+                        receivedItems.push({ caseName: c.name, label: p.label, amount: amt })
+                    }
                 }
             })
         }
-        // 應付：workType.vendorCost for construction cases
-        if (c.status === 'construction') {
-            const startD = c.startDate?.toDate?.()
-            const endD = c.endDate?.toDate?.()
-            const inMonth = (startD && startD.getFullYear() === y && startD.getMonth() + 1 === m)
-                || (endD && endD.getFullYear() === y && endD.getMonth() + 1 === m)
-                || (startD && endD && startD <= new Date(y, m - 1, 1) && endD >= new Date(y, m - 1, 28))
-            if (inMonth) {
-                payable += c.workType?.vendorCost || 0
+
+        if (Array.isArray(c.workTypes)) {
+            if (c.status === 'construction') {
+                const startD = c.startDate?.toDate?.()
+                const endD = c.endDate?.toDate?.()
+                const inMonth = (startD && startD.getFullYear() === y && startD.getMonth() + 1 === m)
+                    || (endD && endD.getFullYear() === y && endD.getMonth() + 1 === m)
+                    || (startD && endD && startD <= new Date(y, m - 1, 1) && endD >= new Date(y, m - 1, 28))
+                if (inMonth) {
+                    c.workTypes.forEach(wt => {
+                        if (wt.vendorCost > 0) {
+                            payable += wt.vendorCost
+                            payableItems.push({ caseName: c.name, label: wt.vendorName || wt.name, amount: wt.vendorCost })
+                        }
+                    })
+                }
             }
-        }
-        // 已付：vendorPayments paidDate in this month
-        if (Array.isArray(c.vendorPayments)) {
-            c.vendorPayments.forEach(vp => {
-                const vpDate = vp.paidDate?.toDate?.()
-                if (vpDate && vpDate.getFullYear() === y && vpDate.getMonth() + 1 === m) {
-                    paid += vp.amount || 0
+
+            c.workTypes.forEach(wt => {
+                if (Array.isArray(wt.vendorPayments)) {
+                    wt.vendorPayments.forEach(vp => {
+                        if (!vp.paidDate) return
+                        const [py, pm] = vp.paidDate.split('-').map(Number)
+                        if (py === y && pm === m) {
+                            paid += vp.amount || 0
+                            paidItems.push({ caseName: c.name, label: wt.vendorName || wt.name, amount: vp.amount || 0 })
+                        }
+                    })
                 }
             })
         }
     })
 
-    return { receivable, received, payable, paid }
+    return { stats: { receivable, received, payable, paid }, details: { receivableItems, receivedItems, payableItems, paidItems } }
+})
+
+const stats = computed(() => computed_data.value.stats)
+const currentDetails = computed(() => {
+    const map = {
+        receivable: computed_data.value.details.receivableItems,
+        received: computed_data.value.details.receivedItems,
+        payable: computed_data.value.details.payableItems,
+        paid: computed_data.value.details.paidItems,
+    }
+    return map[expandedStat.value] ?? []
 })
 
 function formatAmount(n) {

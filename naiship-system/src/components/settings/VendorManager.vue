@@ -97,6 +97,15 @@
             <input v-model="form.lineId" type="text" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1" placeholder="@vendor">
           </div>
         </div>
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">適用分區</label>
+          <select v-model="form.companyId" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
+            <option value="">全部分區</option>
+            <option value="south">奈拾南區</option>
+            <option value="north">奈拾北區</option>
+            <option value="central">奈拾中區</option>
+          </select>
+        </div>
         <div class="border border-gray-100 rounded-xl p-3 bg-gray-50/50">
           <label class="flex items-center gap-2 cursor-pointer mb-2">
             <input type="checkbox" v-model="form.formSubmitted" class="rounded">
@@ -140,7 +149,7 @@ const filteredVendors = computed(() => {
 const showForm = ref(false)
 const submitting = ref(false)
 const editingId = ref(null)
-const blankForm = () => ({ name: '', specialty: '', contact: '', phone: '', taxId: '', lineId: '', formSubmitted: false, formDate: '' })
+const blankForm = () => ({ name: '', specialty: '', contact: '', phone: '', taxId: '', lineId: '', formSubmitted: false, formDate: '', companyId: '' })
 const form = ref(blankForm())
 
 function openAdd() {
@@ -155,7 +164,8 @@ function openEdit(v) {
         name: v.name, specialty: v.specialty,
         contact: v.contact || '', phone: v.phone || '',
         taxId: v.taxId || '', lineId: v.lineId || '',
-        formSubmitted: v.formSubmitted || false, formDate: v.formDate || ''
+        formSubmitted: v.formSubmitted || false, formDate: v.formDate || '',
+        companyId: v.companyId || ''
     }
     showForm.value = true
 }

@@ -92,11 +92,11 @@
           <label class="text-xs text-gray-500 mb-1 block">負責廠商</label>
           <select v-model="form.vendorId" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
             <option value="">— 尚未指定 —</option>
-            <option v-for="v in vendorsStore.vendors" :key="v.id" :value="v.id">
+            <option v-for="v in regionVendors" :key="v.id" :value="v.id">
               {{ v.name }}（{{ v.specialty }}）
             </option>
           </select>
-          <p v-if="vendorsStore.vendors.length === 0" class="text-[11px] text-gray-400 mt-1">
+          <p v-if="regionVendors.length === 0" class="text-[11px] text-gray-400 mt-1">
             尚無廠商，請至系統設定 › 廠商管理新增
           </p>
         </div>
@@ -226,6 +226,9 @@ const WT_COLORS = ['#3b82f6', '#f59e0b', '#22c55e', '#ef4444', '#a855f7', '#ec48
 
 const caseData = computed(() => casesStore.cases.find(c => c.id === props.caseId))
 const workTypes = computed(() => caseData.value?.workTypes ?? [])
+const regionVendors = computed(() =>
+    vendorsStore.vendors.filter(v => !v.companyId || v.companyId === caseData.value?.companyId)
+)
 const totalPayment = computed(() => workTypes.value.reduce((sum, wt) => sum + (wt.payment || 0), 0))
 const totalVendorCost = computed(() => workTypes.value.reduce((sum, wt) => sum + (wt.vendorCost || 0), 0))
 const totalProfit = computed(() => totalPayment.value - totalVendorCost.value)

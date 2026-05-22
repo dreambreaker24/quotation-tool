@@ -126,7 +126,7 @@
   </div>
 </template>
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { Timestamp } from 'firebase/firestore'
 import { useToast } from '@/composables/useToast'
@@ -138,6 +138,7 @@ import WorkJournalTab from '@/components/cases/WorkJournalTab.vue'
 import { useCasesStore } from '@/stores/cases'
 import { useClientsStore } from '@/stores/clients'
 import { useAuthStore } from '@/stores/auth'
+import { useUsersStore } from '@/stores/users'
 
 const route = useRoute()
 const validRegions = ['south', 'north', 'central']
@@ -154,6 +155,7 @@ const submitting = ref(false)
 const casesStore = useCasesStore()
 const clientsStore = useClientsStore()
 const authStore = useAuthStore()
+const usersStore = useUsersStore()
 const { toast } = useToast()
 const { exportCases } = useExport()
 const now = new Date()
@@ -175,6 +177,16 @@ const caseForm = ref(blankCase())
 onMounted(() => {
     const regions = authStore.isAdmin ? ['north', 'central', 'south'] : [authStore.companyId]
     clientsStore.subscribe(regions)
+    usersStore.subscribe()
+})
+
+watch(() => caseForm.value.linkedClientId, (clientId) => {
+    if (!clientId) return
+    const client = clientsStore.clients.find(c => c.id === clientId)
+    if (!client?.assignedTo) return
+    if (caseForm.value.assignees.some(a => a.trim())) return
+    const user = usersStore.users.find(u => u.id === client.assignedTo)
+    if (user?.name) caseForm.value.assignees = [user.name]
 })
 
 const clientsForRegion = computed(() =>
@@ -221,13 +233,23 @@ async function submitCase() {
 }
 
 const monthOptions = computed(() => {
+    let earliest = new Date(now.getFullYear(), now.getMonth() - 11, 1)
+    casesStore.cases.forEach(c => {
+        const start = c.startDate?.toDate?.()
+        if (start) {
+            const startMonth = new Date(start.getFullYear(), start.getMonth(), 1)
+            if (startMonth < earliest) earliest = startMonth
+        }
+    })
+    const latest = new Date(now.getFullYear(), now.getMonth() + 2, 1)
     const opts = []
-    for (let i = 0; i < 12; i++) {
-        const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    const d = new Date(latest)
+    while (d >= earliest) {
         opts.push({
             value: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
             label: `${d.getFullYear()}年 ${d.getMonth() + 1}月`
         })
+        d.setMonth(d.getMonth() - 1)
     }
     return opts
 })
