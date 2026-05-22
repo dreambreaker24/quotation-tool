@@ -1,12 +1,17 @@
 <template>
   <div class="bg-white rounded-2xl shadow-sm p-5">
-    <div class="flex items-center justify-between mb-4">
+    <div class="flex items-center justify-between mb-3">
       <h2 class="text-sm font-semibold text-gray-700">廠商管理</h2>
       <button @click="openAdd" class="text-xs text-white px-3 py-1.5 rounded-lg" style="background:#1e2533">+ 新增廠商</button>
     </div>
 
-    <div v-if="vendorsStore.vendors.length === 0" class="text-sm text-gray-400 text-center py-8">
-      尚無廠商資料，點擊右上新增
+    <div class="mb-3">
+      <input v-model="searchKeyword" type="text" placeholder="搜尋廠商名稱或工種…"
+        class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1">
+    </div>
+
+    <div v-if="filteredVendors.length === 0" class="text-sm text-gray-400 text-center py-8">
+      {{ vendorsStore.vendors.length === 0 ? '尚無廠商資料，點擊右上新增' : '找不到符合的廠商' }}
     </div>
 
     <div v-else class="overflow-x-auto">
@@ -22,7 +27,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="v in vendorsStore.vendors" :key="v.id" class="border-t border-gray-100 hover:bg-gray-50">
+          <tr v-for="v in filteredVendors" :key="v.id" class="border-t border-gray-100 hover:bg-gray-50">
             <td class="px-3 py-2.5 font-medium text-gray-800">{{ v.name }}</td>
             <td class="px-3 py-2.5 text-gray-600">{{ v.specialty }}</td>
             <td class="px-3 py-2.5 text-gray-600">
@@ -116,12 +121,21 @@
   </div>
 </template>
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useVendorsStore } from '@/stores/vendors'
 import { useToast } from '@/composables/useToast'
 
 const vendorsStore = useVendorsStore()
 const { toast } = useToast()
+
+const searchKeyword = ref('')
+const filteredVendors = computed(() => {
+    const kw = searchKeyword.value.trim()
+    if (!kw) return vendorsStore.vendors
+    return vendorsStore.vendors.filter(v =>
+        v.name.includes(kw) || v.specialty.includes(kw)
+    )
+})
 
 const showForm = ref(false)
 const submitting = ref(false)

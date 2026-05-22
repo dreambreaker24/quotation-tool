@@ -5,7 +5,10 @@
         <span class="text-xs font-semibold text-gray-700">{{ caseName }}</span>
         <span class="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">工種安排</span>
       </div>
-      <button @click="openAdd" class="text-xs px-3 py-1.5 rounded-lg text-white" style="background:#1e2533">+ 新增工種</button>
+      <div class="flex items-center gap-3">
+        <span v-if="totalPayment > 0" class="text-xs font-medium" style="color:#c9a96e">合計 ${{ totalPayment.toLocaleString() }}</span>
+        <button @click="openAdd" class="text-xs px-3 py-1.5 rounded-lg text-white" style="background:#1e2533">+ 新增工種</button>
+      </div>
     </div>
 
     <div v-if="workTypes.length === 0" class="text-xs text-gray-400 py-3 text-center">
@@ -73,6 +76,9 @@
             <option v-for="v in vendorsStore.vendors" :key="v.id" :value="v.id">
               {{ v.name }}（{{ v.specialty }}）
             </option>
+            <template v-if="vendorsStore.vendors.length === 0">
+              <option disabled value="">尚無廠商，請至系統設定 › 廠商管理新增</option>
+            </template>
           </select>
         </div>
         <div class="grid grid-cols-2 gap-3">
@@ -130,6 +136,7 @@ const WT_COLORS = ['#3b82f6', '#f59e0b', '#22c55e', '#ef4444', '#a855f7', '#ec48
 
 const caseData = computed(() => casesStore.cases.find(c => c.id === props.caseId))
 const workTypes = computed(() => caseData.value?.workTypes ?? [])
+const totalPayment = computed(() => workTypes.value.reduce((sum, wt) => sum + (wt.payment || 0), 0))
 
 function openAdd() {
     editingIdx.value = null

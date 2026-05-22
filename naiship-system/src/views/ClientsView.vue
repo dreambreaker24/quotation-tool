@@ -3,7 +3,7 @@
   <div class="flex-1 flex flex-col overflow-hidden">
     <!-- 客戶來源統計（近 3 個月） -->
     <div v-if="sourceStats.length > 0" class="bg-white border-b border-gray-100 px-5 py-3 flex-shrink-0">
-      <div class="flex items-center gap-4 flex-wrap">
+      <div class="flex items-center gap-4 flex-wrap row-gap-2">
         <span class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">近 3 個月來源</span>
         <div v-for="[src, count] in sourceStats" :key="src" class="flex items-center gap-1.5">
           <span class="w-2 h-2 rounded-full flex-shrink-0" :style="`background:${sourceColor(src)}`"></span>
@@ -54,6 +54,10 @@
             <label class="text-xs text-gray-500 mb-1 block">客戶來源</label>
             <select v-model="clientForm.source" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
               <option v-for="s in sourceOptions" :key="s" :value="s">{{ s }}</option>
+              <optgroup label="朋友介紹">
+                <option v-for="name in employeeNames" :key="name" :value="name">{{ name }}</option>
+              </optgroup>
+              <option value="其他">其他</option>
             </select>
           </div>
           <div>
@@ -123,7 +127,7 @@ const clientsStore = useClientsStore()
 const authStore = useAuthStore()
 const casesStore = useCasesStore()
 const { toast } = useToast()
-const { sourceOptions, sourceColor } = useClientSources()
+const { sourceOptions, sourceColor, normalizeSource, employeeNames } = useClientSources()
 
 const sourceStats = computed(() => {
     const threeMonthsAgo = new Date()
@@ -133,7 +137,7 @@ const sourceStats = computed(() => {
         if (!c.createdAt) return
         const d = c.createdAt.toDate?.() ?? new Date(c.createdAt)
         if (d < threeMonthsAgo) return
-        const src = c.source || '其他'
+        const src = normalizeSource(c.source)
         stats[src] = (stats[src] || 0) + 1
     })
     return Object.entries(stats).sort((a, b) => b[1] - a[1])

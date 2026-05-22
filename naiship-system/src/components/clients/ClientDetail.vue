@@ -60,6 +60,10 @@
         <div><label class="text-xs text-gray-400 block mb-0.5">來源</label>
           <select v-model="editForm.source" class="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1">
             <option v-for="s in sourceOptions" :key="s" :value="s">{{ s }}</option>
+            <optgroup label="朋友介紹">
+              <option v-for="name in employeeNames" :key="name" :value="name">{{ name }}</option>
+            </optgroup>
+            <option value="其他">其他</option>
           </select></div>
         <div><label class="text-xs text-gray-400 block mb-0.5">狀態</label>
           <select v-model="editForm.status" class="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1">
@@ -100,7 +104,7 @@ import { useClientSources } from '@/composables/useClientSources'
 const props = defineProps({ client: Object, notes: { type: Array, default: () => [] } })
 const clientsStore = useClientsStore()
 const casesStore = useCasesStore()
-const { sourceOptions } = useClientSources()
+const { sourceOptions, employeeNames } = useClientSources()
 
 const editing = ref(false)
 const editForm = ref({})
