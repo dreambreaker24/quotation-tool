@@ -88,8 +88,24 @@
           </div>
         </div>
 
-        <!-- Fuel expense -->
-        <div v-if="log.fuelExpense" class="mb-3 bg-amber-50 rounded-xl p-3">
+        <!-- Fuel expenses (new multi format) -->
+        <div v-if="log.fuelExpenses?.length" class="mb-3 bg-amber-50 rounded-xl p-3">
+          <div class="text-[10px] text-amber-600 font-semibold mb-2 uppercase tracking-wide">
+            申請油資（共 {{ log.fuelExpenses.length }} 筆）
+          </div>
+          <div v-for="(f, i) in log.fuelExpenses" :key="i"
+            class="flex gap-3 items-start mb-2 last:mb-0 pb-2 last:pb-0 border-b last:border-0 border-amber-100">
+            <img v-if="f.photoUrl" :src="f.photoUrl"
+              class="w-14 h-14 rounded-lg object-cover cursor-pointer flex-shrink-0"
+              @click="previewUrl = f.photoUrl">
+            <div>
+              <div class="text-xs text-gray-700 mb-1"><span class="text-gray-400">原因：</span>{{ f.reason }}</div>
+              <div class="text-xs text-gray-700"><span class="text-gray-400">路程：</span>{{ f.distance }} 公里</div>
+            </div>
+          </div>
+        </div>
+        <!-- Fuel expense (old single format - backward compat) -->
+        <div v-else-if="log.fuelExpense" class="mb-3 bg-amber-50 rounded-xl p-3">
           <div class="text-[10px] text-amber-600 font-semibold mb-2 uppercase tracking-wide">申請油資</div>
           <div class="flex gap-3 items-start">
             <img v-if="log.fuelExpense.photoUrl" :src="log.fuelExpense.photoUrl"
@@ -154,7 +170,7 @@
           <span class="px-2 py-0.5 rounded-full text-[10px] bg-blue-100 text-blue-700 mb-2 inline-block">{{ c.name }}</span>
           <textarea v-model="logEntries[c.id]" rows="2"
             class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 resize-none"
-            :placeholder="`今日工作回報...`"></textarea>
+            placeholder="今日工作回報..."></textarea>
         </div>
       </div>
 
@@ -177,37 +193,42 @@
       <div class="border border-amber-200 rounded-xl p-4 bg-amber-50/50">
         <div class="flex items-center justify-between mb-3">
           <div class="text-xs font-semibold text-amber-700">申請油資（選填）</div>
-          <label class="flex items-center gap-1.5 cursor-pointer">
-            <input type="checkbox" v-model="fuelEnabled" class="rounded">
-            <span class="text-xs text-gray-500">本次有油資申請</span>
-          </label>
+          <button v-if="!isAfter21" @click="addFuelItem" class="text-xs" style="color:#c9a96e">+ 新增</button>
         </div>
-        <div v-if="fuelEnabled" class="flex flex-col gap-3">
-          <div>
-            <label class="text-xs text-gray-500 mb-1 block">申請原因</label>
-            <textarea v-model="fuelExpense.reason" rows="2"
-              class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 resize-none bg-white"
-              placeholder="例：前往台南東區翻新工地勘查"></textarea>
-          </div>
-          <div>
-            <label class="text-xs text-gray-500 mb-1 block">路程（公里）</label>
-            <input v-model.number="fuelExpense.distance" type="number" min="0"
-              class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 bg-white"
-              placeholder="0">
-          </div>
-          <div>
-            <label class="text-xs text-gray-500 mb-1 block">上傳憑證照片</label>
-            <div class="flex items-center gap-3">
-              <button @click="fuelFileInput?.click()"
-                class="text-xs border border-dashed border-amber-300 rounded-lg px-4 py-2 text-amber-600 hover:border-amber-500 transition-colors">
-                {{ fuelExpense.photoFile ? '重新選擇' : '選擇照片' }}
-              </button>
-              <span v-if="fuelExpense.photoFile" class="text-xs text-gray-500">{{ fuelExpense.photoFile.name }}</span>
-              <img v-if="fuelPreviewUrl" :src="fuelPreviewUrl" class="w-12 h-12 rounded-lg object-cover">
+        <div v-if="isAfter21" class="text-xs text-center text-red-500 py-2 bg-red-50 rounded-lg">
+          今日油資申請已截止（每日 21:00 截止）
+        </div>
+        <template v-else>
+          <div v-if="fuelItems.length === 0" class="text-xs text-gray-400 py-1">無油資申請（可點右上新增）</div>
+          <div v-for="(item, idx) in fuelItems" :key="idx"
+            class="border border-amber-200 rounded-xl p-3 mb-2 last:mb-0 bg-white">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-[11px] text-amber-600 font-semibold">第 {{ idx + 1 }} 筆</span>
+              <button @click="fuelItems.splice(idx, 1)" class="text-red-400 hover:text-red-600 text-xs">✕</button>
             </div>
-            <input ref="fuelFileInput" type="file" accept="image/*" class="hidden" @change="handleFuelPhoto">
+            <textarea v-model="item.reason" rows="2"
+              class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 resize-none bg-white mb-2"
+              placeholder="申請原因（例：前往台南東區工地勘查）"></textarea>
+            <div class="flex items-end gap-3">
+              <div class="flex-1">
+                <label class="text-xs text-gray-500 mb-1 block">路程（公里）</label>
+                <input v-model.number="item.distance" type="number" min="0"
+                  class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 bg-white"
+                  placeholder="0">
+              </div>
+              <div>
+                <label class="text-xs text-gray-500 mb-1 block">憑證照片</label>
+                <div class="flex items-center gap-2">
+                  <button @click="triggerFuelPhoto(idx)"
+                    class="text-xs border border-dashed border-amber-300 rounded-lg px-3 py-2 text-amber-600 hover:border-amber-500 transition-colors">
+                    {{ item.photoFile ? '重新選擇' : '選擇照片' }}
+                  </button>
+                  <img v-if="item.previewUrl" :src="item.previewUrl" class="w-10 h-10 rounded-lg object-cover">
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
+        </template>
       </div>
 
       <div class="flex justify-end gap-2 mt-5">
@@ -218,7 +239,7 @@
   </div>
 </template>
 <script setup>
-import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onUnmounted, watch } from 'vue'
 import { Timestamp } from 'firebase/firestore'
 import { useWorkLogsStore } from '@/stores/workLogs'
 import { useAuthStore } from '@/stores/auth'
@@ -239,128 +260,144 @@ const showLogForm = ref(false)
 const previewUrl = ref(null)
 const logEntries = ref({})
 const otherItems = ref([])
-const fuelEnabled = ref(false)
-const fuelExpense = reactive({ reason: '', distance: 0, photoFile: null })
-const fuelPreviewUrl = ref(null)
-const fuelFileInput = ref(null)
+const fuelItems = ref([])
 const selectedDate = ref(new Date())
 const submitting = ref(false)
 const { toast } = useToast()
 
+const isAfter21 = computed(() => new Date().getHours() >= 21)
+
+const todayLabel = computed(() => {
+    const d = new Date()
+    return `${d.getFullYear()} 年 ${d.getMonth() + 1} 月 ${d.getDate()} 日`
+})
+
 const myCases = computed(() =>
-  casesStore.cases.filter(c =>
-    c.companyId === props.region &&
-    (authStore.isAdmin || authStore.isManager || c.assignedTo === authStore.user?.uid)
-  )
+    casesStore.cases.filter(c =>
+        c.companyId === props.region &&
+        (authStore.isAdmin || authStore.isManager || c.assignedTo === authStore.user?.uid)
+    )
 )
 
 function openLogForm() {
-  logEntries.value = {}
-  otherItems.value = []
-  fuelEnabled.value = false
-  Object.assign(fuelExpense, { reason: '', distance: 0, photoFile: null })
-  fuelPreviewUrl.value = null
-  if (fuelFileInput.value) fuelFileInput.value.value = ''
-  showLogForm.value = true
+    logEntries.value = {}
+    otherItems.value = []
+    fuelItems.value = []
+    showLogForm.value = true
 }
 
 function addOtherItem() {
-  otherItems.value.push({ content: '' })
+    otherItems.value.push({ content: '' })
 }
 
-function handleFuelPhoto(e) {
-  const file = e.target.files[0]
-  if (!file) return
-  fuelExpense.photoFile = file
-  fuelPreviewUrl.value = URL.createObjectURL(file)
+function addFuelItem() {
+    fuelItems.value.push({ reason: '', distance: 0, photoFile: null, previewUrl: '' })
+}
+
+function triggerFuelPhoto(idx) {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = 'image/*'
+    input.onchange = (e) => {
+        const file = e.target.files[0]
+        if (!file) return
+        fuelItems.value[idx].photoFile = file
+        fuelItems.value[idx].previewUrl = URL.createObjectURL(file)
+    }
+    input.click()
 }
 
 async function submitLog() {
-  const caseEntries = myCases.value
-    .filter(c => logEntries.value[c.id]?.trim())
-    .map(c => ({ caseId: c.id, caseName: c.name, content: logEntries.value[c.id].trim() }))
-  const other = otherItems.value.filter(i => i.content.trim()).map(i => ({ content: i.content.trim() }))
-  if (caseEntries.length === 0 && other.length === 0 && !fuelEnabled.value) return
-  if (submitting.value) return
-  submitting.value = true
+    const caseEntries = myCases.value
+        .filter(c => logEntries.value[c.id]?.trim())
+        .map(c => ({ caseId: c.id, caseName: c.name, content: logEntries.value[c.id].trim() }))
+    const other = otherItems.value.filter(i => i.content.trim()).map(i => ({ content: i.content.trim() }))
+    const hasFuel = !isAfter21.value && fuelItems.value.some(f => f.reason.trim())
+    if (caseEntries.length === 0 && other.length === 0 && !hasFuel) return
+    if (submitting.value) return
+    submitting.value = true
 
-  let fuelData = null
-  if (fuelEnabled.value && fuelExpense.reason) {
-    let photoUrl = ''
-    if (fuelExpense.photoFile) {
-      try { photoUrl = await uploadPhoto(fuelExpense.photoFile, 'fuel') } catch (_) {}
+    let fuelData = null
+    if (hasFuel) {
+        const items = []
+        for (const item of fuelItems.value) {
+            if (!item.reason.trim()) continue
+            let photoUrl = ''
+            if (item.photoFile) {
+                try { photoUrl = await uploadPhoto(item.photoFile, 'fuel') } catch (_) {}
+            }
+            items.push({ reason: item.reason.trim(), distance: item.distance || 0, photoUrl })
+        }
+        if (items.length > 0) fuelData = items
     }
-    fuelData = { reason: fuelExpense.reason, distance: fuelExpense.distance || 0, photoUrl }
-  }
 
-  const logDoc = {
-    userId: authStore.user?.uid ?? '',
-    userName: authStore.name ?? '',
-    companyId: props.region,
-    date: Timestamp.fromDate(new Date()),
-    ...(caseEntries.length > 0 && { caseEntries }),
-    ...(other.length > 0 && { otherItems: other }),
-    ...(fuelData && { fuelExpense: fuelData }),
-  }
-  await logsStore.addLog(logDoc)
-  showLogForm.value = false
-  submitting.value = false
-  toast('日誌已送出')
+    const logDoc = {
+        userId: authStore.user?.uid ?? '',
+        userName: authStore.name ?? '',
+        companyId: props.region,
+        date: Timestamp.fromDate(new Date()),
+        ...(caseEntries.length > 0 && { caseEntries }),
+        ...(other.length > 0 && { otherItems: other }),
+        ...(fuelData && { fuelExpenses: fuelData }),
+    }
+    await logsStore.addLog(logDoc)
+    showLogForm.value = false
+    submitting.value = false
+    toast('日誌已送出')
 }
 
 const isToday = computed(() => {
-  const t = new Date()
-  const s = selectedDate.value
-  return t.getFullYear() === s.getFullYear() && t.getMonth() === s.getMonth() && t.getDate() === s.getDate()
+    const t = new Date()
+    const s = selectedDate.value
+    return t.getFullYear() === s.getFullYear() && t.getMonth() === s.getMonth() && t.getDate() === s.getDate()
 })
 
 const dateLabel = computed(() => {
-  const d = selectedDate.value
-  const today = new Date()
-  if (isToday.value) return `${d.getFullYear()} / ${String(d.getMonth()+1).padStart(2,'0')} / ${String(d.getDate()).padStart(2,'0')}（今日）`
-  return `${d.getFullYear()} / ${String(d.getMonth()+1).padStart(2,'0')} / ${String(d.getDate()).padStart(2,'0')}`
+    const d = selectedDate.value
+    if (isToday.value) return `${d.getFullYear()} / ${String(d.getMonth() + 1).padStart(2, '0')} / ${String(d.getDate()).padStart(2, '0')}（今日）`
+    return `${d.getFullYear()} / ${String(d.getMonth() + 1).padStart(2, '0')} / ${String(d.getDate()).padStart(2, '0')}`
 })
 
 function shiftDate(delta) {
-  const d = new Date(selectedDate.value)
-  d.setDate(d.getDate() + delta)
-  if (d > new Date()) return
-  selectedDate.value = d
+    const d = new Date(selectedDate.value)
+    d.setDate(d.getDate() + delta)
+    if (d > new Date()) return
+    selectedDate.value = d
 }
 
 watch([() => props.region, selectedDate], ([region]) => {
-  if (region) logsStore.subscribe(region, selectedDate.value)
+    if (region) logsStore.subscribe(region, selectedDate.value)
 }, { immediate: true })
 
 onUnmounted(() => logsStore.unsubscribe?.())
 
-const empColors = ['#c9a96e','#a855f7','#3b82f6','#22c55e','#f59e0b','#ef4444']
+const empColors = ['#c9a96e', '#a855f7', '#3b82f6', '#22c55e', '#f59e0b', '#ef4444']
 function empColor(uid) { return empColors[(uid?.charCodeAt(0) ?? 0) % empColors.length] }
 
 function formatTime(ts) {
-  if (!ts) return ''
-  const d = ts.toDate?.() ?? new Date(ts)
-  return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
+    if (!ts) return ''
+    const d = ts.toDate?.() ?? new Date(ts)
+    return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
 const filteredEmployees = computed(() => {
-  const seen = new Set()
-  return logsStore.logs
-    .filter(l => { if (seen.has(l.userId)) return false; seen.add(l.userId); return true })
-    .map(l => ({ id: l.userId, name: l.userName, hasLog: true }))
-    .filter(e => !search.value || (e.name?.includes(search.value) ?? false))
+    const seen = new Set()
+    return logsStore.logs
+        .filter(l => { if (seen.has(l.userId)) return false; seen.add(l.userId); return true })
+        .map(l => ({ id: l.userId, name: l.userName, hasLog: true }))
+        .filter(e => !search.value || (e.name?.includes(search.value) ?? false))
 })
 
 const displayedLogs = computed(() =>
-  selectedEmployee.value
-    ? logsStore.logs.filter(l => l.userId === selectedEmployee.value.id)
-    : logsStore.logs
+    selectedEmployee.value
+        ? logsStore.logs.filter(l => l.userId === selectedEmployee.value.id)
+        : logsStore.logs
 )
 
 async function submitReply(logId) {
-  if (!replyContent.value.trim()) return
-  await logsStore.addReply(logId, replyContent.value, authStore.user?.uid ?? 'unknown', authStore.name ?? '')
-  replyContent.value = ''
-  replyTarget.value = null
+    if (!replyContent.value.trim()) return
+    await logsStore.addReply(logId, replyContent.value, authStore.user?.uid ?? 'unknown', authStore.name ?? '')
+    replyContent.value = ''
+    replyTarget.value = null
 }
 </script>

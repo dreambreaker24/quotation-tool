@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth'
-import { doc, getDoc } from 'firebase/firestore'
+import { doc, getDoc, setDoc, collection, query, where, getDocs } from 'firebase/firestore'
 import { auth, db } from '@/firebase'
 
 export const useAuthStore = defineStore('auth', () => {
@@ -19,8 +19,17 @@ export const useAuthStore = defineStore('auth', () => {
     return companyId.value === regionId
   }
 
-  async function fetchUserProfile(uid) {
-    const snap = await getDoc(doc(db, 'users', uid))
+  async function fetchUserProfile(uid, email) {
+    let snap = await getDoc(doc(db, 'users', uid))
+    if (!snap.exists() && email) {
+      const q = query(collection(db, 'users'), where('email', '==', email))
+      const preSnap = await getDocs(q)
+      if (!preSnap.empty) {
+        const preData = preSnap.docs[0].data()
+        await setDoc(doc(db, 'users', uid), { ...preData, googleUid: uid })
+        snap = await getDoc(doc(db, 'users', uid))
+      }
+    }
     if (snap.exists()) {
       const data = snap.data()
       role.value = data.role
@@ -32,7 +41,7 @@ export const useAuthStore = defineStore('auth', () => {
   function init() {
     auth.onAuthStateChanged(async (u) => {
       user.value = u
-      if (u) await fetchUserProfile(u.uid)
+      if (u) await fetchUserProfile(u.uid, u.email)
       else { role.value = null; companyId.value = null; name.value = null }
     })
   }

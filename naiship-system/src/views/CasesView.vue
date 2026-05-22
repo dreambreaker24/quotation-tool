@@ -25,7 +25,7 @@
 
   <!-- 新增案件 Modal -->
   <div v-if="showAddCase" class="fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.4)">
-    <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4">
+    <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
       <div class="flex items-center justify-between mb-5">
         <h3 class="text-base font-bold text-gray-800">新增案件</h3>
         <button @click="showAddCase = false" class="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
@@ -57,6 +57,17 @@
             </select>
           </div>
         </div>
+
+        <!-- 關聯客戶 -->
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">關聯客戶（選填）</label>
+          <select v-model="caseForm.linkedClientId"
+            class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
+            <option value="">— 不關聯客戶 —</option>
+            <option v-for="c in clientsForRegion" :key="c.id" :value="c.id">{{ c.name }}{{ c.phone ? ` · ${c.phone}` : '' }}</option>
+          </select>
+        </div>
+
         <div>
           <label class="text-xs text-gray-500 mb-1 block">負責人（最多 4 位）</label>
           <div class="flex flex-col gap-2">
@@ -87,13 +98,19 @@
             <input v-model="caseForm.startDate" type="date" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1">
           </div>
           <div>
-            <label class="text-xs text-gray-500 mb-1 block">結束日期</label>
+            <label class="text-xs text-gray-500 mb-1 block">結束日期（預估）</label>
             <input v-model="caseForm.endDate" type="date" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1">
           </div>
         </div>
-        <div>
-          <label class="text-xs text-gray-500 mb-1 block">簽約日期（選填）</label>
-          <input v-model="caseForm.signedDate" type="date" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs text-gray-500 mb-1 block">簽約日期（選填）</label>
+            <input v-model="caseForm.signedDate" type="date" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1">
+          </div>
+          <div>
+            <label class="text-xs text-gray-500 mb-1 block">完工期限（業主要求）</label>
+            <input v-model="caseForm.deadline" type="date" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1">
+          </div>
         </div>
       </div>
       <div class="flex justify-end gap-2 mt-5">
@@ -104,7 +121,7 @@
   </div>
 </template>
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { Timestamp } from 'firebase/firestore'
 import { useToast } from '@/composables/useToast'
 import CaseSidebar from '@/components/cases/CaseSidebar.vue'
@@ -112,6 +129,7 @@ import CalendarTab from '@/components/cases/CalendarTab.vue'
 import GanttTab from '@/components/cases/GanttTab.vue'
 import WorkJournalTab from '@/components/cases/WorkJournalTab.vue'
 import { useCasesStore } from '@/stores/cases'
+import { useClientsStore } from '@/stores/clients'
 import { useAuthStore } from '@/stores/auth'
 
 const selectedRegion = ref('south')
@@ -119,56 +137,80 @@ const activeTab = ref('cal')
 const showAddCase = ref(false)
 const submitting = ref(false)
 const casesStore = useCasesStore()
+const clientsStore = useClientsStore()
 const authStore = useAuthStore()
 const { toast } = useToast()
 const now = new Date()
-const selectedMonth = ref(`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`)
+const selectedMonth = ref(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`)
 
 const tabs = [
-  { id: 'cal', label: '行事曆' },
-  { id: 'gantt', label: '案件進度' },
-  { id: 'log', label: '工作日誌' }
+    { id: 'cal', label: '行事曆' },
+    { id: 'gantt', label: '案件進度' },
+    { id: 'log', label: '工作日誌' }
 ]
 
-const blankCase = () => ({ name: '', companyId: selectedRegion.value, assignees: [''], status: 'negotiating', estimatedAmount: 0, signedAmount: 0, startDate: '', endDate: '', signedDate: '' })
+const blankCase = () => ({
+    name: '', companyId: selectedRegion.value, assignees: [''], status: 'negotiating',
+    estimatedAmount: 0, signedAmount: 0, startDate: '', endDate: '', signedDate: '',
+    deadline: '', linkedClientId: ''
+})
 const caseForm = ref(blankCase())
 
+onMounted(() => {
+    const regions = authStore.isAdmin ? ['north', 'central', 'south'] : [authStore.companyId]
+    clientsStore.subscribe(regions)
+})
+
+const clientsForRegion = computed(() =>
+    clientsStore.clients.filter(c => c.companyId === caseForm.value.companyId)
+)
+
 async function submitCase() {
-  if (!caseForm.value.name || submitting.value) return
-  submitting.value = true
-  const assignees = caseForm.value.assignees.filter(a => a.trim())
-  const data = {
-    name: caseForm.value.name,
-    companyId: caseForm.value.companyId,
-    status: caseForm.value.status,
-    estimatedAmount: caseForm.value.estimatedAmount || 0,
-    signedAmount: caseForm.value.signedAmount || 0,
-    assignees,
-    assigneeName: assignees.join('、'),
-    assignedTo: authStore.user?.uid ?? '',
-    startDate: caseForm.value.startDate ? Timestamp.fromDate(new Date(caseForm.value.startDate)) : null,
-    endDate: caseForm.value.endDate ? Timestamp.fromDate(new Date(caseForm.value.endDate)) : null,
-    signedDate: caseForm.value.signedDate ? Timestamp.fromDate(new Date(caseForm.value.signedDate)) : null,
-  }
-  if (!data.startDate) delete data.startDate
-  if (!data.endDate) delete data.endDate
-  if (!data.signedDate) delete data.signedDate
-  await casesStore.addCase(data)
-  caseForm.value = blankCase()
-  showAddCase.value = false
-  submitting.value = false
-  toast('案件已建立')
+    if (!caseForm.value.name || submitting.value) return
+    submitting.value = true
+    const assignees = caseForm.value.assignees.filter(a => a.trim())
+    const data = {
+        name: caseForm.value.name,
+        companyId: caseForm.value.companyId,
+        status: caseForm.value.status,
+        estimatedAmount: caseForm.value.estimatedAmount || 0,
+        signedAmount: caseForm.value.signedAmount || 0,
+        assignees,
+        assigneeName: assignees.join('、'),
+        assignedTo: authStore.user?.uid ?? '',
+        startDate: caseForm.value.startDate ? Timestamp.fromDate(new Date(caseForm.value.startDate)) : null,
+        endDate: caseForm.value.endDate ? Timestamp.fromDate(new Date(caseForm.value.endDate)) : null,
+        signedDate: caseForm.value.signedDate ? Timestamp.fromDate(new Date(caseForm.value.signedDate)) : null,
+        deadline: caseForm.value.deadline ? Timestamp.fromDate(new Date(caseForm.value.deadline)) : null,
+        linkedClientId: caseForm.value.linkedClientId || null,
+    }
+    if (!data.startDate) delete data.startDate
+    if (!data.endDate) delete data.endDate
+    if (!data.signedDate) delete data.signedDate
+    if (!data.deadline) delete data.deadline
+    if (!data.linkedClientId) delete data.linkedClientId
+
+    const docRef = await casesStore.addCase(data)
+
+    if (caseForm.value.linkedClientId && docRef?.id) {
+        await clientsStore.updateClient(caseForm.value.linkedClientId, { linkedCaseId: docRef.id })
+    }
+
+    caseForm.value = blankCase()
+    showAddCase.value = false
+    submitting.value = false
+    toast('案件已建立')
 }
 
 const monthOptions = computed(() => {
-  const opts = []
-  for (let i = 0; i < 12; i++) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-    opts.push({
-      value: `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`,
-      label: `${d.getFullYear()}年 ${d.getMonth()+1}月`
-    })
-  }
-  return opts
+    const opts = []
+    for (let i = 0; i < 12; i++) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+        opts.push({
+            value: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
+            label: `${d.getFullYear()}年 ${d.getMonth() + 1}月`
+        })
+    }
+    return opts
 })
 </script>

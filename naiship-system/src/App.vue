@@ -22,11 +22,29 @@
   </div>
 </template>
 <script setup>
+import { watch } from 'vue'
 import { useRoute } from 'vue-router'
 import NavBar from '@/components/layout/NavBar.vue'
 import { useToast } from '@/composables/useToast'
+import { useAuthStore } from '@/stores/auth'
+import { useVendorsStore } from '@/stores/vendors'
+import { useUsersStore } from '@/stores/users'
+
 const route = useRoute()
 const { toasts } = useToast()
+const authStore = useAuthStore()
+const vendorsStore = useVendorsStore()
+const usersStore = useUsersStore()
+
+watch(() => authStore.user, (u) => {
+    if (u) {
+        vendorsStore.subscribe()
+        usersStore.subscribe()
+    } else {
+        vendorsStore.cleanup()
+        usersStore.cleanup()
+    }
+}, { immediate: true })
 </script>
 <style>
 .toast-enter-active, .toast-leave-active { transition: all 0.25s ease; }

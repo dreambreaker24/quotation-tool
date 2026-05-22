@@ -2,13 +2,16 @@ import express from 'express'
 import multer from 'multer'
 import cors from 'cors'
 import path from 'path'
+import fs from 'fs'
 import { fileURLToPath } from 'url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const app = express()
 app.use(cors())
 
-const TYPES = ['survey', '3d', 'construction', 'completion', 'commercial']
+const TYPES = ['survey', '3d', 'construction', 'completion', 'commercial', 'fuel', 'floorplan', 'blueprint', 'vendor_quote']
+
+TYPES.forEach(t => fs.mkdirSync(path.join(__dirname, 'uploads', t), { recursive: true }))
 
 const storage = multer.diskStorage({
   destination(req, file, cb) {

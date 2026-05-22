@@ -59,7 +59,7 @@
           <input v-model="editForm.address" class="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1"></div>
         <div><label class="text-xs text-gray-400 block mb-0.5">來源</label>
           <select v-model="editForm.source" class="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1">
-            <option>朋友介紹</option><option>Instagram</option><option>官網</option><option>展場</option><option>其他</option>
+            <option v-for="s in sourceOptions" :key="s" :value="s">{{ s }}</option>
           </select></div>
         <div><label class="text-xs text-gray-400 block mb-0.5">狀態</label>
           <select v-model="editForm.status" class="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1">
@@ -95,10 +95,12 @@ import ClientNotes from './ClientNotes.vue'
 import { useClientsStore } from '@/stores/clients'
 import { useCasesStore } from '@/stores/cases'
 import { useToast } from '@/composables/useToast'
+import { useClientSources } from '@/composables/useClientSources'
 
 const props = defineProps({ client: Object, notes: { type: Array, default: () => [] } })
 const clientsStore = useClientsStore()
 const casesStore = useCasesStore()
+const { sourceOptions } = useClientSources()
 
 const editing = ref(false)
 const editForm = ref({})
@@ -120,7 +122,7 @@ function startEdit() {
     email: props.client.email ?? '',
     lineId: props.client.lineId ?? '',
     address: props.client.address ?? '',
-    source: props.client.source ?? '朋友介紹',
+    source: props.client.source ?? 'IG',
     status: props.client.status ?? 'contacted',
     budget: props.client.budget ?? 0,
     area: props.client.area ?? 0,
