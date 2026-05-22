@@ -1,5 +1,17 @@
 <template>
   <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
+    <!-- 狀態篩選 chips -->
+    <div class="px-4 py-2 border-b border-gray-100 flex items-center gap-1.5 flex-wrap">
+      <span class="text-[11px] text-gray-400 font-semibold mr-1">篩選：</span>
+      <button v-for="[status, color] in statusLegend" :key="status"
+        @click="toggleStatus(status)"
+        class="flex items-center gap-1 px-2 py-1 rounded-full text-[11px] border transition-colors"
+        :style="activeStatuses.has(status)
+          ? `background:${color};color:#fff;border-color:${color}`
+          : 'background:#f9fafb;color:#9ca3af;border-color:#e5e7eb'">
+        {{ STATUS_LABELS[status] }}
+      </button>
+    </div>
     <div class="flex" style="min-height:200px">
       <!-- Fixed left panel (270px) -->
       <div class="flex-shrink-0 border-r border-gray-200" style="width:270px">
@@ -198,6 +210,15 @@ watch(() => props.jumpCaseId, (id) => {
     emit('jumped')
 })
 
+const ALL_STATUSES = ['negotiating', 'drafting', 'construction', 'pending_settlement', 'aftercare', 'completed', 'lost']
+const activeStatuses = ref(new Set(ALL_STATUSES))
+
+function toggleStatus(s) {
+    const next = new Set(activeStatuses.value)
+    if (next.has(s)) { next.delete(s) } else { next.add(s) }
+    activeStatuses.value = next
+}
+
 const STATUS_BAR_COLORS = {
     negotiating: '#9ca3af',
     drafting: '#60a5fa',
@@ -232,7 +253,7 @@ function getCaseGanttBar(c, year, month) {
 
 const regionCases = computed(() =>
     casesStore.cases
-        .filter(c => c.companyId === props.region)
+        .filter(c => c.companyId === props.region && activeStatuses.value.has(c.status))
         .map(c => ({ ...c, ganttBar: getCaseGanttBar(c, displayYear.value, displayMonth.value) }))
 )
 
