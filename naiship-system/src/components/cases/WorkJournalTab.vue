@@ -61,6 +61,8 @@
               :class="viewMode === 'week' ? 'text-white' : 'text-gray-500 hover:bg-gray-50'"
               :style="viewMode === 'week' ? 'background:#1e2533' : ''">週檢視</button>
           </div>
+          <button v-if="viewMode === 'week'" @click="exportWeekLogs"
+            class="text-xs border border-gray-200 rounded-lg px-3 py-1.5 text-gray-500 hover:border-gray-400">匯出本週</button>
           <button v-if="isToday" @click="openLogForm" class="text-xs text-white px-3 py-1.5 rounded-lg" style="background:#1e2533">+ 填寫今日日誌</button>
         </div>
       </div>
@@ -263,6 +265,7 @@
 <script setup>
 import { ref, computed, onUnmounted, watch } from 'vue'
 import { Timestamp } from 'firebase/firestore'
+import * as XLSX from 'xlsx'
 import { useWorkLogsStore } from '@/stores/workLogs'
 import { useAuthStore } from '@/stores/auth'
 import { useCasesStore } from '@/stores/cases'
@@ -463,6 +466,40 @@ const displayedLogs = computed(() =>
         ? logsStore.logs.filter(l => l.userId === selectedEmployee.value.id)
         : logsStore.logs
 )
+
+function exportWeekLogs() {
+    if (displayedLogs.value.length === 0) {
+        alert('本週無工作日誌記錄')
+        return
+    }
+    const rows = []
+    displayedLogs.value.forEach(log => {
+        const dateStr = log.date
+            ? (() => { const d = log.date.toDate?.() ?? new Date(log.date); return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}` })()
+            : ''
+        const caseReport = log.caseEntries?.length
+            ? log.caseEntries.map(e => `${e.caseName}：${e.content}`).join('\n')
+            : (log.content || '')
+        const otherWork = log.otherItems?.map(i => i.content).join('\n') || ''
+        const fuelKm = log.fuelExpenses?.reduce((s, f) => s + (f.distance || 0), 0)
+            ?? (log.fuelExpense?.distance || 0)
+        rows.push({
+            '員工姓名': log.userName || '',
+            '日期': dateStr,
+            '案件回報': caseReport,
+            '其他工作': otherWork,
+            '油資(km)': fuelKm || '',
+            '油資($)': fuelKm ? fuelKm * 6 : '',
+        })
+    })
+    const sheet = XLSX.utils.json_to_sheet(rows)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, sheet, '工作日誌')
+    const weekStart = getWeekStart(selectedDate.value)
+    const weekEnd = getWeekEnd(selectedDate.value)
+    const fmt = d => `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`
+    XLSX.writeFile(wb, `工作日誌_${fmt(weekStart)}_${fmt(weekEnd)}.xlsx`)
+}
 
 async function submitReply(logId) {
     if (!replyContent.value.trim()) return
