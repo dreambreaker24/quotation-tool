@@ -163,6 +163,19 @@
         </div>
       </div>
 
+      <div v-if="weekSummary" class="bg-white rounded-2xl shadow-sm px-5 py-4 flex items-center gap-6 text-sm">
+        <span class="text-xs text-gray-400 font-semibold">本週合計</span>
+        <div class="flex items-center gap-1">
+          <span class="text-gray-500 text-xs">出勤</span>
+          <span class="font-semibold text-gray-800">{{ weekSummary.count }} 筆</span>
+        </div>
+        <div v-if="weekSummary.fuelKm > 0" class="flex items-center gap-1">
+          <span class="text-gray-500 text-xs">油資</span>
+          <span class="font-semibold text-amber-600">{{ weekSummary.fuelKm }} km</span>
+          <span class="text-gray-400 text-xs">/ ${{ weekSummary.fuelAmount.toLocaleString() }}</span>
+        </div>
+      </div>
+
       <div v-if="displayedLogs.length === 0" class="bg-white rounded-2xl shadow-sm p-8 text-center text-gray-400 text-sm">
         {{ viewMode === 'week' ? '本週尚無工作日誌' : '今日尚無工作日誌' }}
       </div>
@@ -466,6 +479,20 @@ const displayedLogs = computed(() =>
         ? logsStore.logs.filter(l => l.userId === selectedEmployee.value.id)
         : logsStore.logs
 )
+
+const weekSummary = computed(() => {
+    if (viewMode.value !== 'week' || displayedLogs.value.length === 0) return null
+    const totalFuelKm = displayedLogs.value.reduce((sum, log) => {
+        const km = log.fuelExpenses?.reduce((s, f) => s + (f.distance || 0), 0)
+            ?? (log.fuelExpense?.distance || 0)
+        return sum + km
+    }, 0)
+    return {
+        count: displayedLogs.value.length,
+        fuelKm: totalFuelKm,
+        fuelAmount: totalFuelKm * 6,
+    }
+})
 
 function exportWeekLogs() {
     if (displayedLogs.value.length === 0) {

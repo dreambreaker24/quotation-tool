@@ -36,12 +36,17 @@
         </thead>
         <tbody>
           <tr v-for="(m, idx) in milestones" :key="m.id"
-            class="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
+            class="border-b border-gray-50 transition-colors"
+            :class="statusLabel(m) === '逾期' ? 'bg-red-50/60 hover:bg-red-50' : 'hover:bg-gray-50/50'">
             <td class="py-2 pr-3 font-medium text-gray-800">{{ m.label }}</td>
             <td class="py-2 pr-3 text-right" style="color:#c9a96e">
               ${{ (m.amount || 0).toLocaleString() }}
             </td>
-            <td class="py-2 pr-3 text-gray-600">{{ m.dueDate || '—' }}</td>
+            <td class="py-2 pr-3"
+              :class="statusLabel(m) === '逾期' ? 'text-red-500 font-medium' : 'text-gray-600'">
+              {{ m.dueDate || '—' }}
+              <span v-if="statusLabel(m) === '逾期'" class="ml-1 text-[9px]">⚠</span>
+            </td>
             <td class="py-2 pr-3 text-right text-green-600">
               {{ m.paidAmount ? `$${m.paidAmount.toLocaleString()}` : '—' }}
             </td>

@@ -37,7 +37,12 @@
     <div class="grid grid-cols-7">
       <div v-for="(cell, i) in calendarCells" :key="i"
         class="border-r border-b border-gray-100 p-2 min-h-[90px]"
-        :class="[!cell.currentMonth && 'opacity-40', cell.isToday && 'bg-amber-50/30']">
+        :class="[
+          !cell.currentMonth && 'opacity-40',
+          cell.isToday && 'bg-amber-50/30',
+          cell.currentMonth && 'cursor-pointer hover:bg-gray-50/50 transition-colors'
+        ]"
+        @click="cell.currentMonth && openAddOnDate(cell.dateStr)">
         <span class="text-xs" :class="cell.isToday ? 'font-bold' : 'text-gray-600'"
           :style="cell.isToday ? 'color:#c9a96e' : ''">
           {{ cell.day }}
@@ -233,6 +238,7 @@ const calendarCells = computed(() => {
     cells.push({
       day: d, currentMonth: true,
       isToday: date.toDateString() === today.toDateString(),
+      dateStr: `${currentYear.value}-${String(currentMonth.value + 1).padStart(2,'0')}-${String(d).padStart(2,'0')}`,
       events: dayEvents
     })
   }
@@ -240,6 +246,11 @@ const calendarCells = computed(() => {
     cells.push({ day: cells.length - daysInMonth - startOffset + 1, currentMonth: false, events: [] })
   return cells
 })
+
+function openAddOnDate(dateStr) {
+    eventForm.value = { ...blankEvent(), date: dateStr }
+    showAddEvent.value = true
+}
 
 async function submitEvent() {
   if (!eventForm.value.date || !eventForm.value.label) return

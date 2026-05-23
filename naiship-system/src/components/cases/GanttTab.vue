@@ -260,7 +260,10 @@ const regionCases = computed(() =>
 async function copyCase() {
     const c = casesStore.cases.find(x => x.id === selectedCaseId.value)
     if (!c) return
-    const workTypes = (c.workTypes ?? []).map(wt => ({ ...wt, id: Date.now().toString(36) + Math.random().toString(36).slice(2) }))
+    const workTypes = (c.workTypes ?? []).map(wt => ({
+        ...wt,
+        id: Date.now().toString(36) + Math.random().toString(36).slice(2)
+    }))
     const docRef = await casesStore.addCase({
         name: `${c.name}（複製）`,
         companyId: c.companyId,
@@ -274,7 +277,19 @@ async function copyCase() {
         workTypes,
     })
     toast('案件已複製，請補充資料')
-    if (docRef?.id) editingCaseId.value = docRef.id
+    if (docRef?.id) {
+        const newId = docRef.id
+        if (selectedCaseId.value && selectedCaseId.value !== newId) {
+            expanded[selectedCaseId.value] = false
+        }
+        expanded[newId] = true
+        selectedCaseId.value = newId
+        selectedCaseName.value = `${c.name}（複製）`
+        expandedCaseId.value = newId
+        expandedCaseName.value = `${c.name}（複製）`
+        tasksStore.subscribe(newId)
+        editingCaseId.value = newId
+    }
 }
 
 onUnmounted(() => tasksStore.cleanup())

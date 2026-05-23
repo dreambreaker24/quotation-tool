@@ -40,6 +40,10 @@
                 </template>
                 <template v-else>—</template>
               </div>
+              <span v-if="isWorkTypeOverdue(wt)"
+                class="text-[9px] px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-600 font-semibold mt-0.5 inline-block">
+                退場逾期
+              </span>
             </div>
             <div>
               <div class="text-[10px] text-gray-400 mb-0.5">向業主收款</div>
@@ -180,7 +184,14 @@
       <div class="text-[11px] text-gray-500 font-semibold mb-2">新增付款</div>
       <div class="flex flex-col gap-3">
         <div>
-          <label class="text-xs text-gray-500 mb-1 block">付款金額（元）</label>
+          <div class="flex items-center justify-between mb-1">
+            <label class="text-xs text-gray-500">付款金額（元）</label>
+            <button v-if="remainingVendorAmount > 0" type="button"
+              @click="vendorPayForm.amount = remainingVendorAmount"
+              class="text-[11px] px-2 py-0.5 rounded-lg border border-amber-200 text-amber-700 hover:bg-amber-50">
+              全付 ${{ remainingVendorAmount.toLocaleString() }}
+            </button>
+          </div>
           <input v-model.number="vendorPayForm.amount" type="number" min="0"
             class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1" placeholder="0">
         </div>
@@ -230,6 +241,22 @@ const WT_COLORS = ['#3b82f6', '#f59e0b', '#22c55e', '#ef4444', '#a855f7', '#ec48
 
 const caseData = computed(() => casesStore.cases.find(c => c.id === props.caseId))
 const workTypes = computed(() => caseData.value?.workTypes ?? [])
+
+const TODAY_STR = new Date().toISOString().slice(0, 10)
+
+function isWorkTypeOverdue(wt) {
+    if (!wt.endDate) return false
+    const caseStatus = caseData.value?.status
+    if (caseStatus === 'completed' || caseStatus === 'lost') return false
+    return wt.endDate < TODAY_STR
+}
+
+const remainingVendorAmount = computed(() => {
+    if (vendorPayingIdx.value === null) return 0
+    const wt = workTypes.value[vendorPayingIdx.value]
+    if (!wt) return 0
+    return Math.max(0, (wt.vendorCost || 0) - totalVendorPaid(wt))
+})
 const regionVendors = computed(() =>
     vendorsStore.vendors.filter(v => !v.companyId || v.companyId === caseData.value?.companyId)
 )

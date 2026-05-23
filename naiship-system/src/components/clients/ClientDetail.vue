@@ -53,6 +53,10 @@
           <span class="text-gray-400 text-xs block mb-0.5">流失原因</span>
           <p class="text-gray-700">{{ client.lostReason || '—' }}</p>
         </div>
+        <div class="col-span-2">
+          <span class="text-gray-400 text-xs block mb-0.5">備注</span>
+          <p class="text-gray-700 text-sm whitespace-pre-wrap">{{ client.memo || '—' }}</p>
+        </div>
       </div>
 
       <!-- 編輯模式 -->
@@ -95,6 +99,12 @@
         <div v-if="editForm.status === 'lost'" class="col-span-2">
           <label class="text-xs text-gray-400 block mb-0.5">流失原因</label>
           <input v-model="editForm.lostReason" class="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1">
+        </div>
+        <div class="col-span-2">
+          <label class="text-xs text-gray-400 block mb-0.5">備注</label>
+          <textarea v-model="editForm.memo" rows="3"
+            class="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 resize-none"
+            placeholder="合作記錄、特殊需求、注意事項…"></textarea>
         </div>
       </div>
     </div>
@@ -176,6 +186,7 @@ function startEdit() {
     linkedCaseId: props.client.linkedCaseId ?? '',
     lostReason: props.client.lostReason ?? '',
     followUpDate: props.client.followUpDate ?? '',
+    memo: props.client.memo ?? '',
   }
   editing.value = true
 }
