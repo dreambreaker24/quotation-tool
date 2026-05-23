@@ -38,20 +38,24 @@ service cloud.firestore {
       }
     }
     match /workLogs/{logId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn();
+      allow read: if isSignedIn() && isSameRegion(resource.data.companyId);
+      allow create: if isSignedIn() && isSameRegion(request.resource.data.companyId);
+      allow update: if isSignedIn() && isSameRegion(resource.data.companyId);
+      allow delete: if isManager() && isSameRegion(resource.data.companyId);
       match /replies/{replyId} {
         allow read: if isSignedIn();
         allow write: if isSignedIn();
       }
     }
     match /leaveRequests/{requestId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn();
+      allow read: if isSignedIn() && isSameRegion(resource.data.companyId);
+      allow create: if isSignedIn() && isSameRegion(request.resource.data.companyId);
+      allow update, delete: if isManager() && isSameRegion(resource.data.companyId);
     }
     match /calendarEvents/{eventId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn();
+      allow read: if isSignedIn() && isSameRegion(resource.data.companyId);
+      allow create: if isSignedIn() && isSameRegion(request.resource.data.companyId);
+      allow update, delete: if isSignedIn() && isSameRegion(resource.data.companyId);
     }
     match /vendors/{vendorId} {
       allow read: if isSignedIn();

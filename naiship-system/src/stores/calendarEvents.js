@@ -35,5 +35,13 @@ export const useCalendarEventsStore = defineStore('calendarEvents', () => {
         return deleteDoc(doc(db, 'calendarEvents', id))
     }
 
-    return { events, subscribe, addEvent, updateEvent, deleteEvent }
+    function cleanup() {
+        if (unsubscribe) {
+            unsubscribe()
+            unsubscribe = null
+        }
+        events.value = []
+    }
+
+    return { events, subscribe, addEvent, updateEvent, deleteEvent, cleanup }
 })

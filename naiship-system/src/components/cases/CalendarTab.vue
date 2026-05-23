@@ -135,7 +135,7 @@
   </div>
 </template>
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onUnmounted } from 'vue'
 import { Timestamp } from 'firebase/firestore'
 import { useCasesStore } from '@/stores/cases'
 import { useCalendarEventsStore } from '@/stores/calendarEvents'
@@ -202,6 +202,8 @@ async function removeEvent() {
 watch([() => props.region, currentYear, currentMonth], ([region]) => {
   if (region) eventsStore.subscribe(region, currentYear.value, currentMonth.value)
 }, { immediate: true })
+
+onUnmounted(() => eventsStore.cleanup())
 
 const displayMonth = computed(() => `${currentYear.value}年 ${currentMonth.value + 1}月`)
 
