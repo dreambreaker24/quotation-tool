@@ -162,9 +162,11 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useCasesStore } from '@/stores/cases'
+import { useToast } from '@/composables/useToast'
 
 const props = defineProps({ caseId: String, caseName: String })
 const casesStore = useCasesStore()
+const { toast } = useToast()
 
 const LABEL_OPTIONS = ['訂金（簽約款）', '第二期款', '第三期款', '第四期款', '第五期款', '尾款']
 const TODAY = new Date().toISOString().slice(0, 10)
@@ -196,6 +198,8 @@ async function submitTemplate() {
         const updated = [...milestones.value, ...newEntries].slice(0, 6)
         await casesStore.updateCase(props.caseId, { paymentMilestones: updated })
         showTemplate.value = false
+    } catch {
+        toast('建立失敗，請重試', 'error')
     } finally {
         saving.value = false
     }
@@ -265,6 +269,8 @@ async function submitForm() {
         }
         await casesStore.updateCase(props.caseId, { paymentMilestones: updated })
         showForm.value = false
+    } catch {
+        toast('儲存失敗，請重試', 'error')
     } finally {
         saving.value = false
     }
@@ -272,7 +278,11 @@ async function submitForm() {
 
 async function removeMilestone(idx) {
     if (!confirm(`確定要刪除「${milestones.value[idx].label}」？`)) return
-    const updated = milestones.value.filter((_, i) => i !== idx)
-    await casesStore.updateCase(props.caseId, { paymentMilestones: updated })
+    try {
+        const updated = milestones.value.filter((_, i) => i !== idx)
+        await casesStore.updateCase(props.caseId, { paymentMilestones: updated })
+    } catch {
+        toast('刪除失敗，請重試', 'error')
+    }
 }
 </script>

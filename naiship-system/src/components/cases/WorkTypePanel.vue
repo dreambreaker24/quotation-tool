@@ -221,10 +221,12 @@
 import { ref, computed } from 'vue'
 import { useVendorsStore } from '@/stores/vendors'
 import { useCasesStore } from '@/stores/cases'
+import { useToast } from '@/composables/useToast'
 
 const props = defineProps({ caseId: String, caseName: String })
 const vendorsStore = useVendorsStore()
 const casesStore = useCasesStore()
+const { toast } = useToast()
 
 const showForm = ref(false)
 const saving = ref(false)
@@ -324,6 +326,8 @@ async function submitForm() {
         }
         await casesStore.updateCase(props.caseId, { workTypes: updated })
         showForm.value = false
+    } catch {
+        toast('儲存失敗，請重試', 'error')
     } finally {
         saving.value = false
     }
@@ -344,6 +348,8 @@ async function addVendorPayment() {
         updated[vendorPayingIdx.value] = wt
         await casesStore.updateCase(props.caseId, { workTypes: updated })
         showVendorPayForm.value = false
+    } catch {
+        toast('儲存失敗，請重試', 'error')
     } finally {
         savingVendorPay.value = false
     }
@@ -351,7 +357,11 @@ async function addVendorPayment() {
 
 async function removeWorkType(idx) {
     if (!confirm(`確定要刪除「${workTypes.value[idx].name}」？`)) return
-    const updated = workTypes.value.filter((_, i) => i !== idx)
-    await casesStore.updateCase(props.caseId, { workTypes: updated })
+    try {
+        const updated = workTypes.value.filter((_, i) => i !== idx)
+        await casesStore.updateCase(props.caseId, { workTypes: updated })
+    } catch {
+        toast('刪除失敗，請重試', 'error')
+    }
 }
 </script>

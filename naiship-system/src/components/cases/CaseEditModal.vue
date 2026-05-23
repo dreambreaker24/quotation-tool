@@ -151,6 +151,8 @@ async function deleteThisCase() {
     try {
         await casesStore.deleteCase(props.caseId)
         emit('close')
+    } catch {
+        toast('刪除失敗，請重試', 'error')
     } finally {
         deleting.value = false
     }
@@ -252,6 +254,8 @@ async function save() {
         await casesStore.updateCase(props.caseId, data)
         toast('案件已儲存')
         emit('close')
+    } catch {
+        toast('儲存失敗，請重試', 'error')
     } finally {
         saving.value = false
     }

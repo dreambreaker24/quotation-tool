@@ -28,12 +28,12 @@ import { useRoute } from 'vue-router'
 const auth = useAuthStore()
 const route = useRoute()
 const roleLabel = computed(() => ({ admin: '管理者', manager: '主管', employee: '員工' }[auth.role] ?? ''))
-const navItems = [
-  { to: '/', label: '首頁總覽' },
+const navItems = computed(() => [
+  ...(auth.isManager ? [{ to: '/', label: '首頁總覽' }] : []),
   { to: '/cases', label: '案件管理' },
   { to: '/clients', label: '客戶管理' },
   { to: '/settings', label: '系統設定' }
-]
+])
 function isActive(path) {
   if (path === '/') return route.path === '/'
   return route.path.startsWith(path)

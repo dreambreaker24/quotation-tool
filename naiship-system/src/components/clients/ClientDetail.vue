@@ -158,6 +158,8 @@ async function addToCalendar() {
             createdBy: authStore.user?.uid ?? '',
         })
         toast('已加入行事曆')
+    } catch {
+        toast('新增失敗，請重試', 'error')
     } finally {
         addingToCalendar.value = false
     }
@@ -192,12 +194,20 @@ function startEdit() {
 }
 
 async function saveEdit() {
-  await clientsStore.updateClient(props.client.id, { ...editForm.value })
-  editing.value = false
-  toast('客戶資料已更新')
+  try {
+    await clientsStore.updateClient(props.client.id, { ...editForm.value })
+    editing.value = false
+    toast('客戶資料已更新')
+  } catch {
+    toast('儲存失敗，請重試', 'error')
+  }
 }
 
 async function updateStatus(status) {
-  await clientsStore.updateClient(props.client.id, { status })
+  try {
+    await clientsStore.updateClient(props.client.id, { status })
+  } catch {
+    toast('更新失敗，請重試', 'error')
+  }
 }
 </script>

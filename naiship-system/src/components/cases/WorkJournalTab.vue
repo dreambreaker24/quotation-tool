@@ -380,10 +380,14 @@ async function submitLog() {
         ...(other.length > 0 && { otherItems: other }),
         ...(fuelData && { fuelExpenses: fuelData }),
     }
-    await logsStore.addLog(logDoc)
-    showLogForm.value = false
+    try {
+        await logsStore.addLog(logDoc)
+        showLogForm.value = false
+        toast('日誌已送出')
+    } catch {
+        toast('送出失敗，請重試', 'error')
+    }
     submitting.value = false
-    toast('日誌已送出')
 }
 
 // Week helpers
@@ -530,8 +534,12 @@ function exportWeekLogs() {
 
 async function submitReply(logId) {
     if (!replyContent.value.trim()) return
-    await logsStore.addReply(logId, replyContent.value, authStore.user?.uid ?? 'unknown', authStore.name ?? '')
-    replyContent.value = ''
-    replyTarget.value = null
+    try {
+        await logsStore.addReply(logId, replyContent.value, authStore.user?.uid ?? 'unknown', authStore.name ?? '')
+        replyContent.value = ''
+        replyTarget.value = null
+    } catch {
+        toast('回覆失敗，請重試', 'error')
+    }
 }
 </script>

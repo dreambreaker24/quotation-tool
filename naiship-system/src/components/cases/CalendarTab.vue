@@ -140,11 +140,13 @@ import { Timestamp } from 'firebase/firestore'
 import { useCasesStore } from '@/stores/cases'
 import { useCalendarEventsStore } from '@/stores/calendarEvents'
 import { useAuthStore } from '@/stores/auth'
+import { useToast } from '@/composables/useToast'
 
 const props = defineProps({ region: String })
 const casesStore = useCasesStore()
 const eventsStore = useCalendarEventsStore()
 const authStore = useAuthStore()
+const { toast } = useToast()
 const weekDays = ['日', '一', '二', '三', '四', '五', '六']
 const today = new Date()
 const currentYear = ref(today.getFullYear())
@@ -176,17 +178,25 @@ function openEditEvent(event) {
 
 async function saveEditEvent() {
   if (!editForm.value.date || !editForm.value.label) return
-  await eventsStore.updateEvent(editingEventId.value, {
-    type: editForm.value.type,
-    date: Timestamp.fromDate(new Date(editForm.value.date)),
-    label: editForm.value.label,
-  })
-  showEditEvent.value = false
+  try {
+    await eventsStore.updateEvent(editingEventId.value, {
+      type: editForm.value.type,
+      date: Timestamp.fromDate(new Date(editForm.value.date)),
+      label: editForm.value.label,
+    })
+    showEditEvent.value = false
+  } catch {
+    toast('儲存失敗，請重試', 'error')
+  }
 }
 
 async function removeEvent() {
-  await eventsStore.deleteEvent(editingEventId.value)
-  showEditEvent.value = false
+  try {
+    await eventsStore.deleteEvent(editingEventId.value)
+    showEditEvent.value = false
+  } catch {
+    toast('刪除失敗，請重試', 'error')
+  }
 }
 
 watch([() => props.region, currentYear, currentMonth], ([region]) => {
@@ -254,14 +264,18 @@ function openAddOnDate(dateStr) {
 
 async function submitEvent() {
   if (!eventForm.value.date || !eventForm.value.label) return
-  await eventsStore.addEvent({
-    companyId: props.region,
-    type: eventForm.value.type,
-    date: Timestamp.fromDate(new Date(eventForm.value.date)),
-    label: eventForm.value.label,
-    createdBy: authStore.user?.uid ?? '',
-  })
-  eventForm.value = blankEvent()
-  showAddEvent.value = false
+  try {
+    await eventsStore.addEvent({
+      companyId: props.region,
+      type: eventForm.value.type,
+      date: Timestamp.fromDate(new Date(eventForm.value.date)),
+      label: eventForm.value.label,
+      createdBy: authStore.user?.uid ?? '',
+    })
+    eventForm.value = blankEvent()
+    showAddEvent.value = false
+  } catch {
+    toast('新增失敗，請重試', 'error')
+  }
 }
 </script>

@@ -26,6 +26,7 @@
       </div>
     </div>
     <input ref="fileInput" type="file" accept="image/jpeg,image/jpg,image/png,image/webp,.pdf" multiple class="hidden" @change="handleFiles">
+    <div v-if="uploadError" class="mt-2 text-xs text-red-500">{{ uploadError }}</div>
     <div v-if="previewUrl" @click="previewUrl = null"
       class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 cursor-pointer">
       <img :src="previewUrl" class="max-h-[80vh] max-w-[90vw] rounded-xl">
@@ -59,6 +60,7 @@ const fileInput = ref(null)
 const activeType = ref('')
 const previewUrl = ref(null)
 const hovering = ref('')
+const uploadError = ref('')
 
 onMounted(async () => {
     if (!props.caseId) return
@@ -78,16 +80,21 @@ function triggerUpload(type) {
 }
 
 async function handleFiles(e) {
+    uploadError.value = ''
     for (const file of e.target.files) {
-        const url = await uploadPhoto(file, activeType.value)
-        const isPdf = file.name.toLowerCase().endsWith('.pdf')
-        photos[activeType.value].push({ url, isPdf })
-        if (props.caseId) {
-            await addDoc(collection(db, 'cases', props.caseId, 'photos'), {
-                type: activeType.value, url,
-                uploadedBy: authStore.user?.uid ?? 'unknown',
-                createdAt: serverTimestamp()
-            })
+        try {
+            const url = await uploadPhoto(file, activeType.value)
+            const isPdf = file.name.toLowerCase().endsWith('.pdf')
+            photos[activeType.value].push({ url, isPdf })
+            if (props.caseId) {
+                await addDoc(collection(db, 'cases', props.caseId, 'photos'), {
+                    type: activeType.value, url,
+                    uploadedBy: authStore.user?.uid ?? 'unknown',
+                    createdAt: serverTimestamp()
+                })
+            }
+        } catch {
+            uploadError.value = `「${file.name}」上傳失敗，請重試`
         }
     }
     e.target.value = ''

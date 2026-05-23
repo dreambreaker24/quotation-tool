@@ -176,8 +176,10 @@ const caseForm = ref(blankCase())
 
 onMounted(() => {
     const regions = authStore.isAdmin ? ['north', 'central', 'south'] : [authStore.companyId]
+    casesStore.subscribe(regions)
     clientsStore.subscribe(regions)
     usersStore.subscribe()
+    if (route.query.caseId) jumpToCase(route.query.caseId)
 })
 
 watch(() => caseForm.value.linkedClientId, (clientId) => {
@@ -227,6 +229,8 @@ async function submitCase() {
         caseForm.value = blankCase()
         showAddCase.value = false
         toast('案件已建立')
+    } catch {
+        toast('建立失敗，請重試', 'error')
     } finally {
         submitting.value = false
     }

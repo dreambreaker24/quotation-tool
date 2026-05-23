@@ -205,6 +205,8 @@ async function submitForm() {
             toast('廠商已新增')
         }
         showForm.value = false
+    } catch {
+        toast('儲存失敗，請重試', 'error')
     } finally {
         submitting.value = false
     }
@@ -212,7 +214,11 @@ async function submitForm() {
 
 async function confirmDelete(v) {
     if (!confirm(`確定要刪除「${v.name}」？該廠商在所有案件工種的關聯也將一併清除。`)) return
-    await vendorsStore.deleteVendorAndCascade(v.id)
-    toast('廠商已刪除')
+    try {
+        await vendorsStore.deleteVendorAndCascade(v.id)
+        toast('廠商已刪除')
+    } catch {
+        toast('刪除失敗，請重試', 'error')
+    }
 }
 </script>
