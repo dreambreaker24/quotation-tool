@@ -53,6 +53,10 @@ export const useWorkLogsStore = defineStore('workLogs', () => {
         return addDoc(collection(db, 'workLogs'), { ...data, createdAt: serverTimestamp() })
     }
 
+    async function updateLog(logId, data) {
+        return updateDoc(doc(db, 'workLogs', logId), { ...data, updatedAt: serverTimestamp() })
+    }
+
     async function addReply(logId, content, userId, userName) {
         return addDoc(collection(db, 'workLogs', logId, 'replies'), {
             content, createdBy: userId, creatorName: userName ?? '', createdAt: serverTimestamp()
@@ -139,7 +143,7 @@ export const useWorkLogsStore = defineStore('workLogs', () => {
     return {
         logs, pendingLogs,
         subscribe, subscribePending, cleanupPending,
-        addLog, addReply,
+        addLog, updateLog, addReply,
         approveFuel, approveOvertime,
         fetchMonthlyKm, fetchMonthlyOvertimeHours, fetchMonthlyAttendance,
         unsubscribe: cleanup

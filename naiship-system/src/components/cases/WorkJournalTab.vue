@@ -76,9 +76,16 @@
             </span>
             <div>
               <div class="text-sm font-semibold text-gray-800">{{ log.userName }}</div>
-              <div class="text-[10px] text-gray-400">{{ formatTime(log.createdAt) }}</div>
+              <div class="text-[10px] text-gray-400">
+                {{ formatTime(log.createdAt) }}
+                <span v-if="log.updatedAt" class="ml-1 text-gray-300">（已編輯）</span>
+              </div>
             </div>
           </div>
+          <button v-if="canEditLog(log)" @click="openEditForm(log)"
+            class="text-[11px] text-gray-400 hover:text-amber-600 border border-gray-200 hover:border-amber-300 rounded-lg px-2 py-0.5 transition-colors">
+            編輯
+          </button>
         </div>
 
         <!-- Case entries -->
@@ -223,8 +230,8 @@
   <div v-if="showLogForm" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center" style="background:rgba(0,0,0,0.4)">
     <div class="bg-white sm:rounded-2xl rounded-t-2xl shadow-xl p-6 w-full sm:max-w-lg sm:mx-4 max-h-[100vh] sm:max-h-[90vh] overflow-y-auto">
       <div class="flex items-center justify-between mb-4">
-        <h3 class="text-base font-bold text-gray-800">填寫今日工作日誌</h3>
-        <button @click="showLogForm = false" class="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
+        <h3 class="text-base font-bold text-gray-800">{{ editingLog ? '編輯工作日誌' : '填寫今日工作日誌' }}</h3>
+        <button @click="showLogForm = false; editingLog = null" class="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
       </div>
       <div class="flex items-center gap-2 mb-4">
         <span class="text-xs text-gray-400">{{ todayLabel }}</span>
@@ -263,12 +270,16 @@
       <div class="border border-amber-200 rounded-xl p-4 bg-amber-50/50">
         <div class="flex items-center justify-between mb-3">
           <div class="text-xs font-semibold text-amber-700">申請油資（選填）</div>
-          <button v-if="!isAfter21" @click="addFuelItem" class="text-xs" style="color:#c9a96e">+ 新增</button>
+          <button v-if="!isAfter21 || editingLog" @click="addFuelItem" class="text-xs" style="color:#c9a96e">+ 新增</button>
         </div>
-        <div v-if="isAfter21" class="text-xs text-center text-red-500 py-2 bg-red-50 rounded-lg">
+        <!-- 編輯模式：已核准的油資顯示為鎖定 -->
+        <div v-if="editingLog?.fuelApproved" class="text-xs text-green-600 bg-green-50 rounded-lg px-3 py-2 mb-2">
+          ✓ 油資已核准，無法修改
+        </div>
+        <div v-else-if="isAfter21 && !editingLog" class="text-xs text-center text-red-500 py-2 bg-red-50 rounded-lg">
           今日油資申請已截止（每日 21:00 截止）
         </div>
-        <template v-else>
+        <template v-if="!editingLog?.fuelApproved && (!isAfter21 || editingLog)">
           <div v-if="fuelItems.length === 0" class="text-xs text-gray-400 py-1">無油資申請（可點右上新增）</div>
           <div v-for="(item, idx) in fuelItems" :key="idx"
             class="border border-amber-200 rounded-xl p-3 mb-2 last:mb-0 bg-white">
@@ -308,9 +319,13 @@
       <div class="border border-purple-200 rounded-xl p-4 bg-purple-50/50 mt-3">
         <div class="flex items-center justify-between mb-3">
           <div class="text-xs font-semibold text-purple-700">申請加班（選填）</div>
-          <button @click="addOvertimeItem" class="text-xs" style="color:#c9a96e">+ 新增</button>
+          <button v-if="!editingLog?.overtimeApproved" @click="addOvertimeItem" class="text-xs" style="color:#c9a96e">+ 新增</button>
         </div>
-        <div v-if="overtimeItems.length === 0" class="text-xs text-gray-400 py-1">無加班申請（可點右上新增）</div>
+        <!-- 編輯模式：已核准的加班顯示為鎖定 -->
+        <div v-if="editingLog?.overtimeApproved" class="text-xs text-green-600 bg-green-50 rounded-lg px-3 py-2 mb-2">
+          ✓ 加班已核准，無法修改
+        </div>
+        <div v-else-if="overtimeItems.length === 0" class="text-xs text-gray-400 py-1">無加班申請（可點右上新增）</div>
         <div v-for="(item, idx) in overtimeItems" :key="idx"
           class="border border-purple-200 rounded-xl p-3 mb-2 last:mb-0 bg-white">
           <div class="flex items-center justify-between mb-2">
@@ -331,8 +346,8 @@
       </div>
 
       <div class="flex justify-end gap-2 mt-5">
-        <button @click="showLogForm = false" class="text-sm text-gray-400 px-4 py-2">取消</button>
-        <button @click="submitLog" :disabled="submitting" class="text-sm text-white px-5 py-2 rounded-xl disabled:opacity-60" style="background:#1e2533">{{ submitting ? '送出中…' : '送出日誌' }}</button>
+        <button @click="showLogForm = false; editingLog = null" class="text-sm text-gray-400 px-4 py-2">取消</button>
+        <button @click="submitLog" :disabled="submitting" class="text-sm text-white px-5 py-2 rounded-xl disabled:opacity-60" style="background:#1e2533">{{ submitting ? (editingLog ? '更新中…' : '送出中…') : (editingLog ? '更新日誌' : '送出日誌') }}</button>
       </div>
     </div>
   </div>
@@ -358,6 +373,7 @@ const search = ref('')
 const replyTarget = ref(null)
 const replyContent = ref('')
 const showLogForm = ref(false)
+const editingLog = ref(null)
 const previewUrl = ref(null)
 const logEntries = ref({})
 const otherItems = ref([])
@@ -386,10 +402,31 @@ const myCases = computed(() =>
 )
 
 function openLogForm() {
+    editingLog.value = null
     logEntries.value = {}
     otherItems.value = []
     fuelItems.value = []
     overtimeItems.value = []
+    showLogForm.value = true
+}
+
+function canEditLog(log) {
+    return log.userId === authStore.user?.uid || authStore.isManager
+}
+
+function openEditForm(log) {
+    editingLog.value = log
+    logEntries.value = {}
+    if (log.caseEntries?.length) {
+        log.caseEntries.forEach(e => { logEntries.value[e.caseId] = e.content })
+    }
+    otherItems.value = (log.otherItems ?? []).map(i => ({ content: i.content }))
+    fuelItems.value = log.fuelApproved
+        ? []
+        : (log.fuelExpenses ?? []).map(f => ({ reason: f.reason, distance: f.distance || 0, photoFile: null, previewUrl: f.photoUrl || '' }))
+    overtimeItems.value = log.overtimeApproved
+        ? []
+        : (log.overtimeItems ?? []).map(ot => ({ reason: ot.reason, hours: ot.hours }))
     showLogForm.value = true
 }
 
@@ -423,17 +460,18 @@ async function submitLog() {
         .filter(c => logEntries.value[c.id]?.trim())
         .map(c => ({ caseId: c.id, caseName: c.name, content: logEntries.value[c.id].trim() }))
     const other = otherItems.value.filter(i => i.content.trim()).map(i => ({ content: i.content.trim() }))
-    const hasFuel = !isAfter21.value && fuelItems.value.some(f => f.reason.trim())
-    if (caseEntries.length === 0 && other.length === 0 && !hasFuel) return
+    const canAddFuel = !isAfter21.value || !!editingLog.value
+    const hasFuel = canAddFuel && fuelItems.value.some(f => f.reason.trim())
+    if (!editingLog.value && caseEntries.length === 0 && other.length === 0 && !hasFuel) return
     if (submitting.value) return
     submitting.value = true
 
     let fuelData = null
-    if (hasFuel) {
+    if (hasFuel && !editingLog.value?.fuelApproved) {
         const items = []
         for (const item of fuelItems.value) {
             if (!item.reason.trim()) continue
-            let photoUrl = ''
+            let photoUrl = item.previewUrl || ''
             if (item.photoFile) {
                 try { photoUrl = await uploadPhoto(item.photoFile, 'fuel') } catch (_) {}
             }
@@ -442,9 +480,36 @@ async function submitLog() {
         if (items.length > 0) fuelData = items
     }
 
-    const overtimeData = overtimeItems.value
-        .filter(i => i.reason.trim() && i.hours > 0)
-        .map(i => ({ reason: i.reason.trim(), hours: i.hours }))
+    const overtimeData = editingLog.value?.overtimeApproved
+        ? []
+        : overtimeItems.value
+            .filter(i => i.reason.trim() && i.hours > 0)
+            .map(i => ({ reason: i.reason.trim(), hours: i.hours }))
+
+    if (editingLog.value) {
+        const updateData = {
+            ...(caseEntries.length > 0 ? { caseEntries } : { caseEntries: [] }),
+            ...(other.length > 0 ? { otherItems: other } : { otherItems: [] }),
+            ...(!editingLog.value.fuelApproved && {
+                fuelExpenses: fuelData ?? [],
+                ...(fuelData ? { fuelApproved: false } : {}),
+            }),
+            ...(!editingLog.value.overtimeApproved && {
+                overtimeItems: overtimeData,
+                ...(overtimeData.length > 0 ? { overtimeApproved: false } : {}),
+            }),
+        }
+        try {
+            await logsStore.updateLog(editingLog.value.id, updateData)
+            showLogForm.value = false
+            editingLog.value = null
+            toast('日誌已更新')
+        } catch {
+            toast('更新失敗，請重試', 'error')
+        }
+        submitting.value = false
+        return
+    }
 
     const logDoc = {
         userId: authStore.user?.uid ?? '',
