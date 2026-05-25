@@ -25,14 +25,14 @@
           <div @click="selectCase(c.id)"
             class="px-3 py-2 flex items-center gap-2 cursor-pointer transition-colors" style="height:36px"
             :style="`border-left:3px solid ${STATUS_BAR_COLORS[c.status] ?? '#e5e7eb'};${selectedCaseId === c.id ? 'background:rgba(201,169,110,0.12)' : ''}`">
-            <span class="text-gray-400 text-[10px] w-4 select-none">{{ expanded[c.id] ? '▼' : '▶' }}</span>
-            <div class="flex-1 min-w-0 flex items-center gap-1">
-              <div class="text-xs font-semibold truncate" :title="c.name"
-                :style="selectedCaseId === c.id ? 'color:#c9a96e' : 'color:#1f2937'">{{ c.name }}</div>
-              <span v-if="hasOverduePayments(c)" class="text-[9px] text-red-500 font-bold flex-shrink-0" title="有逾期未收款">$⚠</span>
-            </div>
+            <span class="text-gray-400 text-[10px] w-4 flex-shrink-0 select-none">{{ expanded[c.id] ? '▼' : '▶' }}</span>
             <div class="flex-1 min-w-0">
-              <div v-if="deadlineInfo(c)" class="text-[9px] font-medium" :style="`color:${deadlineInfo(c).color}`">
+              <div class="flex items-center gap-1 min-w-0">
+                <div class="text-xs font-semibold truncate" :title="c.name"
+                  :style="selectedCaseId === c.id ? 'color:#c9a96e' : 'color:#1f2937'">{{ c.name }}</div>
+                <span v-if="hasOverduePayments(c)" class="text-[9px] text-red-500 font-bold flex-shrink-0" title="有逾期未收款">$⚠</span>
+              </div>
+              <div v-if="deadlineInfo(c)" class="text-[9px] font-medium leading-none mt-0.5" :style="`color:${deadlineInfo(c).color}`">
                 ⚑ {{ deadlineInfo(c).label }}
               </div>
             </div>
