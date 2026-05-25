@@ -27,7 +27,7 @@
             :style="`border-left:3px solid ${STATUS_BAR_COLORS[c.status] ?? '#e5e7eb'};${selectedCaseId === c.id ? 'background:rgba(201,169,110,0.12)' : ''}`">
             <span class="text-gray-400 text-[10px] w-4 select-none">{{ expanded[c.id] ? '▼' : '▶' }}</span>
             <div class="flex-1 min-w-0 flex items-center gap-1">
-              <div class="text-xs font-semibold truncate"
+              <div class="text-xs font-semibold truncate" :title="c.name"
                 :style="selectedCaseId === c.id ? 'color:#c9a96e' : 'color:#1f2937'">{{ c.name }}</div>
               <span v-if="hasOverduePayments(c)" class="text-[9px] text-red-500 font-bold flex-shrink-0" title="有逾期未收款">$⚠</span>
             </div>
@@ -111,15 +111,18 @@
     </div>
 
     <!-- Case action bar (when selected) -->
-    <div v-if="selectedCaseId" class="px-4 py-2 border-t border-gray-100 flex items-center gap-2">
-      <button @click="editingCaseId = selectedCaseId"
-        class="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">
-        ✎ 編輯案件
-      </button>
-      <button @click="copyCase"
-        class="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">
-        ⧉ 複製案件
-      </button>
+    <div v-if="selectedCaseId" class="px-4 pt-3 pb-2 border-t border-amber-100 bg-amber-50/40">
+      <div class="text-sm font-bold text-gray-800 mb-2 leading-snug">{{ selectedCaseName }}</div>
+      <div class="flex items-center gap-2 flex-wrap">
+        <button @click="editingCaseId = selectedCaseId"
+          class="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 bg-white">
+          ✎ 編輯案件
+        </button>
+        <button @click="copyCase"
+          class="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 bg-white">
+          ⧉ 複製案件
+        </button>
+      </div>
     </div>
 
     <!-- Work type panel (when expanded) -->

@@ -1,6 +1,9 @@
 <template>
   <div class="px-4 py-4 border-t border-gray-100 bg-gray-50">
-    <div class="text-xs text-gray-500 font-medium mb-3">{{ caseName }} — 上傳照片</div>
+    <div class="flex items-center justify-between mb-3">
+      <div class="text-xs text-gray-500 font-medium">{{ caseName }} — 上傳照片</div>
+      <div class="text-[10px] text-gray-400 sm:hidden">點選類別選取照片或檔案</div>
+    </div>
     <div class="flex flex-wrap gap-3">
       <div v-for="type in photoTypes" :key="type.key" class="flex flex-col items-center gap-1.5">
         <button @click="triggerUpload(type.key)"
