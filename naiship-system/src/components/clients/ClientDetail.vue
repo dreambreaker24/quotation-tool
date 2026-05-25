@@ -169,7 +169,7 @@ const availableCases = computed(() =>
     casesStore.cases.filter(c => !editForm.value.linkedCaseIds?.includes(c.id))
 )
 
-const caseStatusMap = { negotiating:'洽談中', drafting:'製圖中', construction:'施工中', pending_settlement:'待結算', aftercare:'售後', completed:'已完工', lost:'未成案' }
+const caseStatusMap = { pending:'待約客戶', negotiating:'洽談中', drafting:'製圖中', construction:'施工中', pending_settlement:'待結算', aftercare:'售後', completed:'已完工', lost:'未成案' }
 function caseStatusLabel(s) { return caseStatusMap[s] ?? s }
 
 function linkCase(e) {

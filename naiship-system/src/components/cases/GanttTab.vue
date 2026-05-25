@@ -221,7 +221,7 @@ watch(() => props.jumpCaseId, (id) => {
     emit('jumped')
 })
 
-const ALL_STATUSES = ['negotiating', 'drafting', 'construction', 'pending_settlement', 'aftercare', 'completed', 'lost']
+const ALL_STATUSES = ['pending', 'negotiating', 'drafting', 'construction', 'pending_settlement', 'aftercare', 'completed', 'lost']
 const activeStatuses = ref(new Set(ALL_STATUSES))
 
 function toggleStatus(s) {
@@ -239,6 +239,7 @@ function toggleStatus(s) {
 
 const STATUS_BAR_COLORS = {
     negotiating: '#9ca3af',
+    pending: '#94a3b8',
     drafting: '#60a5fa',
     construction: '#3b82f6',
     pending_settlement: '#f97316',
@@ -247,7 +248,7 @@ const STATUS_BAR_COLORS = {
     lost: '#ef4444',
 }
 const STATUS_LABELS = {
-    negotiating: '洽談中', drafting: '製圖中', construction: '施工中',
+    pending: '待約', negotiating: '洽談中', drafting: '製圖中', construction: '施工中',
     pending_settlement: '待結算', aftercare: '售後', completed: '已完工', lost: '未成案',
 }
 const statusLegend = Object.entries(STATUS_BAR_COLORS)

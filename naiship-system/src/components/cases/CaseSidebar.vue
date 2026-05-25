@@ -47,6 +47,7 @@ const casesStore = useCasesStore()
 const search = ref('')
 
 const STATUS_COLORS = {
+    pending: '#94a3b8',
     negotiating: '#f59e0b',
     drafting: '#a855f7',
     construction: '#3b82f6',

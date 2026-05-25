@@ -31,6 +31,7 @@
           <div>
             <label class="text-xs text-gray-500 mb-1 block">狀態 *</label>
             <select v-model="form.status" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
+              <option value="pending">待約客戶</option>
               <option value="negotiating">洽談中</option>
               <option value="drafting">製圖中</option>
               <option value="construction">施工中</option>
@@ -202,6 +203,7 @@ watch(caseData, (c) => {
 }, { immediate: true })
 
 const STATUS_LABELS = {
+    pending: '待約客戶',
     negotiating: '洽談中',
     drafting: '製圖中',
     construction: '施工中',
