@@ -10,6 +10,15 @@
         <div class="text-[10px] text-gray-400">負責：{{ c.assigneeName }}</div>
       </div>
     </div>
+
+    <!-- 待確認申請（主管才看得到） -->
+    <div v-if="authStore.isManager && pendingCount > 0" class="mx-3 mt-4 rounded-xl p-3" style="background:rgba(239,68,68,0.15)">
+      <div class="text-[10px] text-red-300 font-semibold uppercase tracking-wide mb-1">待確認申請</div>
+      <div class="text-white text-sm font-bold">{{ pendingCount }} 筆</div>
+      <div class="text-[10px] text-gray-400 mt-0.5">油資 / 加班待確認</div>
+      <button @click="router.push({ name: 'cases' })"
+        class="mt-2 text-[10px] text-amber-300 hover:text-amber-100 underline">前往工作日誌審核</button>
+    </div>
   </aside>
   <main class="flex-1 p-6 overflow-auto">
     <div class="flex items-center justify-between mb-5">
@@ -27,7 +36,7 @@
   </main>
 </template>
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import StatsSection from '@/components/dashboard/StatsSection.vue'
 import EmployeeTable from '@/components/dashboard/EmployeeTable.vue'
@@ -36,11 +45,13 @@ import MonthlyCashFlow from '@/components/dashboard/MonthlyCashFlow.vue'
 import { useCasesStore } from '@/stores/cases'
 import { useClientsStore } from '@/stores/clients'
 import { useAuthStore } from '@/stores/auth'
+import { useWorkLogsStore } from '@/stores/workLogs'
 
 const router = useRouter()
 const casesStore = useCasesStore()
 const clientsStore = useClientsStore()
 const authStore = useAuthStore()
+const logsStore = useWorkLogsStore()
 const selectedYear = ref(new Date().getFullYear())
 const currentMonth = new Date().getMonth() + 1
 const years = Array.from({ length: 5 }, (_, i) => selectedYear.value - i)
@@ -60,6 +71,8 @@ const activeCasesByRegion = computed(() => {
     return result
 })
 
+const pendingCount = computed(() => logsStore.pendingLogs.length)
+
 onMounted(() => {
     const regions = authStore.isAdmin
         ? ['south', 'north', 'central']
@@ -67,5 +80,10 @@ onMounted(() => {
     const filtered = regions.filter(Boolean)
     casesStore.subscribe(filtered)
     clientsStore.subscribe(filtered)
+    if (authStore.isManager) logsStore.subscribePending()
+})
+
+onUnmounted(() => {
+    logsStore.cleanupPending()
 })
 </script>

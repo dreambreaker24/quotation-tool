@@ -109,8 +109,16 @@
 
         <!-- Fuel expenses (new multi format) -->
         <div v-if="log.fuelExpenses?.length" class="mb-3 bg-amber-50 rounded-xl p-3">
-          <div class="text-[10px] text-amber-600 font-semibold mb-2 uppercase tracking-wide">
-            申請油資（共 {{ log.fuelExpenses.length }} 筆）
+          <div class="flex items-center justify-between mb-2">
+            <div class="text-[10px] text-amber-600 font-semibold uppercase tracking-wide">
+              申請油資（共 {{ log.fuelExpenses.length }} 筆）
+            </div>
+            <div class="flex items-center gap-2">
+              <span v-if="log.fuelApproved" class="text-[10px] text-green-600 font-semibold">✓ 已確認</span>
+              <button v-else-if="authStore.isManager" @click="approveFuel(log.id)"
+                class="text-[11px] text-white px-2.5 py-1 rounded-lg" style="background:#22c55e">✓ 確認油資</button>
+              <span v-else class="text-[10px] text-amber-500 font-semibold">待主管確認</span>
+            </div>
           </div>
           <div v-for="(f, i) in log.fuelExpenses" :key="i"
             class="flex gap-3 items-start mb-2 last:mb-0 pb-2 last:pb-0 border-b last:border-0 border-amber-100">
@@ -126,7 +134,10 @@
         </div>
         <!-- Fuel expense (old single format - backward compat) -->
         <div v-else-if="log.fuelExpense" class="mb-3 bg-amber-50 rounded-xl p-3">
-          <div class="text-[10px] text-amber-600 font-semibold mb-2 uppercase tracking-wide">申請油資</div>
+          <div class="flex items-center justify-between mb-2">
+            <div class="text-[10px] text-amber-600 font-semibold uppercase tracking-wide">申請油資</div>
+            <span v-if="log.fuelApproved !== false" class="text-[10px] text-green-600 font-semibold">✓ 已確認</span>
+          </div>
           <div class="flex gap-3 items-start">
             <img v-if="log.fuelExpense.photoUrl" :src="log.fuelExpense.photoUrl"
               class="w-16 h-16 rounded-lg object-cover cursor-pointer flex-shrink-0"
@@ -136,6 +147,26 @@
               <div class="text-xs text-gray-700"><span class="text-gray-400">路程：</span>{{ log.fuelExpense.distance }} 公里</div>
               <div class="text-xs text-amber-600 font-semibold mt-0.5">補貼金額：{{ log.fuelExpense.distance * 6 }} 元</div>
             </div>
+          </div>
+        </div>
+
+        <!-- Overtime items -->
+        <div v-if="log.overtimeItems?.length" class="mb-3 bg-purple-50 rounded-xl p-3">
+          <div class="flex items-center justify-between mb-2">
+            <div class="text-[10px] text-purple-600 font-semibold uppercase tracking-wide">
+              加班申請（共 {{ log.overtimeItems.length }} 筆）
+            </div>
+            <div class="flex items-center gap-2">
+              <span v-if="log.overtimeApproved" class="text-[10px] text-green-600 font-semibold">✓ 已確認</span>
+              <button v-else-if="authStore.isManager" @click="approveOvertime(log.id)"
+                class="text-[11px] text-white px-2.5 py-1 rounded-lg" style="background:#22c55e">✓ 確認加班</button>
+              <span v-else class="text-[10px] text-purple-500 font-semibold">待主管確認</span>
+            </div>
+          </div>
+          <div v-for="(ot, i) in log.overtimeItems" :key="i"
+            class="bg-white rounded-lg p-2.5 border border-purple-100 mb-2 last:mb-0 text-xs text-gray-700">
+            <div><span class="text-gray-400">原因：</span>{{ ot.reason }}</div>
+            <div class="text-purple-600 font-semibold mt-0.5">加班 {{ ot.hours }} 小時</div>
           </div>
         </div>
 
@@ -273,6 +304,32 @@
         </template>
       </div>
 
+      <!-- 申請加班 -->
+      <div class="border border-purple-200 rounded-xl p-4 bg-purple-50/50 mt-3">
+        <div class="flex items-center justify-between mb-3">
+          <div class="text-xs font-semibold text-purple-700">申請加班（選填）</div>
+          <button @click="addOvertimeItem" class="text-xs" style="color:#c9a96e">+ 新增</button>
+        </div>
+        <div v-if="overtimeItems.length === 0" class="text-xs text-gray-400 py-1">無加班申請（可點右上新增）</div>
+        <div v-for="(item, idx) in overtimeItems" :key="idx"
+          class="border border-purple-200 rounded-xl p-3 mb-2 last:mb-0 bg-white">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-[11px] text-purple-600 font-semibold">第 {{ idx + 1 }} 筆</span>
+            <button @click="overtimeItems.splice(idx, 1)" class="text-red-400 hover:text-red-600 text-xs">✕</button>
+          </div>
+          <textarea v-model="item.reason" rows="2"
+            class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 resize-none bg-white mb-2"
+            placeholder="加班原因（例：處理緊急案件、協助廠商施工）"></textarea>
+          <div class="flex items-center gap-3">
+            <label class="text-xs text-gray-500">加班時數</label>
+            <input v-model.number="item.hours" type="number" min="0" step="0.5"
+              class="w-20 text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 bg-white"
+              placeholder="0">
+            <span class="text-xs text-gray-400">小時</span>
+          </div>
+        </div>
+      </div>
+
       <div class="flex justify-end gap-2 mt-5">
         <button @click="showLogForm = false" class="text-sm text-gray-400 px-4 py-2">取消</button>
         <button @click="submitLog" :disabled="submitting" class="text-sm text-white px-5 py-2 rounded-xl disabled:opacity-60" style="background:#1e2533">{{ submitting ? '送出中…' : '送出日誌' }}</button>
@@ -305,6 +362,7 @@ const previewUrl = ref(null)
 const logEntries = ref({})
 const otherItems = ref([])
 const fuelItems = ref([])
+const overtimeItems = ref([])
 const selectedDate = ref(new Date())
 const viewMode = ref('day')
 const submitting = ref(false)
@@ -331,7 +389,12 @@ function openLogForm() {
     logEntries.value = {}
     otherItems.value = []
     fuelItems.value = []
+    overtimeItems.value = []
     showLogForm.value = true
+}
+
+function addOvertimeItem() {
+    overtimeItems.value.push({ reason: '', hours: 0 })
 }
 
 function addOtherItem() {
@@ -379,6 +442,10 @@ async function submitLog() {
         if (items.length > 0) fuelData = items
     }
 
+    const overtimeData = overtimeItems.value
+        .filter(i => i.reason.trim() && i.hours > 0)
+        .map(i => ({ reason: i.reason.trim(), hours: i.hours }))
+
     const logDoc = {
         userId: authStore.user?.uid ?? '',
         userName: authStore.name ?? '',
@@ -386,7 +453,8 @@ async function submitLog() {
         date: Timestamp.fromDate(new Date()),
         ...(caseEntries.length > 0 && { caseEntries }),
         ...(other.length > 0 && { otherItems: other }),
-        ...(fuelData && { fuelExpenses: fuelData }),
+        ...(fuelData && { fuelExpenses: fuelData, fuelApproved: false }),
+        ...(overtimeData.length > 0 && { overtimeItems: overtimeData, overtimeApproved: false }),
     }
     try {
         await logsStore.addLog(logDoc)
@@ -538,6 +606,24 @@ function exportWeekLogs() {
     const weekEnd = getWeekEnd(selectedDate.value)
     const fmt = d => `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`
     XLSX.writeFile(wb, `工作日誌_${fmt(weekStart)}_${fmt(weekEnd)}.xlsx`)
+}
+
+async function approveFuel(logId) {
+    try {
+        await logsStore.approveFuel(logId, authStore.name ?? '')
+        toast('油資已確認')
+    } catch {
+        toast('確認失敗，請重試', 'error')
+    }
+}
+
+async function approveOvertime(logId) {
+    try {
+        await logsStore.approveOvertime(logId, authStore.name ?? '')
+        toast('加班已確認')
+    } catch {
+        toast('確認失敗，請重試', 'error')
+    }
 }
 
 async function submitReply(logId) {

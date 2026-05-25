@@ -24,11 +24,14 @@
         <div v-for="c in regionCases" :key="c.id" class="border-b border-gray-100">
           <div @click="selectCase(c.id)"
             class="px-3 py-2 flex items-center gap-2 cursor-pointer transition-colors" style="height:36px"
-            :style="selectedCaseId === c.id ? 'background:rgba(201,169,110,0.12);border-left:2px solid #c9a96e' : ''">
+            :style="`border-left:3px solid ${STATUS_BAR_COLORS[c.status] ?? '#e5e7eb'};${selectedCaseId === c.id ? 'background:rgba(201,169,110,0.12)' : ''}`">
             <span class="text-gray-400 text-[10px] w-4 select-none">{{ expanded[c.id] ? '▼' : '▶' }}</span>
-            <div class="flex-1 min-w-0">
+            <div class="flex-1 min-w-0 flex items-center gap-1">
               <div class="text-xs font-semibold truncate"
                 :style="selectedCaseId === c.id ? 'color:#c9a96e' : 'color:#1f2937'">{{ c.name }}</div>
+              <span v-if="hasOverduePayments(c)" class="text-[9px] text-red-500 font-bold flex-shrink-0" title="有逾期未收款">$⚠</span>
+            </div>
+            <div class="flex-1 min-w-0">
               <div v-if="deadlineInfo(c)" class="text-[9px] font-medium" :style="`color:${deadlineInfo(c).color}`">
                 ⚑ {{ deadlineInfo(c).label }}
               </div>
@@ -146,6 +149,14 @@ import CaseTasks from './CaseTasks.vue'
 import WorkTypePanel from './WorkTypePanel.vue'
 import PaymentMilestones from './PaymentMilestones.vue'
 import CaseEditModal from './CaseEditModal.vue'
+
+const TODAY_STR = new Date().toISOString().slice(0, 10)
+
+function hasOverduePayments(c) {
+    return c.paymentMilestones?.some(m =>
+        m.dueDate && m.dueDate < TODAY_STR && (m.paidAmount ?? 0) < (m.amount ?? 0)
+    ) ?? false
+}
 
 const props = defineProps({ region: String, month: String, jumpCaseId: String })
 const emit = defineEmits(['jumped'])

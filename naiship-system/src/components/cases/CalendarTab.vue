@@ -92,11 +92,31 @@
           <label class="text-xs text-gray-500 mb-1 block">日期 *</label>
           <input v-model="eventForm.date" type="date" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1">
         </div>
-        <div>
-          <label class="text-xs text-gray-500 mb-1 block">說明 *</label>
-          <input v-model="eventForm.label" type="text" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1"
-            :placeholder="eventForm.type === 'milestone' ? '例：台南東區翻新 開工' : eventForm.type === 'leave' ? '例：黃怡君 請假' : '例：年度品質回顧'">
-        </div>
+        <template v-if="eventForm.type === 'leave'">
+          <div>
+            <label class="text-xs text-gray-500 mb-1 block">請假人員 *</label>
+            <select v-model="eventForm.personName" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
+              <option value="">— 請選擇 —</option>
+              <option v-for="u in usersStore.users" :key="u.id" :value="u.name">{{ u.name }}</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-xs text-gray-500 mb-1 block">請假時數 *</label>
+            <input v-model.number="eventForm.hours" type="number" min="0" step="0.5"
+              class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1" placeholder="0">
+          </div>
+          <div>
+            <label class="text-xs text-gray-500 mb-1 block">事由（選填）</label>
+            <input v-model="eventForm.label" type="text" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1" placeholder="例：個人事假、病假">
+          </div>
+        </template>
+        <template v-else>
+          <div>
+            <label class="text-xs text-gray-500 mb-1 block">說明 *</label>
+            <input v-model="eventForm.label" type="text" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1"
+              :placeholder="eventForm.type === 'milestone' ? '例：台南東區翻新 開工' : '例：年度品質回顧'">
+          </div>
+        </template>
       </div>
       <div class="flex justify-end gap-2 mt-5">
         <button @click="showAddEvent = false" class="text-sm text-gray-400 px-4 py-2">取消</button>
@@ -129,10 +149,30 @@
           <label class="text-xs text-gray-500 mb-1 block">日期</label>
           <input v-model="editForm.date" type="date" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1">
         </div>
-        <div>
-          <label class="text-xs text-gray-500 mb-1 block">說明</label>
-          <input v-model="editForm.label" type="text" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1">
-        </div>
+        <template v-if="editForm.type === 'leave'">
+          <div>
+            <label class="text-xs text-gray-500 mb-1 block">請假人員</label>
+            <select v-model="editForm.personName" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
+              <option value="">— 請選擇 —</option>
+              <option v-for="u in usersStore.users" :key="u.id" :value="u.name">{{ u.name }}</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-xs text-gray-500 mb-1 block">請假時數</label>
+            <input v-model.number="editForm.hours" type="number" min="0" step="0.5"
+              class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1">
+          </div>
+          <div>
+            <label class="text-xs text-gray-500 mb-1 block">事由</label>
+            <input v-model="editForm.label" type="text" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1">
+          </div>
+        </template>
+        <template v-else>
+          <div>
+            <label class="text-xs text-gray-500 mb-1 block">說明</label>
+            <input v-model="editForm.label" type="text" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1">
+          </div>
+        </template>
       </div>
       <div class="flex justify-between mt-5">
         <button @click="removeEvent" class="text-sm text-red-400 hover:text-red-600 px-3 py-2">刪除</button>
@@ -150,12 +190,14 @@ import { Timestamp } from 'firebase/firestore'
 import { useCasesStore } from '@/stores/cases'
 import { useCalendarEventsStore } from '@/stores/calendarEvents'
 import { useAuthStore } from '@/stores/auth'
+import { useUsersStore } from '@/stores/users'
 import { useToast } from '@/composables/useToast'
 
 const props = defineProps({ region: String })
 const casesStore = useCasesStore()
 const eventsStore = useCalendarEventsStore()
 const authStore = useAuthStore()
+const usersStore = useUsersStore()
 const { toast } = useToast()
 const weekDays = ['日', '一', '二', '三', '四', '五', '六']
 const today = new Date()
@@ -171,11 +213,11 @@ const eventTypes = [
   { key: 'note',      label: '重要記事',   color: '#f87171' },
   { key: 'followup',  label: '客戶跟進',   color: '#a855f7' },
 ]
-const blankEvent = () => ({ type: 'milestone', date: '', label: '' })
+const blankEvent = () => ({ type: 'milestone', date: '', label: '', personName: '', hours: 0 })
 const eventForm = ref(blankEvent())
 const showEditEvent = ref(false)
 const editingEventId = ref(null)
-const editForm = ref({ type: 'milestone', date: '', label: '' })
+const editForm = ref({ type: 'milestone', date: '', label: '', personName: '', hours: 0 })
 
 function tsToDateStr(ts) {
   const d = ts?.toDate?.() ?? new Date(ts)
@@ -184,18 +226,31 @@ function tsToDateStr(ts) {
 
 function openEditEvent(event) {
   editingEventId.value = event.id
-  editForm.value = { type: event.type, date: tsToDateStr(event.date), label: event.label }
+  editForm.value = {
+    type: event.type, date: tsToDateStr(event.date), label: event.label || '',
+    personName: event.personName || '', hours: event.hours || 0,
+  }
   showEditEvent.value = true
 }
 
 async function saveEditEvent() {
-  if (!editForm.value.date || !editForm.value.label) return
+  if (!editForm.value.date) return
+  const isLeave = editForm.value.type === 'leave'
+  if (isLeave && !editForm.value.personName) return
+  if (!isLeave && !editForm.value.label) return
   try {
-    await eventsStore.updateEvent(editingEventId.value, {
+    const payload = {
       type: editForm.value.type,
       date: Timestamp.fromDate(new Date(editForm.value.date)),
-      label: editForm.value.label,
-    })
+      label: isLeave
+        ? `${editForm.value.personName} 請假${editForm.value.hours ? ` ${editForm.value.hours}h` : ''}`
+        : editForm.value.label,
+    }
+    if (isLeave) {
+      payload.personName = editForm.value.personName
+      payload.hours = editForm.value.hours || 0
+    }
+    await eventsStore.updateEvent(editingEventId.value, payload)
     showEditEvent.value = false
   } catch {
     toast('儲存失敗，請重試', 'error')
@@ -280,15 +335,25 @@ function openAddOnDate(dateStr) {
 }
 
 async function submitEvent() {
-  if (!eventForm.value.date || !eventForm.value.label) return
+  if (!eventForm.value.date) return
+  const isLeave = eventForm.value.type === 'leave'
+  if (isLeave && !eventForm.value.personName) return
+  if (!isLeave && !eventForm.value.label) return
   try {
-    await eventsStore.addEvent({
+    const payload = {
       companyId: props.region,
       type: eventForm.value.type,
       date: Timestamp.fromDate(new Date(eventForm.value.date)),
-      label: eventForm.value.label,
+      label: isLeave
+        ? `${eventForm.value.personName} 請假${eventForm.value.hours ? ` ${eventForm.value.hours}h` : ''}`
+        : eventForm.value.label,
       createdBy: authStore.user?.uid ?? '',
-    })
+    }
+    if (isLeave) {
+      payload.personName = eventForm.value.personName
+      payload.hours = eventForm.value.hours || 0
+    }
+    await eventsStore.addEvent(payload)
     eventForm.value = blankEvent()
     showAddEvent.value = false
   } catch {
