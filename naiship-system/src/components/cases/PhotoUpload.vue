@@ -7,7 +7,7 @@
           @dragover.prevent="hovering = type.key"
           @dragleave="hovering = ''"
           @drop.prevent="handleDrop($event, type.key)"
-          class="text-xs border border-dashed border-gray-300 rounded-lg px-3 py-2 text-gray-400 w-28 text-center transition-colors hover:border-gray-400 relative"
+          class="text-xs border border-dashed border-gray-300 rounded-lg px-3 py-3 sm:py-2 text-gray-400 w-28 text-center transition-colors hover:border-gray-400 relative"
           :style="hovering === type.key ? 'border-color:#c9a96e;color:#c9a96e' : ''"
           @mouseenter="hovering = type.key" @mouseleave="hovering = ''">
           ＋ {{ type.label }}
@@ -19,14 +19,14 @@
         <div class="flex gap-1 flex-wrap max-w-[112px]">
           <div v-for="item in photos[type.key]" :key="item.url" class="relative group">
             <a v-if="item.isPdf" :href="item.pdfUrl" target="_blank"
-              class="w-8 h-8 rounded bg-red-100 flex items-center justify-center text-[9px] text-red-600 font-bold hover:bg-red-200 transition-colors"
+              class="w-10 h-10 sm:w-8 sm:h-8 rounded bg-red-100 flex items-center justify-center text-[9px] text-red-600 font-bold hover:bg-red-200 transition-colors"
               title="開啟 PDF">PDF</a>
             <img v-else :src="item.url"
-              class="w-8 h-8 rounded object-cover cursor-pointer hover:opacity-80"
+              class="w-10 h-10 sm:w-8 sm:h-8 rounded object-cover cursor-pointer hover:opacity-80"
               @click="previewUrl = item.url">
             <button
               @click.prevent="deletePhoto(type.key, item)"
-              class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-gray-600 text-white rounded-full text-[8px] leading-none hidden group-hover:flex items-center justify-center hover:bg-red-500 transition-colors z-10">
+              class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-gray-600 text-white rounded-full text-[8px] leading-none flex sm:hidden sm:group-hover:flex items-center justify-center hover:bg-red-500 transition-colors z-10">
               ✕
             </button>
           </div>

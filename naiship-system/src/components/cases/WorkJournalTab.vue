@@ -189,10 +189,10 @@
             </div>
           </div>
           <button v-if="authStore.isManager" @click="replyTarget = log.id"
-            class="text-[11px] hover:underline ml-8" style="color:#c9a96e">
+            class="text-[11px] hover:underline ml-4 sm:ml-8" style="color:#c9a96e">
             {{ (log.replies?.length) ? '回覆…' : '＋ 主管回覆' }}
           </button>
-          <div v-if="replyTarget === log.id" class="mt-2 flex gap-2 ml-8">
+          <div v-if="replyTarget === log.id" class="mt-2 flex gap-2 ml-4 sm:ml-8">
             <input v-model="replyContent" type="text" placeholder="輸入回覆..."
               class="flex-1 text-xs border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1">
             <button @click="submitReply(log.id)"
@@ -201,7 +201,7 @@
         </div>
       </div>
 
-      <div v-if="weekSummary" class="bg-white rounded-2xl shadow-sm px-5 py-4 flex items-center gap-6 text-sm">
+      <div v-if="weekSummary" class="bg-white rounded-2xl shadow-sm px-5 py-4 flex flex-wrap items-center gap-3 sm:gap-6 text-sm">
         <span class="text-xs text-gray-400 font-semibold">本週合計</span>
         <div class="flex items-center gap-1">
           <span class="text-gray-500 text-xs">出勤</span>

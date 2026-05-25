@@ -1,7 +1,7 @@
 <template>
   <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
     <!-- Header -->
-    <div class="flex items-center justify-between px-5 py-3 border-b border-gray-100">
+    <div class="flex flex-wrap items-center justify-between gap-2 px-4 sm:px-5 py-3 border-b border-gray-100">
       <div class="flex items-center gap-3">
         <button @click="prevMonth" class="text-gray-400 hover:text-gray-700 px-2">◀</button>
         <span class="font-semibold text-gray-800">{{ displayMonth }}</span>
@@ -17,17 +17,17 @@
             :style="showAllRegions ? 'background:#c9a96e' : ''">全區</button>
         </div>
       </div>
-      <div class="flex items-center gap-4 text-[11px]">
-        <div class="flex items-center gap-1.5"><span class="w-3 h-3 rounded" style="background:#c9a96e"></span>案件里程碑</div>
-        <div class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-blue-400"></span>員工請假</div>
-        <div class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-red-400"></span>重要記事</div>
-        <div class="flex items-center gap-1.5"><span class="w-3 h-3 rounded" style="background:#a855f7"></span>客戶跟進</div>
-        <button @click="showAddEvent = true" class="ml-2 text-xs text-white px-3 py-1.5 rounded-lg" style="background:#1e2533">+ 新增</button>
+      <div class="flex flex-wrap items-center gap-2 sm:gap-4 text-[11px]">
+        <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded" style="background:#c9a96e"></span>案件里程碑</div>
+        <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-blue-400"></span>員工請假</div>
+        <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-red-400"></span>重要記事</div>
+        <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded" style="background:#a855f7"></span>客戶跟進</div>
+        <button @click="showAddEvent = true" class="text-xs text-white px-3 py-1.5 rounded-lg" style="background:#1e2533">+ 新增</button>
       </div>
     </div>
 
     <!-- Status counters -->
-    <div class="grid grid-cols-6 gap-3 p-4 border-b border-gray-100 bg-gray-50/50">
+    <div class="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-3 p-3 sm:p-4 border-b border-gray-100 bg-gray-50/50">
       <div v-for="s in statuses" :key="s.key" class="bg-white rounded-xl px-3 py-3 shadow-sm text-center">
         <div class="text-xl font-bold" :class="s.color">{{ counts[s.key] }}</div>
         <div class="text-[10px] text-gray-400 mt-0.5">{{ s.label }}</div>
@@ -46,7 +46,7 @@
     <!-- Calendar grid -->
     <div class="grid grid-cols-7">
       <div v-for="(cell, i) in calendarCells" :key="i"
-        class="border-r border-b border-gray-100 p-2 min-h-[90px]"
+        class="border-r border-b border-gray-100 p-1 sm:p-2 min-h-[70px] sm:min-h-[90px]"
         :class="[
           !cell.currentMonth && 'opacity-40',
           cell.isToday && 'bg-amber-50/30',

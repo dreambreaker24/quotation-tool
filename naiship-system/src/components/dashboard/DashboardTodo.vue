@@ -35,8 +35,8 @@
         </template>
         <template v-else>
           <span class="flex-1 text-xs text-gray-700" :class="todo.done ? 'line-through text-gray-400' : ''">{{ todo.text }}</span>
-          <button @click="startEdit(todo)" class="hidden group-hover:block text-[10px] text-gray-400 hover:text-gray-600 flex-shrink-0">編輯</button>
-          <button @click="todosStore.deleteTodo(todo.id)" class="hidden group-hover:block text-[10px] text-red-400 hover:text-red-600 flex-shrink-0">刪除</button>
+          <button @click="startEdit(todo)" class="block sm:hidden sm:group-hover:block text-[10px] text-gray-400 hover:text-gray-600 flex-shrink-0">編輯</button>
+          <button @click="todosStore.deleteTodo(todo.id)" class="block sm:hidden sm:group-hover:block text-[10px] text-red-400 hover:text-red-600 flex-shrink-0">刪除</button>
         </template>
       </div>
     </div>
