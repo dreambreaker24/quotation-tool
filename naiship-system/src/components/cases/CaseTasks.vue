@@ -13,14 +13,26 @@
         <div class="p-4">
           <div class="flex items-center justify-between mb-3">
             <span class="text-[11px] font-semibold text-blue-600 uppercase tracking-wide">客戶需求</span>
-            <button v-if="authStore.isManager" @click="openAdd('client')"
-              class="text-[11px] text-blue-500 hover:text-blue-700">+ 新增</button>
+            <button @click="openAdd('client')" class="text-[11px] text-blue-500 hover:text-blue-700">+ 新增</button>
           </div>
           <div class="flex flex-col gap-2">
-            <div v-for="t in clientTasks" :key="t.id"
-              class="bg-blue-50 rounded-xl px-3 py-2.5 text-xs text-gray-700 leading-relaxed">
-              {{ t.content }}
-              <div class="text-[10px] text-blue-400 mt-1">{{ t.creatorName }} · {{ formatTime(t.createdAt) }}</div>
+            <div v-for="t in clientTasks" :key="t.id" class="group relative bg-blue-50 rounded-xl px-3 py-2.5 text-xs text-gray-700 leading-relaxed">
+              <template v-if="editingId === t.id">
+                <textarea v-model="editContent" rows="3"
+                  class="w-full text-xs border border-blue-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 resize-none bg-white mb-2"></textarea>
+                <div class="flex gap-2 justify-end">
+                  <button @click="saveEdit(t.id)" class="text-[10px] text-white px-2.5 py-1 rounded-lg" style="background:#3b82f6">儲存</button>
+                  <button @click="editingId = null" class="text-[10px] text-gray-400 px-2 py-1">取消</button>
+                </div>
+              </template>
+              <template v-else>
+                {{ t.content }}
+                <div class="text-[10px] text-blue-400 mt-1">{{ t.creatorName }} · {{ formatTime(t.createdAt) }}</div>
+                <div class="absolute top-2 right-2 hidden group-hover:flex gap-1">
+                  <button @click="startEdit(t)" class="text-[9px] bg-white border border-gray-200 rounded px-1.5 py-0.5 text-gray-500 hover:text-gray-700">編輯</button>
+                  <button @click="remove(t.id)" class="text-[9px] bg-white border border-red-100 rounded px-1.5 py-0.5 text-red-400 hover:text-red-600">刪除</button>
+                </div>
+              </template>
             </div>
             <div v-if="clientTasks.length === 0" class="text-[11px] text-gray-300 py-2">尚無紀錄</div>
           </div>
@@ -34,10 +46,23 @@
               class="text-[11px] text-amber-500 hover:text-amber-700">+ 新增</button>
           </div>
           <div class="flex flex-col gap-2">
-            <div v-for="t in managerTasks" :key="t.id"
-              class="bg-amber-50 rounded-xl px-3 py-2.5 text-xs text-gray-700 leading-relaxed">
-              {{ t.content }}
-              <div class="text-[10px] text-amber-400 mt-1">{{ t.creatorName }} · {{ formatTime(t.createdAt) }}</div>
+            <div v-for="t in managerTasks" :key="t.id" class="group relative bg-amber-50 rounded-xl px-3 py-2.5 text-xs text-gray-700 leading-relaxed">
+              <template v-if="editingId === t.id">
+                <textarea v-model="editContent" rows="3"
+                  class="w-full text-xs border border-amber-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 resize-none bg-white mb-2"></textarea>
+                <div class="flex gap-2 justify-end">
+                  <button @click="saveEdit(t.id)" class="text-[10px] text-white px-2.5 py-1 rounded-lg" style="background:#c9a96e">儲存</button>
+                  <button @click="editingId = null" class="text-[10px] text-gray-400 px-2 py-1">取消</button>
+                </div>
+              </template>
+              <template v-else>
+                {{ t.content }}
+                <div class="text-[10px] text-amber-400 mt-1">{{ t.creatorName }} · {{ formatTime(t.createdAt) }}</div>
+                <div v-if="authStore.isManager" class="absolute top-2 right-2 hidden group-hover:flex gap-1">
+                  <button @click="startEdit(t)" class="text-[9px] bg-white border border-gray-200 rounded px-1.5 py-0.5 text-gray-500 hover:text-gray-700">編輯</button>
+                  <button @click="remove(t.id)" class="text-[9px] bg-white border border-red-100 rounded px-1.5 py-0.5 text-red-400 hover:text-red-600">刪除</button>
+                </div>
+              </template>
             </div>
             <div v-if="managerTasks.length === 0" class="text-[11px] text-gray-300 py-2">尚無紀錄</div>
           </div>
@@ -51,15 +76,28 @@
           <button @click="openAdd('reply')" class="text-[11px] text-green-500 hover:text-green-700">+ 回覆</button>
         </div>
         <div class="flex flex-col gap-2">
-          <div v-for="t in replyTasks" :key="t.id"
-            class="flex items-start gap-2.5">
+          <div v-for="t in replyTasks" :key="t.id" class="flex items-start gap-2.5 group">
             <span class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
               :style="`background:${empColor(t.createdBy)}`">
               {{ t.creatorName?.[0] ?? '?' }}
             </span>
-            <div class="bg-green-50 rounded-xl px-3 py-2 flex-1 text-xs text-gray-700 leading-relaxed">
-              {{ t.content }}
-              <div class="text-[10px] text-green-400 mt-1">{{ t.creatorName }} · {{ formatTime(t.createdAt) }}</div>
+            <div class="relative bg-green-50 rounded-xl px-3 py-2 flex-1 text-xs text-gray-700 leading-relaxed">
+              <template v-if="editingId === t.id">
+                <textarea v-model="editContent" rows="3"
+                  class="w-full text-xs border border-green-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 resize-none bg-white mb-2"></textarea>
+                <div class="flex gap-2 justify-end">
+                  <button @click="saveEdit(t.id)" class="text-[10px] text-white px-2.5 py-1 rounded-lg" style="background:#22c55e">儲存</button>
+                  <button @click="editingId = null" class="text-[10px] text-gray-400 px-2 py-1">取消</button>
+                </div>
+              </template>
+              <template v-else>
+                {{ t.content }}
+                <div class="text-[10px] text-green-400 mt-1">{{ t.creatorName }} · {{ formatTime(t.createdAt) }}</div>
+                <div class="absolute top-2 right-2 hidden group-hover:flex gap-1">
+                  <button @click="startEdit(t)" class="text-[9px] bg-white border border-gray-200 rounded px-1.5 py-0.5 text-gray-500 hover:text-gray-700">編輯</button>
+                  <button @click="remove(t.id)" class="text-[9px] bg-white border border-red-100 rounded px-1.5 py-0.5 text-red-400 hover:text-red-600">刪除</button>
+                </div>
+              </template>
             </div>
           </div>
           <div v-if="replyTasks.length === 0" class="text-[11px] text-gray-300 py-2">尚無回覆</div>
@@ -107,6 +145,8 @@ const showAdd = ref(false)
 const addType = ref('reply')
 const addContent = ref('')
 const submitting = ref(false)
+const editingId = ref(null)
+const editContent = ref('')
 
 const clientTasks = computed(() => tasksStore.tasks.filter(t => t.type === 'client'))
 const managerTasks = computed(() => tasksStore.tasks.filter(t => t.type === 'manager'))
@@ -125,6 +165,29 @@ function openAdd(type) {
     addType.value = type
     addContent.value = ''
     showAdd.value = true
+}
+
+function startEdit(task) {
+    editingId.value = task.id
+    editContent.value = task.content
+}
+
+async function saveEdit(taskId) {
+    if (!editContent.value.trim()) return
+    try {
+        await tasksStore.updateTask(props.caseId, taskId, editContent.value.trim())
+        editingId.value = null
+    } catch {
+        toast('修改失敗，請重試', 'error')
+    }
+}
+
+async function remove(taskId) {
+    try {
+        await tasksStore.deleteTask(props.caseId, taskId)
+    } catch {
+        toast('刪除失敗，請重試', 'error')
+    }
 }
 
 async function submitAdd() {

@@ -6,6 +6,16 @@
         <button @click="prevMonth" class="text-gray-400 hover:text-gray-700 px-2">◀</button>
         <span class="font-semibold text-gray-800">{{ displayMonth }}</span>
         <button @click="nextMonth" class="text-gray-400 hover:text-gray-700 px-2">▶</button>
+        <div class="flex rounded-lg border border-gray-200 overflow-hidden text-[11px] ml-2">
+          <button @click="showAllRegions = false"
+            class="px-2.5 py-1 transition-colors"
+            :class="!showAllRegions ? 'text-white' : 'text-gray-500 hover:bg-gray-50'"
+            :style="!showAllRegions ? 'background:#1e2533' : ''">本區</button>
+          <button @click="showAllRegions = true"
+            class="px-2.5 py-1 transition-colors border-l border-gray-200"
+            :class="showAllRegions ? 'text-white' : 'text-gray-500 hover:bg-gray-50'"
+            :style="showAllRegions ? 'background:#c9a96e' : ''">全區</button>
+        </div>
       </div>
       <div class="flex items-center gap-4 text-[11px]">
         <div class="flex items-center gap-1.5"><span class="w-3 h-3 rounded" style="background:#c9a96e"></span>案件里程碑</div>
@@ -152,6 +162,8 @@ const today = new Date()
 const currentYear = ref(today.getFullYear())
 const currentMonth = ref(today.getMonth())
 const showAddEvent = ref(false)
+const showAllRegions = ref(false)
+const ALL_REGIONS = ['south', 'north', 'central']
 
 const eventTypes = [
   { key: 'milestone', label: '案件里程碑', color: '#c9a96e' },
@@ -199,8 +211,11 @@ async function removeEvent() {
   }
 }
 
-watch([() => props.region, currentYear, currentMonth], ([region]) => {
-  if (region) eventsStore.subscribe(region, currentYear.value, currentMonth.value)
+watch([() => props.region, currentYear, currentMonth, showAllRegions], ([region]) => {
+  if (region) eventsStore.subscribe(
+    showAllRegions.value ? ALL_REGIONS : region,
+    currentYear.value, currentMonth.value
+  )
 }, { immediate: true })
 
 onUnmounted(() => eventsStore.cleanup())

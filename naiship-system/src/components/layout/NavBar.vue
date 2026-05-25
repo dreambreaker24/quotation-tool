@@ -6,11 +6,12 @@
     </div>
     <div class="flex gap-1">
       <router-link v-for="item in navItems" :key="item.to" :to="item.to"
-        class="px-4 py-1.5 rounded-lg text-sm text-gray-400 hover:text-white transition-colors"
-        style=""
+        class="px-4 py-1.5 rounded-lg text-sm text-gray-400 hover:text-white transition-colors relative"
         active-class="text-white"
         :style="isActive(item.to) ? 'background:rgba(255,255,255,0.1)' : ''">
         {{ item.label }}
+        <span v-if="item.to === '/clients' && hasFollowUpDue"
+          class="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500"></span>
       </router-link>
     </div>
     <div class="ml-auto flex items-center gap-3">
@@ -24,10 +25,16 @@
 <script setup>
 import { computed } from 'vue'
 import { useAuthStore } from '@/stores/auth'
+import { useClientsStore } from '@/stores/clients'
 import { useRoute } from 'vue-router'
 const auth = useAuthStore()
+const clientsStore = useClientsStore()
 const route = useRoute()
 const roleLabel = computed(() => ({ admin: '管理者', manager: '主管', employee: '員工' }[auth.role] ?? ''))
+const todayStr = new Date().toISOString().slice(0, 10)
+const hasFollowUpDue = computed(() =>
+    clientsStore.clients.some(c => c.followUpDate && c.followUpDate <= todayStr)
+)
 const navItems = computed(() => [
   ...(auth.isManager ? [{ to: '/', label: '首頁總覽' }] : []),
   { to: '/cases', label: '案件管理' },

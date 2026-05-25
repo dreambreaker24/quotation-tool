@@ -18,7 +18,7 @@
         </button>
         <div class="flex gap-1 flex-wrap max-w-[112px]">
           <div v-for="item in photos[type.key]" :key="item.url" class="relative group">
-            <a v-if="item.isPdf" :href="item.url" target="_blank"
+            <a v-if="item.isPdf" :href="item.pdfUrl" target="_blank"
               class="w-8 h-8 rounded bg-red-100 flex items-center justify-center text-[9px] text-red-600 font-bold hover:bg-red-200 transition-colors"
               title="開啟 PDF">PDF</a>
             <img v-else :src="item.url"
@@ -78,9 +78,11 @@ onMounted(async () => {
     const q = query(collection(db, 'cases', props.caseId, 'photos'), orderBy('createdAt'))
     const snap = await getDocs(q)
     snap.docs.forEach(d => {
-        const { type, url } = d.data()
+        const { type, url, isPdf } = d.data()
         if (photos[type]) {
-            photos[type].push({ id: d.id, url, isPdf: url.toLowerCase().endsWith('.pdf') })
+            const resolvedIsPdf = isPdf ?? url.toLowerCase().endsWith('.pdf')
+            const pdfUrl = resolvedIsPdf && !url.toLowerCase().endsWith('.pdf') ? url + '.pdf' : url
+            photos[type].push({ id: d.id, url, isPdf: resolvedIsPdf, pdfUrl })
         }
     })
 })
@@ -98,16 +100,18 @@ async function uploadFiles(files, type) {
             const isPdf = file.name.toLowerCase().endsWith('.pdf')
             if (props.caseId) {
                 const docRef = await addDoc(collection(db, 'cases', props.caseId, 'photos'), {
-                    type, url,
+                    type, url, isPdf,
                     uploadedBy: authStore.user?.uid ?? 'unknown',
                     createdAt: serverTimestamp()
                 })
-                photos[type].push({ id: docRef.id, url, isPdf })
+                const pdfUrl = isPdf && !url.toLowerCase().endsWith('.pdf') ? url + '.pdf' : url
+                photos[type].push({ id: docRef.id, url, isPdf, pdfUrl })
             } else {
-                photos[type].push({ id: null, url, isPdf })
+                const pdfUrl = isPdf && !url.toLowerCase().endsWith('.pdf') ? url + '.pdf' : url
+                photos[type].push({ id: null, url, isPdf, pdfUrl })
             }
-        } catch {
-            uploadError.value = `「${file.name}」上傳失敗，請重試`
+        } catch (err) {
+            uploadError.value = `「${file.name}」上傳失敗：${err.message}`
         }
     }
 }

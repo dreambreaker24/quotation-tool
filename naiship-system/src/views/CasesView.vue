@@ -230,6 +230,8 @@ async function submitCase() {
         }
         caseForm.value = blankCase()
         showAddCase.value = false
+        activeTab.value = 'gantt'
+        jumpCaseId.value = docRef?.id ?? null
         toast('案件已建立')
     } catch {
         toast('建立失敗，請重試', 'error')

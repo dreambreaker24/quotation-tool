@@ -29,17 +29,20 @@ import { useToast } from '@/composables/useToast'
 import { useAuthStore } from '@/stores/auth'
 import { useVendorsStore } from '@/stores/vendors'
 import { useUsersStore } from '@/stores/users'
+import { useClientsStore } from '@/stores/clients'
 
 const route = useRoute()
 const { toasts } = useToast()
 const authStore = useAuthStore()
 const vendorsStore = useVendorsStore()
 const usersStore = useUsersStore()
+const clientsStore = useClientsStore()
 
 watch(() => authStore.user, (u) => {
     if (u) {
         vendorsStore.subscribe()
         usersStore.subscribe()
+        clientsStore.subscribe(['south', 'north', 'central'])
     } else {
         vendorsStore.cleanup()
         usersStore.cleanup()

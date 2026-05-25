@@ -63,5 +63,10 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow write: if isManager();
     }
+    match /todos/{todoId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn();
+    }
   }
 }

@@ -195,7 +195,12 @@
         <h3 class="text-base font-bold text-gray-800">填寫今日工作日誌</h3>
         <button @click="showLogForm = false" class="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
       </div>
-      <div class="text-xs text-gray-400 mb-4">{{ todayLabel }}</div>
+      <div class="flex items-center gap-2 mb-4">
+        <span class="text-xs text-gray-400">{{ todayLabel }}</span>
+        <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full text-white" style="background:#c9a96e">
+          {{ regionLabel }}（本區）
+        </span>
+      </div>
 
       <!-- 負責案件 -->
       <div v-if="myCases.length > 0" class="mb-4">
@@ -304,6 +309,9 @@ const selectedDate = ref(new Date())
 const viewMode = ref('day')
 const submitting = ref(false)
 const { toast } = useToast()
+
+const REGION_LABELS = { south: '奈拾南區', north: '奈拾北區', central: '奈拾中區' }
+const regionLabel = computed(() => REGION_LABELS[props.region] ?? props.region)
 
 const isAfter21 = computed(() => new Date().getHours() >= 21)
 

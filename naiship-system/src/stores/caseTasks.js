@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore'
+import { collection, query, orderBy, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/firebase'
 
 export const useCaseTasksStore = defineStore('caseTasks', () => {
@@ -26,7 +26,15 @@ export const useCaseTasksStore = defineStore('caseTasks', () => {
         })
     }
 
+    async function updateTask(caseId, taskId, content) {
+        return updateDoc(doc(db, 'cases', caseId, 'tasks', taskId), { content })
+    }
+
+    async function deleteTask(caseId, taskId) {
+        return deleteDoc(doc(db, 'cases', caseId, 'tasks', taskId))
+    }
+
     function cleanup() { if (unsubscribe) { unsubscribe(); unsubscribe = null } }
 
-    return { tasks, subscribe, addTask, cleanup }
+    return { tasks, subscribe, addTask, updateTask, deleteTask, cleanup }
 })

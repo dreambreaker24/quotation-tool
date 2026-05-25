@@ -7,13 +7,14 @@ export const useCalendarEventsStore = defineStore('calendarEvents', () => {
     const events = ref([])
     let unsubscribe = null
 
-    function subscribe(companyId, year, month) {
+    function subscribe(companyIdOrIds, year, month) {
         if (unsubscribe) unsubscribe()
+        const ids = Array.isArray(companyIdOrIds) ? companyIdOrIds : [companyIdOrIds]
         const start = new Date(year, month, 1)
         const end = new Date(year, month + 1, 0, 23, 59, 59)
         const q = query(
             collection(db, 'calendarEvents'),
-            where('companyId', '==', companyId),
+            where('companyId', 'in', ids),
             where('date', '>=', Timestamp.fromDate(start)),
             where('date', '<=', Timestamp.fromDate(end)),
             orderBy('date')

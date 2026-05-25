@@ -7,9 +7,43 @@
         style="background:#c9a96e">{{ totalCount }}</span>
     </div>
 
-    <div v-if="totalCount === 0" class="text-xs text-gray-400 py-2">目前無待處理事項</div>
+    <!-- 自訂待辦 -->
+    <div class="mb-4">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">自訂待辦</span>
+        <button @click="showAddForm = !showAddForm" class="text-[10px] hover:underline" style="color:#c9a96e">+ 新增</button>
+      </div>
+      <div v-if="showAddForm" class="flex gap-2 mb-2">
+        <input v-model="newTodoText" type="text" placeholder="輸入待辦事項…"
+          class="flex-1 text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1"
+          @keyup.enter="addTodo" @keyup.escape="showAddForm = false; newTodoText = ''" autofocus>
+        <button @click="addTodo" class="text-xs text-white px-3 py-1 rounded-lg flex-shrink-0" style="background:#1e2533">新增</button>
+        <button @click="showAddForm = false; newTodoText = ''" class="text-xs text-gray-400 px-1.5">✕</button>
+      </div>
+      <div v-if="todosStore.todos.length === 0 && !showAddForm" class="text-xs text-gray-400 py-1">尚無自訂待辦</div>
+      <div v-for="todo in todosStore.todos" :key="todo.id"
+        class="group flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-100 bg-gray-50 mb-1.5 last:mb-0">
+        <input type="checkbox" :checked="todo.done"
+          @change="todosStore.updateTodo(todo.id, { done: !todo.done })"
+          class="flex-shrink-0 cursor-pointer accent-amber-500">
+        <template v-if="editingId === todo.id">
+          <input v-model="editText" type="text"
+            class="flex-1 text-xs border border-gray-200 rounded px-2 py-0.5 focus:outline-none focus:ring-1"
+            @keyup.enter="saveEdit(todo.id)" @keyup.escape="editingId = null">
+          <button @click="saveEdit(todo.id)" class="text-[10px] text-white px-2 py-0.5 rounded flex-shrink-0" style="background:#1e2533">存</button>
+          <button @click="editingId = null" class="text-[10px] text-gray-400 flex-shrink-0">✕</button>
+        </template>
+        <template v-else>
+          <span class="flex-1 text-xs text-gray-700" :class="todo.done ? 'line-through text-gray-400' : ''">{{ todo.text }}</span>
+          <button @click="startEdit(todo)" class="hidden group-hover:block text-[10px] text-gray-400 hover:text-gray-600 flex-shrink-0">編輯</button>
+          <button @click="todosStore.deleteTodo(todo.id)" class="hidden group-hover:block text-[10px] text-red-400 hover:text-red-600 flex-shrink-0">刪除</button>
+        </template>
+      </div>
+    </div>
 
-    <template v-else>
+    <div v-if="totalCount === 0" class="text-xs text-gray-400 py-2">目前無系統提醒事項</div>
+
+    <template v-if="totalCount > 0">
       <!-- 即將到期案件 -->
       <div v-if="urgentCases.length > 0" class="mb-3">
         <div class="text-[10px] font-semibold text-gray-400 mb-1.5 uppercase tracking-wide">即將到期案件</div>
@@ -62,14 +96,43 @@
   </div>
 </template>
 <script setup>
-import { computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCasesStore } from '@/stores/cases'
 import { useClientsStore } from '@/stores/clients'
+import { useTodosStore } from '@/stores/todos'
+import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
 const casesStore = useCasesStore()
 const clientsStore = useClientsStore()
+const todosStore = useTodosStore()
+const authStore = useAuthStore()
+
+onMounted(() => todosStore.subscribe())
+
+const showAddForm = ref(false)
+const newTodoText = ref('')
+const editingId = ref(null)
+const editText = ref('')
+
+async function addTodo() {
+    if (!newTodoText.value.trim()) return
+    await todosStore.addTodo(newTodoText.value.trim(), authStore.user?.uid ?? '')
+    newTodoText.value = ''
+    showAddForm.value = false
+}
+
+function startEdit(todo) {
+    editingId.value = todo.id
+    editText.value = todo.text
+}
+
+async function saveEdit(id) {
+    if (!editText.value.trim()) return
+    await todosStore.updateTodo(id, { text: editText.value.trim() })
+    editingId.value = null
+}
 
 const today = new Date()
 today.setHours(0, 0, 0, 0)
