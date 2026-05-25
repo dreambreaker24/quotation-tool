@@ -290,7 +290,7 @@
             <textarea v-model="item.reason" rows="2"
               class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 resize-none bg-white mb-2"
               placeholder="申請原因（例：前往台南東區工地勘查）"></textarea>
-            <div class="flex items-end gap-3">
+            <div class="flex flex-col sm:flex-row sm:items-end gap-3">
               <div class="flex-1">
                 <label class="text-xs text-gray-500 mb-1 block">路程（公里）</label>
                 <input v-model.number="item.distance" type="number" min="0"
@@ -304,10 +304,12 @@
                 <label class="text-xs text-gray-500 mb-1 block">憑證照片</label>
                 <div class="flex items-center gap-2">
                   <button @click="triggerFuelPhoto(idx)"
-                    class="text-xs border border-dashed border-amber-300 rounded-lg px-3 py-2 text-amber-600 hover:border-amber-500 transition-colors">
+                    class="text-xs border border-dashed border-amber-300 rounded-lg px-3 py-3 sm:py-2 text-amber-600 hover:border-amber-500 transition-colors">
                     {{ item.photoFile ? '重新選擇' : '選擇照片' }}
                   </button>
-                  <img v-if="item.previewUrl" :src="item.previewUrl" class="w-10 h-10 rounded-lg object-cover">
+                  <img v-if="item.previewUrl" :src="item.previewUrl"
+                    class="w-12 h-12 sm:w-10 sm:h-10 rounded-lg object-cover cursor-pointer"
+                    @click="previewUrl = item.previewUrl">
                 </div>
               </div>
             </div>
@@ -349,6 +351,7 @@
         <button @click="showLogForm = false; editingLog = null" class="text-sm text-gray-400 px-4 py-2">取消</button>
         <button @click="submitLog" :disabled="submitting" class="text-sm text-white px-5 py-2 rounded-xl disabled:opacity-60" style="background:#1e2533">{{ submitting ? (editingLog ? '更新中…' : '送出中…') : (editingLog ? '更新日誌' : '送出日誌') }}</button>
       </div>
+      <input ref="fuelFileInput" type="file" accept="image/*" class="hidden" @change="handleFuelFileChange">
     </div>
   </div>
 </template>
@@ -382,6 +385,8 @@ const overtimeItems = ref([])
 const selectedDate = ref(new Date())
 const viewMode = ref('day')
 const submitting = ref(false)
+const fuelFileInput = ref(null)
+const activeFuelIdx = ref(-1)
 const { toast } = useToast()
 
 const REGION_LABELS = { south: '奈拾南區', north: '奈拾北區', central: '奈拾中區' }
@@ -443,16 +448,16 @@ function addFuelItem() {
 }
 
 function triggerFuelPhoto(idx) {
-    const input = document.createElement('input')
-    input.type = 'file'
-    input.accept = 'image/*'
-    input.onchange = (e) => {
-        const file = e.target.files[0]
-        if (!file) return
-        fuelItems.value[idx].photoFile = file
-        fuelItems.value[idx].previewUrl = URL.createObjectURL(file)
-    }
-    input.click()
+    activeFuelIdx.value = idx
+    fuelFileInput.value?.click()
+}
+
+function handleFuelFileChange(e) {
+    const file = e.target.files[0]
+    if (!file || activeFuelIdx.value < 0) return
+    fuelItems.value[activeFuelIdx.value].photoFile = file
+    fuelItems.value[activeFuelIdx.value].previewUrl = URL.createObjectURL(file)
+    e.target.value = ''
 }
 
 async function submitLog() {
