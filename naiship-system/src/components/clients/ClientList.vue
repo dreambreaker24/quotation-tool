@@ -13,6 +13,7 @@
         <option value="negotiating">洽談中</option>
         <option value="signed">已簽約</option>
         <option value="completed">已完工</option>
+        <option value="returning">回頭客</option>
         <option value="lost">已流失</option>
       </select>
       <select v-model="regionFilter" class="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-1">
@@ -61,12 +62,13 @@ const filteredClients = computed(() =>
     })
 )
 
-const statusMap = { contacted: '初次接觸', negotiating: '洽談中', signed: '已簽約', completed: '已完工', lost: '已流失' }
+const statusMap = { contacted: '初次接觸', negotiating: '洽談中', signed: '已簽約', completed: '已完工', returning: '回頭客', lost: '已流失' }
 const statusClassMap = {
     contacted: 'bg-gray-100 text-gray-500',
     negotiating: 'bg-yellow-100 text-yellow-700',
     signed: 'bg-blue-100 text-blue-700',
     completed: 'bg-green-100 text-green-700',
+    returning: 'bg-purple-100 text-purple-700',
     lost: 'bg-red-100 text-red-500'
 }
 function statusLabel(s) { return statusMap[s] ?? s }

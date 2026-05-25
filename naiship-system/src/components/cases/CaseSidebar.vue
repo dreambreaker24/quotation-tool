@@ -62,9 +62,8 @@ const regions = [
     { id: 'central', label: '奈拾中區' }
 ]
 
-const filteredCases = computed(() =>
-    casesStore.cases
-        .filter(c => c.companyId === props.modelValue)
-        .filter(c => !search.value || c.name.includes(search.value))
-)
+const filteredCases = computed(() => {
+    if (search.value) return casesStore.cases.filter(c => c.name.includes(search.value))
+    return casesStore.cases.filter(c => c.companyId === props.modelValue)
+})
 </script>

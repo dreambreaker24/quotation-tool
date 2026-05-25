@@ -13,11 +13,7 @@ export const useAuthStore = defineStore('auth', () => {
   const isAdmin = computed(() => role.value === 'admin')
   const isManager = computed(() => role.value === 'manager' || role.value === 'admin')
 
-  function canViewRegion(regionId) {
-    if (role.value === 'admin') return true
-    if (role.value === 'manager') return true
-    return companyId.value === regionId
-  }
+  function canViewRegion() { return true }
 
   async function fetchUserProfile(uid, email) {
     let snap = await getDoc(doc(db, 'users', uid))

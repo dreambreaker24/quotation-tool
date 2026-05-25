@@ -69,6 +69,7 @@
               <option value="negotiating">洽談中</option>
               <option value="signed">已簽約</option>
               <option value="completed">已完工</option>
+              <option value="returning">回頭客</option>
               <option value="lost">已流失</option>
             </select>
           </div>
@@ -86,7 +87,8 @@
         <div>
           <label class="text-xs text-gray-500 mb-1 block">所屬分區</label>
           <select v-model="clientForm.companyId" @change="clientForm.linkedCaseId = ''"
-            class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
+            :disabled="!authStore.isManager"
+            class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1 disabled:bg-gray-50 disabled:text-gray-500">
             <option value="south">奈拾南區</option>
             <option value="north">奈拾北區</option>
             <option value="central">奈拾中區</option>
@@ -119,6 +121,7 @@ import ClientDetail from '@/components/clients/ClientDetail.vue'
 import { useClientsStore } from '@/stores/clients'
 import { useAuthStore } from '@/stores/auth'
 import { useCasesStore } from '@/stores/cases'
+import { useUsersStore } from '@/stores/users'
 
 const selectedClient = ref(null)
 const showForm = ref(false)
@@ -126,6 +129,7 @@ const submitting = ref(false)
 const clientsStore = useClientsStore()
 const authStore = useAuthStore()
 const casesStore = useCasesStore()
+const usersStore = useUsersStore()
 const { toast } = useToast()
 const { sourceOptions, sourceColor, normalizeSource, employeeNames } = useClientSources()
 const { exportClients } = useExport()
@@ -147,9 +151,9 @@ const sourceStats = computed(() => {
 const totalRecentClients = computed(() => sourceStats.value.reduce((s, [, n]) => s + n, 0))
 
 onMounted(() => {
-    const regions = authStore.isAdmin ? ['north', 'central', 'south'] : [authStore.companyId]
-    casesStore.subscribe(regions)
-    clientsStore.subscribe(regions)
+    casesStore.subscribe(['north', 'central', 'south'])
+    clientsStore.subscribe(['north', 'central', 'south'])
+    usersStore.subscribe()
 })
 
 watch(() => clientsStore.clients, (clients) => {

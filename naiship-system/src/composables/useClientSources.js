@@ -14,7 +14,7 @@ const FIXED_COLORS = {
 export function useClientSources() {
     const usersStore = useUsersStore()
 
-    const employeeNames = computed(() => usersStore.users.map(u => u.name))
+    const employeeNames = computed(() => usersStore.users.filter(u => !u.disabled).map(u => u.name))
 
     const sourceOptions = computed(() => ['IG', 'FB', '官網'])
 

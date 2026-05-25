@@ -4,6 +4,9 @@
     <div class="flex flex-wrap gap-3">
       <div v-for="type in photoTypes" :key="type.key" class="flex flex-col items-center gap-1.5">
         <button @click="triggerUpload(type.key)"
+          @dragover.prevent="hovering = type.key"
+          @dragleave="hovering = ''"
+          @drop.prevent="handleDrop($event, type.key)"
           class="text-xs border border-dashed border-gray-300 rounded-lg px-3 py-2 text-gray-400 w-28 text-center transition-colors hover:border-gray-400 relative"
           :style="hovering === type.key ? 'border-color:#c9a96e;color:#c9a96e' : ''"
           @mouseenter="hovering = type.key" @mouseleave="hovering = ''">
@@ -14,19 +17,27 @@
           </span>
         </button>
         <div class="flex gap-1 flex-wrap max-w-[112px]">
-          <template v-for="item in photos[type.key]" :key="item.url">
+          <div v-for="item in photos[type.key]" :key="item.url" class="relative group">
             <a v-if="item.isPdf" :href="item.url" target="_blank"
               class="w-8 h-8 rounded bg-red-100 flex items-center justify-center text-[9px] text-red-600 font-bold hover:bg-red-200 transition-colors"
               title="開啟 PDF">PDF</a>
             <img v-else :src="item.url"
               class="w-8 h-8 rounded object-cover cursor-pointer hover:opacity-80"
               @click="previewUrl = item.url">
-          </template>
+            <button
+              @click.prevent="deletePhoto(type.key, item)"
+              class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-gray-600 text-white rounded-full text-[8px] leading-none hidden group-hover:flex items-center justify-center hover:bg-red-500 transition-colors z-10">
+              ✕
+            </button>
+          </div>
         </div>
       </div>
     </div>
     <input ref="fileInput" type="file" accept="image/jpeg,image/jpg,image/png,image/webp,.pdf" multiple class="hidden" @change="handleFiles">
-    <div v-if="uploadError" class="mt-2 text-xs text-red-500">{{ uploadError }}</div>
+    <div v-if="uploadError" class="mt-2 text-xs text-red-500 flex items-center gap-1">
+      <span>{{ uploadError }}</span>
+      <button @click="uploadError = ''" class="ml-1 text-red-400 hover:text-red-600 leading-none">✕</button>
+    </div>
     <div v-if="previewUrl" @click="previewUrl = null"
       class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 cursor-pointer">
       <img :src="previewUrl" class="max-h-[80vh] max-w-[90vw] rounded-xl">
@@ -36,7 +47,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { uploadPhoto } from '@/composables/useStorage'
-import { addDoc, collection, getDocs, orderBy, query, serverTimestamp } from 'firebase/firestore'
+import { addDoc, collection, getDocs, orderBy, query, serverTimestamp, deleteDoc, doc } from 'firebase/firestore'
 import { db } from '@/firebase'
 import { useAuthStore } from '@/stores/auth'
 
@@ -69,7 +80,7 @@ onMounted(async () => {
     snap.docs.forEach(d => {
         const { type, url } = d.data()
         if (photos[type]) {
-            photos[type].push({ url, isPdf: url.toLowerCase().endsWith('.pdf') })
+            photos[type].push({ id: d.id, url, isPdf: url.toLowerCase().endsWith('.pdf') })
         }
     })
 })
@@ -79,24 +90,42 @@ function triggerUpload(type) {
     fileInput.value.click()
 }
 
-async function handleFiles(e) {
+async function uploadFiles(files, type) {
     uploadError.value = ''
-    for (const file of e.target.files) {
+    for (const file of files) {
         try {
-            const url = await uploadPhoto(file, activeType.value)
+            const url = await uploadPhoto(file, type)
             const isPdf = file.name.toLowerCase().endsWith('.pdf')
-            photos[activeType.value].push({ url, isPdf })
             if (props.caseId) {
-                await addDoc(collection(db, 'cases', props.caseId, 'photos'), {
-                    type: activeType.value, url,
+                const docRef = await addDoc(collection(db, 'cases', props.caseId, 'photos'), {
+                    type, url,
                     uploadedBy: authStore.user?.uid ?? 'unknown',
                     createdAt: serverTimestamp()
                 })
+                photos[type].push({ id: docRef.id, url, isPdf })
+            } else {
+                photos[type].push({ id: null, url, isPdf })
             }
         } catch {
             uploadError.value = `「${file.name}」上傳失敗，請重試`
         }
     }
+}
+
+async function handleFiles(e) {
+    await uploadFiles(Array.from(e.target.files), activeType.value)
     e.target.value = ''
+}
+
+async function handleDrop(e, type) {
+    hovering.value = ''
+    await uploadFiles(Array.from(e.dataTransfer.files), type)
+}
+
+async function deletePhoto(type, item) {
+    if (item.id && props.caseId) {
+        await deleteDoc(doc(db, 'cases', props.caseId, 'photos', item.id))
+    }
+    photos[type] = photos[type].filter(p => p !== item)
 }
 </script>

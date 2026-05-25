@@ -43,7 +43,8 @@
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="text-xs text-gray-500 mb-1 block">分區 *</label>
-            <select v-model="caseForm.companyId" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
+            <select v-model="caseForm.companyId" :disabled="!authStore.isManager"
+              class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1 disabled:bg-gray-50 disabled:text-gray-500">
               <option value="south">奈拾南區</option>
               <option value="north">奈拾北區</option>
               <option value="central">奈拾中區</option>
@@ -168,16 +169,17 @@ const tabs = [
 ]
 
 const blankCase = () => ({
-    name: '', address: '', companyId: selectedRegion.value, assignees: [''], status: 'negotiating',
+    name: '', address: '',
+    companyId: authStore.isManager ? selectedRegion.value : (authStore.companyId || 'south'),
+    assignees: [''], status: 'negotiating',
     estimatedAmount: 0, signedAmount: 0, startDate: '', endDate: '', signedDate: '',
     deadline: '', linkedClientId: ''
 })
 const caseForm = ref(blankCase())
 
 onMounted(() => {
-    const regions = authStore.isAdmin ? ['north', 'central', 'south'] : [authStore.companyId]
-    casesStore.subscribe(regions)
-    clientsStore.subscribe(regions)
+    casesStore.subscribe(['north', 'central', 'south'])
+    clientsStore.subscribe(['north', 'central', 'south'])
     usersStore.subscribe()
     if (route.query.caseId) jumpToCase(route.query.caseId)
 })

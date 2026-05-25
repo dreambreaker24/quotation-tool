@@ -214,9 +214,16 @@ const ALL_STATUSES = ['negotiating', 'drafting', 'construction', 'pending_settle
 const activeStatuses = ref(new Set(ALL_STATUSES))
 
 function toggleStatus(s) {
-    const next = new Set(activeStatuses.value)
-    if (next.has(s)) { next.delete(s) } else { next.add(s) }
-    activeStatuses.value = next
+    if (activeStatuses.value.size === ALL_STATUSES.length) {
+        activeStatuses.value = new Set([s])
+    } else if (activeStatuses.value.size === 1 && activeStatuses.value.has(s)) {
+        activeStatuses.value = new Set(ALL_STATUSES)
+    } else {
+        const next = new Set(activeStatuses.value)
+        if (next.has(s)) next.delete(s)
+        else next.add(s)
+        activeStatuses.value = next
+    }
 }
 
 const STATUS_BAR_COLORS = {
