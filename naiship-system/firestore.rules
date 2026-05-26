@@ -68,5 +68,8 @@ service cloud.firestore {
       allow create: if isSignedIn();
       allow update, delete: if isSignedIn();
     }
+    match /quotations/{docId} {
+      allow read, write: if isSignedIn();
+    }
   }
 }
