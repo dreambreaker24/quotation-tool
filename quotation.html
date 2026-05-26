@@ -640,9 +640,12 @@
     clearTimeout(_searchDebounce);
     _searchDebounce = setTimeout(async () => {
       try {
-        const snap = await db.collection('quotations').get();
+        const snap = await db.collection('quotations').orderBy('updatedAt', 'desc').limit(500).get();
+        const keyword = val.toLowerCase();
         _searchMatches = snap.docs.map(d => d.data())
-          .filter(q => q.contractNo && q.contractNo.toLowerCase().includes(val.toLowerCase()));
+          .filter(q => (q.contractNo && q.contractNo.toLowerCase().includes(keyword)) ||
+                       (q.clientName && q.clientName.toLowerCase().includes(keyword)) ||
+                       (q.projectName && q.projectName.toLowerCase().includes(keyword)));
         if (_searchMatches.length === 0) {
           results.innerHTML = '<div style="padding:10px 12px; color:#aaa; font-size:12px;">無符合結果</div>';
         } else {
