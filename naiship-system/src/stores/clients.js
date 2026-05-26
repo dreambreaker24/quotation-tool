@@ -35,5 +35,10 @@ export const useClientsStore = defineStore('clients', () => {
         })
     }
 
-    return { clients, subscribe, addClient, updateClient, addNote }
+    function cleanup() {
+        if (unsubscribe) { unsubscribe(); unsubscribe = null }
+        clients.value = []
+    }
+
+    return { clients, subscribe, addClient, updateClient, addNote, cleanup }
 })

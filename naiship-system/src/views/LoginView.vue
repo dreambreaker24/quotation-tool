@@ -11,12 +11,17 @@
   </div>
 </template>
 <script setup>
+import { watch } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useRouter } from 'vue-router'
 const auth = useAuthStore()
 const router = useRouter()
+
+watch(() => auth.user, (u) => {
+  if (u) router.replace('/cases')
+}, { immediate: true })
+
 async function login() {
   await auth.loginWithGoogle()
-  router.push('/')
 }
 </script>

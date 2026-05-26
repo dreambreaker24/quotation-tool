@@ -46,6 +46,7 @@ watch(() => authStore.user, (u) => {
     } else {
         vendorsStore.cleanup()
         usersStore.cleanup()
+        clientsStore.cleanup()
     }
 }, { immediate: true })
 </script>

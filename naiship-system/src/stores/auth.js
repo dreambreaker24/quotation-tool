@@ -13,24 +13,38 @@ export const useAuthStore = defineStore('auth', () => {
   const isAdmin = computed(() => role.value === 'admin')
   const isManager = computed(() => role.value === 'manager' || role.value === 'admin')
 
+  let resolveReady
+  const readyPromise = new Promise(resolve => { resolveReady = resolve })
+
   function canViewRegion() { return true }
 
   async function fetchUserProfile(uid, email) {
-    let snap = await getDoc(doc(db, 'users', uid))
-    if (!snap.exists() && email) {
-      const q = query(collection(db, 'users'), where('email', '==', email))
-      const preSnap = await getDocs(q)
-      if (!preSnap.empty) {
-        const preData = preSnap.docs[0].data()
-        await setDoc(doc(db, 'users', uid), { ...preData, googleUid: uid })
-        snap = await getDoc(doc(db, 'users', uid))
+    try {
+      let snap = await getDoc(doc(db, 'users', uid))
+      if (!snap.exists() && email) {
+        const q = query(collection(db, 'users'), where('email', '==', email))
+        const preSnap = await getDocs(q)
+        if (!preSnap.empty) {
+          const preData = preSnap.docs[0].data()
+          role.value = preData.role
+          companyId.value = preData.companyId
+          name.value = preData.name
+          try {
+            await setDoc(doc(db, 'users', uid), { ...preData, googleUid: uid })
+          } catch (e) {
+            console.warn('setDoc users failed:', e)
+          }
+          return
+        }
       }
-    }
-    if (snap.exists()) {
-      const data = snap.data()
-      role.value = data.role
-      companyId.value = data.companyId
-      name.value = data.name
+      if (snap.exists()) {
+        const data = snap.data()
+        role.value = data.role
+        companyId.value = data.companyId
+        name.value = data.name
+      }
+    } catch (e) {
+      console.warn('fetchUserProfile failed:', e)
     }
   }
 
@@ -39,6 +53,7 @@ export const useAuthStore = defineStore('auth', () => {
       user.value = u
       if (u) await fetchUserProfile(u.uid, u.email)
       else { role.value = null; companyId.value = null; name.value = null }
+      resolveReady()
     })
   }
 
@@ -51,5 +66,5 @@ export const useAuthStore = defineStore('auth', () => {
     await signOut(auth)
   }
 
-  return { user, role, companyId, name, isAdmin, isManager, canViewRegion, init, loginWithGoogle, logout }
+  return { user, role, companyId, name, isAdmin, isManager, canViewRegion, readyPromise, init, loginWithGoogle, logout }
 })

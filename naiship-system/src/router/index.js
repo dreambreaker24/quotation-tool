@@ -14,8 +14,9 @@ const routes = [
 
 const router = createRouter({ history: createWebHistory(), routes })
 
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   const auth = useAuthStore()
+  await auth.readyPromise
   if (!to.meta.public && !auth.user) return { name: 'login' }
   if (to.meta.requireManager && !auth.isManager) return { name: 'cases' }
   if (to.meta.requireAdmin && !auth.isAdmin) return { name: 'cases' }
