@@ -58,8 +58,9 @@
             <span class="text-xs px-2 py-0.5 rounded-full" :class="roleClass(u.role)">{{ roleLabel(u.role) }}</span>
           </td>
           <td class="px-4 py-2.5 text-gray-500 text-xs">{{ regionLabel(u.companyId) }}</td>
-          <td class="px-4 py-2.5 text-right">
-            <button @click="removeUser(u.id)" class="text-xs text-red-400 hover:text-red-600">停用</button>
+          <td class="px-4 py-2.5 text-right flex items-center justify-end gap-3">
+            <button @click="removeUser(u.id)" class="text-xs text-gray-400 hover:text-gray-600">停用</button>
+            <button @click="deleteUser(u.id)" class="text-xs text-red-400 hover:text-red-600">刪除</button>
           </td>
         </tr>
         <tr v-if="users.length === 0">
@@ -71,7 +72,7 @@
 </template>
 <script setup>
 import { ref, onMounted } from 'vue'
-import { collection, getDocs, addDoc, updateDoc, doc, serverTimestamp } from 'firebase/firestore'
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/firebase'
 
 const users = ref([])
@@ -107,6 +108,13 @@ async function removeUser(id) {
     const u = users.value.find(u => u.id === id)
     if (!confirm(`確定要停用「${u?.name ?? '此帳號'}」？`)) return
     await updateDoc(doc(db, 'users', id), { disabled: true })
+    await loadUsers()
+}
+
+async function deleteUser(id) {
+    const u = users.value.find(u => u.id === id)
+    if (!confirm(`確定要永久刪除「${u?.name ?? '此帳號'}」？此操作無法復原。`)) return
+    await deleteDoc(doc(db, 'users', id))
     await loadUsers()
 }
 
