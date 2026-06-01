@@ -97,11 +97,11 @@
               <div class="flex items-center gap-2 mb-1">
                 <span class="px-2 py-0.5 rounded-full text-[10px] bg-blue-100 text-blue-700">{{ entry.caseName }}</span>
               </div>
-              <div class="text-xs text-gray-600">{{ entry.content }}</div>
+              <div class="text-xs text-gray-600 whitespace-pre-wrap">{{ entry.content }}</div>
             </div>
           </template>
           <div v-else class="bg-white rounded-lg p-2.5 border border-gray-100">
-            <div class="text-xs text-gray-600">{{ log.content }}</div>
+            <div class="text-xs text-gray-600 whitespace-pre-wrap">{{ log.content }}</div>
           </div>
         </div>
 
@@ -109,7 +109,7 @@
         <div v-if="log.otherItems?.length" class="mb-3 bg-gray-50 rounded-xl p-3">
           <div class="text-[10px] text-gray-400 font-semibold mb-2 uppercase tracking-wide">其他工作項目</div>
           <div v-for="(item, i) in log.otherItems" :key="i"
-            class="bg-white rounded-lg p-2.5 border border-gray-100 mb-2 last:mb-0 text-xs text-gray-600">
+            class="bg-white rounded-lg p-2.5 border border-gray-100 mb-2 last:mb-0 text-xs text-gray-600 whitespace-pre-wrap">
             {{ item.content }}
           </div>
         </div>
@@ -183,7 +183,7 @@
             <span class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] text-white font-bold flex-shrink-0" style="background:#1e2533">
               {{ reply.creatorName?.[0] ?? '管' }}
             </span>
-            <div class="bg-blue-50 rounded-xl px-3 py-2 text-xs text-gray-700 flex-1">
+            <div class="bg-blue-50 rounded-xl px-3 py-2 text-xs text-gray-700 flex-1 whitespace-pre-wrap">
               {{ reply.content }}
               <div class="text-[10px] text-gray-400 mt-1">{{ reply.creatorName }} · {{ formatTime(reply.createdAt) }}</div>
             </div>
