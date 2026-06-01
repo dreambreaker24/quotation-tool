@@ -241,9 +241,9 @@ function toggleStatus(s) {
 }
 
 const STATUS_BAR_COLORS = {
-    negotiating: '#9ca3af',
+    negotiating: '#c9a96e',
     pending: '#94a3b8',
-    drafting: '#60a5fa',
+    drafting: '#f472b6',
     construction: '#3b82f6',
     pending_settlement: '#f97316',
     aftercare: '#a855f7',

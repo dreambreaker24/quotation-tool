@@ -48,8 +48,8 @@ const search = ref('')
 
 const STATUS_COLORS = {
     pending: '#94a3b8',
-    negotiating: '#f59e0b',
-    drafting: '#a855f7',
+    negotiating: '#c9a96e',
+    drafting: '#f472b6',
     construction: '#3b82f6',
     pending_settlement: '#f97316',
     aftercare: '#22c55e',

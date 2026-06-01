@@ -288,8 +288,8 @@ function nextMonth() {
 
 const statuses = [
   { key: 'pending',            label: '待約客戶',  color: 'text-gray-700' },
-  { key: 'negotiating',        label: '洽談中',    color: 'text-yellow-500' },
-  { key: 'drafting',           label: '製圖中',    color: 'text-purple-500' },
+  { key: 'negotiating',        label: '洽談中',    color: 'text-[#c9a96e]' },
+  { key: 'drafting',           label: '製圖中',    color: 'text-[#f472b6]' },
   { key: 'construction',       label: '施工中',    color: 'text-blue-500' },
   { key: 'pending_settlement', label: '待結算',    color: 'text-orange-500' },
   { key: 'aftercare',          label: '售後/組裝', color: 'text-green-500' }
