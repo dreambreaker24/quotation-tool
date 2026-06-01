@@ -16,7 +16,7 @@
             <button @click="openAdd('client')" class="text-[11px] text-blue-500 hover:text-blue-700">+ 新增</button>
           </div>
           <div class="flex flex-col gap-2">
-            <div v-for="t in clientTasks" :key="t.id" class="group relative bg-blue-50 rounded-xl px-3 py-2.5 text-xs text-gray-700 leading-relaxed">
+            <div v-for="t in clientTasks" :key="t.id" class="group relative bg-blue-50 rounded-xl px-3 py-2.5 text-xs text-gray-700 leading-relaxed whitespace-pre-wrap">
               <template v-if="editingId === t.id">
                 <textarea v-model="editContent" rows="3"
                   class="w-full text-xs border border-blue-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 resize-none bg-white mb-2"></textarea>
@@ -46,7 +46,7 @@
               class="text-[11px] text-amber-500 hover:text-amber-700">+ 新增</button>
           </div>
           <div class="flex flex-col gap-2">
-            <div v-for="t in managerTasks" :key="t.id" class="group relative bg-amber-50 rounded-xl px-3 py-2.5 text-xs text-gray-700 leading-relaxed">
+            <div v-for="t in managerTasks" :key="t.id" class="group relative bg-amber-50 rounded-xl px-3 py-2.5 text-xs text-gray-700 leading-relaxed whitespace-pre-wrap">
               <template v-if="editingId === t.id">
                 <textarea v-model="editContent" rows="3"
                   class="w-full text-xs border border-amber-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 resize-none bg-white mb-2"></textarea>
@@ -81,7 +81,7 @@
               :style="`background:${empColor(t.createdBy)}`">
               {{ t.creatorName?.[0] ?? '?' }}
             </span>
-            <div class="relative bg-green-50 rounded-xl px-3 py-2 flex-1 text-xs text-gray-700 leading-relaxed">
+            <div class="relative bg-green-50 rounded-xl px-3 py-2 flex-1 text-xs text-gray-700 leading-relaxed whitespace-pre-wrap">
               <template v-if="editingId === t.id">
                 <textarea v-model="editContent" rows="3"
                   class="w-full text-xs border border-green-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 resize-none bg-white mb-2"></textarea>
