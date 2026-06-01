@@ -256,6 +256,8 @@ const STATUS_LABELS = {
 }
 const statusLegend = Object.entries(STATUS_BAR_COLORS)
 
+const STATUS_ORDER = ['construction', 'negotiating', 'pending', 'drafting', 'pending_settlement', 'lost', 'aftercare', 'completed']
+
 function getCaseGanttBar(c, year, month) {
     if (!c.startDate) return null
     const start = c.startDate.toDate?.() ?? new Date(c.startDate)
@@ -277,6 +279,14 @@ const regionCases = computed(() =>
     casesStore.cases
         .filter(c => c.companyId === props.region && activeStatuses.value.has(c.status))
         .map(c => ({ ...c, ganttBar: getCaseGanttBar(c, displayYear.value, displayMonth.value) }))
+        .sort((a, b) => {
+            const si = STATUS_ORDER.indexOf(a.status)
+            const sj = STATUS_ORDER.indexOf(b.status)
+            if (si !== sj) return si - sj
+            const at = a.createdAt?.toMillis?.() ?? 0
+            const bt = b.createdAt?.toMillis?.() ?? 0
+            return at - bt
+        })
 )
 
 async function copyCase() {
