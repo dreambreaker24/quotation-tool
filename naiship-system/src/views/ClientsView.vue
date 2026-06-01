@@ -1,22 +1,43 @@
 <template>
-  <ClientList :selected="selectedClient" @select="selectClient" @add="showForm = true" />
-  <div class="flex-1 flex flex-col overflow-hidden">
-    <!-- 客戶來源統計（近 3 個月） -->
-    <div v-if="sourceStats.length > 0" class="bg-white border-b border-gray-100 px-5 py-3 flex-shrink-0">
-      <div class="flex items-center gap-4 flex-wrap row-gap-2">
-        <span class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">近 3 個月來源</span>
-        <div v-for="[src, count] in sourceStats" :key="src" class="flex items-center gap-1.5">
-          <span class="w-2 h-2 rounded-full flex-shrink-0" :style="`background:${sourceColor(src)}`"></span>
-          <span class="text-xs text-gray-600">{{ src }}</span>
-          <span class="text-xs font-semibold px-1.5 py-0.5 rounded-full text-white text-[10px]"
-            :style="`background:${sourceColor(src)}`">{{ count }}</span>
+  <div class="flex flex-col flex-1 overflow-hidden">
+    <!-- Tab bar -->
+    <div class="bg-white border-b border-gray-200 px-6 flex items-center gap-1 flex-shrink-0">
+      <button v-for="tab in tabs" :key="tab.id"
+        @click="activeTab = tab.id"
+        class="px-4 py-3 text-sm transition-colors"
+        :class="activeTab === tab.id ? 'border-b-2 font-semibold' : 'text-gray-500 hover:text-gray-700'"
+        :style="activeTab === tab.id ? 'border-color:#c9a96e;color:#c9a96e' : ''">
+        {{ tab.label }}
+      </button>
+    </div>
+
+    <!-- 客戶管理 -->
+    <div v-if="activeTab === 'clients'" class="flex flex-1 overflow-hidden">
+      <ClientList :selected="selectedClient" @select="selectClient" @add="showForm = true" />
+      <div class="flex-1 flex flex-col overflow-hidden">
+        <!-- 客戶來源統計（近 3 個月） -->
+        <div v-if="sourceStats.length > 0" class="bg-white border-b border-gray-100 px-5 py-3 flex-shrink-0">
+          <div class="flex items-center gap-4 flex-wrap row-gap-2">
+            <span class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">近 3 個月來源</span>
+            <div v-for="[src, count] in sourceStats" :key="src" class="flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full flex-shrink-0" :style="`background:${sourceColor(src)}`"></span>
+              <span class="text-xs text-gray-600">{{ src }}</span>
+              <span class="text-xs font-semibold px-1.5 py-0.5 rounded-full text-white text-[10px]"
+                :style="`background:${sourceColor(src)}`">{{ count }}</span>
+            </div>
+            <span class="text-[10px] text-gray-400 ml-auto">共 {{ totalRecentClients }} 位</span>
+            <button @click="exportClients(clientsStore.clients)"
+              class="text-xs border border-gray-200 rounded-lg px-2.5 py-1 text-gray-500 hover:border-gray-400">匯出</button>
+          </div>
         </div>
-        <span class="text-[10px] text-gray-400 ml-auto">共 {{ totalRecentClients }} 位</span>
-        <button @click="exportClients(clientsStore.clients)"
-          class="text-xs border border-gray-200 rounded-lg px-2.5 py-1 text-gray-500 hover:border-gray-400">匯出</button>
+        <ClientDetail :client="selectedClient" />
       </div>
     </div>
-    <ClientDetail :client="selectedClient" />
+
+    <!-- 廠商管理 -->
+    <div v-else-if="activeTab === 'vendors'" class="flex-1 overflow-auto p-6">
+      <VendorManager />
+    </div>
   </div>
 
   <!-- 新增客戶 Modal -->
@@ -118,10 +139,17 @@ import { useClientSources } from '@/composables/useClientSources'
 import { useExport } from '@/composables/useExport'
 import ClientList from '@/components/clients/ClientList.vue'
 import ClientDetail from '@/components/clients/ClientDetail.vue'
+import VendorManager from '@/components/settings/VendorManager.vue'
 import { useClientsStore } from '@/stores/clients'
 import { useAuthStore } from '@/stores/auth'
 import { useCasesStore } from '@/stores/cases'
 import { useUsersStore } from '@/stores/users'
+
+const activeTab = ref('clients')
+const tabs = [
+    { id: 'clients', label: '客戶管理' },
+    { id: 'vendors', label: '廠商管理' },
+]
 
 const selectedClient = ref(null)
 const showForm = ref(false)
