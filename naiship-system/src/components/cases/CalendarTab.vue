@@ -117,11 +117,30 @@
             <input v-model="eventForm.label" type="text" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1" placeholder="例：個人事假、病假">
           </div>
         </template>
+        <template v-else-if="eventForm.type === 'milestone'">
+          <div>
+            <label class="text-xs text-gray-500 mb-1 block">案件</label>
+            <select v-model="eventForm.caseId" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
+              <option value="">— 選擇案件（選填）—</option>
+              <option v-for="c in activeCases" :key="c.id" :value="c.id">{{ c.name }}</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-xs text-gray-500 mb-1 block">說明</label>
+            <input v-model="eventForm.label" type="text" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1" placeholder="例：場勘、開工、驗收…">
+          </div>
+          <div>
+            <label class="text-xs text-gray-500 mb-1 block">人員</label>
+            <select v-model="eventForm.personName" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
+              <option value="">— 選擇人員（選填）—</option>
+              <option v-for="u in usersStore.users" :key="u.id" :value="u.name">{{ u.name }}</option>
+            </select>
+          </div>
+        </template>
         <template v-else>
           <div>
             <label class="text-xs text-gray-500 mb-1 block">說明 *</label>
-            <input v-model="eventForm.label" type="text" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1"
-              :placeholder="eventForm.type === 'milestone' ? '例：台南東區翻新 開工' : '例：年度品質回顧'">
+            <input v-model="eventForm.label" type="text" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1" placeholder="例：年度品質回顧">
           </div>
         </template>
       </div>
@@ -181,6 +200,26 @@
             <input v-model="editForm.label" type="text" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1">
           </div>
         </template>
+        <template v-else-if="editForm.type === 'milestone'">
+          <div>
+            <label class="text-xs text-gray-500 mb-1 block">案件</label>
+            <select v-model="editForm.caseId" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
+              <option value="">— 選擇案件（選填）—</option>
+              <option v-for="c in activeCases" :key="c.id" :value="c.id">{{ c.name }}</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-xs text-gray-500 mb-1 block">說明</label>
+            <input v-model="editForm.label" type="text" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1" placeholder="例：場勘、開工、驗收…">
+          </div>
+          <div>
+            <label class="text-xs text-gray-500 mb-1 block">人員</label>
+            <select v-model="editForm.personName" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
+              <option value="">— 選擇人員（選填）—</option>
+              <option v-for="u in usersStore.users" :key="u.id" :value="u.name">{{ u.name }}</option>
+            </select>
+          </div>
+        </template>
         <template v-else>
           <div>
             <label class="text-xs text-gray-500 mb-1 block">說明</label>
@@ -222,18 +261,22 @@ const showAllRegions = ref(false)
 const ALL_REGIONS = ['south', 'north', 'central']
 
 const eventTypes = [
-  { key: 'milestone', label: '案件里程碑', color: '#c9a96e' },
-  { key: 'leave',     label: '員工請假',   color: '#60a5fa' },
   { key: 'note',      label: '重要記事',   color: '#f87171' },
+  { key: 'milestone', label: '場勘外出',   color: '#c9a96e' },
+  { key: 'leave',     label: '員工請假',   color: '#60a5fa' },
   { key: 'followup',  label: '客戶跟進',   color: '#a855f7' },
 ]
 const LEAVE_TYPES = ['特休', '病假', '事假', '臨請', '婚假', '喪假', '產假', '陪產假', '公假', '其他']
 
-const blankEvent = () => ({ type: 'milestone', date: '', label: '', personName: '', hours: 0, leaveType: '' })
+const blankEvent = () => ({ type: 'note', date: '', label: '', personName: '', hours: 0, leaveType: '', caseId: '' })
 const eventForm = ref(blankEvent())
 const showEditEvent = ref(false)
 const editingEventId = ref(null)
-const editForm = ref({ type: 'milestone', date: '', label: '', personName: '', hours: 0, leaveType: '' })
+const editForm = ref({ type: 'note', date: '', label: '', personName: '', hours: 0, leaveType: '', caseId: '' })
+
+const activeCases = computed(() =>
+    casesStore.cases.filter(c => !['completed', 'lost'].includes(c.status))
+)
 
 function tsToDateStr(ts) {
   const d = ts?.toDate?.() ?? new Date(ts)
@@ -245,6 +288,7 @@ function openEditEvent(event) {
   editForm.value = {
     type: event.type, date: tsToDateStr(event.date), label: event.label || '',
     personName: event.personName || '', hours: event.hours || 0, leaveType: event.leaveType || '',
+    caseId: event.caseId || '',
   }
   showEditEvent.value = true
 }
@@ -252,20 +296,29 @@ function openEditEvent(event) {
 async function saveEditEvent() {
   if (!editForm.value.date) return
   const isLeave = editForm.value.type === 'leave'
+  const isMilestone = editForm.value.type === 'milestone'
   if (isLeave && !editForm.value.personName) return
-  if (!isLeave && !editForm.value.label) return
+  if (!isLeave && !editForm.value.label && !isMilestone) return
   try {
+    const caseName = isMilestone ? (activeCases.value.find(c => c.id === editForm.value.caseId)?.name ?? '') : ''
     const payload = {
       type: editForm.value.type,
       date: Timestamp.fromDate(new Date(editForm.value.date)),
       label: isLeave
         ? `${editForm.value.personName} ${editForm.value.leaveType || '請假'}${editForm.value.hours ? ` ${editForm.value.hours}h` : ''}`
-        : editForm.value.label,
+        : isMilestone
+          ? [caseName, editForm.value.label].filter(Boolean).join(' ')
+          : editForm.value.label,
     }
     if (isLeave) {
       payload.personName = editForm.value.personName
       payload.hours = editForm.value.hours || 0
       payload.leaveType = editForm.value.leaveType || ''
+    }
+    if (isMilestone) {
+      payload.caseId = editForm.value.caseId || ''
+      payload.caseName = caseName
+      payload.personName = editForm.value.personName || ''
     }
     await eventsStore.updateEvent(editingEventId.value, payload)
     showEditEvent.value = false
@@ -354,22 +407,31 @@ function openAddOnDate(dateStr) {
 async function submitEvent() {
   if (!eventForm.value.date) return
   const isLeave = eventForm.value.type === 'leave'
+  const isMilestone = eventForm.value.type === 'milestone'
   if (isLeave && !eventForm.value.personName) return
-  if (!isLeave && !eventForm.value.label) return
+  if (!isLeave && !eventForm.value.label && !isMilestone) return
   try {
+    const caseName = isMilestone ? (activeCases.value.find(c => c.id === eventForm.value.caseId)?.name ?? '') : ''
     const payload = {
       companyId: props.region,
       type: eventForm.value.type,
       date: Timestamp.fromDate(new Date(eventForm.value.date)),
       label: isLeave
         ? `${eventForm.value.personName} ${eventForm.value.leaveType || '請假'}${eventForm.value.hours ? ` ${eventForm.value.hours}h` : ''}`
-        : eventForm.value.label,
+        : isMilestone
+          ? [caseName, eventForm.value.label].filter(Boolean).join(' ')
+          : eventForm.value.label,
       createdBy: authStore.user?.uid ?? '',
     }
     if (isLeave) {
       payload.personName = eventForm.value.personName
       payload.hours = eventForm.value.hours || 0
       payload.leaveType = eventForm.value.leaveType || ''
+    }
+    if (isMilestone) {
+      payload.caseId = eventForm.value.caseId || ''
+      payload.caseName = caseName
+      payload.personName = eventForm.value.personName || ''
     }
     await eventsStore.addEvent(payload)
     eventForm.value = blankEvent()
