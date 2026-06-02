@@ -227,7 +227,7 @@ const eventTypes = [
   { key: 'note',      label: '重要記事',   color: '#f87171' },
   { key: 'followup',  label: '客戶跟進',   color: '#a855f7' },
 ]
-const LEAVE_TYPES = ['特休', '病假', '事假', '婚假', '喪假', '產假', '陪產假', '公假', '其他']
+const LEAVE_TYPES = ['特休', '病假', '事假', '臨請', '婚假', '喪假', '產假', '陪產假', '公假', '其他']
 
 const blankEvent = () => ({ type: 'milestone', date: '', label: '', personName: '', hours: 0, leaveType: '' })
 const eventForm = ref(blankEvent())
