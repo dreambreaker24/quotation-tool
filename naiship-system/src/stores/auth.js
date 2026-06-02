@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth'
-import { doc, getDoc, setDoc, collection, query, where, getDocs } from 'firebase/firestore'
+import { doc, getDoc, setDoc, deleteDoc, collection, query, where, getDocs } from 'firebase/firestore'
 import { auth, db } from '@/firebase'
 
 export const useAuthStore = defineStore('auth', () => {
@@ -31,6 +31,7 @@ export const useAuthStore = defineStore('auth', () => {
           name.value = preData.name
           try {
             await setDoc(doc(db, 'users', uid), { ...preData, googleUid: uid })
+            await deleteDoc(preSnap.docs[0].ref)
           } catch (e) {
             console.warn('setDoc users failed:', e)
           }
