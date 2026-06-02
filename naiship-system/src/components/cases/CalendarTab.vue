@@ -106,6 +106,13 @@
               class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1" placeholder="0">
           </div>
           <div>
+            <label class="text-xs text-gray-500 mb-1 block">假別</label>
+            <select v-model="eventForm.leaveType" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
+              <option value="">— 請選擇 —</option>
+              <option v-for="t in LEAVE_TYPES" :key="t" :value="t">{{ t }}</option>
+            </select>
+          </div>
+          <div>
             <label class="text-xs text-gray-500 mb-1 block">事由（選填）</label>
             <input v-model="eventForm.label" type="text" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1" placeholder="例：個人事假、病假">
           </div>
@@ -163,6 +170,13 @@
               class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1">
           </div>
           <div>
+            <label class="text-xs text-gray-500 mb-1 block">假別</label>
+            <select v-model="editForm.leaveType" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
+              <option value="">— 請選擇 —</option>
+              <option v-for="t in LEAVE_TYPES" :key="t" :value="t">{{ t }}</option>
+            </select>
+          </div>
+          <div>
             <label class="text-xs text-gray-500 mb-1 block">事由</label>
             <input v-model="editForm.label" type="text" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1">
           </div>
@@ -213,11 +227,13 @@ const eventTypes = [
   { key: 'note',      label: '重要記事',   color: '#f87171' },
   { key: 'followup',  label: '客戶跟進',   color: '#a855f7' },
 ]
-const blankEvent = () => ({ type: 'milestone', date: '', label: '', personName: '', hours: 0 })
+const LEAVE_TYPES = ['特休', '病假', '事假', '婚假', '喪假', '產假', '陪產假', '公假', '其他']
+
+const blankEvent = () => ({ type: 'milestone', date: '', label: '', personName: '', hours: 0, leaveType: '' })
 const eventForm = ref(blankEvent())
 const showEditEvent = ref(false)
 const editingEventId = ref(null)
-const editForm = ref({ type: 'milestone', date: '', label: '', personName: '', hours: 0 })
+const editForm = ref({ type: 'milestone', date: '', label: '', personName: '', hours: 0, leaveType: '' })
 
 function tsToDateStr(ts) {
   const d = ts?.toDate?.() ?? new Date(ts)
@@ -228,7 +244,7 @@ function openEditEvent(event) {
   editingEventId.value = event.id
   editForm.value = {
     type: event.type, date: tsToDateStr(event.date), label: event.label || '',
-    personName: event.personName || '', hours: event.hours || 0,
+    personName: event.personName || '', hours: event.hours || 0, leaveType: event.leaveType || '',
   }
   showEditEvent.value = true
 }
@@ -243,12 +259,13 @@ async function saveEditEvent() {
       type: editForm.value.type,
       date: Timestamp.fromDate(new Date(editForm.value.date)),
       label: isLeave
-        ? `${editForm.value.personName} 請假${editForm.value.hours ? ` ${editForm.value.hours}h` : ''}`
+        ? `${editForm.value.personName} ${editForm.value.leaveType || '請假'}${editForm.value.hours ? ` ${editForm.value.hours}h` : ''}`
         : editForm.value.label,
     }
     if (isLeave) {
       payload.personName = editForm.value.personName
       payload.hours = editForm.value.hours || 0
+      payload.leaveType = editForm.value.leaveType || ''
     }
     await eventsStore.updateEvent(editingEventId.value, payload)
     showEditEvent.value = false
@@ -345,13 +362,14 @@ async function submitEvent() {
       type: eventForm.value.type,
       date: Timestamp.fromDate(new Date(eventForm.value.date)),
       label: isLeave
-        ? `${eventForm.value.personName} 請假${eventForm.value.hours ? ` ${eventForm.value.hours}h` : ''}`
+        ? `${eventForm.value.personName} ${eventForm.value.leaveType || '請假'}${eventForm.value.hours ? ` ${eventForm.value.hours}h` : ''}`
         : eventForm.value.label,
       createdBy: authStore.user?.uid ?? '',
     }
     if (isLeave) {
       payload.personName = eventForm.value.personName
       payload.hours = eventForm.value.hours || 0
+      payload.leaveType = eventForm.value.leaveType || ''
     }
     await eventsStore.addEvent(payload)
     eventForm.value = blankEvent()
