@@ -18,9 +18,9 @@
         </div>
       </div>
       <div class="flex flex-wrap items-center gap-2 sm:gap-4 text-[11px]">
-        <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded" style="background:#c9a96e"></span>案件里程碑</div>
-        <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-blue-400"></span>員工請假</div>
         <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-red-400"></span>重要記事</div>
+        <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded" style="background:#c9a96e"></span>場勘外出</div>
+        <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-blue-400"></span>員工請假</div>
         <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded" style="background:#a855f7"></span>客戶跟進</div>
         <button @click="showAddEvent = true" class="text-xs text-white px-3 py-1.5 rounded-lg" style="background:#1e2533">+ 新增</button>
       </div>
@@ -119,22 +119,36 @@
         </template>
         <template v-else-if="eventForm.type === 'milestone'">
           <div>
-            <label class="text-xs text-gray-500 mb-1 block">案件</label>
-            <select v-model="eventForm.caseId" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
-              <option value="">— 選擇案件（選填）—</option>
-              <option v-for="c in activeCases" :key="c.id" :value="c.id">{{ c.name }}</option>
-            </select>
+            <div class="flex items-center justify-between mb-1">
+              <label class="text-xs text-gray-500">案件（可多筆）</label>
+              <button @click="eventForm.caseIds.push('')" class="text-[11px]" style="color:#c9a96e">+ 新增</button>
+            </div>
+            <div v-for="(_, i) in eventForm.caseIds" :key="i" class="flex gap-2 mb-1.5">
+              <select v-model="eventForm.caseIds[i]" class="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
+                <option value="">— 選擇案件 —</option>
+                <option v-for="c in activeCases" :key="c.id" :value="c.id">{{ c.name }}</option>
+              </select>
+              <button @click="eventForm.caseIds.splice(i,1)" class="text-red-400 text-xs">✕</button>
+            </div>
+            <div v-if="!eventForm.caseIds.length" class="text-[11px] text-gray-300">點右上新增案件</div>
           </div>
           <div>
             <label class="text-xs text-gray-500 mb-1 block">說明</label>
             <input v-model="eventForm.label" type="text" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1" placeholder="例：場勘、開工、驗收…">
           </div>
           <div>
-            <label class="text-xs text-gray-500 mb-1 block">人員</label>
-            <select v-model="eventForm.personName" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
-              <option value="">— 選擇人員（選填）—</option>
-              <option v-for="u in usersStore.users" :key="u.id" :value="u.name">{{ u.name }}</option>
-            </select>
+            <div class="flex items-center justify-between mb-1">
+              <label class="text-xs text-gray-500">人員（可多筆）</label>
+              <button @click="eventForm.personNames.push('')" class="text-[11px]" style="color:#c9a96e">+ 新增</button>
+            </div>
+            <div v-for="(_, i) in eventForm.personNames" :key="i" class="flex gap-2 mb-1.5">
+              <select v-model="eventForm.personNames[i]" class="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
+                <option value="">— 選擇人員 —</option>
+                <option v-for="u in usersStore.users" :key="u.id" :value="u.name">{{ u.name }}</option>
+              </select>
+              <button @click="eventForm.personNames.splice(i,1)" class="text-red-400 text-xs">✕</button>
+            </div>
+            <div v-if="!eventForm.personNames.length" class="text-[11px] text-gray-300">點右上新增人員</div>
           </div>
         </template>
         <template v-else>
@@ -202,22 +216,36 @@
         </template>
         <template v-else-if="editForm.type === 'milestone'">
           <div>
-            <label class="text-xs text-gray-500 mb-1 block">案件</label>
-            <select v-model="editForm.caseId" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
-              <option value="">— 選擇案件（選填）—</option>
-              <option v-for="c in activeCases" :key="c.id" :value="c.id">{{ c.name }}</option>
-            </select>
+            <div class="flex items-center justify-between mb-1">
+              <label class="text-xs text-gray-500">案件（可多筆）</label>
+              <button @click="editForm.caseIds.push('')" class="text-[11px]" style="color:#c9a96e">+ 新增</button>
+            </div>
+            <div v-for="(_, i) in editForm.caseIds" :key="i" class="flex gap-2 mb-1.5">
+              <select v-model="editForm.caseIds[i]" class="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
+                <option value="">— 選擇案件 —</option>
+                <option v-for="c in activeCases" :key="c.id" :value="c.id">{{ c.name }}</option>
+              </select>
+              <button @click="editForm.caseIds.splice(i,1)" class="text-red-400 text-xs">✕</button>
+            </div>
+            <div v-if="!editForm.caseIds.length" class="text-[11px] text-gray-300">點右上新增案件</div>
           </div>
           <div>
             <label class="text-xs text-gray-500 mb-1 block">說明</label>
             <input v-model="editForm.label" type="text" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1" placeholder="例：場勘、開工、驗收…">
           </div>
           <div>
-            <label class="text-xs text-gray-500 mb-1 block">人員</label>
-            <select v-model="editForm.personName" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
-              <option value="">— 選擇人員（選填）—</option>
-              <option v-for="u in usersStore.users" :key="u.id" :value="u.name">{{ u.name }}</option>
-            </select>
+            <div class="flex items-center justify-between mb-1">
+              <label class="text-xs text-gray-500">人員（可多筆）</label>
+              <button @click="editForm.personNames.push('')" class="text-[11px]" style="color:#c9a96e">+ 新增</button>
+            </div>
+            <div v-for="(_, i) in editForm.personNames" :key="i" class="flex gap-2 mb-1.5">
+              <select v-model="editForm.personNames[i]" class="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
+                <option value="">— 選擇人員 —</option>
+                <option v-for="u in usersStore.users" :key="u.id" :value="u.name">{{ u.name }}</option>
+              </select>
+              <button @click="editForm.personNames.splice(i,1)" class="text-red-400 text-xs">✕</button>
+            </div>
+            <div v-if="!editForm.personNames.length" class="text-[11px] text-gray-300">點右上新增人員</div>
           </div>
         </template>
         <template v-else>
@@ -268,11 +296,11 @@ const eventTypes = [
 ]
 const LEAVE_TYPES = ['特休', '病假', '事假', '臨請', '婚假', '喪假', '產假', '陪產假', '公假', '其他']
 
-const blankEvent = () => ({ type: 'note', date: '', label: '', personName: '', hours: 0, leaveType: '', caseId: '' })
+const blankEvent = () => ({ type: 'note', date: '', label: '', personName: '', hours: 0, leaveType: '', caseIds: [], personNames: [] })
 const eventForm = ref(blankEvent())
 const showEditEvent = ref(false)
 const editingEventId = ref(null)
-const editForm = ref({ type: 'note', date: '', label: '', personName: '', hours: 0, leaveType: '', caseId: '' })
+const editForm = ref({ type: 'note', date: '', label: '', personName: '', hours: 0, leaveType: '', caseIds: [], personNames: [] })
 
 const activeCases = computed(() =>
     casesStore.cases.filter(c => !['completed', 'lost'].includes(c.status))
@@ -288,7 +316,8 @@ function openEditEvent(event) {
   editForm.value = {
     type: event.type, date: tsToDateStr(event.date), label: event.label || '',
     personName: event.personName || '', hours: event.hours || 0, leaveType: event.leaveType || '',
-    caseId: event.caseId || '',
+    caseIds: event.caseIds ?? (event.caseId ? [event.caseId] : []),
+    personNames: event.personNames ?? (event.type === 'milestone' && event.personName ? [event.personName] : []),
   }
   showEditEvent.value = true
 }
@@ -300,14 +329,16 @@ async function saveEditEvent() {
   if (isLeave && !editForm.value.personName) return
   if (!isLeave && !editForm.value.label && !isMilestone) return
   try {
-    const caseName = isMilestone ? (activeCases.value.find(c => c.id === editForm.value.caseId)?.name ?? '') : ''
+    const caseNames = isMilestone
+      ? editForm.value.caseIds.map(id => activeCases.value.find(c => c.id === id)?.name).filter(Boolean)
+      : []
     const payload = {
       type: editForm.value.type,
       date: Timestamp.fromDate(new Date(editForm.value.date)),
       label: isLeave
         ? `${editForm.value.personName} ${editForm.value.leaveType || '請假'}${editForm.value.hours ? ` ${editForm.value.hours}h` : ''}`
         : isMilestone
-          ? [caseName, editForm.value.label].filter(Boolean).join(' ')
+          ? [...caseNames, editForm.value.label].filter(Boolean).join(' ')
           : editForm.value.label,
     }
     if (isLeave) {
@@ -316,9 +347,9 @@ async function saveEditEvent() {
       payload.leaveType = editForm.value.leaveType || ''
     }
     if (isMilestone) {
-      payload.caseId = editForm.value.caseId || ''
-      payload.caseName = caseName
-      payload.personName = editForm.value.personName || ''
+      payload.caseIds = editForm.value.caseIds
+      payload.caseNames = caseNames
+      payload.personNames = editForm.value.personNames.filter(Boolean)
     }
     await eventsStore.updateEvent(editingEventId.value, payload)
     showEditEvent.value = false
@@ -411,7 +442,9 @@ async function submitEvent() {
   if (isLeave && !eventForm.value.personName) return
   if (!isLeave && !eventForm.value.label && !isMilestone) return
   try {
-    const caseName = isMilestone ? (activeCases.value.find(c => c.id === eventForm.value.caseId)?.name ?? '') : ''
+    const caseNames = isMilestone
+      ? eventForm.value.caseIds.map(id => activeCases.value.find(c => c.id === id)?.name).filter(Boolean)
+      : []
     const payload = {
       companyId: props.region,
       type: eventForm.value.type,
@@ -419,7 +452,7 @@ async function submitEvent() {
       label: isLeave
         ? `${eventForm.value.personName} ${eventForm.value.leaveType || '請假'}${eventForm.value.hours ? ` ${eventForm.value.hours}h` : ''}`
         : isMilestone
-          ? [caseName, eventForm.value.label].filter(Boolean).join(' ')
+          ? [...caseNames, eventForm.value.label].filter(Boolean).join(' ')
           : eventForm.value.label,
       createdBy: authStore.user?.uid ?? '',
     }
@@ -429,9 +462,9 @@ async function submitEvent() {
       payload.leaveType = eventForm.value.leaveType || ''
     }
     if (isMilestone) {
-      payload.caseId = eventForm.value.caseId || ''
-      payload.caseName = caseName
-      payload.personName = eventForm.value.personName || ''
+      payload.caseIds = eventForm.value.caseIds
+      payload.caseNames = caseNames
+      payload.personNames = eventForm.value.personNames.filter(Boolean)
     }
     await eventsStore.addEvent(payload)
     eventForm.value = blankEvent()
