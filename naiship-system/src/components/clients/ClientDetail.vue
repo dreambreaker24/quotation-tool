@@ -3,7 +3,7 @@
     <div class="bg-white rounded-2xl shadow-sm p-6 mb-4">
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-lg font-bold text-gray-800">{{ client.name }}</h2>
-        <button v-if="!editing" @click="startEdit"
+        <button v-if="!editing && authStore.isManager" @click="startEdit"
           class="text-xs border border-gray-200 rounded-lg px-3 py-1.5 text-gray-500 hover:border-gray-400">編輯</button>
         <div v-else class="flex gap-2">
           <button @click="editing = false" class="text-xs text-gray-400 px-3 py-1.5">取消</button>

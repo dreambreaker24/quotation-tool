@@ -117,11 +117,11 @@
     <div v-if="selectedCaseId" class="px-4 pt-3 pb-2 border-t border-amber-100 bg-amber-50/40">
       <div class="text-sm font-bold text-gray-800 mb-2 leading-snug">{{ selectedCaseName }}</div>
       <div class="flex items-center gap-2 flex-wrap">
-        <button @click="editingCaseId = selectedCaseId"
+        <button v-if="authStore.isManager" @click="editingCaseId = selectedCaseId"
           class="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 bg-white">
           ✎ 編輯案件
         </button>
-        <button @click="copyCase"
+        <button v-if="authStore.isManager" @click="copyCase"
           class="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 bg-white">
           ⧉ 複製案件
         </button>

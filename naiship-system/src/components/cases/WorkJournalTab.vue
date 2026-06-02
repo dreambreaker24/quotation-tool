@@ -476,6 +476,7 @@ function canEditLog(log) {
 function openEditForm(log) {
     editingLog.value = log
     logEntries.value = {}
+    logAttachFiles.value = []
     if (log.caseEntries?.length) {
         log.caseEntries.forEach(e => { logEntries.value[e.caseId] = e.content })
     }
