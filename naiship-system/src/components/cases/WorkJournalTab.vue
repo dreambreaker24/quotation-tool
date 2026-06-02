@@ -469,8 +469,16 @@ function handleLogAttachFiles(e) {
     e.target.value = ''
 }
 
+function isTodayDate(ts) {
+    if (!ts) return false
+    const d = ts.toDate?.() ?? new Date(ts)
+    const now = new Date()
+    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate()
+}
+
 function canEditLog(log) {
-    return log.userId === authStore.user?.uid || authStore.isManager
+    if (authStore.isManager) return true
+    return log.userId === authStore.user?.uid && isTodayDate(log.date)
 }
 
 function openEditForm(log) {

@@ -3,7 +3,7 @@
     <div class="px-5 py-3 border-b border-gray-100 flex items-center gap-2">
       <span class="text-xs font-semibold text-gray-700">{{ caseName }}</span>
       <span class="text-[10px] px-2 py-0.5 rounded-full bg-red-50 text-red-500">案件檢討</span>
-      <button v-if="authStore.isManager" @click="openAdd"
+      <button @click="openAdd"
         class="ml-auto text-[11px] text-red-500 hover:text-red-700">+ 新增檢討</button>
     </div>
 

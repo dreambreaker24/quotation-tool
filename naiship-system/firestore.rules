@@ -62,7 +62,8 @@ service cloud.firestore {
     }
     match /vendors/{vendorId} {
       allow read: if isSignedIn();
-      allow write: if isManager();
+      allow create, update: if isSignedIn();
+      allow delete: if isManager();
     }
     match /todos/{todoId} {
       allow read: if isSignedIn();

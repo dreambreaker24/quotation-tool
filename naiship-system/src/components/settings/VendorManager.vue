@@ -2,7 +2,7 @@
   <div class="bg-white rounded-2xl shadow-sm p-5">
     <div class="flex items-center justify-between mb-3">
       <h2 class="text-sm font-semibold text-gray-700">廠商管理</h2>
-      <button v-if="authStore.isManager" @click="openAdd" class="text-xs text-white px-3 py-1.5 rounded-lg" style="background:#1e2533">+ 新增廠商</button>
+      <button @click="openAdd" class="text-xs text-white px-3 py-1.5 rounded-lg" style="background:#1e2533">+ 新增廠商</button>
     </div>
 
     <div class="mb-3">
@@ -53,7 +53,7 @@
             </td>
             <td class="px-3 py-2.5 text-center">
               <div class="flex items-center justify-center gap-2">
-                <button v-if="authStore.isManager" @click="openEdit(v)" class="text-gray-400 hover:text-gray-700">編輯</button>
+                <button @click="openEdit(v)" class="text-gray-400 hover:text-gray-700">編輯</button>
                 <button v-if="authStore.isManager" @click="confirmDelete(v)" class="text-red-400 hover:text-red-600">刪除</button>
               </div>
             </td>
