@@ -44,11 +44,14 @@
               尚無工種安排
             </div>
             <div v-for="wt in c.workTypes" :key="wt.id"
-              class="px-3 flex items-center gap-2 border-t border-gray-100" style="height:28px">
+              class="px-3 flex items-center gap-2 border-t border-gray-100"
+              style="height:28px"
+              :class="wt.done ? 'bg-green-50/50' : ''">
               <span class="w-4"></span>
-              <span class="w-2 h-2 rounded-full flex-shrink-0" :style="`background:${wt.color}`"></span>
-              <span class="text-[11px] text-gray-600 flex-1 truncate">{{ wt.name }}</span>
-              <span v-if="wt.vendorName" class="text-[10px] text-gray-400 truncate max-w-[80px]">{{ wt.vendorName }}</span>
+              <span class="w-2 h-2 rounded-full flex-shrink-0" :style="`background:${wt.color};opacity:${wt.done ? 0.4 : 1}`"></span>
+              <span class="text-[11px] flex-1 truncate" :class="wt.done ? 'text-gray-400 line-through' : 'text-gray-600'">{{ wt.name }}</span>
+              <span v-if="wt.done" class="text-[9px] px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 font-semibold flex-shrink-0 whitespace-nowrap">✓ 完工</span>
+              <span v-else-if="wt.vendorName" class="text-[10px] text-gray-400 truncate max-w-[80px]">{{ wt.vendorName }}</span>
             </div>
           </div>
         </div>
@@ -90,7 +93,7 @@
                 </div>
                 <div v-if="getWtGanttBar(wt, displayYear, displayMonth)"
                   class="absolute top-1 bottom-1 rounded"
-                  :style="`left:${getWtGanttBar(wt, displayYear, displayMonth).left}px;width:${getWtGanttBar(wt, displayYear, displayMonth).width}px;background:${wt.color}`">
+                  :style="`left:${getWtGanttBar(wt, displayYear, displayMonth).left}px;width:${getWtGanttBar(wt, displayYear, displayMonth).width}px;background:${wt.done ? '#86efac' : wt.color};opacity:${wt.done ? 0.5 : 1}`">
                 </div>
               </div>
             </template>
