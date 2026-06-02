@@ -5,7 +5,7 @@ service cloud.firestore {
     function getUser() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
     function isAdmin() { return getUser().role == 'admin'; }
     function isManager() { return getUser().role in ['admin', 'manager']; }
-    function isSameRegion(companyId) { return isManager() || getUser().companyId == companyId; }
+    function isSameRegion(companyId) { return isSignedIn(); }
 
     match /users/{userId} {
       allow read: if isSignedIn();
