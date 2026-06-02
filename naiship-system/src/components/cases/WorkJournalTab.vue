@@ -177,6 +177,18 @@
           </div>
         </div>
 
+        <!-- Log attachments -->
+        <div v-if="log.logAttachments?.length" class="mb-3 bg-gray-50 rounded-xl p-3">
+          <div class="text-[10px] text-gray-400 font-semibold mb-2 uppercase tracking-wide">附件</div>
+          <div class="flex gap-2 flex-wrap">
+            <a v-for="att in log.logAttachments" :key="att.url"
+              :href="att.isPdf ? (att.pdfUrl ?? att.url) : undefined" :target="att.isPdf ? '_blank' : undefined">
+              <div v-if="att.isPdf" class="w-12 h-12 rounded bg-red-100 flex items-center justify-center text-[10px] text-red-600 font-bold hover:bg-red-200">PDF</div>
+              <img v-else :src="att.url" @click.prevent="previewUrl = att.url" class="w-12 h-12 rounded object-cover cursor-pointer hover:opacity-80">
+            </a>
+          </div>
+        </div>
+
         <!-- Replies -->
         <div class="border-t border-gray-100 pt-3">
           <div v-for="reply in (log.replies || [])" :key="reply.id" class="flex items-start gap-2 mb-2">
@@ -350,11 +362,29 @@
         </div>
       </div>
 
+      <!-- 附件 -->
+      <div class="border border-gray-200 rounded-xl p-4 bg-gray-50/50 mt-3">
+        <div class="flex items-center justify-between mb-2">
+          <div class="text-xs font-semibold text-gray-600">附件（選填）</div>
+          <button @click="logAttachInput.click()" class="text-xs" style="color:#c9a96e">+ 選擇檔案</button>
+        </div>
+        <div v-if="logAttachFiles.length" class="flex gap-2 flex-wrap">
+          <div v-for="(f, i) in logAttachFiles" :key="i" class="relative">
+            <img v-if="f.preview" :src="f.preview" class="w-12 h-12 rounded object-cover">
+            <div v-else class="w-12 h-12 rounded bg-red-100 flex items-center justify-center text-[9px] text-red-600 font-bold">PDF</div>
+            <button @click="logAttachFiles.splice(i, 1)"
+              class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-gray-600 text-white rounded-full text-[8px] leading-none flex items-center justify-center hover:bg-red-500">✕</button>
+          </div>
+        </div>
+        <div v-else class="text-[11px] text-gray-300">無附件</div>
+      </div>
+
       <div class="flex justify-end gap-2 mt-5">
         <button @click="showLogForm = false; editingLog = null" class="text-sm text-gray-400 px-4 py-2">取消</button>
         <button @click="submitLog" :disabled="submitting" class="text-sm text-white px-5 py-2 rounded-xl disabled:opacity-60" style="background:#1e2533">{{ submitting ? (editingLog ? '更新中…' : '送出中…') : (editingLog ? '更新日誌' : '送出日誌') }}</button>
       </div>
       <input ref="fuelFileInput" type="file" accept="image/*" class="hidden" @change="handleFuelFileChange">
+      <input ref="logAttachInput" type="file" accept="image/jpeg,image/jpg,image/png,image/webp,.pdf" multiple class="hidden" @change="handleLogAttachFiles">
     </div>
   </div>
 </template>
@@ -390,6 +420,8 @@ const viewMode = ref('day')
 const submitting = ref(false)
 const fuelFileInput = ref(null)
 const activeFuelIdx = ref(-1)
+const logAttachFiles = ref([])
+const logAttachInput = ref(null)
 const { toast } = useToast()
 
 const REGION_LABELS = { south: '奈拾南區', north: '奈拾北區', central: '奈拾中區' }
@@ -425,7 +457,16 @@ function openLogForm() {
     otherItems.value = []
     fuelItems.value = []
     overtimeItems.value = []
+    logAttachFiles.value = []
     showLogForm.value = true
+}
+
+function handleLogAttachFiles(e) {
+    Array.from(e.target.files).forEach(file => {
+        const isPdf = file.name.toLowerCase().endsWith('.pdf')
+        logAttachFiles.value.push({ file, preview: isPdf ? null : URL.createObjectURL(file) })
+    })
+    e.target.value = ''
 }
 
 function canEditLog(log) {
@@ -529,6 +570,16 @@ async function submitLog() {
         return
     }
 
+    const logAttachments = []
+    for (const pf of logAttachFiles.value) {
+        try {
+            const url = await uploadPhoto(pf.file, 'log')
+            const isPdf = pf.file.name.toLowerCase().endsWith('.pdf')
+            const pdfUrl = isPdf && !url.toLowerCase().endsWith('.pdf') ? url + '.pdf' : url
+            logAttachments.push({ url, isPdf, pdfUrl })
+        } catch { /* skip failed */ }
+    }
+
     const logDoc = {
         userId: authStore.user?.uid ?? '',
         userName: authStore.name ?? '',
@@ -538,9 +589,11 @@ async function submitLog() {
         ...(other.length > 0 && { otherItems: other }),
         ...(fuelData && { fuelExpenses: fuelData, fuelApproved: false }),
         ...(overtimeData.length > 0 && { overtimeItems: overtimeData, overtimeApproved: false }),
+        ...(logAttachments.length > 0 && { logAttachments }),
     }
     try {
         await logsStore.addLog(logDoc)
+        logAttachFiles.value = []
         showLogForm.value = false
         toast('日誌已送出')
     } catch {

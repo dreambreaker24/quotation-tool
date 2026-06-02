@@ -53,6 +53,18 @@
           <p class="text-xs text-gray-600 whitespace-pre-wrap">{{ r.improvements }}</p>
         </div>
 
+        <!-- Attachments -->
+        <div v-if="r.attachments?.length" class="mt-2">
+          <div class="text-[10px] text-gray-400 font-semibold mb-1.5 uppercase tracking-wide">附件</div>
+          <div class="flex gap-2 flex-wrap">
+            <a v-for="att in r.attachments" :key="att.url"
+              :href="att.isPdf ? (att.pdfUrl ?? att.url) : undefined" :target="att.isPdf ? '_blank' : undefined">
+              <div v-if="att.isPdf" class="w-12 h-12 rounded bg-red-100 flex items-center justify-center text-[10px] text-red-600 font-bold hover:bg-red-200">PDF</div>
+              <img v-else :src="att.url" @click.prevent="previewUrl = att.url" class="w-12 h-12 rounded object-cover cursor-pointer hover:opacity-80">
+            </a>
+          </div>
+        </div>
+
         <!-- Footer -->
         <div class="mt-3 pt-2 border-t border-gray-100 text-[10px] text-gray-400">
           {{ r.creatorName }} · {{ formatTime(r.createdAt) }}
@@ -102,6 +114,22 @@
             class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 resize-none"
             placeholder="針對上述缺失的改善方向或行動…"></textarea>
         </div>
+
+        <!-- 附件 -->
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <label class="text-xs text-gray-500">附件（選填）</label>
+            <button @click="attachInput.click()" class="text-[11px]" style="color:#c9a96e">+ 選擇檔案</button>
+          </div>
+          <div v-if="pendingFiles.length" class="flex gap-2 flex-wrap">
+            <div v-for="(f, i) in pendingFiles" :key="i" class="relative">
+              <img v-if="f.preview" :src="f.preview" class="w-12 h-12 rounded object-cover">
+              <div v-else class="w-12 h-12 rounded bg-red-100 flex items-center justify-center text-[9px] text-red-600 font-bold">PDF</div>
+              <button @click="removePending(i)"
+                class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-gray-600 text-white rounded-full text-[8px] leading-none flex items-center justify-center hover:bg-red-500">✕</button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div class="flex justify-end gap-2 mt-5">
@@ -113,12 +141,18 @@
       </div>
     </div>
   </div>
+
+  <input ref="attachInput" type="file" accept="image/jpeg,image/jpg,image/png,image/webp,.pdf" multiple class="hidden" @change="handleAttachFiles">
+  <div v-if="previewUrl" @click="previewUrl = null" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 cursor-pointer">
+    <img :src="previewUrl" class="max-h-[80vh] max-w-[90vw] rounded-xl">
+  </div>
 </template>
 <script setup>
 import { ref, onMounted } from 'vue'
 import { collection, addDoc, getDocs, deleteDoc, updateDoc, orderBy, query, serverTimestamp, doc } from 'firebase/firestore'
 import { db } from '@/firebase'
 import { useAuthStore } from '@/stores/auth'
+import { uploadPhoto } from '@/composables/useStorage'
 
 const props = defineProps({ caseId: String, caseName: String })
 const authStore = useAuthStore()
@@ -127,6 +161,9 @@ const reviews = ref([])
 const showForm = ref(false)
 const saving = ref(false)
 const form = ref({ reportDate: today(), issues: [], improvements: '' })
+const pendingFiles = ref([])
+const attachInput = ref(null)
+const previewUrl = ref(null)
 
 function today() {
     return new Date().toISOString().slice(0, 10)
@@ -147,17 +184,38 @@ onMounted(async () => {
 
 function openAdd() {
     form.value = { reportDate: today(), issues: [], improvements: '' }
+    pendingFiles.value = []
     showForm.value = true
 }
+
+function handleAttachFiles(e) {
+    Array.from(e.target.files).forEach(file => {
+        const isPdf = file.name.toLowerCase().endsWith('.pdf')
+        pendingFiles.value.push({ file, preview: isPdf ? null : URL.createObjectURL(file) })
+    })
+    e.target.value = ''
+}
+
+function removePending(i) { pendingFiles.value.splice(i, 1) }
 
 async function submitReview() {
     if (!form.value.reportDate || saving.value) return
     saving.value = true
     try {
+        const attachments = []
+        for (const pf of pendingFiles.value) {
+            try {
+                const url = await uploadPhoto(pf.file, 'review')
+                const isPdf = pf.file.name.toLowerCase().endsWith('.pdf')
+                const pdfUrl = isPdf && !url.toLowerCase().endsWith('.pdf') ? url + '.pdf' : url
+                attachments.push({ url, isPdf, pdfUrl })
+            } catch { /* skip failed */ }
+        }
         const data = {
             reportDate: form.value.reportDate,
             issues: form.value.issues.filter(s => s.trim()),
             improvements: form.value.improvements.trim(),
+            attachments,
             resolved: false,
             resolvedDate: '',
             creatorName: authStore.name ?? '—',
@@ -166,6 +224,7 @@ async function submitReview() {
         }
         const docRef = await addDoc(collection(db, 'cases', props.caseId, 'reviews'), data)
         reviews.value.unshift({ id: docRef.id, ...data, createdAt: { toDate: () => new Date() } })
+        pendingFiles.value = []
         showForm.value = false
     } finally {
         saving.value = false

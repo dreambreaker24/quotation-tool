@@ -20,9 +20,9 @@ export const useCaseTasksStore = defineStore('caseTasks', () => {
         })
     }
 
-    async function addTask(caseId, type, content, creatorName, createdBy) {
+    async function addTask(caseId, type, content, creatorName, createdBy, attachments = []) {
         return addDoc(collection(db, 'cases', caseId, 'tasks'), {
-            type, content, creatorName, createdBy, createdAt: serverTimestamp()
+            type, content, creatorName, createdBy, attachments, createdAt: serverTimestamp()
         })
     }
 
