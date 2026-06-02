@@ -44,6 +44,15 @@
                 class="text-[9px] px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-600 font-semibold mt-0.5 inline-block">
                 退場逾期
               </span>
+              <span v-if="wt.done"
+                class="text-[9px] px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 font-semibold mt-0.5 inline-block cursor-pointer"
+                @click="unmarkDone(workTypes.indexOf(wt))" title="點擊取消完工">
+                ✓ 已完工
+              </span>
+              <button v-else-if="wt.endDate" @click="markDone(workTypes.indexOf(wt))"
+                class="text-[9px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 hover:bg-green-100 hover:text-green-600 font-medium mt-0.5 inline-block transition-colors">
+                ✓ 完工
+              </button>
             </div>
             <div>
               <div class="text-[10px] text-gray-400 mb-0.5">向業主收款</div>
@@ -247,10 +256,23 @@ const workTypes = computed(() => caseData.value?.workTypes ?? [])
 const TODAY_STR = new Date().toISOString().slice(0, 10)
 
 function isWorkTypeOverdue(wt) {
-    if (!wt.endDate) return false
+    if (!wt.endDate || wt.done) return false
     const caseStatus = caseData.value?.status
     if (caseStatus === 'completed' || caseStatus === 'lost') return false
     return wt.endDate < TODAY_STR
+}
+
+async function markDone(idx) {
+    const updated = [...workTypes.value]
+    updated[idx] = { ...updated[idx], done: true }
+    await casesStore.updateCase(props.caseId, { workTypes: updated })
+    toast('已標記完工')
+}
+
+async function unmarkDone(idx) {
+    const updated = [...workTypes.value]
+    updated[idx] = { ...updated[idx], done: false }
+    await casesStore.updateCase(props.caseId, { workTypes: updated })
 }
 
 const remainingVendorAmount = computed(() => {
@@ -317,6 +339,7 @@ async function submitForm() {
             costIncludesTax: form.value.costIncludesTax || false,
             color: existing ? existing.color : WT_COLORS[workTypes.value.length % WT_COLORS.length],
             vendorPayments: existing?.vendorPayments ?? [],
+            done: existing?.done ?? false,
         }
         const updated = [...workTypes.value]
         if (editingIdx.value !== null) {
