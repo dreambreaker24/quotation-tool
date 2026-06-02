@@ -56,9 +56,11 @@
           <label class="text-xs text-gray-500 mb-1 block">負責人（最多 4 位）</label>
           <div class="flex flex-col gap-2">
             <div v-for="(a, idx) in form.assignees" :key="idx" class="flex items-center gap-2">
-              <input v-model="form.assignees[idx]" type="text"
-                class="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1"
-                :placeholder="`負責人 ${idx + 1}`">
+              <select v-model="form.assignees[idx]"
+                class="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
+                <option value="">— 選擇負責人 —</option>
+                <option v-for="u in activeUsers" :key="u.id" :value="u.name">{{ u.name }}</option>
+              </select>
               <button v-if="form.assignees.length > 1" @click="form.assignees.splice(idx, 1)"
                 class="text-red-400 hover:text-red-600 px-1">✕</button>
             </div>
@@ -133,6 +135,7 @@ import { ref, computed, watch } from 'vue'
 import { Timestamp } from 'firebase/firestore'
 import { useCasesStore } from '@/stores/cases'
 import { useAuthStore } from '@/stores/auth'
+import { useUsersStore } from '@/stores/users'
 import { useToast } from '@/composables/useToast'
 
 const props = defineProps({ caseId: String })
@@ -140,7 +143,10 @@ const emit = defineEmits(['close'])
 
 const casesStore = useCasesStore()
 const authStore = useAuthStore()
+const usersStore = useUsersStore()
 const { toast } = useToast()
+
+const activeUsers = computed(() => usersStore.users.filter(u => !u.disabled))
 
 const saving = ref(false)
 const confirmDelete = ref(false)

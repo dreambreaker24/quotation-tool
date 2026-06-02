@@ -21,6 +21,7 @@
     <div v-else class="flex flex-col gap-2">
       <div v-for="(wt, idx) in workTypes" :key="wt.id"
         class="border border-gray-100 rounded-xl p-3 bg-gray-50/50">
+        <!-- Main row -->
         <div class="flex items-center gap-3">
           <span class="w-2.5 h-2.5 rounded-full flex-shrink-0" :style="`background:${wt.color}`"></span>
           <div class="flex-1 grid grid-cols-7 gap-2 items-start">
@@ -46,10 +47,10 @@
               </span>
               <span v-if="wt.done"
                 class="text-[9px] px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 font-semibold mt-0.5 inline-block cursor-pointer"
-                @click="unmarkDone(workTypes.indexOf(wt))" title="點擊取消完工">
+                @click="unmarkDone(idx)" title="點擊取消完工">
                 ✓ 已完工
               </span>
-              <button v-else-if="wt.endDate" @click="markDone(workTypes.indexOf(wt))"
+              <button v-else-if="wt.endDate" @click="markDone(idx)"
                 class="text-[9px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 hover:bg-green-100 hover:text-green-600 font-medium mt-0.5 inline-block transition-colors">
                 ✓ 完工
               </button>
@@ -79,8 +80,15 @@
             </div>
             <div>
               <div class="text-[10px] text-gray-400 mb-0.5">報價單</div>
-              <span v-if="wt.hasQuote" class="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium whitespace-nowrap">已提供</span>
-              <span v-else class="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-400 whitespace-nowrap">未提供</span>
+              <span :class="wt.hasQuote ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'"
+                class="text-[10px] px-2 py-0.5 rounded-full font-medium whitespace-nowrap block mb-1">
+                {{ wt.hasQuote ? '已提供' : '未提供' }}
+              </span>
+              <div class="text-[10px] text-gray-400 mb-0.5">施工日期</div>
+              <span :class="wt.hasSchedule ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400'"
+                class="text-[10px] px-2 py-0.5 rounded-full font-medium whitespace-nowrap block">
+                {{ wt.hasSchedule ? '已提供' : '未提供' }}
+              </span>
             </div>
           </div>
           <div class="flex gap-2 flex-shrink-0">
@@ -88,6 +96,35 @@
             <button @click="openEdit(idx)" class="text-[11px] text-gray-400 hover:text-gray-700">編輯</button>
             <button @click="removeWorkType(idx)" class="text-[11px] text-red-400 hover:text-red-600">刪除</button>
           </div>
+        </div>
+
+        <!-- Vendor quotes section -->
+        <div class="mt-2 pt-2 border-t border-gray-100">
+          <div class="flex items-center gap-2 mb-1.5">
+            <span class="text-[10px] text-gray-400 font-medium">廠商報價單</span>
+            <span v-if="vendorPhotos[wt.id]?.length"
+              class="text-[9px] min-w-[16px] h-4 px-1 rounded-full bg-gray-400 text-white leading-4 text-center">
+              {{ vendorPhotos[wt.id].length }}
+            </span>
+            <button @click="triggerVendorUpload(wt.id)"
+              class="ml-auto text-[10px] border border-dashed border-gray-200 rounded px-2 py-0.5 text-gray-400 hover:border-gray-400 hover:text-gray-600 transition-colors">
+              + 上傳
+            </button>
+          </div>
+          <div v-if="vendorPhotos[wt.id]?.length" class="flex gap-2 overflow-x-auto pb-1">
+            <div v-for="item in vendorPhotos[wt.id]" :key="item.url"
+              class="flex-shrink-0 flex flex-col items-center gap-0.5 relative group">
+              <a v-if="item.isPdf" :href="item.pdfUrl" target="_blank"
+                class="w-14 h-14 rounded bg-red-100 flex items-center justify-center text-[10px] text-red-600 font-bold hover:bg-red-200 transition-colors">PDF</a>
+              <img v-else :src="item.url"
+                class="w-14 h-14 rounded object-cover cursor-pointer hover:opacity-80"
+                @click="previewVendorUrl = item.url">
+              <span class="text-[8px] text-gray-400 leading-tight">{{ formatTime(item.createdAt) }}</span>
+              <button @click="deleteVendorPhoto(wt.id, item)"
+                class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-gray-600 text-white rounded-full text-[8px] leading-none hidden group-hover:flex items-center justify-center hover:bg-red-500 z-10">✕</button>
+            </div>
+          </div>
+          <div v-else class="text-[10px] text-gray-300">尚未上傳</div>
         </div>
       </div>
     </div>
@@ -114,7 +151,7 @@
             </option>
           </select>
           <p v-if="regionVendors.length === 0" class="text-[11px] text-gray-400 mt-1">
-            尚無廠商，請至系統設定 › 廠商管理新增
+            尚無廠商，請至客戶管理 › 廠商管理新增
           </p>
         </div>
         <div class="grid grid-cols-2 gap-3">
@@ -152,6 +189,10 @@
             <input type="checkbox" v-model="form.hasQuote" class="rounded">
             <span class="text-sm text-gray-700">已提供報價單</span>
           </label>
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" v-model="form.hasSchedule" class="rounded">
+            <span class="text-sm text-gray-700">已提供施工日期</span>
+          </label>
         </div>
       </div>
       <div class="flex justify-end gap-2 mt-5">
@@ -174,7 +215,6 @@
         <button @click="showVendorPayForm = false" class="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
       </div>
 
-      <!-- 已有付款記錄 -->
       <div v-if="vendorPayingIdx !== null && workTypes[vendorPayingIdx]?.vendorPayments?.length" class="mb-4">
         <div class="text-[11px] text-gray-500 font-semibold mb-2">付款歷史</div>
         <div class="flex flex-col gap-1.5">
@@ -225,28 +265,44 @@
       </div>
     </div>
   </div>
+
+  <!-- vendor photo file input & lightbox -->
+  <input ref="vendorFileInput" type="file" accept="image/jpeg,image/jpg,image/png,image/webp,.pdf" multiple class="hidden" @change="handleVendorFiles">
+  <div v-if="previewVendorUrl" @click="previewVendorUrl = null"
+    class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 cursor-pointer">
+    <img :src="previewVendorUrl" class="max-h-[80vh] max-w-[90vw] rounded-xl">
+  </div>
 </template>
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, reactive, onMounted } from 'vue'
 import { useVendorsStore } from '@/stores/vendors'
 import { useCasesStore } from '@/stores/cases'
+import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
+import { uploadPhoto } from '@/composables/useStorage'
+import { addDoc, collection, getDocs, orderBy, query, serverTimestamp, deleteDoc, doc } from 'firebase/firestore'
+import { db } from '@/firebase'
 
 const props = defineProps({ caseId: String, caseName: String })
 const vendorsStore = useVendorsStore()
 const casesStore = useCasesStore()
+const authStore = useAuthStore()
 const { toast } = useToast()
 
 const showForm = ref(false)
 const saving = ref(false)
 const editingIdx = ref(null)
-const form = ref({ name: '', vendorId: '', startDate: '', endDate: '', payment: 0, hasQuote: false, vendorCost: 0, costIncludesTax: false })
+const form = ref({ name: '', vendorId: '', startDate: '', endDate: '', payment: 0, hasQuote: false, hasSchedule: false, vendorCost: 0, costIncludesTax: false })
 
-// Vendor payment modal state
 const showVendorPayForm = ref(false)
 const savingVendorPay = ref(false)
 const vendorPayingIdx = ref(null)
 const vendorPayForm = ref({ amount: 0, paidDate: '', note: '' })
+
+const vendorPhotos = reactive({})
+const activeWtId = ref('')
+const vendorFileInput = ref(null)
+const previewVendorUrl = ref(null)
 
 const WT_COLORS = ['#3b82f6', '#f59e0b', '#22c55e', '#ef4444', '#a855f7', '#ec4899', '#14b8a6', '#f97316']
 
@@ -254,6 +310,12 @@ const caseData = computed(() => casesStore.cases.find(c => c.id === props.caseId
 const workTypes = computed(() => caseData.value?.workTypes ?? [])
 
 const TODAY_STR = new Date().toISOString().slice(0, 10)
+
+function formatTime(ts) {
+    if (!ts) return ''
+    const d = ts.toDate?.() ?? new Date(ts)
+    return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
 
 function isWorkTypeOverdue(wt) {
     if (!wt.endDate || wt.done) return false
@@ -275,12 +337,63 @@ async function unmarkDone(idx) {
     await casesStore.updateCase(props.caseId, { workTypes: updated })
 }
 
+onMounted(async () => {
+    if (!props.caseId) return
+    const q = query(collection(db, 'cases', props.caseId, 'photos'), orderBy('createdAt'))
+    const snap = await getDocs(q)
+    snap.docs.forEach(d => {
+        const { type, url, isPdf, workTypeId, createdAt } = d.data()
+        if (type === 'vendor_quote' && workTypeId) {
+            if (!vendorPhotos[workTypeId]) vendorPhotos[workTypeId] = []
+            const resolvedIsPdf = isPdf ?? url.toLowerCase().endsWith('.pdf')
+            const pdfUrl = resolvedIsPdf && !url.toLowerCase().endsWith('.pdf') ? url + '.pdf' : url
+            vendorPhotos[workTypeId].push({ id: d.id, url, isPdf: resolvedIsPdf, pdfUrl, createdAt })
+        }
+    })
+})
+
+function triggerVendorUpload(wtId) {
+    activeWtId.value = wtId
+    vendorFileInput.value?.click()
+}
+
+async function handleVendorFiles(e) {
+    const files = Array.from(e.target.files)
+    e.target.value = ''
+    for (const file of files) {
+        try {
+            const url = await uploadPhoto(file, 'vendor_quote')
+            const isPdf = file.name.toLowerCase().endsWith('.pdf')
+            const pdfUrl = isPdf && !url.toLowerCase().endsWith('.pdf') ? url + '.pdf' : url
+            const docRef = await addDoc(collection(db, 'cases', props.caseId, 'photos'), {
+                type: 'vendor_quote',
+                workTypeId: activeWtId.value,
+                url, isPdf,
+                uploadedBy: authStore.user?.uid ?? 'unknown',
+                createdAt: serverTimestamp()
+            })
+            if (!vendorPhotos[activeWtId.value]) vendorPhotos[activeWtId.value] = []
+            vendorPhotos[activeWtId.value].push({ id: docRef.id, url, isPdf, pdfUrl, createdAt: { toDate: () => new Date() } })
+        } catch {
+            toast('上傳失敗，請重試', 'error')
+        }
+    }
+}
+
+async function deleteVendorPhoto(wtId, item) {
+    if (item.id && props.caseId) {
+        await deleteDoc(doc(db, 'cases', props.caseId, 'photos', item.id))
+    }
+    vendorPhotos[wtId] = vendorPhotos[wtId].filter(p => p !== item)
+}
+
 const remainingVendorAmount = computed(() => {
     if (vendorPayingIdx.value === null) return 0
     const wt = workTypes.value[vendorPayingIdx.value]
     if (!wt) return 0
     return Math.max(0, (wt.vendorCost || 0) - totalVendorPaid(wt))
 })
+
 const regionVendors = computed(() =>
     vendorsStore.vendors.filter(v => !v.companyId || v.companyId === caseData.value?.companyId)
 )
@@ -294,7 +407,7 @@ function totalVendorPaid(wt) {
 
 function openAdd() {
     editingIdx.value = null
-    form.value = { name: '', vendorId: '', startDate: '', endDate: '', payment: 0, hasQuote: false, vendorCost: 0, costIncludesTax: false }
+    form.value = { name: '', vendorId: '', startDate: '', endDate: '', payment: 0, hasQuote: false, hasSchedule: false, vendorCost: 0, costIncludesTax: false }
     showForm.value = true
 }
 
@@ -308,6 +421,7 @@ function openEdit(idx) {
         endDate: wt.endDate || '',
         payment: wt.payment || 0,
         hasQuote: wt.hasQuote || false,
+        hasSchedule: wt.hasSchedule || false,
         vendorCost: wt.vendorCost || 0,
         costIncludesTax: wt.costIncludesTax || false,
     }
@@ -335,6 +449,7 @@ async function submitForm() {
             endDate: form.value.endDate || '',
             payment: form.value.payment || 0,
             hasQuote: form.value.hasQuote || false,
+            hasSchedule: form.value.hasSchedule || false,
             vendorCost: form.value.vendorCost || 0,
             costIncludesTax: form.value.costIncludesTax || false,
             color: existing ? existing.color : WT_COLORS[workTypes.value.length % WT_COLORS.length],

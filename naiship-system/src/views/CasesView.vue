@@ -79,9 +79,11 @@
           <label class="text-xs text-gray-500 mb-1 block">負責人（最多 4 位）</label>
           <div class="flex flex-col gap-2">
             <div v-for="(a, idx) in caseForm.assignees" :key="idx" class="flex items-center gap-2">
-              <input v-model="caseForm.assignees[idx]" type="text"
-                class="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1"
-                :placeholder="`負責人 ${idx + 1}`">
+              <select v-model="caseForm.assignees[idx]"
+                class="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
+                <option value="">— 選擇負責人 —</option>
+                <option v-for="u in activeUsers" :key="u.id" :value="u.name">{{ u.name }}</option>
+              </select>
               <button v-if="caseForm.assignees.length > 1" @click="caseForm.assignees.splice(idx, 1)"
                 class="text-red-400 hover:text-red-600 px-1">✕</button>
             </div>
@@ -159,6 +161,8 @@ const clientsStore = useClientsStore()
 const authStore = useAuthStore()
 const usersStore = useUsersStore()
 const { toast } = useToast()
+
+const activeUsers = computed(() => usersStore.users.filter(u => !u.disabled))
 const { exportCases } = useExport()
 const now = new Date()
 const selectedMonth = ref(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`)
