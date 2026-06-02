@@ -30,6 +30,7 @@
               class="text-[10px] text-green-600 hover:text-green-800 border border-green-200 rounded px-2 py-0.5">
               ✓ 標記已解決
             </button>
+            <button @click="openEdit(r)" class="text-[10px] text-gray-400 hover:text-gray-600">編輯</button>
             <button v-if="authStore.isManager" @click="deleteReview(r)"
               class="text-[10px] text-red-400 hover:text-red-600">刪除</button>
           </div>
@@ -77,7 +78,7 @@
   <div v-if="showForm" class="fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.4)">
     <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
       <div class="flex items-center justify-between mb-4">
-        <h3 class="text-sm font-bold text-gray-800">新增案件檢討</h3>
+        <h3 class="text-sm font-bold text-gray-800">{{ editingId ? '編輯案件檢討' : '新增案件檢討' }}</h3>
         <button @click="showForm = false" class="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
       </div>
 
@@ -118,8 +119,16 @@
         <!-- 附件 -->
         <div>
           <div class="flex items-center justify-between mb-2">
-            <label class="text-xs text-gray-500">附件（選填）</label>
-            <button @click="attachInput.click()" class="text-[11px]" style="color:#c9a96e">+ 選擇檔案</button>
+            <label class="text-xs text-gray-500">附件</label>
+            <button @click="attachInput.click()" class="text-[11px]" style="color:#c9a96e">+ 新增檔案</button>
+          </div>
+          <!-- 已儲存的附件（編輯模式） -->
+          <div v-if="existingAttachments.length" class="flex gap-2 flex-wrap mb-2">
+            <a v-for="att in existingAttachments" :key="att.url"
+              :href="att.isPdf ? (att.pdfUrl ?? att.url) : undefined" :target="att.isPdf ? '_blank' : undefined">
+              <div v-if="att.isPdf" class="w-12 h-12 rounded bg-red-100 flex items-center justify-center text-[9px] text-red-600 font-bold">PDF</div>
+              <img v-else :src="att.url" @click.prevent="previewUrl = att.url" class="w-12 h-12 rounded object-cover cursor-pointer hover:opacity-80">
+            </a>
           </div>
           <div v-if="pendingFiles.length" class="flex gap-2 flex-wrap">
             <div v-for="(f, i) in pendingFiles" :key="i" class="relative">
@@ -160,8 +169,10 @@ const authStore = useAuthStore()
 const reviews = ref([])
 const showForm = ref(false)
 const saving = ref(false)
+const editingId = ref(null)
 const form = ref({ reportDate: today(), issues: [], improvements: '' })
 const pendingFiles = ref([])
+const existingAttachments = ref([])
 const attachInput = ref(null)
 const previewUrl = ref(null)
 
@@ -183,8 +194,22 @@ onMounted(async () => {
 })
 
 function openAdd() {
+    editingId.value = null
     form.value = { reportDate: today(), issues: [], improvements: '' }
     pendingFiles.value = []
+    existingAttachments.value = []
+    showForm.value = true
+}
+
+function openEdit(r) {
+    editingId.value = r.id
+    form.value = {
+        reportDate: r.reportDate,
+        issues: [...(r.issues ?? [])],
+        improvements: r.improvements ?? '',
+    }
+    pendingFiles.value = []
+    existingAttachments.value = [...(r.attachments ?? [])]
     showForm.value = true
 }
 
@@ -202,28 +227,42 @@ async function submitReview() {
     if (!form.value.reportDate || saving.value) return
     saving.value = true
     try {
-        const attachments = []
+        const newAttachments = []
         for (const pf of pendingFiles.value) {
             try {
                 const url = await uploadPhoto(pf.file, 'review')
                 const isPdf = pf.file.name.toLowerCase().endsWith('.pdf')
                 const pdfUrl = isPdf && !url.toLowerCase().endsWith('.pdf') ? url + '.pdf' : url
-                attachments.push({ url, isPdf, pdfUrl })
+                newAttachments.push({ url, isPdf, pdfUrl })
             } catch { /* skip failed */ }
         }
-        const data = {
-            reportDate: form.value.reportDate,
-            issues: form.value.issues.filter(s => s.trim()),
-            improvements: form.value.improvements.trim(),
-            attachments,
-            resolved: false,
-            resolvedDate: '',
-            creatorName: authStore.name ?? '—',
-            createdBy: authStore.user?.uid ?? '',
-            createdAt: serverTimestamp(),
+        const allAttachments = [...existingAttachments.value, ...newAttachments]
+
+        if (editingId.value) {
+            const updateData = {
+                reportDate: form.value.reportDate,
+                issues: form.value.issues.filter(s => s.trim()),
+                improvements: form.value.improvements.trim(),
+                attachments: allAttachments,
+            }
+            await updateDoc(doc(db, 'cases', props.caseId, 'reviews', editingId.value), updateData)
+            const target = reviews.value.find(x => x.id === editingId.value)
+            if (target) Object.assign(target, updateData)
+        } else {
+            const data = {
+                reportDate: form.value.reportDate,
+                issues: form.value.issues.filter(s => s.trim()),
+                improvements: form.value.improvements.trim(),
+                attachments: allAttachments,
+                resolved: false,
+                resolvedDate: '',
+                creatorName: authStore.name ?? '—',
+                createdBy: authStore.user?.uid ?? '',
+                createdAt: serverTimestamp(),
+            }
+            const docRef = await addDoc(collection(db, 'cases', props.caseId, 'reviews'), data)
+            reviews.value.unshift({ id: docRef.id, ...data, createdAt: { toDate: () => new Date() } })
         }
-        const docRef = await addDoc(collection(db, 'cases', props.caseId, 'reviews'), data)
-        reviews.value.unshift({ id: docRef.id, ...data, createdAt: { toDate: () => new Date() } })
         pendingFiles.value = []
         showForm.value = false
     } finally {
