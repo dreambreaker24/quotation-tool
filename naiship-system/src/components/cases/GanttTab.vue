@@ -126,7 +126,7 @@
     </div>
 
     <!-- Work type panel (when expanded) -->
-    <WorkTypePanel v-if="selectedCaseId" :case-id="selectedCaseId" :case-name="selectedCaseName" />
+    <WorkTypePanel v-if="selectedCaseId" :key="selectedCaseId" :case-id="selectedCaseId" :case-name="selectedCaseName" />
 
     <!-- Payment milestones panel (when selected) -->
     <PaymentMilestones v-if="selectedCaseId" :case-id="selectedCaseId" :case-name="selectedCaseName" />
@@ -138,7 +138,7 @@
     <CaseTasks v-if="selectedCaseId" :case-id="selectedCaseId" :case-name="selectedCaseName" />
 
     <!-- Case review section (when selected) -->
-    <CaseReview v-if="selectedCaseId" :case-id="selectedCaseId" :case-name="selectedCaseName" />
+    <CaseReview v-if="selectedCaseId" :key="`review-${selectedCaseId}`" :case-id="selectedCaseId" :case-name="selectedCaseName" />
   </div>
 
   <!-- Case edit modal -->
