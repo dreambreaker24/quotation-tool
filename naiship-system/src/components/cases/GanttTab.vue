@@ -136,6 +136,9 @@
 
     <!-- Case tasks section (when selected) -->
     <CaseTasks v-if="selectedCaseId" :case-id="selectedCaseId" :case-name="selectedCaseName" />
+
+    <!-- Case review section (when selected) -->
+    <CaseReview v-if="selectedCaseId" :case-id="selectedCaseId" :case-name="selectedCaseName" />
   </div>
 
   <!-- Case edit modal -->
@@ -149,6 +152,7 @@ import { deadlineInfo } from '@/composables/useDeadlineInfo'
 import { useToast } from '@/composables/useToast'
 import PhotoUpload from './PhotoUpload.vue'
 import CaseTasks from './CaseTasks.vue'
+import CaseReview from './CaseReview.vue'
 import WorkTypePanel from './WorkTypePanel.vue'
 import PaymentMilestones from './PaymentMilestones.vue'
 import CaseEditModal from './CaseEditModal.vue'

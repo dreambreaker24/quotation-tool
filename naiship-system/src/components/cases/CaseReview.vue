@@ -1,0 +1,187 @@
+<template>
+  <div class="border-t border-gray-200 bg-white">
+    <div class="px-5 py-3 border-b border-gray-100 flex items-center gap-2">
+      <span class="text-xs font-semibold text-gray-700">{{ caseName }}</span>
+      <span class="text-[10px] px-2 py-0.5 rounded-full bg-red-50 text-red-500">案件檢討</span>
+      <button v-if="authStore.isManager" @click="openAdd"
+        class="ml-auto text-[11px] text-red-500 hover:text-red-700">+ 新增檢討</button>
+    </div>
+
+    <div class="px-5 py-4 flex flex-col gap-3">
+      <div v-if="reviews.length === 0" class="text-[11px] text-gray-300 text-center py-3">尚無檢討紀錄</div>
+
+      <div v-for="r in reviews" :key="r.id"
+        class="border rounded-xl p-4"
+        :class="r.resolved ? 'border-green-100 bg-green-50/30' : 'border-red-100 bg-red-50/20'">
+        <!-- Header -->
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-xs font-semibold text-gray-700">📋 {{ r.reportDate }}</span>
+            <span v-if="r.resolved"
+              class="text-[9px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-semibold">
+              ✓ 已解決 {{ r.resolvedDate }}
+            </span>
+            <span v-else class="text-[9px] px-2 py-0.5 rounded-full bg-red-100 text-red-600 font-semibold">
+              待處理
+            </span>
+          </div>
+          <div class="flex items-center gap-2">
+            <button v-if="authStore.isManager && !r.resolved" @click="markResolved(r)"
+              class="text-[10px] text-green-600 hover:text-green-800 border border-green-200 rounded px-2 py-0.5">
+              ✓ 標記已解決
+            </button>
+            <button v-if="authStore.isManager" @click="deleteReview(r)"
+              class="text-[10px] text-red-400 hover:text-red-600">刪除</button>
+          </div>
+        </div>
+
+        <!-- Issues -->
+        <div v-if="r.issues?.length" class="mb-3">
+          <div class="text-[10px] text-gray-400 font-semibold mb-1.5 uppercase tracking-wide">缺失列舉</div>
+          <ol class="flex flex-col gap-1">
+            <li v-for="(issue, i) in r.issues" :key="i"
+              class="text-xs text-gray-700 flex gap-2 whitespace-pre-wrap">
+              <span class="text-red-400 font-semibold flex-shrink-0">{{ i + 1 }}.</span>
+              <span>{{ issue }}</span>
+            </li>
+          </ol>
+        </div>
+
+        <!-- Improvements -->
+        <div v-if="r.improvements">
+          <div class="text-[10px] text-gray-400 font-semibold mb-1 uppercase tracking-wide">改善措施</div>
+          <p class="text-xs text-gray-600 whitespace-pre-wrap">{{ r.improvements }}</p>
+        </div>
+
+        <!-- Footer -->
+        <div class="mt-3 pt-2 border-t border-gray-100 text-[10px] text-gray-400">
+          {{ r.creatorName }} · {{ formatTime(r.createdAt) }}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 新增檢討 Modal -->
+  <div v-if="showForm" class="fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.4)">
+    <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-sm font-bold text-gray-800">新增案件檢討</h3>
+        <button @click="showForm = false" class="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
+      </div>
+
+      <div class="flex flex-col gap-4">
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">報告時間 *</label>
+          <input :value="form.reportDate" type="date"
+            @input="form.reportDate = $event.target.value"
+            @change="form.reportDate = $event.target.value"
+            class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1">
+        </div>
+
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <label class="text-xs text-gray-500">缺失列舉</label>
+            <button @click="form.issues.push('')" class="text-[11px]" style="color:#c9a96e">+ 新增缺失</button>
+          </div>
+          <div class="flex flex-col gap-2">
+            <div v-if="form.issues.length === 0" class="text-[11px] text-gray-300 py-1">點右上新增缺失項目</div>
+            <div v-for="(_, idx) in form.issues" :key="idx" class="flex items-start gap-2">
+              <span class="text-red-400 font-semibold text-sm mt-2 flex-shrink-0">{{ idx + 1 }}.</span>
+              <textarea v-model="form.issues[idx]" rows="2"
+                class="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 resize-none"
+                :placeholder="`缺失 ${idx + 1}`"></textarea>
+              <button @click="form.issues.splice(idx, 1)"
+                class="text-red-400 hover:text-red-600 mt-2 text-xs">✕</button>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">改善措施（選填）</label>
+          <textarea v-model="form.improvements" rows="3"
+            class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 resize-none"
+            placeholder="針對上述缺失的改善方向或行動…"></textarea>
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 mt-5">
+        <button @click="showForm = false" class="text-sm text-gray-400 px-4 py-2">取消</button>
+        <button @click="submitReview" :disabled="saving"
+          class="text-sm text-white px-5 py-2 rounded-xl disabled:opacity-60" style="background:#1e2533">
+          {{ saving ? '儲存中…' : '儲存' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</template>
+<script setup>
+import { ref, onMounted } from 'vue'
+import { collection, addDoc, getDocs, deleteDoc, updateDoc, orderBy, query, serverTimestamp, doc } from 'firebase/firestore'
+import { db } from '@/firebase'
+import { useAuthStore } from '@/stores/auth'
+
+const props = defineProps({ caseId: String, caseName: String })
+const authStore = useAuthStore()
+
+const reviews = ref([])
+const showForm = ref(false)
+const saving = ref(false)
+const form = ref({ reportDate: today(), issues: [], improvements: '' })
+
+function today() {
+    return new Date().toISOString().slice(0, 10)
+}
+
+function formatTime(ts) {
+    if (!ts) return ''
+    const d = ts.toDate?.() ?? new Date(ts)
+    return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
+onMounted(async () => {
+    if (!props.caseId) return
+    const q = query(collection(db, 'cases', props.caseId, 'reviews'), orderBy('reportDate', 'desc'))
+    const snap = await getDocs(q)
+    reviews.value = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+})
+
+function openAdd() {
+    form.value = { reportDate: today(), issues: [], improvements: '' }
+    showForm.value = true
+}
+
+async function submitReview() {
+    if (!form.value.reportDate || saving.value) return
+    saving.value = true
+    try {
+        const data = {
+            reportDate: form.value.reportDate,
+            issues: form.value.issues.filter(s => s.trim()),
+            improvements: form.value.improvements.trim(),
+            resolved: false,
+            resolvedDate: '',
+            creatorName: authStore.name ?? '—',
+            createdBy: authStore.user?.uid ?? '',
+            createdAt: serverTimestamp(),
+        }
+        const docRef = await addDoc(collection(db, 'cases', props.caseId, 'reviews'), data)
+        reviews.value.unshift({ id: docRef.id, ...data, createdAt: { toDate: () => new Date() } })
+        showForm.value = false
+    } finally {
+        saving.value = false
+    }
+}
+
+async function markResolved(r) {
+    const resolved = today()
+    await updateDoc(doc(db, 'cases', props.caseId, 'reviews', r.id), { resolved: true, resolvedDate: resolved })
+    const target = reviews.value.find(x => x.id === r.id)
+    if (target) { target.resolved = true; target.resolvedDate = resolved }
+}
+
+async function deleteReview(r) {
+    if (!confirm('確定要刪除此檢討紀錄？')) return
+    await deleteDoc(doc(db, 'cases', props.caseId, 'reviews', r.id))
+    reviews.value = reviews.value.filter(x => x.id !== r.id)
+}
+</script>
