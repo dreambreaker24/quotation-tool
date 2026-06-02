@@ -270,16 +270,16 @@
       <div class="border border-amber-200 rounded-xl p-4 bg-amber-50/50">
         <div class="flex items-center justify-between mb-3">
           <div class="text-xs font-semibold text-amber-700">申請油資（選填）</div>
-          <button v-if="!isAfter21 || editingLog" @click="addFuelItem" class="text-xs" style="color:#c9a96e">+ 新增</button>
+          <button v-if="!isAfterDeadline || editingLog" @click="addFuelItem" class="text-xs" style="color:#c9a96e">+ 新增</button>
         </div>
         <!-- 編輯模式：已核准的油資顯示為鎖定 -->
         <div v-if="editingLog?.fuelApproved" class="text-xs text-green-600 bg-green-50 rounded-lg px-3 py-2 mb-2">
           ✓ 油資已核准，無法修改
         </div>
-        <div v-else-if="isAfter21 && !editingLog" class="text-xs text-center text-red-500 py-2 bg-red-50 rounded-lg">
-          今日油資申請已截止（每日 21:00 截止）
+        <div v-else-if="isAfterDeadline && !editingLog" class="text-xs text-center text-red-500 py-2 bg-red-50 rounded-lg">
+          油資申請已截止（截止至隔天 19:00）
         </div>
-        <template v-if="!editingLog?.fuelApproved && (!isAfter21 || editingLog)">
+        <template v-if="!editingLog?.fuelApproved && (!isAfterDeadline || editingLog)">
           <div v-if="fuelItems.length === 0" class="text-xs text-gray-400 py-1">無油資申請（可點右上新增）</div>
           <div v-for="(item, idx) in fuelItems" :key="idx"
             class="border border-amber-200 rounded-xl p-3 mb-2 last:mb-0 bg-white">
@@ -321,11 +321,14 @@
       <div class="border border-purple-200 rounded-xl p-4 bg-purple-50/50 mt-3">
         <div class="flex items-center justify-between mb-3">
           <div class="text-xs font-semibold text-purple-700">申請加班（選填）</div>
-          <button v-if="!editingLog?.overtimeApproved" @click="addOvertimeItem" class="text-xs" style="color:#c9a96e">+ 新增</button>
+          <button v-if="!editingLog?.overtimeApproved && (!isAfterDeadline || editingLog)" @click="addOvertimeItem" class="text-xs" style="color:#c9a96e">+ 新增</button>
         </div>
         <!-- 編輯模式：已核准的加班顯示為鎖定 -->
         <div v-if="editingLog?.overtimeApproved" class="text-xs text-green-600 bg-green-50 rounded-lg px-3 py-2 mb-2">
           ✓ 加班已核准，無法修改
+        </div>
+        <div v-else-if="isAfterDeadline && !editingLog" class="text-xs text-center text-red-500 py-2 bg-red-50 rounded-lg">
+          加班申請已截止（截止至隔天 19:00）
         </div>
         <div v-else-if="overtimeItems.length === 0" class="text-xs text-gray-400 py-1">無加班申請（可點右上新增）</div>
         <div v-for="(item, idx) in overtimeItems" :key="idx"
@@ -392,7 +395,14 @@ const { toast } = useToast()
 const REGION_LABELS = { south: '奈拾南區', north: '奈拾北區', central: '奈拾中區' }
 const regionLabel = computed(() => REGION_LABELS[props.region] ?? props.region)
 
-const isAfter21 = computed(() => new Date().getHours() >= 21)
+const isAfterDeadline = computed(() => {
+    const now = new Date()
+    const logDate = editingLog.value?.date?.toDate?.() ?? new Date()
+    const deadline = new Date(logDate)
+    deadline.setDate(deadline.getDate() + 1)
+    deadline.setHours(19, 0, 0, 0)
+    return now >= deadline
+})
 
 const todayLabel = computed(() => {
     const d = new Date()
@@ -468,7 +478,7 @@ async function submitLog() {
         .filter(c => logEntries.value[c.id]?.trim())
         .map(c => ({ caseId: c.id, caseName: c.name, content: logEntries.value[c.id].trim() }))
     const other = otherItems.value.filter(i => i.content.trim()).map(i => ({ content: i.content.trim() }))
-    const canAddFuel = !isAfter21.value || !!editingLog.value
+    const canAddFuel = !isAfterDeadline.value || !!editingLog.value
     const hasFuel = canAddFuel && fuelItems.value.some(f => f.reason.trim())
     if (!editingLog.value && caseEntries.length === 0 && other.length === 0 && !hasFuel) return
     if (submitting.value) return
