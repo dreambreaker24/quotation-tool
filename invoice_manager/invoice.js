@@ -451,7 +451,7 @@ async function scanFlow(model, scanFolder, masterPath, defaultCaseNames, ownName
         const r    = apiResults[i];
         const file = files[i];
         if (!r.ok) {
-            candidates.push({ invoice: null, sourceFile: file, flags: ['⚠辨識失敗'], failed: true });
+            candidates.push({ invoice: null, sourceFile: file, flags: ['⚠辨識失敗'], failed: true, error: r.error });
             continue;
         }
         if (isSuspiciousBatch(r.items)) {
@@ -570,17 +570,20 @@ async function scanFlow(model, scanFolder, masterPath, defaultCaseNames, ownName
             const yn = await ask('  是否手動輸入？(y/n)：');
             if (yn.toLowerCase() === 'y') {
                 inlineManualIndices.add(i);
+                const manualInvoices = [];
                 let n = 0;
                 while (true) {
                     n++;
                     console.log(`\n  ── 第 ${n} 張 ──`);
                     const manual = await manualInput();
+                    manualInvoices.push(manual);
                     const { added, skipped } = await updateExcel([manual], onDuplicate, masterPath, defaultCaseNames);
                     totalAdded += added; totalSkipped += skipped;
                     console.log(`  ✓ 已寫入 Excel（${added > 0 ? '新增 1 筆' : '略過重複'}）`);
                     const more = await ask('  還有下一張？(y/n)：');
                     if (more.toLowerCase() !== 'y') break;
                 }
+                candidates[i] = { ...candidates[i], manualInvoices };
             }
             continue;
         }
@@ -597,14 +600,23 @@ async function scanFlow(model, scanFolder, masterPath, defaultCaseNames, ownName
     const ts = new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' });
     const logLines = [`\n=== ${ts}  資料夾：${path.resolve(folder)} ===`];
     for (let i = 0; i < candidates.length; i++) {
-        const { invoice, sourceFile, failed } = candidates[i];
+        const { invoice, sourceFile, failed, error, manualInvoices } = candidates[i];
         const name = path.basename(sourceFile);
         if (skipIndices.has(i)) {
             logLines.push(`  ✗ ${name}  略過`);
         } else if (failed && !inlineManualIndices.has(i)) {
-            logLines.push(`  ✗ ${name}  辨識失敗略過`);
+            const errMsg = error ? `  [錯誤：${error}]` : '';
+            logLines.push(`  ✗ ${name}  辨識失敗略過${errMsg}`);
         } else if (editIndices.has(i) || inlineManualIndices.has(i)) {
-            logLines.push(`  ✎ ${name}  手動輸入  ${invoice ? (invoice.store_name || '?') : '?'}  $${Number((invoice || {}).total || 0).toLocaleString()}`);
+            const entries = manualInvoices?.length > 0 ? manualInvoices : (invoice ? [invoice] : []);
+            if (entries.length > 0) {
+                for (const inv of entries) {
+                    logLines.push(`  ✎ ${name}  手動輸入  ${inv.store_name || '?'}  $${Number(inv.total || 0).toLocaleString()}`);
+                }
+            } else {
+                const errMsg = error ? `  [辨識錯誤：${error}]` : '';
+                logLines.push(`  ✎ ${name}  手動輸入${errMsg}`);
+            }
         } else {
             logLines.push(`  ✓ ${name}  ${invoice.date || '?'}  ${invoice.store_name || '?'}  $${Number(invoice.total || 0).toLocaleString()}`);
         }
