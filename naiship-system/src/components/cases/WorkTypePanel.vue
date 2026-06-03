@@ -278,6 +278,7 @@ import { ref, computed, reactive, onMounted } from 'vue'
 import { useVendorsStore } from '@/stores/vendors'
 import { useCasesStore } from '@/stores/cases'
 import { useAuthStore } from '@/stores/auth'
+import { useNotificationsStore } from '@/stores/notifications'
 import { useToast } from '@/composables/useToast'
 import { uploadPhoto } from '@/composables/useStorage'
 import { addDoc, collection, getDocs, orderBy, query, serverTimestamp, deleteDoc, doc } from 'firebase/firestore'
@@ -287,6 +288,7 @@ const props = defineProps({ caseId: String, caseName: String })
 const vendorsStore = useVendorsStore()
 const casesStore = useCasesStore()
 const authStore = useAuthStore()
+const notifStore = useNotificationsStore()
 const { toast } = useToast()
 
 const showForm = ref(false)
@@ -463,6 +465,7 @@ async function submitForm() {
             updated.push(entry)
         }
         await casesStore.updateCase(props.caseId, { workTypes: updated })
+        notifStore.notifyAll(authStore.name ?? '', `更新了「${props.caseName}」的工種`, props.caseId, props.caseName)
         showForm.value = false
     } catch {
         toast('儲存失敗，請重試', 'error')

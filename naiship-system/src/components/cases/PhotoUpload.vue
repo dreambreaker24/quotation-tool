@@ -62,9 +62,11 @@ import { uploadPhoto } from '@/composables/useStorage'
 import { addDoc, collection, getDocs, orderBy, query, serverTimestamp, deleteDoc, doc } from 'firebase/firestore'
 import { db } from '@/firebase'
 import { useAuthStore } from '@/stores/auth'
+import { useNotificationsStore } from '@/stores/notifications'
 
 const props = defineProps({ caseId: String, caseName: String })
 const authStore = useAuthStore()
+const notifStore = useNotificationsStore()
 
 const photoTypes = [
     { key: 'survey',       label: '場勘' },
@@ -142,6 +144,7 @@ async function uploadFiles(files, type) {
 
 async function handleFiles(e) {
     await uploadFiles(Array.from(e.target.files), activeType.value)
+    notifStore.notifyAll(authStore.name ?? '', `在「${props.caseName}」上傳了照片`, props.caseId, props.caseName)
     e.target.value = ''
 }
 

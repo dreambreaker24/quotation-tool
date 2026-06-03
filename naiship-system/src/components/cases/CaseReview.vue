@@ -161,10 +161,12 @@ import { ref, onMounted } from 'vue'
 import { collection, addDoc, getDocs, deleteDoc, updateDoc, orderBy, query, serverTimestamp, doc } from 'firebase/firestore'
 import { db } from '@/firebase'
 import { useAuthStore } from '@/stores/auth'
+import { useNotificationsStore } from '@/stores/notifications'
 import { uploadPhoto } from '@/composables/useStorage'
 
 const props = defineProps({ caseId: String, caseName: String })
 const authStore = useAuthStore()
+const notifStore = useNotificationsStore()
 
 const reviews = ref([])
 const showForm = ref(false)
@@ -262,6 +264,9 @@ async function submitReview() {
             }
             const docRef = await addDoc(collection(db, 'cases', props.caseId, 'reviews'), data)
             reviews.value.unshift({ id: docRef.id, ...data, createdAt: { toDate: () => new Date() } })
+        }
+        if (!editingId.value) {
+            notifStore.notifyAll(authStore.name ?? '', `在「${props.caseName}」新增了案件檢討`, props.caseId, props.caseName)
         }
         pendingFiles.value = []
         showForm.value = false

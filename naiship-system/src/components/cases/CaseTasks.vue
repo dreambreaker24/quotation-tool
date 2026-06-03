@@ -171,12 +171,14 @@
 import { ref, computed } from 'vue'
 import { useCaseTasksStore } from '@/stores/caseTasks'
 import { useAuthStore } from '@/stores/auth'
+import { useNotificationsStore } from '@/stores/notifications'
 import { useToast } from '@/composables/useToast'
 import { uploadPhoto } from '@/composables/useStorage'
 
 const props = defineProps({ caseId: String, caseName: String })
 const tasksStore = useCaseTasksStore()
 const authStore = useAuthStore()
+const notifStore = useNotificationsStore()
 const { toast } = useToast()
 
 const showAdd = ref(false)
@@ -253,6 +255,7 @@ async function submitAdd() {
             } catch { /* skip failed */ }
         }
         await tasksStore.addTask(props.caseId, addType.value, addContent.value.trim(), authStore.name ?? '', authStore.user?.uid ?? '', attachments)
+        notifStore.notifyAll(authStore.name ?? '', `在「${props.caseName}」新增了待辦事項`, props.caseId, props.caseName)
         addContent.value = ''
         pendingFiles.value = []
         showAdd.value = false

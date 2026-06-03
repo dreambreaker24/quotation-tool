@@ -162,10 +162,14 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useCasesStore } from '@/stores/cases'
+import { useAuthStore } from '@/stores/auth'
+import { useNotificationsStore } from '@/stores/notifications'
 import { useToast } from '@/composables/useToast'
 
 const props = defineProps({ caseId: String, caseName: String })
 const casesStore = useCasesStore()
+const authStore = useAuthStore()
+const notifStore = useNotificationsStore()
 const { toast } = useToast()
 
 const LABEL_OPTIONS = ['訂金（簽約款）', '第二期款', '第三期款', '第四期款', '第五期款', '尾款']
@@ -268,6 +272,7 @@ async function submitForm() {
             updated.push(entry)
         }
         await casesStore.updateCase(props.caseId, { paymentMilestones: updated })
+        notifStore.notifyAll(authStore.name ?? '', `更新了「${props.caseName}」的收款里程碑`, props.caseId, props.caseName)
         showForm.value = false
     } catch {
         toast('儲存失敗，請重試', 'error')
