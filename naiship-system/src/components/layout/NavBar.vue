@@ -38,7 +38,7 @@ const hasFollowUpDue = computed(() =>
 const navItems = computed(() => [
   ...(auth.isManager ? [{ to: '/', label: '首頁總覽' }] : []),
   { to: '/cases', label: '案件管理' },
-  { to: '/clients', label: '客戶管理' },
+  { to: '/clients', label: '客戶/廠商' },
   { to: '/settings', label: '系統設定' }
 ])
 function isActive(path) {
