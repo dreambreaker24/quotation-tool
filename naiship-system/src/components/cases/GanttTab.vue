@@ -151,6 +151,7 @@
 import { ref, computed, reactive, watch, onUnmounted } from 'vue'
 import { useCasesStore } from '@/stores/cases'
 import { useCaseTasksStore } from '@/stores/caseTasks'
+import { useAuthStore } from '@/stores/auth'
 import { deadlineInfo } from '@/composables/useDeadlineInfo'
 import { useToast } from '@/composables/useToast'
 import PhotoUpload from './PhotoUpload.vue'
@@ -172,6 +173,7 @@ const props = defineProps({ region: String, month: String, jumpCaseId: String })
 const emit = defineEmits(['jumped'])
 const casesStore = useCasesStore()
 const tasksStore = useCaseTasksStore()
+const authStore = useAuthStore()
 const { toast } = useToast()
 
 const expanded = reactive({})
