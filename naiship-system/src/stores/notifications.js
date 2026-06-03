@@ -1,0 +1,53 @@
+import { defineStore } from 'pinia'
+import { ref } from 'vue'
+import { collection, query, where, orderBy, onSnapshot, addDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore'
+import { db } from '@/firebase'
+import { useAuthStore } from '@/stores/auth'
+import { useUsersStore } from '@/stores/users'
+
+export const useNotificationsStore = defineStore('notifications', () => {
+    const notifications = ref([])
+    let unsubscribe = null
+
+    function subscribe(uid) {
+        if (unsubscribe) unsubscribe()
+        const q = query(
+            collection(db, 'notifications'),
+            where('userId', '==', uid),
+            orderBy('createdAt', 'desc')
+        )
+        unsubscribe = onSnapshot(q, snap => {
+            notifications.value = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+        })
+    }
+
+    function cleanup() {
+        if (unsubscribe) { unsubscribe(); unsubscribe = null }
+        notifications.value = []
+    }
+
+    async function notifyAll(actorName, message, caseId, caseName) {
+        const authStore = useAuthStore()
+        const usersStore = useUsersStore()
+        const currentUid = authStore.user?.uid
+        const jobs = []
+        for (const u of usersStore.users) {
+            if (u.id === currentUid || u.disabled) continue
+            jobs.push(addDoc(collection(db, 'notifications'), {
+                userId: u.id,
+                actorName,
+                message,
+                caseId: caseId ?? '',
+                caseName: caseName ?? '',
+                createdAt: serverTimestamp(),
+            }))
+        }
+        await Promise.all(jobs)
+    }
+
+    async function markRead(id) {
+        await deleteDoc(doc(db, 'notifications', id))
+    }
+
+    return { notifications, subscribe, cleanup, notifyAll, markRead }
+})
