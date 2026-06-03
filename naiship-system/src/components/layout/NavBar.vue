@@ -14,7 +14,8 @@
           class="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500"></span>
       </router-link>
     </div>
-    <div class="ml-auto flex items-center gap-3">
+    <div class="ml-auto flex items-center gap-2">
+      <NotificationBell />
       <span class="text-xs text-gray-400">{{ auth.name }}（{{ roleLabel }}）</span>
       <button @click="auth.logout()" class="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm" style="background:#c9a96e;color:#1e2533">
         {{ auth.name?.[0] ?? '?' }}
@@ -27,6 +28,7 @@ import { computed } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useClientsStore } from '@/stores/clients'
 import { useRoute } from 'vue-router'
+import NotificationBell from './NotificationBell.vue'
 const auth = useAuthStore()
 const clientsStore = useClientsStore()
 const route = useRoute()
