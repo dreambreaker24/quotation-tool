@@ -17,10 +17,16 @@
     <div v-if="announcements.length > 0" class="bg-white rounded-2xl shadow-sm p-6">
       <div class="flex items-start justify-between gap-2 mb-3">
         <div class="flex-1 min-w-0">
-          <span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-semibold mr-2">最新公告</span>
+          <span v-if="latest.pinned" class="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-semibold mr-2">📌 置頂</span>
+          <span v-else class="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-semibold mr-2">最新公告</span>
           <span class="text-base font-bold text-gray-800">{{ latest.title }}</span>
         </div>
         <div v-if="authStore.isManager" class="flex gap-2 flex-shrink-0">
+          <button @click="togglePin(latest)"
+            class="text-xs border rounded-lg px-2 py-1 transition-colors"
+            :class="latest.pinned ? 'text-blue-500 border-blue-200 hover:text-blue-700' : 'text-gray-400 border-gray-200 hover:text-blue-500'">
+            📌
+          </button>
           <button @click="openEdit(latest)" class="text-xs text-gray-400 hover:text-gray-700 border border-gray-200 rounded-lg px-2 py-1">編輯</button>
           <button @click="remove(latest)" class="text-xs text-red-400 hover:text-red-600 border border-red-100 rounded-lg px-2 py-1">刪除</button>
         </div>
@@ -46,8 +52,11 @@
           </div>
           <div class="flex items-center gap-2 flex-shrink-0 ml-2">
             <div v-if="authStore.isManager" class="flex gap-1">
-              <span @click.stop="openEdit(a)" class="text-[11px] text-gray-400 hover:text-gray-700 border border-gray-200 rounded px-1.5 py-0.5">編輯</span>
-              <span @click.stop="remove(a)" class="text-[11px] text-red-400 hover:text-red-600 border border-red-100 rounded px-1.5 py-0.5">刪除</span>
+              <span @click.stop="togglePin(a)"
+                class="text-[11px] border rounded px-1.5 py-0.5 cursor-pointer transition-colors"
+                :class="a.pinned ? 'text-blue-500 border-blue-200' : 'text-gray-400 border-gray-200 hover:text-blue-500'">📌</span>
+              <span @click.stop="openEdit(a)" class="text-[11px] text-gray-400 hover:text-gray-700 border border-gray-200 rounded px-1.5 py-0.5 cursor-pointer">編輯</span>
+              <span @click.stop="remove(a)" class="text-[11px] text-red-400 hover:text-red-600 border border-red-100 rounded px-1.5 py-0.5 cursor-pointer">刪除</span>
             </div>
             <span class="text-gray-400 text-xs">{{ expanded.has(a.id) ? '▲' : '▼' }}</span>
           </div>
@@ -146,8 +155,12 @@ const form = ref({ title: '', content: '' })
 const existingImages = ref([])
 const pendingImages = ref([])
 
-const latest = computed(() => announcements.value[0] ?? null)
-const older = computed(() => announcements.value.slice(1))
+const sorted = computed(() => [
+    ...announcements.value.filter(a => a.pinned),
+    ...announcements.value.filter(a => !a.pinned),
+])
+const latest = computed(() => sorted.value[0] ?? null)
+const older = computed(() => sorted.value.slice(1))
 
 onMounted(async () => {
     localStorage.setItem('announcementLastRead', Date.now().toString())
@@ -227,6 +240,14 @@ async function submitForm() {
     } finally {
         saving.value = false
     }
+}
+
+async function togglePin(a) {
+    const newPinned = !a.pinned
+    await updateDoc(doc(db, 'announcements', a.id), { pinned: newPinned })
+    const target = announcements.value.find(x => x.id === a.id)
+    if (target) target.pinned = newPinned
+    toast(newPinned ? '已置頂' : '已取消置頂')
 }
 
 async function remove(a) {

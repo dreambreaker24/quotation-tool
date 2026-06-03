@@ -25,9 +25,9 @@
         <button v-for="n in notifications" :key="n.id"
           @click="handleClick(n)"
           class="w-full text-left px-4 py-3 hover:bg-gray-50 border-b border-gray-50 last:border-0 transition-colors">
-          <div class="text-xs text-gray-800 leading-snug">
-            <span class="font-semibold">{{ n.actorName }}</span>
-            {{ n.message }}
+          <div class="text-xs text-gray-800 leading-snug flex items-start gap-1.5">
+            <span class="flex-shrink-0 text-sm leading-none mt-0.5">{{ notifIcon(n.message) }}</span>
+            <span><span class="font-semibold">{{ n.actorName }}</span> {{ n.message }}</span>
           </div>
           <div class="text-[10px] text-gray-400 mt-1">{{ formatTime(n.createdAt) }}</div>
         </button>
@@ -72,6 +72,18 @@ async function handleClick(n) {
     if (n.caseId) {
         router.push({ path: '/cases', query: { caseId: n.caseId } })
     }
+}
+
+function notifIcon(message) {
+    if (message.includes('新增了案件')) return '📋'
+    if (message.includes('的工種')) return '🔧'
+    if (message.includes('的收款')) return '💰'
+    if (message.includes('待辦事項')) return '✅'
+    if (message.includes('案件檢討')) return '📝'
+    if (message.includes('上傳了照片')) return '📷'
+    if (message.includes('公司佈達')) return '📢'
+    if (message.includes('更新了')) return '✏️'
+    return '🔔'
 }
 
 function formatTime(ts) {

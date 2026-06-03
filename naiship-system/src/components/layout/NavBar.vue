@@ -16,7 +16,7 @@
     </div>
     <div class="ml-auto flex items-center gap-2">
       <NotificationBell />
-      <span class="text-xs text-gray-400">{{ auth.name }}（{{ roleLabel }}）</span>
+      <span class="hidden sm:inline text-xs text-gray-400">{{ auth.name }}（{{ roleLabel }}）</span>
       <button @click="auth.logout()" class="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm" style="background:#c9a96e;color:#1e2533">
         {{ auth.name?.[0] ?? '?' }}
       </button>
