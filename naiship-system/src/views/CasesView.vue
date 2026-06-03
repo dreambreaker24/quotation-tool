@@ -143,6 +143,7 @@ import { useCasesStore } from '@/stores/cases'
 import { useClientsStore } from '@/stores/clients'
 import { useAuthStore } from '@/stores/auth'
 import { useUsersStore } from '@/stores/users'
+import { useNotificationsStore } from '@/stores/notifications'
 
 const route = useRoute()
 const validRegions = ['south', 'north', 'central']
@@ -160,6 +161,7 @@ const casesStore = useCasesStore()
 const clientsStore = useClientsStore()
 const authStore = useAuthStore()
 const usersStore = useUsersStore()
+const notifStore = useNotificationsStore()
 const { toast } = useToast()
 
 const activeUsers = computed(() => usersStore.users.filter(u => !u.disabled))
@@ -187,6 +189,10 @@ onMounted(() => {
     clientsStore.subscribe(['north', 'central', 'south'])
     usersStore.subscribe()
     if (route.query.caseId) jumpToCase(route.query.caseId)
+})
+
+watch(() => route.query.caseId, (id) => {
+    if (id) jumpToCase(id)
 })
 
 watch(() => caseForm.value.linkedClientId, (clientId) => {
@@ -233,11 +239,14 @@ async function submitCase() {
         if (caseForm.value.linkedClientId && docRef?.id) {
             await clientsStore.updateClient(caseForm.value.linkedClientId, { linkedCaseId: docRef.id })
         }
+        const newCaseName = data.name
+        const newCaseId = docRef?.id ?? ''
         caseForm.value = blankCase()
         showAddCase.value = false
         activeTab.value = 'gantt'
-        jumpCaseId.value = docRef?.id ?? null
+        jumpCaseId.value = newCaseId
         toast('案件已建立')
+        notifStore.notifyAll(authStore.name ?? '', `新增了案件「${newCaseName}」`, newCaseId, newCaseName)
     } catch {
         toast('建立失敗，請重試', 'error')
     } finally {

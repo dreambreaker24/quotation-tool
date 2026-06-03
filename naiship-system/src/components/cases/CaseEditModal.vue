@@ -136,6 +136,7 @@ import { Timestamp } from 'firebase/firestore'
 import { useCasesStore } from '@/stores/cases'
 import { useAuthStore } from '@/stores/auth'
 import { useUsersStore } from '@/stores/users'
+import { useNotificationsStore } from '@/stores/notifications'
 import { useToast } from '@/composables/useToast'
 
 const props = defineProps({ caseId: String })
@@ -144,6 +145,7 @@ const emit = defineEmits(['close'])
 const casesStore = useCasesStore()
 const authStore = useAuthStore()
 const usersStore = useUsersStore()
+const notifStore = useNotificationsStore()
 const { toast } = useToast()
 
 const activeUsers = computed(() => usersStore.users.filter(u => !u.disabled))
@@ -261,6 +263,7 @@ async function save() {
 
         await casesStore.updateCase(props.caseId, data)
         toast('案件已儲存')
+        notifStore.notifyAll(authStore.name ?? '', `更新了「${caseData.value?.name ?? ''}」`, props.caseId, caseData.value?.name ?? '')
         emit('close')
     } catch {
         toast('儲存失敗，請重試', 'error')
