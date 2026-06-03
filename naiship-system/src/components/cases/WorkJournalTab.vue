@@ -34,23 +34,25 @@
 
     <!-- Right: log entries -->
     <div class="flex-1 flex flex-col gap-4">
-      <div class="bg-white rounded-2xl shadow-sm px-5 py-3 flex items-center justify-between flex-wrap gap-2">
-        <div>
+      <div class="bg-white rounded-2xl shadow-sm px-4 lg:px-5 py-3 flex flex-col lg:flex-row lg:items-center gap-2">
+        <div class="flex-1">
           <!-- Mobile employee select -->
-          <select v-model="mobileSelectedEmployee" class="lg:hidden text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white mb-2 w-full">
+          <select v-model="mobileSelectedEmployee" class="lg:hidden text-sm border border-gray-200 rounded-lg px-3 py-2.5 bg-white mb-2 w-full min-h-[44px]">
             <option :value="null">全部員工</option>
             <option v-for="emp in filteredEmployees" :key="emp.id" :value="emp">{{ emp.name }}</option>
           </select>
-          <div class="text-sm font-semibold text-gray-800">
-            {{ selectedEmployee ? `${selectedEmployee.name} 的工作日誌` : '全部員工工作日誌' }}
-          </div>
-          <div class="flex items-center gap-2 mt-1">
-            <button @click="shiftDate(-1)" class="text-gray-400 hover:text-gray-700 text-xs leading-none px-1">◀</button>
-            <span class="text-[11px] text-gray-500">{{ dateLabel }}</span>
-            <button @click="shiftDate(1)" :disabled="isAtEnd" class="text-gray-400 hover:text-gray-700 text-xs leading-none px-1 disabled:opacity-30">▶</button>
+          <div class="flex items-center justify-between gap-2">
+            <div class="text-sm font-semibold text-gray-800">
+              {{ selectedEmployee ? `${selectedEmployee.name} 的工作日誌` : '全部員工工作日誌' }}
+            </div>
+            <div class="flex items-center gap-1">
+              <button @click="shiftDate(-1)" class="text-gray-400 hover:text-gray-700 text-sm leading-none px-2 py-1 min-h-[36px]">◀</button>
+              <span class="text-[11px] text-gray-500 whitespace-nowrap">{{ dateLabel }}</span>
+              <button @click="shiftDate(1)" :disabled="isAtEnd" class="text-gray-400 hover:text-gray-700 text-sm leading-none px-2 py-1 min-h-[36px] disabled:opacity-30">▶</button>
+            </div>
           </div>
         </div>
-        <div class="flex items-center gap-2 flex-wrap">
+        <div class="flex items-center gap-2 flex-wrap lg:flex-nowrap lg:justify-end">
           <div class="flex rounded-lg border border-gray-200 overflow-hidden text-xs">
             <button @click="viewMode = 'day'"
               class="px-2.5 py-1.5 transition-colors"
@@ -63,7 +65,10 @@
           </div>
           <button v-if="viewMode === 'week'" @click="exportWeekLogs"
             class="text-xs border border-gray-200 rounded-lg px-3 py-1.5 text-gray-500 hover:border-gray-400">匯出本週</button>
-          <button v-if="isToday" @click="openLogForm" class="text-xs text-white px-3 py-1.5 rounded-lg" style="background:#1e2533">+ 填寫今日日誌</button>
+          <button v-if="isToday" @click="openLogForm"
+            class="text-sm text-white px-4 py-2 rounded-lg w-full lg:w-auto min-h-[40px] font-semibold" style="background:#1e2533">
+            + 填寫今日日誌
+          </button>
         </div>
       </div>
 
@@ -83,7 +88,7 @@
             </div>
           </div>
           <button v-if="canEditLog(log)" @click="openEditForm(log)"
-            class="text-[11px] text-gray-400 hover:text-amber-600 border border-gray-200 hover:border-amber-300 rounded-lg px-2 py-0.5 transition-colors">
+            class="text-xs text-gray-400 hover:text-amber-600 border border-gray-200 hover:border-amber-300 rounded-lg px-3 py-1.5 min-h-[36px] transition-colors">
             編輯
           </button>
         </div>
@@ -240,7 +245,7 @@
 
   <!-- 填寫今日日誌 Modal -->
   <div v-if="showLogForm" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center" style="background:rgba(0,0,0,0.4)">
-    <div class="bg-white sm:rounded-2xl rounded-t-2xl shadow-xl p-6 w-full sm:max-w-lg sm:mx-4 max-h-[100vh] sm:max-h-[90vh] overflow-y-auto">
+    <div class="bg-white sm:rounded-2xl rounded-t-2xl shadow-xl px-4 py-5 sm:p-6 w-full sm:max-w-lg sm:mx-4 max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
       <div class="flex items-center justify-between mb-4">
         <h3 class="text-base font-bold text-gray-800">{{ editingLog ? '編輯工作日誌' : '填寫今日工作日誌' }}</h3>
         <button @click="showLogForm = false; editingLog = null" class="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
