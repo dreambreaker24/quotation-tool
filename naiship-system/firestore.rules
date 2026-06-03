@@ -73,5 +73,14 @@ service cloud.firestore {
     match /quotations/{docId} {
       allow read, write: if isSignedIn();
     }
+    match /notifications/{notifId} {
+      allow read, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn();
+    }
+    match /announcements/{announcementId} {
+      allow read: if isSignedIn();
+      allow create, update: if isManager();
+      allow delete: if isManager();
+    }
   }
 }
