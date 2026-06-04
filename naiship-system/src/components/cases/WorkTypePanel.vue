@@ -22,7 +22,8 @@
       <div v-for="(wt, idx) in workTypes" :key="wt.id"
         class="border border-gray-100 rounded-xl p-3 bg-gray-50/50">
         <!-- Main row -->
-        <div class="flex items-center gap-3">
+        <div class="overflow-x-auto -mx-1 px-1">
+        <div class="flex items-center gap-3 min-w-[480px]">
           <span class="w-2.5 h-2.5 rounded-full flex-shrink-0" :style="`background:${wt.color}`"></span>
           <div class="flex-1 grid grid-cols-7 gap-2 items-start">
             <div>
@@ -96,6 +97,7 @@
             <button @click="openEdit(idx)" class="text-[11px] text-gray-400 hover:text-gray-700">編輯</button>
             <button @click="removeWorkType(idx)" class="text-[11px] text-red-400 hover:text-red-600">刪除</button>
           </div>
+        </div>
         </div>
 
         <!-- Vendor quotes section -->

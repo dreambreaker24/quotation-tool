@@ -1,12 +1,12 @@
 <template>
-  <nav class="text-white h-14 flex items-center px-6 gap-4 fixed top-0 left-0 right-0 z-50" style="background:#1e2533">
-    <div class="flex items-center gap-3 mr-4">
+  <nav class="text-white h-14 flex items-center px-4 sm:px-6 gap-2 sm:gap-4 fixed top-0 left-0 right-0 z-50" style="background:#1e2533">
+    <div class="flex items-center gap-2 mr-1 sm:mr-4 flex-shrink-0">
       <div class="w-7 h-7 rounded flex items-center justify-center font-bold text-xs" style="background:#c9a96e;color:#1e2533">奈</div>
-      <span class="font-semibold text-sm tracking-wide">奈拾設計 管理系統</span>
+      <span class="hidden sm:inline font-semibold text-sm tracking-wide">奈拾設計 管理系統</span>
     </div>
-    <div class="flex gap-1">
+    <div class="flex gap-0.5 sm:gap-1 min-w-0">
       <router-link v-for="item in navItems" :key="item.to" :to="item.to"
-        class="px-4 py-1.5 rounded-lg text-sm text-gray-400 hover:text-white transition-colors relative"
+        class="px-2 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm text-gray-400 hover:text-white transition-colors relative whitespace-nowrap"
         active-class="text-white"
         :style="isActive(item.to) ? 'background:rgba(255,255,255,0.1)' : ''">
         {{ item.label }}

@@ -7,7 +7,7 @@
 
     <div class="flex flex-col gap-0">
       <!-- 客戶需求 + 主管指示 -->
-      <div class="grid grid-cols-2 divide-x divide-gray-100">
+      <div class="grid grid-cols-1 sm:grid-cols-2 sm:divide-x divide-gray-100 divide-y sm:divide-y-0">
         <!-- 客戶需求 -->
         <div class="p-4">
           <div class="flex items-center justify-between mb-3">
