@@ -173,7 +173,7 @@ import { useCaseTasksStore } from '@/stores/caseTasks'
 import { useAuthStore } from '@/stores/auth'
 import { useNotificationsStore } from '@/stores/notifications'
 import { useToast } from '@/composables/useToast'
-import { uploadPhoto } from '@/composables/useStorage'
+import { uploadPhoto, validateUploadFile } from '@/composables/useStorage'
 
 const props = defineProps({ caseId: String, caseName: String })
 const tasksStore = useCaseTasksStore()
@@ -213,6 +213,7 @@ function openAdd(type) {
 
 function handleAttachFiles(e) {
     Array.from(e.target.files).forEach(file => {
+        if (validateUploadFile(file)) { toast(validateUploadFile(file), 'error'); return }
         const isPdf = file.name.toLowerCase().endsWith('.pdf')
         pendingFiles.value.push({ file, preview: isPdf ? null : URL.createObjectURL(file) })
     })

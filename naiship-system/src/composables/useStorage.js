@@ -1,3 +1,13 @@
+const MAX_SIZE = 10 * 1024 * 1024
+
+export function validateUploadFile(file) {
+    if (file.size > MAX_SIZE) {
+        const mb = (file.size / 1024 / 1024).toFixed(1)
+        return `「${file.name}」檔案過大（${mb} MB），單檔限制 10 MB`
+    }
+    return null
+}
+
 export async function uploadPhoto(file, type) {
     const backend = import.meta.env.VITE_STORAGE_BACKEND || 'local'
 

@@ -58,7 +58,7 @@
 </template>
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { uploadPhoto } from '@/composables/useStorage'
+import { uploadPhoto, validateUploadFile } from '@/composables/useStorage'
 import { addDoc, collection, getDocs, orderBy, query, serverTimestamp, deleteDoc, doc } from 'firebase/firestore'
 import { db } from '@/firebase'
 import { useAuthStore } from '@/stores/auth'
@@ -121,6 +121,8 @@ function triggerUpload(type) {
 async function uploadFiles(files, type) {
     uploadError.value = ''
     for (const file of files) {
+        const err = validateUploadFile(file)
+        if (err) { uploadError.value = err; continue }
         try {
             const url = await uploadPhoto(file, type)
             const isPdf = file.name.toLowerCase().endsWith('.pdf')

@@ -162,11 +162,13 @@ import { collection, addDoc, getDocs, deleteDoc, updateDoc, orderBy, query, serv
 import { db } from '@/firebase'
 import { useAuthStore } from '@/stores/auth'
 import { useNotificationsStore } from '@/stores/notifications'
-import { uploadPhoto } from '@/composables/useStorage'
+import { uploadPhoto, validateUploadFile } from '@/composables/useStorage'
+import { useToast } from '@/composables/useToast'
 
 const props = defineProps({ caseId: String, caseName: String })
 const authStore = useAuthStore()
 const notifStore = useNotificationsStore()
+const { toast } = useToast()
 
 const reviews = ref([])
 const showForm = ref(false)
@@ -217,6 +219,8 @@ function openEdit(r) {
 
 function handleAttachFiles(e) {
     Array.from(e.target.files).forEach(file => {
+        const err = validateUploadFile(file)
+        if (err) { toast(err, 'error'); return }
         const isPdf = file.name.toLowerCase().endsWith('.pdf')
         pendingFiles.value.push({ file, preview: isPdf ? null : URL.createObjectURL(file) })
     })

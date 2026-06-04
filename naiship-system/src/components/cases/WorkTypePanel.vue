@@ -282,7 +282,7 @@ import { useCasesStore } from '@/stores/cases'
 import { useAuthStore } from '@/stores/auth'
 import { useNotificationsStore } from '@/stores/notifications'
 import { useToast } from '@/composables/useToast'
-import { uploadPhoto } from '@/composables/useStorage'
+import { uploadPhoto, validateUploadFile } from '@/composables/useStorage'
 import { addDoc, collection, getDocs, orderBy, query, serverTimestamp, deleteDoc, doc } from 'firebase/firestore'
 import { db } from '@/firebase'
 
@@ -365,6 +365,8 @@ async function handleVendorFiles(e) {
     const files = Array.from(e.target.files)
     e.target.value = ''
     for (const file of files) {
+        const err = validateUploadFile(file)
+        if (err) { toast(err, 'error'); continue }
         try {
             const url = await uploadPhoto(file, 'vendor_quote')
             const isPdf = file.name.toLowerCase().endsWith('.pdf')

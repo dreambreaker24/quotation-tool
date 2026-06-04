@@ -137,7 +137,7 @@ import { collection, addDoc, getDocs, deleteDoc, updateDoc, orderBy, query, serv
 import { db } from '@/firebase'
 import { useAuthStore } from '@/stores/auth'
 import { useNotificationsStore } from '@/stores/notifications'
-import { uploadPhoto } from '@/composables/useStorage'
+import { uploadPhoto, validateUploadFile } from '@/composables/useStorage'
 import { useToast } from '@/composables/useToast'
 
 const authStore = useAuthStore()
@@ -199,6 +199,8 @@ function closeForm() { showForm.value = false }
 
 function handleImages(e) {
     Array.from(e.target.files).forEach(file => {
+        const err = validateUploadFile(file)
+        if (err) { toast(err, 'error'); return }
         pendingImages.value.push({ file, preview: URL.createObjectURL(file) })
     })
     e.target.value = ''
