@@ -16,9 +16,10 @@ export const useNotificationsStore = defineStore('notifications', () => {
             where('userId', '==', uid),
             orderBy('createdAt', 'desc')
         )
-        unsubscribe = onSnapshot(q, snap => {
-            notifications.value = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-        })
+        unsubscribe = onSnapshot(q,
+            snap => { notifications.value = snap.docs.map(d => ({ id: d.id, ...d.data() })) },
+            err => console.error('[notifications] onSnapshot error:', err)
+        )
     }
 
     function cleanup() {
@@ -32,7 +33,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
         const currentUid = authStore.user?.uid
         const jobs = []
         for (const u of usersStore.users) {
-            if (u.disabled) continue
+            if (u.id === currentUid || u.disabled) continue
             jobs.push(addDoc(collection(db, 'notifications'), {
                 userId: u.id,
                 actorName,
