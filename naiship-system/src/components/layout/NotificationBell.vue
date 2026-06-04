@@ -36,7 +36,7 @@
   </div>
 </template>
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useNotificationsStore } from '@/stores/notifications'
 import { useAuthStore } from '@/stores/auth'
@@ -50,8 +50,11 @@ const bellRef = ref(null)
 const notifications = computed(() => notifStore.notifications)
 const count = computed(() => notifications.value.length)
 
+watch(() => authStore.user?.uid, (uid) => {
+    if (uid) notifStore.subscribe(uid)
+}, { immediate: true })
+
 onMounted(() => {
-    if (authStore.user?.uid) notifStore.subscribe(authStore.user.uid)
     document.addEventListener('click', onOutsideClick)
 })
 
