@@ -86,12 +86,14 @@ import { collection, addDoc, getDocs, query, orderBy, serverTimestamp } from 'fi
 import { db } from '@/firebase'
 import { useAuthStore } from '@/stores/auth'
 import { useClientsStore } from '@/stores/clients'
+import { useNotificationsStore } from '@/stores/notifications'
 import { useToast } from '@/composables/useToast'
 
 const props = defineProps({ clientId: { type: String, required: true } })
 
 const authStore = useAuthStore()
 const clientsStore = useClientsStore()
+const notifStore = useNotificationsStore()
 const { toast } = useToast()
 
 const logs = ref([])
@@ -135,6 +137,7 @@ async function submitLog() {
             createdBy: authStore.user?.uid ?? '',
             creatorName: authStore.name ?? '',
         })
+        notifStore.notifyAll(authStore.name ?? '', `新增了聯繫記錄（${form.value.method}・${form.value.outcome}）`, '', '')
         toast('聯繫記錄已新增')
         closeModal()
         await loadLogs()

@@ -12,56 +12,16 @@
         {{ STATUS_LABELS[status] }}
       </button>
     </div>
-    <div class="flex" style="min-height:200px">
-      <!-- Fixed left panel (270px) -->
-      <div class="flex-shrink-0 border-r border-gray-200" style="width:270px">
-        <!-- Column header -->
-        <div class="bg-gray-50 border-b border-gray-200 px-3 py-2.5 flex items-center gap-2" style="height:36px">
-          <span class="flex-1 text-[11px] font-semibold text-gray-500">案件 / 工種</span>
-          <span class="w-16 text-center text-[11px] font-semibold text-gray-500">負責人</span>
-        </div>
-        <!-- Case rows -->
-        <div v-for="c in regionCases" :key="c.id" class="border-b border-gray-100">
-          <div @click="selectCase(c.id)"
-            class="px-3 py-2 flex items-center gap-2 cursor-pointer transition-colors" style="height:36px"
-            :style="`border-left:3px solid ${STATUS_BAR_COLORS[c.status] ?? '#e5e7eb'};${selectedCaseId === c.id ? 'background:rgba(201,169,110,0.12)' : ''}`">
-            <span class="text-gray-400 text-[10px] w-4 flex-shrink-0 select-none">{{ expanded[c.id] ? '▼' : '▶' }}</span>
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center gap-1 min-w-0">
-                <div class="text-xs font-semibold truncate" :title="c.name"
-                  :style="selectedCaseId === c.id ? 'color:#c9a96e' : 'color:#1f2937'">{{ c.name }}</div>
-                <span v-if="hasOverduePayments(c)" class="text-[9px] text-red-500 font-bold flex-shrink-0" title="有逾期未收款">$⚠</span>
-              </div>
-              <div v-if="deadlineInfo(c)" class="text-[9px] font-medium leading-none mt-0.5" :style="`color:${deadlineInfo(c).color}`">
-                ⚑ {{ deadlineInfo(c).label }}
-              </div>
-            </div>
-            <span class="w-16 text-center text-[11px] text-gray-500 flex-shrink-0">{{ c.assigneeName }}</span>
+    <!-- Single scrollable container: left cell sticky, day grid scrolls -->
+    <div class="overflow-x-auto" style="min-height:200px">
+      <div :style="`min-width:${270 + 31 * 28}px`">
+        <!-- Header row -->
+        <div class="bg-gray-50 border-b border-gray-200 flex" style="height:36px">
+          <div class="flex-shrink-0 sticky left-0 z-10 bg-gray-50 border-r border-gray-200 px-3 flex items-center gap-2" style="width:270px">
+            <span class="flex-1 text-[11px] font-semibold text-gray-500">案件 / 工種</span>
+            <span class="w-16 text-center text-[11px] font-semibold text-gray-500">負責人</span>
           </div>
-          <!-- Work type sub-rows (when expanded) -->
-          <div v-if="expanded[c.id]" class="bg-gray-50/50">
-            <div v-if="!c.workTypes?.length" class="px-5 flex items-center border-t border-gray-100 text-[11px] text-gray-400" style="height:28px">
-              尚無工種安排
-            </div>
-            <div v-for="wt in c.workTypes" :key="wt.id"
-              class="px-3 flex items-center gap-2 border-t border-gray-100"
-              style="height:28px"
-              :class="wt.done ? 'bg-green-50/50' : ''">
-              <span class="w-4"></span>
-              <span class="w-2 h-2 rounded-full flex-shrink-0" :style="`background:${wt.color};opacity:${wt.done ? 0.4 : 1}`"></span>
-              <span class="text-[11px] flex-1 truncate" :class="wt.done ? 'text-gray-400 line-through' : 'text-gray-600'">{{ wt.name }}</span>
-              <span v-if="wt.done" class="text-[9px] px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 font-semibold flex-shrink-0 whitespace-nowrap">✓ 完工</span>
-              <span v-else-if="wt.vendorName" class="text-[10px] text-gray-400 truncate max-w-[80px]">{{ wt.vendorName }}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Scrollable 31-day grid -->
-      <div class="flex-1 overflow-x-auto">
-        <div :style="`min-width:${31 * 28}px`">
-          <!-- Day headers -->
-          <div class="bg-gray-50 border-b border-gray-200 flex" style="height:36px">
+          <div class="flex flex-shrink-0" style="width:868px">
             <div v-for="d in 31" :key="d"
               class="flex-shrink-0 text-center text-[10px] border-r border-gray-100 flex items-center justify-center"
               style="width:28px"
@@ -70,35 +30,72 @@
               {{ d }}
             </div>
           </div>
-          <!-- Case rows -->
-          <template v-for="c in regionCases" :key="c.id">
-            <div class="flex border-b border-gray-100 relative" style="height:36px"
-              :style="selectedCaseId === c.id ? 'background:rgba(201,169,110,0.05)' : ''">
+        </div>
+        <!-- Case rows -->
+        <template v-for="c in regionCases" :key="c.id">
+          <!-- Main case row -->
+          <div class="flex border-b border-gray-100" style="height:36px"
+            :style="selectedCaseId === c.id ? 'background:rgba(201,169,110,0.05)' : ''">
+            <div @click="selectCase(c.id)"
+              class="flex-shrink-0 sticky left-0 z-10 border-r border-gray-200 px-3 flex items-center gap-2 cursor-pointer transition-colors"
+              style="width:270px"
+              :style="`border-left:3px solid ${STATUS_BAR_COLORS[c.status] ?? '#e5e7eb'};background:${selectedCaseId === c.id ? 'rgba(201,169,110,0.12)' : 'white'}`">
+              <span class="text-gray-400 text-[10px] w-4 flex-shrink-0 select-none">{{ expanded[c.id] ? '▼' : '▶' }}</span>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-1 min-w-0">
+                  <div class="text-xs font-semibold truncate" :title="c.name"
+                    :style="selectedCaseId === c.id ? 'color:#c9a96e' : 'color:#1f2937'">{{ c.name }}</div>
+                  <span v-if="hasOverduePayments(c)" class="text-[9px] text-red-500 font-bold flex-shrink-0" title="有逾期未收款">$⚠</span>
+                </div>
+                <div v-if="deadlineInfo(c)" class="text-[9px] font-medium leading-none mt-0.5" :style="`color:${deadlineInfo(c).color}`">
+                  ⚑ {{ deadlineInfo(c).label }}
+                </div>
+              </div>
+              <span class="w-16 text-center text-[11px] text-gray-500 flex-shrink-0">{{ c.assigneeName }}</span>
+            </div>
+            <!-- Day grid: position:relative anchors bar to day columns only -->
+            <div class="relative flex flex-shrink-0" style="width:868px">
               <div v-for="d in 31" :key="d"
                 class="flex-shrink-0 border-r border-gray-50" style="width:28px"
                 :style="d === todayDate ? 'background:rgba(251,191,36,0.08)' : ''">
               </div>
-              <!-- Case gantt bar -->
-              <div v-if="c.ganttBar" class="absolute top-2 bottom-2 rounded opacity-80"
+              <div v-if="c.ganttBar" class="absolute top-2 bottom-2 rounded opacity-80 pointer-events-none"
                 :style="`left:${c.ganttBar.left}px;width:${c.ganttBar.width}px;background:${c.ganttBar.color}`">
               </div>
             </div>
-            <!-- Work type sub-rows (when expanded) -->
-            <template v-if="expanded[c.id]">
-              <div v-if="!c.workTypes?.length" class="flex border-b border-gray-100" style="height:28px"></div>
-              <div v-for="wt in c.workTypes" :key="wt.id"
-                class="flex border-b border-gray-100 relative" style="height:28px">
+          </div>
+          <!-- Work type sub-rows (when expanded) -->
+          <template v-if="expanded[c.id]">
+            <div v-if="!c.workTypes?.length" class="flex border-b border-gray-100" style="height:28px">
+              <div class="flex-shrink-0 sticky left-0 z-10 bg-gray-50 border-r border-gray-200 px-5 flex items-center text-[11px] text-gray-400" style="width:270px">
+                尚無工種安排
+              </div>
+              <div class="flex-shrink-0" style="width:868px"></div>
+            </div>
+            <div v-for="wt in c.workTypes" :key="wt.id"
+              class="flex border-b border-gray-100" style="height:28px"
+              :class="wt.done ? 'bg-green-50/50' : 'bg-gray-50/50'">
+              <div class="flex-shrink-0 sticky left-0 z-10 border-r border-gray-200 px-3 flex items-center gap-2"
+                style="width:270px"
+                :style="wt.done ? 'background:#f0fdf4' : 'background:#f9fafb'">
+                <span class="w-4"></span>
+                <span class="w-2 h-2 rounded-full flex-shrink-0" :style="`background:${wt.color};opacity:${wt.done ? 0.4 : 1}`"></span>
+                <span class="text-[11px] flex-1 truncate" :class="wt.done ? 'text-gray-400 line-through' : 'text-gray-600'">{{ wt.name }}</span>
+                <span v-if="wt.done" class="text-[9px] px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 font-semibold flex-shrink-0 whitespace-nowrap">✓ 完工</span>
+                <span v-else-if="wt.vendorName" class="text-[10px] text-gray-400 truncate max-w-[80px]">{{ wt.vendorName }}</span>
+              </div>
+              <div class="relative flex flex-shrink-0" style="width:868px">
                 <div v-for="d in 31" :key="d"
                   class="flex-shrink-0 border-r border-gray-50" style="width:28px">
                 </div>
                 <div v-if="getWtGanttBar(wt, displayYear, displayMonth)"
-                  class="absolute top-1 bottom-1 rounded"
+                  class="absolute top-1 bottom-1 rounded pointer-events-none"
                   :style="`left:${getWtGanttBar(wt, displayYear, displayMonth).left}px;width:${getWtGanttBar(wt, displayYear, displayMonth).width}px;background:${wt.done ? '#86efac' : wt.color};opacity:${wt.done ? 0.5 : 1}`">
                 </div>
               </div>
-            </template>
+            </div>
           </template>
-        </div>
+        </template>
       </div>
     </div>
 
@@ -152,6 +149,7 @@ import { ref, computed, reactive, watch, onUnmounted } from 'vue'
 import { useCasesStore } from '@/stores/cases'
 import { useCaseTasksStore } from '@/stores/caseTasks'
 import { useAuthStore } from '@/stores/auth'
+import { useNotificationsStore } from '@/stores/notifications'
 import { deadlineInfo } from '@/composables/useDeadlineInfo'
 import { useToast } from '@/composables/useToast'
 import PhotoUpload from './PhotoUpload.vue'
@@ -174,6 +172,7 @@ const emit = defineEmits(['jumped'])
 const casesStore = useCasesStore()
 const tasksStore = useCaseTasksStore()
 const authStore = useAuthStore()
+const notifStore = useNotificationsStore()
 const { toast } = useToast()
 
 const expanded = reactive({})
@@ -317,6 +316,8 @@ async function copyCase() {
         signedAmount: 0,
         workTypes,
     })
+    const newCaseName = `${c.name}（複製）`
+    notifStore.notifyAll(authStore.name ?? '', `新增了案件「${newCaseName}」`, docRef?.id ?? '', newCaseName)
     toast('案件已複製，請補充資料')
     if (docRef?.id) {
         const newId = docRef.id

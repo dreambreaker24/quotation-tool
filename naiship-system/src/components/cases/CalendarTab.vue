@@ -272,6 +272,7 @@ import { useCasesStore } from '@/stores/cases'
 import { useCalendarEventsStore } from '@/stores/calendarEvents'
 import { useAuthStore } from '@/stores/auth'
 import { useUsersStore } from '@/stores/users'
+import { useNotificationsStore } from '@/stores/notifications'
 import { useToast } from '@/composables/useToast'
 
 const props = defineProps({ region: String })
@@ -279,6 +280,7 @@ const casesStore = useCasesStore()
 const eventsStore = useCalendarEventsStore()
 const authStore = useAuthStore()
 const usersStore = useUsersStore()
+const notifStore = useNotificationsStore()
 const { toast } = useToast()
 const weekDays = ['日', '一', '二', '三', '四', '五', '六']
 const today = new Date()
@@ -467,6 +469,7 @@ async function submitEvent() {
       payload.personNames = eventForm.value.personNames.filter(Boolean)
     }
     await eventsStore.addEvent(payload)
+    notifStore.notifyAll(authStore.name ?? '', `新增了行程「${payload.label}」`, '', '')
     eventForm.value = blankEvent()
     showAddEvent.value = false
   } catch {

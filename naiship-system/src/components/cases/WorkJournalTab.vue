@@ -209,11 +209,15 @@
             class="text-[11px] hover:underline ml-4 sm:ml-8" style="color:#c9a96e">
             {{ (log.replies?.length) ? '回覆…' : '＋ 主管回覆' }}
           </button>
-          <div v-if="replyTarget === log.id" class="mt-2 flex gap-2 ml-4 sm:ml-8">
-            <input v-model="replyContent" type="text" placeholder="輸入回覆..."
-              class="flex-1 text-xs border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1">
-            <button @click="submitReply(log.id)"
-              class="text-xs text-white px-3 py-1.5 rounded-lg" style="background:#1e2533">送出</button>
+          <div v-if="replyTarget === log.id" class="mt-2 flex flex-col gap-2 ml-4 sm:ml-8">
+            <textarea v-model="replyContent" rows="3" placeholder="輸入回覆..."
+              class="w-full text-xs border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 resize-none"></textarea>
+            <div class="flex justify-end gap-2">
+              <button @click="replyTarget = null; replyContent = ''"
+                class="text-xs text-gray-500 px-3 py-1.5 rounded-lg border border-gray-200">取消</button>
+              <button @click="submitReply(log.id)"
+                class="text-xs text-white px-3 py-1.5 rounded-lg" style="background:#1e2533">送出</button>
+            </div>
           </div>
         </div>
       </div>
@@ -400,6 +404,7 @@ import * as XLSX from 'xlsx'
 import { useWorkLogsStore } from '@/stores/workLogs'
 import { useAuthStore } from '@/stores/auth'
 import { useCasesStore } from '@/stores/cases'
+import { useNotificationsStore } from '@/stores/notifications'
 import { uploadPhoto } from '@/composables/useStorage'
 import { useToast } from '@/composables/useToast'
 
@@ -407,6 +412,7 @@ const props = defineProps({ region: String })
 const logsStore = useWorkLogsStore()
 const authStore = useAuthStore()
 const casesStore = useCasesStore()
+const notifStore = useNotificationsStore()
 
 const selectedEmployee = ref(null)
 const mobileSelectedEmployee = ref(null)
@@ -607,6 +613,7 @@ async function submitLog() {
     }
     try {
         await logsStore.addLog(logDoc)
+        notifStore.notifyAll(authStore.name ?? '', `新增了工作日誌`, '', '')
         logAttachFiles.value = []
         showLogForm.value = false
         toast('日誌已送出')
@@ -780,6 +787,9 @@ async function submitReply(logId) {
     if (!replyContent.value.trim()) return
     try {
         await logsStore.addReply(logId, replyContent.value, authStore.user?.uid ?? 'unknown', authStore.name ?? '')
+        const log = logsStore.logs.find(l => l.id === logId)
+        const ownerName = log?.userName ?? ''
+        notifStore.notifyAll(authStore.name ?? '', `回覆了 ${ownerName} 的工作日誌`, '', '')
         replyContent.value = ''
         replyTarget.value = null
     } catch {

@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { collection, query, where, orderBy, onSnapshot, addDoc, updateDoc, getDocs, doc, serverTimestamp, Timestamp } from 'firebase/firestore'
+import { collection, query, where, orderBy, onSnapshot, addDoc, updateDoc, getDocs, doc, serverTimestamp, Timestamp, arrayUnion } from 'firebase/firestore'
 import { db } from '@/firebase'
 
 export const useWorkLogsStore = defineStore('workLogs', () => {
@@ -58,9 +58,14 @@ export const useWorkLogsStore = defineStore('workLogs', () => {
     }
 
     async function addReply(logId, content, userId, userName) {
-        return addDoc(collection(db, 'workLogs', logId, 'replies'), {
-            content, createdBy: userId, creatorName: userName ?? '', createdAt: serverTimestamp()
-        })
+        const reply = {
+            id: Date.now().toString(),
+            content,
+            createdBy: userId,
+            creatorName: userName ?? '',
+            createdAt: Timestamp.fromDate(new Date())
+        }
+        return updateDoc(doc(db, 'workLogs', logId), { replies: arrayUnion(reply) })
     }
 
     async function approveFuel(logId, approverName) {

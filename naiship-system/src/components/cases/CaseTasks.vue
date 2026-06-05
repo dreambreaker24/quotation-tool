@@ -15,29 +15,39 @@
             <button @click="openAdd('client')" class="text-[11px] text-blue-500 hover:text-blue-700">+ 新增</button>
           </div>
           <div class="flex flex-col gap-2">
-            <div v-for="t in clientTasks" :key="t.id" class="group relative bg-blue-50 rounded-xl px-3 py-2.5 text-xs text-gray-700 leading-relaxed whitespace-pre-wrap">
-              <template v-if="editingId === t.id">
-                <textarea v-model="editContent" rows="3" class="w-full text-xs border border-blue-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 resize-none bg-white mb-2"></textarea>
-                <div class="flex gap-2 justify-end">
-                  <button @click="saveEdit(t.id)" class="text-[10px] text-white px-2.5 py-1 rounded-lg" style="background:#3b82f6">儲存</button>
-                  <button @click="editingId = null" class="text-[10px] text-gray-400 px-2 py-1">取消</button>
-                </div>
-              </template>
-              <template v-else>
-                {{ t.content }}
-                <div v-if="t.attachments?.length" class="flex gap-1.5 flex-wrap mt-1.5">
-                  <a v-for="att in t.attachments" :key="att.url"
-                    :href="att.isPdf ? (att.pdfUrl ?? att.url) : undefined" :target="att.isPdf ? '_blank' : undefined">
-                    <div v-if="att.isPdf" class="w-10 h-10 rounded bg-red-100 flex items-center justify-center text-[9px] text-red-600 font-bold hover:bg-red-200">PDF</div>
-                    <img v-else :src="att.url" @click.prevent="previewUrl = att.url" class="w-10 h-10 rounded object-cover cursor-pointer hover:opacity-80">
-                  </a>
-                </div>
-                <div class="text-[10px] text-blue-400 mt-1">{{ t.creatorName }} · {{ formatTime(t.createdAt) }}</div>
-                <div class="absolute top-2 right-2 hidden group-hover:flex gap-1">
-                  <button @click="startEdit(t)" class="text-[9px] bg-white border border-gray-200 rounded px-1.5 py-0.5 text-gray-500 hover:text-gray-700">編輯</button>
-                  <button @click="remove(t.id)" class="text-[9px] bg-white border border-red-100 rounded px-1.5 py-0.5 text-red-400 hover:text-red-600">刪除</button>
-                </div>
-              </template>
+            <div v-for="(t, idx) in clientTasks" :key="t.id"
+              class="group relative flex items-start gap-2 bg-blue-50 rounded-xl px-3 py-2.5 text-xs text-gray-700 leading-relaxed">
+              <span class="flex-shrink-0 font-semibold text-blue-400 w-4 text-right">{{ idx + 1 }}.</span>
+              <div class="flex-1 min-w-0">
+                <template v-if="editingId === t.id">
+                  <input v-model="editContent" type="text"
+                    class="w-full text-xs border border-blue-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 bg-white mb-2">
+                  <div class="flex gap-2 justify-end">
+                    <button @click="saveEdit(t.id)" class="text-[10px] text-white px-2.5 py-1 rounded-lg" style="background:#3b82f6">儲存</button>
+                    <button @click="editingId = null" class="text-[10px] text-gray-400 px-2 py-1">取消</button>
+                  </div>
+                </template>
+                <template v-else>
+                  <span :class="t.done ? 'line-through text-gray-400' : ''" class="whitespace-pre-wrap">{{ t.content }}</span>
+                  <div v-if="t.attachments?.length" class="flex gap-1.5 flex-wrap mt-1.5">
+                    <a v-for="att in t.attachments" :key="att.url"
+                      :href="att.isPdf ? (att.pdfUrl ?? att.url) : undefined" :target="att.isPdf ? '_blank' : undefined">
+                      <div v-if="att.isPdf" class="w-10 h-10 rounded bg-red-100 flex items-center justify-center text-[9px] text-red-600 font-bold hover:bg-red-200">PDF</div>
+                      <img v-else :src="att.url" @click.prevent="previewUrl = att.url" class="w-10 h-10 rounded object-cover cursor-pointer hover:opacity-80">
+                    </a>
+                  </div>
+                  <div class="text-[10px] text-blue-400 mt-1">{{ t.creatorName }} · {{ formatTime(t.createdAt) }}</div>
+                  <div class="hidden group-hover:flex gap-1 mt-1 flex-wrap">
+                    <button v-if="authStore.isManager" @click="tasksStore.toggleDone(props.caseId, t.id, !t.done)"
+                      class="text-[9px] bg-white border rounded px-1.5 py-0.5"
+                      :class="t.done ? 'border-blue-200 text-blue-500 hover:text-blue-700' : 'border-gray-200 text-gray-500 hover:text-gray-700'">
+                      {{ t.done ? '取消完成' : '✓ 完成' }}
+                    </button>
+                    <button @click="startEdit(t)" class="text-[9px] bg-white border border-gray-200 rounded px-1.5 py-0.5 text-gray-500 hover:text-gray-700">編輯</button>
+                    <button @click="remove(t.id)" class="text-[9px] bg-white border border-red-100 rounded px-1.5 py-0.5 text-red-400 hover:text-red-600">刪除</button>
+                  </div>
+                </template>
+              </div>
             </div>
             <div v-if="clientTasks.length === 0" class="text-[11px] text-gray-300 py-2">尚無紀錄</div>
           </div>
@@ -50,29 +60,39 @@
             <button v-if="authStore.isManager" @click="openAdd('manager')" class="text-[11px] text-amber-500 hover:text-amber-700">+ 新增</button>
           </div>
           <div class="flex flex-col gap-2">
-            <div v-for="t in managerTasks" :key="t.id" class="group relative bg-amber-50 rounded-xl px-3 py-2.5 text-xs text-gray-700 leading-relaxed whitespace-pre-wrap">
-              <template v-if="editingId === t.id">
-                <textarea v-model="editContent" rows="3" class="w-full text-xs border border-amber-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 resize-none bg-white mb-2"></textarea>
-                <div class="flex gap-2 justify-end">
-                  <button @click="saveEdit(t.id)" class="text-[10px] text-white px-2.5 py-1 rounded-lg" style="background:#c9a96e">儲存</button>
-                  <button @click="editingId = null" class="text-[10px] text-gray-400 px-2 py-1">取消</button>
-                </div>
-              </template>
-              <template v-else>
-                {{ t.content }}
-                <div v-if="t.attachments?.length" class="flex gap-1.5 flex-wrap mt-1.5">
-                  <a v-for="att in t.attachments" :key="att.url"
-                    :href="att.isPdf ? (att.pdfUrl ?? att.url) : undefined" :target="att.isPdf ? '_blank' : undefined">
-                    <div v-if="att.isPdf" class="w-10 h-10 rounded bg-red-100 flex items-center justify-center text-[9px] text-red-600 font-bold hover:bg-red-200">PDF</div>
-                    <img v-else :src="att.url" @click.prevent="previewUrl = att.url" class="w-10 h-10 rounded object-cover cursor-pointer hover:opacity-80">
-                  </a>
-                </div>
-                <div class="text-[10px] text-amber-400 mt-1">{{ t.creatorName }} · {{ formatTime(t.createdAt) }}</div>
-                <div v-if="authStore.isManager" class="absolute top-2 right-2 hidden group-hover:flex gap-1">
-                  <button @click="startEdit(t)" class="text-[9px] bg-white border border-gray-200 rounded px-1.5 py-0.5 text-gray-500 hover:text-gray-700">編輯</button>
-                  <button @click="remove(t.id)" class="text-[9px] bg-white border border-red-100 rounded px-1.5 py-0.5 text-red-400 hover:text-red-600">刪除</button>
-                </div>
-              </template>
+            <div v-for="(t, idx) in managerTasks" :key="t.id"
+              class="group relative flex items-start gap-2 bg-amber-50 rounded-xl px-3 py-2.5 text-xs text-gray-700 leading-relaxed">
+              <span class="flex-shrink-0 font-semibold text-amber-400 w-4 text-right">{{ idx + 1 }}.</span>
+              <div class="flex-1 min-w-0">
+                <template v-if="editingId === t.id">
+                  <input v-model="editContent" type="text"
+                    class="w-full text-xs border border-amber-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 bg-white mb-2">
+                  <div class="flex gap-2 justify-end">
+                    <button @click="saveEdit(t.id)" class="text-[10px] text-white px-2.5 py-1 rounded-lg" style="background:#c9a96e">儲存</button>
+                    <button @click="editingId = null" class="text-[10px] text-gray-400 px-2 py-1">取消</button>
+                  </div>
+                </template>
+                <template v-else>
+                  <span :class="t.done ? 'line-through text-gray-400' : ''" class="whitespace-pre-wrap">{{ t.content }}</span>
+                  <div v-if="t.attachments?.length" class="flex gap-1.5 flex-wrap mt-1.5">
+                    <a v-for="att in t.attachments" :key="att.url"
+                      :href="att.isPdf ? (att.pdfUrl ?? att.url) : undefined" :target="att.isPdf ? '_blank' : undefined">
+                      <div v-if="att.isPdf" class="w-10 h-10 rounded bg-red-100 flex items-center justify-center text-[9px] text-red-600 font-bold hover:bg-red-200">PDF</div>
+                      <img v-else :src="att.url" @click.prevent="previewUrl = att.url" class="w-10 h-10 rounded object-cover cursor-pointer hover:opacity-80">
+                    </a>
+                  </div>
+                  <div class="text-[10px] text-amber-400 mt-1">{{ t.creatorName }} · {{ formatTime(t.createdAt) }}</div>
+                  <div v-if="authStore.isManager" class="hidden group-hover:flex gap-1 mt-1 flex-wrap">
+                    <button @click="tasksStore.toggleDone(props.caseId, t.id, !t.done)"
+                      class="text-[9px] bg-white border rounded px-1.5 py-0.5"
+                      :class="t.done ? 'border-amber-200 text-amber-500 hover:text-amber-700' : 'border-gray-200 text-gray-500 hover:text-gray-700'">
+                      {{ t.done ? '取消完成' : '✓ 完成' }}
+                    </button>
+                    <button @click="startEdit(t)" class="text-[9px] bg-white border border-gray-200 rounded px-1.5 py-0.5 text-gray-500 hover:text-gray-700">編輯</button>
+                    <button @click="remove(t.id)" class="text-[9px] bg-white border border-red-100 rounded px-1.5 py-0.5 text-red-400 hover:text-red-600">刪除</button>
+                  </div>
+                </template>
+              </div>
             </div>
             <div v-if="managerTasks.length === 0" class="text-[11px] text-gray-300 py-2">尚無紀錄</div>
           </div>
@@ -130,10 +150,10 @@
           </h3>
           <button @click="showAdd = false" class="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
         </div>
-        <textarea v-model="addContent" rows="4"
+        <input v-model="addContent" type="text"
           :placeholder="addType === 'client' ? '輸入客戶需求或交辦事項…' : addType === 'manager' ? '輸入主管指示或要求…' : '輸入回覆內容…'"
-          class="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 resize-none mb-3">
-        </textarea>
+          class="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 mb-3"
+          @keydown.enter.prevent="submitAdd">
         <!-- 附件 -->
         <div class="mb-4">
           <div class="flex items-center justify-between mb-2">
