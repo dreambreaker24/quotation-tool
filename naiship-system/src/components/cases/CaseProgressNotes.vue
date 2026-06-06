@@ -22,7 +22,7 @@
             <span v-if="note.updatedAt" class="text-[10px] text-gray-300">（已編輯）</span>
           </div>
           <template v-if="editingId === note.id">
-            <textarea v-model="editText" rows="3"
+            <textarea v-model="editText" rows="3" autofocus
               class="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 resize-none mb-2"></textarea>
             <div class="flex gap-2">
               <button @click="saveEdit(note)"
@@ -51,10 +51,10 @@
           class="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 resize-none mb-2"
           autofocus></textarea>
         <div v-if="pendingFiles.length" class="flex gap-2 flex-wrap mb-2">
-          <div v-for="(f, i) in pendingFiles" :key="i"
+          <div v-for="(file, idx) in pendingFiles" :key="idx"
             class="flex items-center gap-1 text-[10px] bg-gray-100 rounded px-2 py-1 text-gray-600">
-            {{ f.name }}
-            <button @click="pendingFiles.splice(i, 1)" class="text-gray-400 hover:text-red-500 ml-1">✕</button>
+            {{ file.name }}
+            <button @click="pendingFiles.splice(idx, 1)" class="text-gray-400 hover:text-red-500 ml-1">✕</button>
           </div>
         </div>
         <div class="flex items-center gap-2 flex-wrap">
@@ -124,7 +124,7 @@ function isOwn(note) { return note.authorId === authStore.user?.uid }
 function formatTime(ts) {
     if (!ts) return ''
     const d = ts.toDate?.() ?? new Date(ts)
-    return `${d.getMonth() + 1}/${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+    return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
 function handleFiles(e) {
