@@ -88,8 +88,20 @@
                   :style="`left:${row.data.ganttBar.left}px;width:${row.data.ganttBar.width}px;background:${row.data.ganttBar.color}`">
                 </div>
               </div>
-              <!-- 備注欄預覽（Task 4 會補上完整內容，此處先留空占位） -->
-              <div class="flex-shrink-0" style="width:260px;border-left:2px solid #e5e7eb"></div>
+              <!-- 備注欄 -->
+              <div class="flex-shrink-0 flex items-center px-3 gap-2"
+                style="width:260px;border-left:2px solid #e5e7eb"
+                :class="['negotiating','pending'].includes(row.data.status) ? 'cursor-pointer' : ''"
+                @click="['negotiating','pending'].includes(row.data.status) ? selectCase(row.data.id) : null">
+                <template v-if="['negotiating','pending'].includes(row.data.status)">
+                  <span v-if="row.data.latestNote?.text"
+                    class="flex-1 text-[10px] text-gray-500 truncate">{{ row.data.latestNote.text }}</span>
+                  <span v-else class="flex-1 text-[10px]" style="color:#c9a96e">尚無備注</span>
+                  <span class="text-[11px] border rounded px-1 flex-shrink-0"
+                    style="color:#c9a96e;border-color:#c9a96e;line-height:1.6">+</span>
+                </template>
+                <span v-else class="text-[10px] text-gray-300">—</span>
+              </div>
             </div>
             <!-- 工種子列 -->
             <template v-if="expanded[row.data.id]">
@@ -156,6 +168,15 @@
       </div>
     </div>
 
+    <!-- Progress notes（洽談中/待約 only） -->
+    <CaseProgressNotes
+      v-if="selectedCaseId && ['negotiating','pending'].includes(casesStore.cases.find(x => x.id === selectedCaseId)?.status)"
+      :key="`notes-${selectedCaseId}`"
+      :case-id="selectedCaseId"
+      :case-name="selectedCaseName"
+      :company-id="selectedCaseCompanyId"
+    />
+
     <!-- Work type panel (when expanded) -->
     <WorkTypePanel v-if="selectedCaseId" :key="selectedCaseId" :case-id="selectedCaseId" :case-name="selectedCaseName" :company-id="selectedCaseCompanyId" />
 
@@ -186,6 +207,7 @@ import { useToast } from '@/composables/useToast'
 import PhotoUpload from './PhotoUpload.vue'
 import CaseTasks from './CaseTasks.vue'
 import CaseReview from './CaseReview.vue'
+import CaseProgressNotes from './CaseProgressNotes.vue'
 import WorkTypePanel from './WorkTypePanel.vue'
 import PaymentMilestones from './PaymentMilestones.vue'
 import CaseEditModal from './CaseEditModal.vue'
