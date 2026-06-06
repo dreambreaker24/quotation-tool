@@ -56,14 +56,7 @@
           <div>
             <label class="text-xs text-gray-500 mb-1 block">狀態 *</label>
             <select v-model="caseForm.status" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
-              <option value="pending">待約客戶</option>
-              <option value="negotiating">洽談中</option>
-              <option value="drafting">製圖中</option>
-              <option value="construction">施工中</option>
-              <option value="pending_settlement">待結算</option>
-              <option value="aftercare">售後</option>
-              <option value="completed">已完工</option>
-              <option value="lost">未成案</option>
+              <option v-for="(label, key) in CASE_STATUS_LABELS" :key="key" :value="key">{{ label }}</option>
             </select>
           </div>
         </div>
@@ -134,6 +127,7 @@
 </template>
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
+import { CASE_STATUS_LABELS } from '@/constants/caseStatus'
 import { useRoute } from 'vue-router'
 import { Timestamp } from 'firebase/firestore'
 import { useToast } from '@/composables/useToast'

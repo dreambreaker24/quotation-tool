@@ -133,6 +133,7 @@
 </template>
 <script setup>
 import { ref, computed } from 'vue'
+import { CASE_STATUS_LABELS } from '@/constants/caseStatus'
 import { Timestamp } from 'firebase/firestore'
 import ClientContactLog from './ClientContactLog.vue'
 import { useClientsStore } from '@/stores/clients'
@@ -169,8 +170,7 @@ const availableCases = computed(() =>
     casesStore.cases.filter(c => !editForm.value.linkedCaseIds?.includes(c.id))
 )
 
-const caseStatusMap = { pending:'待約客戶', negotiating:'洽談中', drafting:'製圖中', construction:'施工中', pending_settlement:'待結算', aftercare:'售後', completed:'已完工', lost:'未成案' }
-function caseStatusLabel(s) { return caseStatusMap[s] ?? s }
+function caseStatusLabel(s) { return CASE_STATUS_LABELS[s] ?? s }
 
 function linkCase(e) {
     const id = e.target.value

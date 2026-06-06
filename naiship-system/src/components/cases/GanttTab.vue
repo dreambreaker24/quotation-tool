@@ -198,6 +198,7 @@
 </template>
 <script setup>
 import { ref, computed, reactive, watch, onUnmounted } from 'vue'
+import { CASE_STATUS_LABELS as STATUS_LABELS, CASE_STATUS_COLORS as STATUS_BAR_COLORS } from '@/constants/caseStatus'
 import { useCasesStore } from '@/stores/cases'
 import { useCaseTasksStore } from '@/stores/caseTasks'
 import { useAuthStore } from '@/stores/auth'
@@ -310,20 +311,6 @@ function toggleStatus(s) {
     }
 }
 
-const STATUS_BAR_COLORS = {
-    negotiating: '#c9a96e',
-    pending: '#94a3b8',
-    drafting: '#f472b6',
-    construction: '#3b82f6',
-    pending_settlement: '#f97316',
-    aftercare: '#a855f7',
-    completed: '#22c55e',
-    lost: '#ef4444',
-}
-const STATUS_LABELS = {
-    pending: '待約', negotiating: '洽談中', drafting: '製圖中', construction: '施工中',
-    pending_settlement: '待結算', aftercare: '售後', completed: '已完工', lost: '未成案',
-}
 const statusLegend = Object.entries(STATUS_BAR_COLORS)
 
 const GROUPS = [
