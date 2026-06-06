@@ -30,8 +30,9 @@ export const useCaseTasksStore = defineStore('caseTasks', () => {
         return updateDoc(doc(db, 'cases', caseId, 'tasks', taskId), { content })
     }
 
-    async function toggleDone(caseId, taskId, done) {
-        return updateDoc(doc(db, 'cases', caseId, 'tasks', taskId), { done })
+    async function toggleDone(caseId, taskId, done, doneByEmail = '') {
+        const update = { done, doneByEmail: done ? doneByEmail : '' }
+        return updateDoc(doc(db, 'cases', caseId, 'tasks', taskId), update)
     }
 
     async function deleteTask(caseId, taskId) {

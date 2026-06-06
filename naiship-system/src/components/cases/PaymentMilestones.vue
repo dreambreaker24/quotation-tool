@@ -272,7 +272,7 @@ async function submitForm() {
             updated.push(entry)
         }
         await casesStore.updateCase(props.caseId, { paymentMilestones: updated })
-        notifStore.notifyAll(authStore.name ?? '', `更新了「${props.caseName}」的收款里程碑`, props.caseId, props.caseName)
+        notifStore.notifyAll(authStore.name ?? '', `更新了「${props.caseName}」的收款里程碑`, props.caseId, props.caseName, caseData.value?.companyId ?? '')
         showForm.value = false
     } catch {
         toast('儲存失敗，請重試', 'error')

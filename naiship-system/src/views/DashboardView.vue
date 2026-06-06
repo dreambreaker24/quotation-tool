@@ -1,5 +1,14 @@
 <template>
   <aside class="w-56 text-white flex-shrink-0 min-h-screen pt-4 pb-6 overflow-y-auto" style="background:#1e2533">
+    <!-- 待確認申請（主管才看得到） -->
+    <div v-if="authStore.isManager && pendingCount > 0" class="mx-3 mb-4 rounded-xl p-3" style="background:rgba(239,68,68,0.15)">
+      <div class="text-[10px] text-red-300 font-semibold uppercase tracking-wide mb-1">待確認申請</div>
+      <div class="text-white text-sm font-bold">{{ pendingCount }} 筆</div>
+      <div class="text-[10px] text-gray-400 mt-0.5">油資 / 加班待確認</div>
+      <button @click="router.push({ name: 'cases', query: { tab: 'log', pendingOnly: 'true' } })"
+        class="mt-2 text-[10px] text-amber-300 hover:text-amber-100 underline">前往工作日誌審核</button>
+    </div>
+
     <div class="px-4 py-2 text-[10px] text-gray-400 uppercase tracking-widest font-semibold">進行中案件</div>
     <div v-for="(regionCases, region) in activeCasesByRegion" :key="region" class="px-3 mt-2">
       <div class="text-[11px] font-semibold px-2 py-1" style="color:#c9a96e">{{ regionName[region] }}</div>
@@ -9,15 +18,6 @@
         <div class="text-xs font-medium text-white">{{ c.name }}</div>
         <div class="text-[10px] text-gray-400">負責：{{ c.assigneeName }}</div>
       </div>
-    </div>
-
-    <!-- 待確認申請（主管才看得到） -->
-    <div v-if="authStore.isManager && pendingCount > 0" class="mx-3 mt-4 rounded-xl p-3" style="background:rgba(239,68,68,0.15)">
-      <div class="text-[10px] text-red-300 font-semibold uppercase tracking-wide mb-1">待確認申請</div>
-      <div class="text-white text-sm font-bold">{{ pendingCount }} 筆</div>
-      <div class="text-[10px] text-gray-400 mt-0.5">油資 / 加班待確認</div>
-      <button @click="router.push({ name: 'cases' })"
-        class="mt-2 text-[10px] text-amber-300 hover:text-amber-100 underline">前往工作日誌審核</button>
     </div>
   </aside>
   <main class="flex-1 p-6 overflow-auto">
@@ -68,6 +68,7 @@ const activeCasesByRegion = computed(() => {
         if (!result[c.companyId]) result[c.companyId] = []
         result[c.companyId].push(c)
     })
+    Object.keys(result).forEach(r => { result[r] = result[r].slice(0, 3) })
     return result
 })
 

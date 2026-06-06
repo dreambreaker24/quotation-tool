@@ -27,7 +27,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
         notifications.value = []
     }
 
-    async function notifyAll(actorName, message, caseId, caseName) {
+    async function notifyAll(actorName, message, caseId, caseName, companyId = '') {
         const authStore = useAuthStore()
         const usersStore = useUsersStore()
         const currentUid = authStore.user?.uid
@@ -40,6 +40,28 @@ export const useNotificationsStore = defineStore('notifications', () => {
                 message,
                 caseId: caseId ?? '',
                 caseName: caseName ?? '',
+                companyId: companyId ?? '',
+                createdAt: serverTimestamp(),
+            }))
+        }
+        await Promise.all(jobs)
+    }
+
+    async function notifyManagers(actorName, message) {
+        const authStore = useAuthStore()
+        const usersStore = useUsersStore()
+        const currentUid = authStore.user?.uid
+        const jobs = []
+        for (const u of usersStore.users) {
+            if (u.id === currentUid || u.disabled) continue
+            if (!['admin', 'manager'].includes(u.role)) continue
+            jobs.push(addDoc(collection(db, 'notifications'), {
+                userId: u.id,
+                actorName,
+                message,
+                caseId: '',
+                caseName: '',
+                companyId: '',
                 createdAt: serverTimestamp(),
             }))
         }
@@ -50,5 +72,5 @@ export const useNotificationsStore = defineStore('notifications', () => {
         await deleteDoc(doc(db, 'notifications', id))
     }
 
-    return { notifications, subscribe, cleanup, notifyAll, markRead }
+    return { notifications, subscribe, cleanup, notifyAll, notifyManagers, markRead }
 })

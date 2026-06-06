@@ -263,7 +263,7 @@ async function save() {
 
         await casesStore.updateCase(props.caseId, data)
         toast('案件已儲存')
-        notifStore.notifyAll(authStore.name ?? '', `更新了「${caseData.value?.name ?? ''}」`, props.caseId, caseData.value?.name ?? '')
+        notifStore.notifyAll(authStore.name ?? '', `更新了「${caseData.value?.name ?? ''}」`, props.caseId, caseData.value?.name ?? '', form.value.companyId)
         emit('close')
     } catch {
         toast('儲存失敗，請重試', 'error')

@@ -5,13 +5,18 @@
     <div class="px-1 sm:px-3 flex flex-col gap-1">
       <button v-for="r in regions" :key="r.id"
         @click="emit('select-region', r.id)"
-        class="rounded-lg py-2 text-left transition-colors px-2 sm:px-3"
+        class="rounded-lg py-2 text-left transition-colors px-2 sm:px-3 flex items-center justify-between"
         :style="modelValue === r.id ? 'background:#c9a96e;color:#1e2533;font-weight:600' : 'color:#d1d5db'"
         :class="modelValue !== r.id ? 'hover:bg-white/5' : ''">
         <!-- 手機：只顯示縮寫 -->
-        <span class="block sm:hidden text-xs text-center">{{ r.short }}</span>
-        <!-- 桌面：完整名稱 -->
+        <span class="block sm:hidden text-xs text-center w-full">{{ r.short }}</span>
+        <!-- 桌面：完整名稱 + 案件數 -->
         <span class="hidden sm:block text-sm">{{ r.label }}</span>
+        <span v-if="regionCount(r.id) > 0"
+          class="hidden sm:inline-flex items-center justify-center text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-1"
+          :style="modelValue === r.id ? 'background:rgba(30,37,51,0.25);color:#1e2533' : 'background:rgba(255,255,255,0.15);color:#e5e7eb'">
+          {{ regionCount(r.id) }}
+        </span>
       </button>
     </div>
     <!-- 搜尋框桌面才顯示 -->
@@ -68,8 +73,18 @@ const regions = [
     { id: 'central', label: '奈拾中區', short: '中' }
 ]
 
+function regionCount(regionId) {
+    return casesStore.activeCases.filter(c => c.companyId === regionId).length
+}
+
+function caseTimestamp(c) {
+    return (c.updatedAt?.toMillis?.() ?? c.updatedAt) || (c.createdAt?.toMillis?.() ?? c.createdAt) || 0
+}
+
 const filteredCases = computed(() => {
     if (search.value) return casesStore.cases.filter(c => c.name.includes(search.value))
-    return casesStore.cases.filter(c => c.companyId === props.modelValue)
+    return [...casesStore.cases]
+        .sort((a, b) => caseTimestamp(b) - caseTimestamp(a))
+        .slice(0, 5)
 })
 </script>

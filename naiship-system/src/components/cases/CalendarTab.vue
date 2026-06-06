@@ -469,7 +469,7 @@ async function submitEvent() {
       payload.personNames = eventForm.value.personNames.filter(Boolean)
     }
     await eventsStore.addEvent(payload)
-    notifStore.notifyAll(authStore.name ?? '', `新增了行程「${payload.label}」`, '', '')
+    notifStore.notifyAll(authStore.name ?? '', `新增了行程「${payload.label}」`, '', '', payload.companyId)
     eventForm.value = blankEvent()
     showAddEvent.value = false
   } catch {

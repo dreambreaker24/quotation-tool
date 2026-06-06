@@ -10,7 +10,8 @@
     "test": "vitest",
     "server": "node server.js",
     "dev:all": "concurrently \"npm run dev\" \"npm run server\"",
-    "seed": "node scripts/seed.js"
+    "seed": "node scripts/seed.js",
+    "deploy": "npm run build && firebase deploy --only hosting --project quotation-system-ddc5c"
   },
   "dependencies": {
     "cors": "^2.8.6",

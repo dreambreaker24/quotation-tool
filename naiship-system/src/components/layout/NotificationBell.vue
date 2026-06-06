@@ -73,7 +73,17 @@ async function handleClick(n) {
     open.value = false
     await notifStore.markRead(n.id)
     if (n.caseId) {
-        router.push({ path: '/cases', query: { caseId: n.caseId } })
+        const q = { caseId: n.caseId }
+        if (n.companyId) q.region = n.companyId
+        router.push({ path: '/cases', query: q })
+    } else if (n.message.includes('工作日誌')) {
+        router.push({ path: '/cases', query: { tab: 'log' } })
+    } else if (n.message.includes('行程')) {
+        router.push({ path: '/cases', query: { tab: 'cal' } })
+    } else if (n.message.includes('公司佈達')) {
+        router.push({ path: '/cases', query: { tab: 'announcement' } })
+    } else if (n.message.includes('聯繫記錄')) {
+        router.push({ path: '/clients' })
     }
 }
 

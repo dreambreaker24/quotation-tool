@@ -24,8 +24,10 @@
       <div v-for="todo in todosStore.todos" :key="todo.id"
         class="group flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-100 bg-gray-50 mb-1.5 last:mb-0">
         <input type="checkbox" :checked="todo.done"
-          @change="todosStore.updateTodo(todo.id, { done: !todo.done })"
-          class="flex-shrink-0 cursor-pointer accent-amber-500">
+          :disabled="!authStore.isAdmin"
+          @change="authStore.isAdmin && todosStore.updateTodo(todo.id, { done: !todo.done })"
+          class="flex-shrink-0 accent-amber-500"
+          :class="authStore.isAdmin ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'">
         <template v-if="editingId === todo.id">
           <input v-model="editText" type="text"
             class="flex-1 text-xs border border-gray-200 rounded px-2 py-0.5 focus:outline-none focus:ring-1"
@@ -34,9 +36,17 @@
           <button @click="editingId = null" class="text-[10px] text-gray-400 flex-shrink-0">✕</button>
         </template>
         <template v-else>
-          <span class="flex-1 text-xs text-gray-700" :class="todo.done ? 'line-through text-gray-400' : ''">{{ todo.text }}</span>
-          <button @click="startEdit(todo)" class="block sm:hidden sm:group-hover:block text-[10px] text-gray-400 hover:text-gray-600 flex-shrink-0">編輯</button>
-          <button @click="todosStore.deleteTodo(todo.id)" class="block sm:hidden sm:group-hover:block text-[10px] text-red-400 hover:text-red-600 flex-shrink-0">刪除</button>
+          <div class="flex-1 min-w-0">
+            <span class="text-xs font-medium" :class="todo.done ? 'line-through text-gray-400' : ''"
+              :style="todo.done ? '' : `color:${userColor(todo.createdBy)}`">{{ todo.text }}</span>
+            <span v-if="todo.createdByName" class="ml-1.5 text-[10px] text-gray-400">— {{ todo.createdByName }}</span>
+          </div>
+          <template v-if="isOwn(todo)">
+            <button @click="startEdit(todo)" class="block sm:hidden sm:group-hover:block text-[10px] text-gray-400 hover:text-gray-600 flex-shrink-0">編輯</button>
+          </template>
+          <template v-if="authStore.isAdmin">
+            <button @click="todosStore.deleteTodo(todo.id)" class="block sm:hidden sm:group-hover:block text-[10px] text-red-400 hover:text-red-600 flex-shrink-0">刪除</button>
+          </template>
         </template>
       </div>
     </div>
@@ -102,25 +112,54 @@ import { useCasesStore } from '@/stores/cases'
 import { useClientsStore } from '@/stores/clients'
 import { useTodosStore } from '@/stores/todos'
 import { useAuthStore } from '@/stores/auth'
+import { useUsersStore } from '@/stores/users'
+import { useNotificationsStore } from '@/stores/notifications'
 
 const router = useRouter()
 const casesStore = useCasesStore()
 const clientsStore = useClientsStore()
 const todosStore = useTodosStore()
 const authStore = useAuthStore()
+const usersStore = useUsersStore()
+const notifStore = useNotificationsStore()
 
-onMounted(() => todosStore.subscribe())
+onMounted(() => {
+    todosStore.subscribe()
+    usersStore.subscribe()
+})
 
 const showAddForm = ref(false)
 const newTodoText = ref('')
 const editingId = ref(null)
 const editText = ref('')
 
+const EMAIL_COLORS = {
+    'dreambreaker24@gmail.com': '#c9a96e',
+    'p8105000@gmail.com': '#1f2937',
+    'daydream54321@gmail.com': '#ef4444',
+}
+const FALLBACK_COLORS = ['#a855f7', '#3b82f6', '#22c55e', '#f59e0b', '#06b6d4', '#ec4899']
+
+function userColor(uid) {
+    if (!uid) return '#6b7280'
+    const user = usersStore.users.find(u => u.id === uid)
+    if (user?.email && EMAIL_COLORS[user.email]) return EMAIL_COLORS[user.email]
+    return FALLBACK_COLORS[(uid.charCodeAt(0) + (uid.charCodeAt(uid.length - 1) ?? 0)) % FALLBACK_COLORS.length]
+}
+
+function isOwn(todo) {
+    return todo.createdBy === authStore.user?.uid
+}
+
 async function addTodo() {
     if (!newTodoText.value.trim()) return
-    await todosStore.addTodo(newTodoText.value.trim(), authStore.user?.uid ?? '')
+    const text = newTodoText.value.trim()
+    const uid = authStore.user?.uid ?? ''
+    const name = authStore.name ?? ''
+    await todosStore.addTodo(text, uid, name)
     newTodoText.value = ''
     showAddForm.value = false
+    await notifStore.notifyManagers(name, `新增待辦事項：${text}`)
 }
 
 function startEdit(todo) {

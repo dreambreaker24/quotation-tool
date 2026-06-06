@@ -20,15 +20,15 @@
               <span class="flex-shrink-0 font-semibold text-blue-400 w-4 text-right">{{ idx + 1 }}.</span>
               <div class="flex-1 min-w-0">
                 <template v-if="editingId === t.id">
-                  <input v-model="editContent" type="text"
-                    class="w-full text-xs border border-blue-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 bg-white mb-2">
+                  <textarea v-model="editContent" rows="2"
+                    class="w-full text-xs border border-blue-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 bg-white mb-2 resize-none"></textarea>
                   <div class="flex gap-2 justify-end">
                     <button @click="saveEdit(t.id)" class="text-[10px] text-white px-2.5 py-1 rounded-lg" style="background:#3b82f6">儲存</button>
                     <button @click="editingId = null" class="text-[10px] text-gray-400 px-2 py-1">取消</button>
                   </div>
                 </template>
                 <template v-else>
-                  <span :class="t.done ? 'line-through text-gray-400' : ''" class="whitespace-pre-wrap">{{ t.content }}</span>
+                  <span :class="doneClass(t)" class="whitespace-pre-wrap">{{ t.content }}</span>
                   <div v-if="t.attachments?.length" class="flex gap-1.5 flex-wrap mt-1.5">
                     <a v-for="att in t.attachments" :key="att.url"
                       :href="att.isPdf ? (att.pdfUrl ?? att.url) : undefined" :target="att.isPdf ? '_blank' : undefined">
@@ -38,12 +38,12 @@
                   </div>
                   <div class="text-[10px] text-blue-400 mt-1">{{ t.creatorName }} · {{ formatTime(t.createdAt) }}</div>
                   <div class="hidden group-hover:flex gap-1 mt-1 flex-wrap">
-                    <button v-if="authStore.isManager" @click="tasksStore.toggleDone(props.caseId, t.id, !t.done)"
+                    <button v-if="authStore.isManager" @click="tasksStore.toggleDone(props.caseId, t.id, !t.done, authStore.user?.email ?? '')"
                       class="text-[9px] bg-white border rounded px-1.5 py-0.5"
                       :class="t.done ? 'border-blue-200 text-blue-500 hover:text-blue-700' : 'border-gray-200 text-gray-500 hover:text-gray-700'">
                       {{ t.done ? '取消完成' : '✓ 完成' }}
                     </button>
-                    <button @click="startEdit(t)" class="text-[9px] bg-white border border-gray-200 rounded px-1.5 py-0.5 text-gray-500 hover:text-gray-700">編輯</button>
+                    <button v-if="authStore.user?.uid === t.createdBy" @click="startEdit(t)" class="text-[9px] bg-white border border-gray-200 rounded px-1.5 py-0.5 text-gray-500 hover:text-gray-700">編輯</button>
                     <button @click="remove(t.id)" class="text-[9px] bg-white border border-red-100 rounded px-1.5 py-0.5 text-red-400 hover:text-red-600">刪除</button>
                   </div>
                 </template>
@@ -65,15 +65,15 @@
               <span class="flex-shrink-0 font-semibold text-amber-400 w-4 text-right">{{ idx + 1 }}.</span>
               <div class="flex-1 min-w-0">
                 <template v-if="editingId === t.id">
-                  <input v-model="editContent" type="text"
-                    class="w-full text-xs border border-amber-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 bg-white mb-2">
+                  <textarea v-model="editContent" rows="2"
+                    class="w-full text-xs border border-amber-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 bg-white mb-2 resize-none"></textarea>
                   <div class="flex gap-2 justify-end">
                     <button @click="saveEdit(t.id)" class="text-[10px] text-white px-2.5 py-1 rounded-lg" style="background:#c9a96e">儲存</button>
                     <button @click="editingId = null" class="text-[10px] text-gray-400 px-2 py-1">取消</button>
                   </div>
                 </template>
                 <template v-else>
-                  <span :class="t.done ? 'line-through text-gray-400' : ''" class="whitespace-pre-wrap">{{ t.content }}</span>
+                  <span :class="doneClass(t)" class="whitespace-pre-wrap">{{ t.content }}</span>
                   <div v-if="t.attachments?.length" class="flex gap-1.5 flex-wrap mt-1.5">
                     <a v-for="att in t.attachments" :key="att.url"
                       :href="att.isPdf ? (att.pdfUrl ?? att.url) : undefined" :target="att.isPdf ? '_blank' : undefined">
@@ -83,12 +83,12 @@
                   </div>
                   <div class="text-[10px] text-amber-400 mt-1">{{ t.creatorName }} · {{ formatTime(t.createdAt) }}</div>
                   <div v-if="authStore.isManager" class="hidden group-hover:flex gap-1 mt-1 flex-wrap">
-                    <button @click="tasksStore.toggleDone(props.caseId, t.id, !t.done)"
+                    <button @click="tasksStore.toggleDone(props.caseId, t.id, !t.done, authStore.user?.email ?? '')"
                       class="text-[9px] bg-white border rounded px-1.5 py-0.5"
                       :class="t.done ? 'border-amber-200 text-amber-500 hover:text-amber-700' : 'border-gray-200 text-gray-500 hover:text-gray-700'">
                       {{ t.done ? '取消完成' : '✓ 完成' }}
                     </button>
-                    <button @click="startEdit(t)" class="text-[9px] bg-white border border-gray-200 rounded px-1.5 py-0.5 text-gray-500 hover:text-gray-700">編輯</button>
+                    <button v-if="authStore.user?.uid === t.createdBy" @click="startEdit(t)" class="text-[9px] bg-white border border-gray-200 rounded px-1.5 py-0.5 text-gray-500 hover:text-gray-700">編輯</button>
                     <button @click="remove(t.id)" class="text-[9px] bg-white border border-red-100 rounded px-1.5 py-0.5 text-red-400 hover:text-red-600">刪除</button>
                   </div>
                 </template>
@@ -130,7 +130,7 @@
                 </div>
                 <div class="text-[10px] text-green-400 mt-1">{{ t.creatorName }} · {{ formatTime(t.createdAt) }}</div>
                 <div class="absolute top-2 right-2 hidden group-hover:flex gap-1">
-                  <button @click="startEdit(t)" class="text-[9px] bg-white border border-gray-200 rounded px-1.5 py-0.5 text-gray-500 hover:text-gray-700">編輯</button>
+                  <button v-if="authStore.user?.uid === t.createdBy" @click="startEdit(t)" class="text-[9px] bg-white border border-gray-200 rounded px-1.5 py-0.5 text-gray-500 hover:text-gray-700">編輯</button>
                   <button @click="remove(t.id)" class="text-[9px] bg-white border border-red-100 rounded px-1.5 py-0.5 text-red-400 hover:text-red-600">刪除</button>
                 </div>
               </template>
@@ -150,10 +150,9 @@
           </h3>
           <button @click="showAdd = false" class="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
         </div>
-        <input v-model="addContent" type="text"
+        <textarea v-model="addContent" rows="3"
           :placeholder="addType === 'client' ? '輸入客戶需求或交辦事項…' : addType === 'manager' ? '輸入主管指示或要求…' : '輸入回覆內容…'"
-          class="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 mb-3"
-          @keydown.enter.prevent="submitAdd">
+          class="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 mb-3 resize-none"></textarea>
         <!-- 附件 -->
         <div class="mb-4">
           <div class="flex items-center justify-between mb-2">
@@ -195,7 +194,7 @@ import { useNotificationsStore } from '@/stores/notifications'
 import { useToast } from '@/composables/useToast'
 import { uploadPhoto, validateUploadFile } from '@/composables/useStorage'
 
-const props = defineProps({ caseId: String, caseName: String })
+const props = defineProps({ caseId: String, caseName: String, companyId: { type: String, default: '' } })
 const tasksStore = useCaseTasksStore()
 const authStore = useAuthStore()
 const notifStore = useNotificationsStore()
@@ -217,6 +216,16 @@ const replyTasks = computed(() => tasksStore.tasks.filter(t => t.type === 'reply
 
 const empColors = ['#c9a96e','#a855f7','#3b82f6','#22c55e','#f59e0b','#ef4444']
 function empColor(uid) { return empColors[(uid?.charCodeAt(0) ?? 0) % empColors.length] }
+
+const DONE_COLORS = {
+    'dreambreaker24@gmail.com': 'line-through text-amber-500',
+    'daydream54321@gmail.com':  'line-through text-red-500',
+    'p8105000@gmail.com':       'line-through text-gray-900',
+}
+function doneClass(task) {
+    if (!task.done) return ''
+    return DONE_COLORS[task.doneByEmail] ?? 'line-through text-gray-400'
+}
 
 function formatTime(ts) {
     if (!ts) return ''
@@ -276,7 +285,7 @@ async function submitAdd() {
             } catch { /* skip failed */ }
         }
         await tasksStore.addTask(props.caseId, addType.value, addContent.value.trim(), authStore.name ?? '', authStore.user?.uid ?? '', attachments)
-        notifStore.notifyAll(authStore.name ?? '', `在「${props.caseName}」新增了待辦事項`, props.caseId, props.caseName)
+        notifStore.notifyAll(authStore.name ?? '', `在「${props.caseName}」新增了待辦事項`, props.caseId, props.caseName, props.companyId)
         addContent.value = ''
         pendingFiles.value = []
         showAdd.value = false

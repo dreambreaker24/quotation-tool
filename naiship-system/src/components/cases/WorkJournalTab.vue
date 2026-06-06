@@ -34,6 +34,9 @@
 
     <!-- Right: log entries -->
     <div class="flex-1 flex flex-col gap-4">
+      <div v-if="pendingOnly" class="rounded-xl px-4 py-3 text-sm font-semibold flex items-center gap-2" style="background:rgba(239,68,68,0.1);color:#ef4444">
+        ⚠ 待審核申請（近 30 天）— 共 {{ displayedLogs.length }} 筆
+      </div>
       <div class="bg-white rounded-2xl shadow-sm px-4 lg:px-5 py-3 flex flex-col lg:flex-row lg:items-center gap-2">
         <div class="flex-1">
           <!-- Mobile employee select -->
@@ -236,7 +239,7 @@
       </div>
 
       <div v-if="displayedLogs.length === 0" class="bg-white rounded-2xl shadow-sm p-8 text-center text-gray-400 text-sm">
-        {{ viewMode === 'week' ? '本週尚無工作日誌' : '今日尚無工作日誌' }}
+        {{ pendingOnly ? '近 30 天無待審核申請' : viewMode === 'week' ? '本週尚無工作日誌' : '今日尚無工作日誌' }}
       </div>
     </div>
   </div>
@@ -398,7 +401,7 @@
   </div>
 </template>
 <script setup>
-import { ref, computed, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { Timestamp } from 'firebase/firestore'
 import * as XLSX from 'xlsx'
 import { useWorkLogsStore } from '@/stores/workLogs'
@@ -408,7 +411,7 @@ import { useNotificationsStore } from '@/stores/notifications'
 import { uploadPhoto } from '@/composables/useStorage'
 import { useToast } from '@/composables/useToast'
 
-const props = defineProps({ region: String })
+const props = defineProps({ region: String, pendingOnly: Boolean })
 const logsStore = useWorkLogsStore()
 const authStore = useAuthStore()
 const casesStore = useCasesStore()
@@ -613,7 +616,7 @@ async function submitLog() {
     }
     try {
         await logsStore.addLog(logDoc)
-        notifStore.notifyAll(authStore.name ?? '', `新增了工作日誌`, '', '')
+        notifStore.notifyAll(authStore.name ?? '', `新增了工作日誌`, '', '', authStore.companyId ?? '')
         logAttachFiles.value = []
         showLogForm.value = false
         toast('日誌已送出')
@@ -692,6 +695,7 @@ watch([() => props.region, selectedDate, viewMode], ([region]) => {
 // Sync mobile dropdown with the desktop sidebar selection
 watch(mobileSelectedEmployee, val => { selectedEmployee.value = val })
 
+onMounted(() => { if (props.pendingOnly && authStore.isManager) logsStore.subscribePending() })
 onUnmounted(() => logsStore.unsubscribe?.())
 
 const empColors = ['#c9a96e', '#a855f7', '#3b82f6', '#22c55e', '#f59e0b', '#ef4444']
@@ -711,11 +715,12 @@ const filteredEmployees = computed(() => {
         .filter(e => !search.value || (e.name?.includes(search.value) ?? false))
 })
 
-const displayedLogs = computed(() =>
-    selectedEmployee.value
+const displayedLogs = computed(() => {
+    if (props.pendingOnly) return logsStore.pendingLogs
+    return selectedEmployee.value
         ? logsStore.logs.filter(l => l.userId === selectedEmployee.value.id)
         : logsStore.logs
-)
+})
 
 const weekSummary = computed(() => {
     if (viewMode.value !== 'week' || displayedLogs.value.length === 0) return null
@@ -789,7 +794,7 @@ async function submitReply(logId) {
         await logsStore.addReply(logId, replyContent.value, authStore.user?.uid ?? 'unknown', authStore.name ?? '')
         const log = logsStore.logs.find(l => l.id === logId)
         const ownerName = log?.userName ?? ''
-        notifStore.notifyAll(authStore.name ?? '', `回覆了 ${ownerName} 的工作日誌`, '', '')
+        notifStore.notifyAll(authStore.name ?? '', `回覆了 ${ownerName} 的工作日誌`, '', '', authStore.companyId ?? '')
         replyContent.value = ''
         replyTarget.value = null
     } catch {

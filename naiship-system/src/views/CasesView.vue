@@ -22,7 +22,7 @@
     <div class="flex-1 overflow-auto p-6">
       <CalendarTab v-if="activeTab === 'cal'" :region="selectedRegion" />
       <GanttTab v-else-if="activeTab === 'gantt'" :region="selectedRegion" :month="selectedMonth" :jump-case-id="jumpCaseId" @jumped="jumpCaseId = null" />
-      <WorkJournalTab v-else-if="activeTab === 'log'" :region="selectedRegion" />
+      <WorkJournalTab v-else-if="activeTab === 'log'" :region="selectedRegion" :pending-only="pendingOnly" />
       <AnnouncementTab v-else-if="activeTab === 'announcement'" />
     </div>
   </main>
@@ -156,6 +156,7 @@ const validRegions = ['south', 'north', 'central']
 const selectedRegion = ref(validRegions.includes(route.query.region) ? route.query.region : 'south')
 const activeTab = ref('cal')
 const jumpCaseId = ref(null)
+const pendingOnly = computed(() => route.query.pendingOnly === 'true')
 
 function jumpToCase(caseId) {
     activeTab.value = 'gantt'
@@ -214,12 +215,23 @@ onMounted(() => {
     casesStore.subscribe(['north', 'central', 'south'])
     clientsStore.subscribe(['north', 'central', 'south'])
     usersStore.subscribe()
+    if (route.query.region && validRegions.includes(route.query.region)) selectedRegion.value = route.query.region
+    if (route.query.tab) { const valid = ['cal', 'gantt', 'log', 'announcement']; if (valid.includes(route.query.tab)) switchTab(route.query.tab) }
     if (route.query.caseId) jumpToCase(route.query.caseId)
     checkNewAnnouncement()
 })
 
 watch(() => route.query.caseId, (id) => {
     if (id) jumpToCase(id)
+})
+
+watch(() => route.query.region, (r) => {
+    if (r && validRegions.includes(r)) selectedRegion.value = r
+})
+
+watch(() => route.query.tab, (t) => {
+    const valid = ['cal', 'gantt', 'log', 'announcement']
+    if (t && valid.includes(t)) switchTab(t)
 })
 
 watch(() => caseForm.value.linkedClientId, (clientId) => {
@@ -273,7 +285,7 @@ async function submitCase() {
         activeTab.value = 'gantt'
         jumpCaseId.value = newCaseId
         toast('案件已建立')
-        notifStore.notifyAll(authStore.name ?? '', `新增了案件「${newCaseName}」`, newCaseId, newCaseName)
+        notifStore.notifyAll(authStore.name ?? '', `新增了案件「${newCaseName}」`, newCaseId, newCaseName, data.companyId)
     } catch {
         toast('建立失敗，請重試', 'error')
     } finally {

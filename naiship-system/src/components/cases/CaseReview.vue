@@ -165,7 +165,7 @@ import { useNotificationsStore } from '@/stores/notifications'
 import { uploadPhoto, validateUploadFile } from '@/composables/useStorage'
 import { useToast } from '@/composables/useToast'
 
-const props = defineProps({ caseId: String, caseName: String })
+const props = defineProps({ caseId: String, caseName: String, companyId: { type: String, default: '' } })
 const authStore = useAuthStore()
 const notifStore = useNotificationsStore()
 const { toast } = useToast()
@@ -270,7 +270,7 @@ async function submitReview() {
             reviews.value.unshift({ id: docRef.id, ...data, createdAt: { toDate: () => new Date() } })
         }
         if (!editingId.value) {
-            notifStore.notifyAll(authStore.name ?? '', `在「${props.caseName}」新增了案件檢討`, props.caseId, props.caseName)
+            notifStore.notifyAll(authStore.name ?? '', `在「${props.caseName}」新增了案件檢討`, props.caseId, props.caseName, props.companyId)
         }
         pendingFiles.value = []
         showForm.value = false

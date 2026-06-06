@@ -21,8 +21,8 @@ export const useTodosStore = defineStore('todos', () => {
         })
     }
 
-    async function addTodo(text, uid) {
-        return addDoc(collection(db, 'todos'), { text, done: false, createdBy: uid, createdAt: serverTimestamp() })
+    async function addTodo(text, uid, name) {
+        return addDoc(collection(db, 'todos'), { text, done: false, createdBy: uid, createdByName: name ?? '', createdAt: serverTimestamp() })
     }
 
     async function updateTodo(id, data) {

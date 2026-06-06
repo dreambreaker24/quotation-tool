@@ -27,13 +27,13 @@
         <div v-if="expanded[type.key]" class="mt-2 ml-5">
           <div v-if="!photos[type.key]?.length" class="text-[10px] text-gray-300 py-1">尚無檔案</div>
           <div v-else class="flex gap-2 overflow-x-auto pb-1">
-            <div v-for="item in photos[type.key]" :key="item.url"
+            <div v-for="(item, idx) in photos[type.key]" :key="item.url"
               class="flex-shrink-0 flex flex-col items-center gap-0.5 relative group">
               <a v-if="item.isPdf" :href="item.pdfUrl" target="_blank"
                 class="w-16 h-16 rounded bg-red-100 flex items-center justify-center text-[10px] text-red-600 font-bold hover:bg-red-200 transition-colors">PDF</a>
               <img v-else :src="item.url"
                 class="w-16 h-16 rounded object-cover cursor-pointer hover:opacity-80"
-                @click="previewUrl = item.url">
+                @click="openPreview(type.key, idx)">
               <span class="text-[8px] text-gray-400 leading-tight">{{ formatTime(item.createdAt) }}</span>
               <button @click="deletePhoto(type.key, item)"
                 class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-gray-600 text-white rounded-full text-[8px] leading-none hidden group-hover:flex items-center justify-center hover:bg-red-500 z-10">✕</button>
@@ -50,21 +50,25 @@
       <button @click="uploadError = ''" class="ml-1 text-red-400 hover:text-red-600 leading-none">✕</button>
     </div>
 
-    <div v-if="previewUrl" @click="previewUrl = null"
-      class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 cursor-pointer">
-      <img :src="previewUrl" class="max-h-[80vh] max-w-[90vw] rounded-xl">
+    <div v-if="previewUrl" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50"
+      @click.self="previewUrl = null">
+      <button v-if="previewIndex > 0" @click="navigatePhoto(-1)"
+        class="absolute left-4 text-white text-3xl w-10 h-10 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/70 select-none z-10">‹</button>
+      <img :src="previewUrl" class="max-h-[80vh] max-w-[80vw] rounded-xl cursor-default">
+      <button v-if="previewIndex < (photos[previewType]?.length ?? 0) - 1" @click="navigatePhoto(1)"
+        class="absolute right-4 text-white text-3xl w-10 h-10 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/70 select-none z-10">›</button>
     </div>
   </div>
 </template>
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { uploadPhoto, validateUploadFile } from '@/composables/useStorage'
 import { addDoc, collection, getDocs, orderBy, query, serverTimestamp, deleteDoc, doc } from 'firebase/firestore'
 import { db } from '@/firebase'
 import { useAuthStore } from '@/stores/auth'
 import { useNotificationsStore } from '@/stores/notifications'
 
-const props = defineProps({ caseId: String, caseName: String })
+const props = defineProps({ caseId: String, caseName: String, companyId: { type: String, default: '' } })
 const authStore = useAuthStore()
 const notifStore = useNotificationsStore()
 
@@ -85,6 +89,8 @@ const expanded = reactive(Object.fromEntries(allKeys.map(k => [k, false])))
 const fileInput  = ref(null)
 const activeType = ref('')
 const previewUrl = ref(null)
+const previewType = ref('')
+const previewIndex = ref(-1)
 const hovering   = ref('')
 const uploadError = ref('')
 
@@ -98,7 +104,39 @@ function toggle(key) {
     expanded[key] = !expanded[key]
 }
 
+function openPreview(type, idx) {
+    previewType.value = type
+    previewIndex.value = idx
+    previewUrl.value = photos[type][idx].url
+}
+
+function navigatePhoto(dir) {
+    const list = photos[previewType.value] || []
+    const next = previewIndex.value + dir
+    if (next >= 0 && next < list.length) {
+        previewIndex.value = next
+        previewUrl.value = list[next].url
+    }
+}
+
+function handleKeydown(e) {
+    if (!previewUrl.value) return
+    if (e.key === 'Escape') { previewUrl.value = null; return }
+    if (e.key === 'ArrowRight' || e.key === 'Enter') {
+        e.preventDefault()
+        navigatePhoto(1)
+    } else if (e.key === 'ArrowLeft') {
+        e.preventDefault()
+        navigatePhoto(-1)
+    }
+}
+
+onUnmounted(() => {
+    window.removeEventListener('keydown', handleKeydown)
+})
+
 onMounted(async () => {
+    window.addEventListener('keydown', handleKeydown)
     if (!props.caseId) return
     const q = query(collection(db, 'cases', props.caseId, 'photos'), orderBy('createdAt'))
     const snap = await getDocs(q)
@@ -146,7 +184,7 @@ async function uploadFiles(files, type) {
 
 async function handleFiles(e) {
     await uploadFiles(Array.from(e.target.files), activeType.value)
-    notifStore.notifyAll(authStore.name ?? '', `在「${props.caseName}」上傳了照片`, props.caseId, props.caseName)
+    notifStore.notifyAll(authStore.name ?? '', `在「${props.caseName}」上傳了照片`, props.caseId, props.caseName, props.companyId)
     e.target.value = ''
 }
 

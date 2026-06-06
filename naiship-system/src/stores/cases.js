@@ -40,7 +40,7 @@ export const useCasesStore = defineStore('cases', () => {
     }
 
     async function updateCase(id, data) {
-        return updateDoc(doc(db, 'cases', id), data)
+        return updateDoc(doc(db, 'cases', id), { ...data, updatedAt: serverTimestamp() })
     }
 
     async function deleteCase(id) {
