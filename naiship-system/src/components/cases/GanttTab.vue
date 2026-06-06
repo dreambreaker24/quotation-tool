@@ -14,7 +14,7 @@
     </div>
     <!-- Single scrollable container: left cell sticky, day grid scrolls -->
     <div class="overflow-x-auto" style="min-height:200px">
-      <div :style="`min-width:${270 + 31 * 28}px`">
+      <div :style="`min-width:${270 + 31 * 28 + 260}px`">
         <!-- Header row -->
         <div class="bg-gray-50 border-b border-gray-200 flex" style="height:36px">
           <div class="flex-shrink-0 sticky left-0 z-10 bg-gray-50 border-r border-gray-200 px-3 flex items-center gap-2" style="width:270px">
@@ -30,70 +30,101 @@
               {{ d }}
             </div>
           </div>
+          <div class="flex-shrink-0 border-l-2 border-gray-200 flex items-center px-3" style="width:260px">
+            <span class="text-[11px] font-semibold text-gray-500">💬 洽談進度</span>
+          </div>
         </div>
         <!-- Case rows -->
-        <template v-for="c in regionCases" :key="c.id">
-          <!-- Main case row -->
-          <div class="flex border-b border-gray-100" style="height:36px"
-            :style="selectedCaseId === c.id ? 'background:rgba(201,169,110,0.05)' : ''">
-            <div @click="selectCase(c.id)"
-              class="flex-shrink-0 sticky left-0 z-10 border-r border-gray-200 px-3 flex items-center gap-2 cursor-pointer transition-colors"
+        <template v-for="(row, idx) in ganttRows" :key="row.type === 'case' ? `case-${row.data.id}` : `${row.type}-${idx}`">
+          <!-- 群組分隔列 -->
+          <div v-if="row.type === 'group-sep'" class="flex" style="height:28px"
+            :style="`background:${row.color}20`">
+            <div class="flex-shrink-0 sticky left-0 z-10 px-4 flex items-center gap-2 border-r"
               style="width:270px"
-              :style="`border-left:3px solid ${STATUS_BAR_COLORS[c.status] ?? '#e5e7eb'};background:${selectedCaseId === c.id ? 'rgba(201,169,110,0.12)' : 'white'}`">
-              <span class="text-gray-400 text-[10px] w-4 flex-shrink-0 select-none">{{ expanded[c.id] ? '▼' : '▶' }}</span>
-              <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-1 min-w-0">
-                  <div class="text-xs font-semibold truncate" :title="c.name"
-                    :style="selectedCaseId === c.id ? 'color:#c9a96e' : 'color:#1f2937'">{{ c.name }}</div>
-                  <span v-if="hasOverduePayments(c)" class="text-[9px] text-red-500 font-bold flex-shrink-0" title="有逾期未收款">$⚠</span>
-                </div>
-                <div v-if="deadlineInfo(c)" class="text-[9px] font-medium leading-none mt-0.5" :style="`color:${deadlineInfo(c).color}`">
-                  ⚑ {{ deadlineInfo(c).label }}
-                </div>
-              </div>
-              <span class="w-16 text-center text-[11px] text-gray-500 flex-shrink-0">{{ c.assigneeName }}</span>
+              :style="`background:${row.color}30;border-color:${row.color}`">
+              <span class="w-2 h-2 rounded-sm flex-shrink-0" :style="`background:${row.labelColor}`"></span>
+              <span class="text-[10px] font-bold uppercase tracking-wide" :style="`color:${row.labelColor}`">{{ row.group }}</span>
             </div>
-            <!-- Day grid: position:relative anchors bar to day columns only -->
-            <div class="relative flex flex-shrink-0" style="width:868px">
-              <div v-for="d in 31" :key="d"
-                class="flex-shrink-0 border-r border-gray-50" style="width:28px"
-                :style="d === todayDate ? 'background:rgba(251,191,36,0.08)' : ''">
-              </div>
-              <div v-if="c.ganttBar" class="absolute top-2 bottom-2 rounded opacity-80 pointer-events-none"
-                :style="`left:${c.ganttBar.left}px;width:${c.ganttBar.width}px;background:${c.ganttBar.color}`">
-              </div>
-            </div>
+            <div class="flex-shrink-0" style="width:868px;border-top:2px solid;border-bottom:2px solid"
+              :style="`border-color:${row.color}`"></div>
+            <div class="flex-shrink-0" style="width:260px;border-left:2px solid #e5e7eb;border-top:2px solid;border-bottom:2px solid"
+              :style="`border-top-color:${row.color};border-bottom-color:${row.color}`"></div>
           </div>
-          <!-- Work type sub-rows (when expanded) -->
-          <template v-if="expanded[c.id]">
-            <div v-if="!c.workTypes?.length" class="flex border-b border-gray-100" style="height:28px">
-              <div class="flex-shrink-0 sticky left-0 z-10 bg-gray-50 border-r border-gray-200 px-5 flex items-center text-[11px] text-gray-400" style="width:270px">
-                尚無工種安排
-              </div>
-              <div class="flex-shrink-0" style="width:868px"></div>
-            </div>
-            <div v-for="wt in c.workTypes" :key="wt.id"
-              class="flex border-b border-gray-100" style="height:28px"
-              :class="wt.done ? 'bg-green-50/50' : 'bg-gray-50/50'">
-              <div class="flex-shrink-0 sticky left-0 z-10 border-r border-gray-200 px-3 flex items-center gap-2"
+
+          <!-- 狀態間距列 -->
+          <div v-else-if="row.type === 'status-gap'" class="flex" style="height:8px;background:#fafafa;border-bottom:1px dashed #f0f0f0">
+            <div class="flex-shrink-0 sticky left-0 z-10" style="width:270px;background:#fafafa;border-right:1px solid #e5e7eb"></div>
+            <div class="flex-shrink-0" style="width:868px"></div>
+            <div class="flex-shrink-0" style="width:260px;border-left:2px solid #e5e7eb"></div>
+          </div>
+
+          <!-- 案件列 -->
+          <template v-else-if="row.type === 'case'">
+            <div class="flex border-b border-gray-100" style="height:36px"
+              :style="[row.isEnded ? 'opacity:0.55' : '', selectedCaseId === row.data.id ? 'background:rgba(201,169,110,0.05)' : ''].filter(Boolean).join(';')">
+              <div @click="selectCase(row.data.id)"
+                class="flex-shrink-0 sticky left-0 z-10 border-r border-gray-200 px-3 flex items-center gap-2 cursor-pointer transition-colors"
                 style="width:270px"
-                :style="wt.done ? 'background:#f0fdf4' : 'background:#f9fafb'">
-                <span class="w-4"></span>
-                <span class="w-2 h-2 rounded-full flex-shrink-0" :style="`background:${wt.color};opacity:${wt.done ? 0.4 : 1}`"></span>
-                <span class="text-[11px] flex-1 truncate" :class="wt.done ? 'text-gray-400 line-through' : 'text-gray-600'">{{ wt.name }}</span>
-                <span v-if="wt.done" class="text-[9px] px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 font-semibold flex-shrink-0 whitespace-nowrap">✓ 完工</span>
-                <span v-else-if="wt.vendorName" class="text-[10px] text-gray-400 truncate max-w-[80px]">{{ wt.vendorName }}</span>
+                :style="`border-left:3px solid ${STATUS_BAR_COLORS[row.data.status] ?? '#e5e7eb'};background:${selectedCaseId === row.data.id ? 'rgba(201,169,110,0.12)' : 'white'}`">
+                <span class="text-gray-400 text-[10px] w-4 flex-shrink-0 select-none">{{ expanded[row.data.id] ? '▼' : '▶' }}</span>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-1 min-w-0">
+                    <div class="text-xs font-semibold truncate" :title="row.data.name"
+                      :style="selectedCaseId === row.data.id ? 'color:#c9a96e' : 'color:#1f2937'">{{ row.data.name }}</div>
+                    <span v-if="hasOverduePayments(row.data)" class="text-[9px] text-red-500 font-bold flex-shrink-0" title="有逾期未收款">$⚠</span>
+                  </div>
+                  <div v-if="deadlineInfo(row.data)" class="text-[9px] font-medium leading-none mt-0.5" :style="`color:${deadlineInfo(row.data).color}`">
+                    ⚑ {{ deadlineInfo(row.data).label }}
+                  </div>
+                </div>
+                <span class="w-16 text-center text-[11px] text-gray-500 flex-shrink-0">{{ row.data.assigneeName }}</span>
               </div>
               <div class="relative flex flex-shrink-0" style="width:868px">
                 <div v-for="d in 31" :key="d"
-                  class="flex-shrink-0 border-r border-gray-50" style="width:28px">
+                  class="flex-shrink-0 border-r border-gray-50" style="width:28px"
+                  :style="d === todayDate ? 'background:rgba(251,191,36,0.08)' : ''">
                 </div>
-                <div v-if="getWtGanttBar(wt, displayYear, displayMonth)"
-                  class="absolute top-1 bottom-1 rounded pointer-events-none"
-                  :style="`left:${getWtGanttBar(wt, displayYear, displayMonth).left}px;width:${getWtGanttBar(wt, displayYear, displayMonth).width}px;background:${wt.done ? '#86efac' : wt.color};opacity:${wt.done ? 0.5 : 1}`">
+                <div v-if="row.data.ganttBar" class="absolute top-2 bottom-2 rounded opacity-80 pointer-events-none"
+                  :style="`left:${row.data.ganttBar.left}px;width:${row.data.ganttBar.width}px;background:${row.data.ganttBar.color}`">
                 </div>
               </div>
+              <!-- 備注欄預覽（Task 4 會補上完整內容，此處先留空占位） -->
+              <div class="flex-shrink-0" style="width:260px;border-left:2px solid #e5e7eb"></div>
             </div>
+            <!-- 工種子列 -->
+            <template v-if="expanded[row.data.id]">
+              <div v-if="!row.data.workTypes?.length" class="flex border-b border-gray-100" style="height:28px">
+                <div class="flex-shrink-0 sticky left-0 z-10 bg-gray-50 border-r border-gray-200 px-5 flex items-center text-[11px] text-gray-400" style="width:270px">
+                  尚無工種安排
+                </div>
+                <div class="flex-shrink-0" style="width:868px"></div>
+                <div class="flex-shrink-0" style="width:260px;border-left:2px solid #e5e7eb"></div>
+              </div>
+              <div v-for="wt in row.data.workTypes" :key="wt.id"
+                class="flex border-b border-gray-100" style="height:28px"
+                :class="wt.done ? 'bg-green-50/50' : 'bg-gray-50/50'">
+                <div class="flex-shrink-0 sticky left-0 z-10 border-r border-gray-200 px-3 flex items-center gap-2"
+                  style="width:270px"
+                  :style="wt.done ? 'background:#f0fdf4' : 'background:#f9fafb'">
+                  <span class="w-4"></span>
+                  <span class="w-2 h-2 rounded-full flex-shrink-0" :style="`background:${wt.color};opacity:${wt.done ? 0.4 : 1}`"></span>
+                  <span class="text-[11px] flex-1 truncate" :class="wt.done ? 'text-gray-400 line-through' : 'text-gray-600'">{{ wt.name }}</span>
+                  <span v-if="wt.done" class="text-[9px] px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 font-semibold flex-shrink-0 whitespace-nowrap">✓ 完工</span>
+                  <template v-else>
+                    <span v-if="isWtOverdue(wt, row.data)" class="text-[9px] px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-600 font-semibold flex-shrink-0 whitespace-nowrap">⚠ 逾期</span>
+                    <span v-else-if="wt.vendorName" class="text-[10px] text-gray-400 truncate max-w-[80px]">{{ wt.vendorName }}</span>
+                  </template>
+                </div>
+                <div class="relative flex flex-shrink-0" style="width:868px">
+                  <div v-for="d in 31" :key="d" class="flex-shrink-0 border-r border-gray-50" style="width:28px"></div>
+                  <div v-if="getWtGanttBar(wt, displayYear, displayMonth)"
+                    class="absolute top-1 bottom-1 rounded pointer-events-none"
+                    :style="`left:${getWtGanttBar(wt, displayYear, displayMonth).left}px;width:${getWtGanttBar(wt, displayYear, displayMonth).width}px;background:${wt.done ? '#86efac' : wt.color};opacity:${wt.done ? 0.5 : 1}`">
+                  </div>
+                </div>
+                <div class="flex-shrink-0" style="width:260px;border-left:2px solid #e5e7eb"></div>
+              </div>
+            </template>
           </template>
         </template>
       </div>
@@ -126,19 +157,19 @@
     </div>
 
     <!-- Work type panel (when expanded) -->
-    <WorkTypePanel v-if="selectedCaseId" :key="selectedCaseId" :case-id="selectedCaseId" :case-name="selectedCaseName" />
+    <WorkTypePanel v-if="selectedCaseId" :key="selectedCaseId" :case-id="selectedCaseId" :case-name="selectedCaseName" :company-id="selectedCaseCompanyId" />
 
     <!-- Payment milestones panel (when selected) -->
-    <PaymentMilestones v-if="selectedCaseId" :case-id="selectedCaseId" :case-name="selectedCaseName" />
+    <PaymentMilestones v-if="selectedCaseId" :case-id="selectedCaseId" :case-name="selectedCaseName" :company-id="selectedCaseCompanyId" />
 
     <!-- Photo upload section (when expanded) -->
-    <PhotoUpload v-if="expandedCaseId" :case-id="expandedCaseId" :case-name="expandedCaseName" />
+    <PhotoUpload v-if="expandedCaseId" :case-id="expandedCaseId" :case-name="expandedCaseName" :company-id="selectedCaseCompanyId" />
 
     <!-- Case tasks section (when selected) -->
-    <CaseTasks v-if="selectedCaseId" :case-id="selectedCaseId" :case-name="selectedCaseName" />
+    <CaseTasks v-if="selectedCaseId" :case-id="selectedCaseId" :case-name="selectedCaseName" :company-id="selectedCaseCompanyId" />
 
     <!-- Case review section (when selected) -->
-    <CaseReview v-if="selectedCaseId" :key="`review-${selectedCaseId}`" :case-id="selectedCaseId" :case-name="selectedCaseName" />
+    <CaseReview v-if="selectedCaseId" :key="`review-${selectedCaseId}`" :case-id="selectedCaseId" :case-name="selectedCaseName" :company-id="selectedCaseCompanyId" />
   </div>
 
   <!-- Case edit modal -->
@@ -167,6 +198,12 @@ function hasOverduePayments(c) {
     ) ?? false
 }
 
+function isWtOverdue(wt, c) {
+    if (!wt.endDate || wt.done) return false
+    if (c.status === 'completed' || c.status === 'lost') return false
+    return wt.endDate < TODAY_STR
+}
+
 const props = defineProps({ region: String, month: String, jumpCaseId: String })
 const emit = defineEmits(['jumped'])
 const casesStore = useCasesStore()
@@ -180,6 +217,7 @@ const expandedCaseId = ref(null)
 const expandedCaseName = ref('')
 const selectedCaseId = ref(null)
 const selectedCaseName = ref('')
+const selectedCaseCompanyId = ref('')
 const editingCaseId = ref(null)
 const todayDate = new Date().getDate()
 
@@ -213,12 +251,14 @@ function selectCase(id) {
         expandedCaseName.value = c?.name ?? ''
         selectedCaseId.value = id
         selectedCaseName.value = c?.name ?? ''
+        selectedCaseCompanyId.value = c?.companyId ?? ''
         tasksStore.subscribe(id)
     } else {
         if (expandedCaseId.value === id) expandedCaseId.value = null
         if (selectedCaseId.value === id) {
             selectedCaseId.value = null
             selectedCaseName.value = ''
+            selectedCaseCompanyId.value = ''
             tasksStore.cleanup()
         }
     }
@@ -264,7 +304,13 @@ const STATUS_LABELS = {
 }
 const statusLegend = Object.entries(STATUS_BAR_COLORS)
 
-const STATUS_ORDER = ['construction', 'negotiating', 'pending', 'drafting', 'pending_settlement', 'lost', 'aftercare', 'completed']
+const GROUPS = [
+    { name: '進行工程', statuses: ['construction', 'drafting'], color: '#bfdbfe', labelColor: '#3b82f6' },
+    { name: '開發客戶', statuses: ['negotiating', 'pending'], color: '#fde68a', labelColor: '#c9a96e' },
+    { name: '收尾結算', statuses: ['pending_settlement', 'aftercare'], color: '#fed7aa', labelColor: '#f97316' },
+    { name: '已結束', statuses: ['completed', 'lost'], color: '#e5e7eb', labelColor: '#9ca3af' },
+]
+const STATUS_ORDER = ['construction', 'drafting', 'negotiating', 'pending', 'pending_settlement', 'aftercare', 'completed', 'lost']
 
 function getCaseGanttBar(c, year, month) {
     if (!c.startDate) return null
@@ -283,8 +329,8 @@ function getCaseGanttBar(c, year, month) {
     }
 }
 
-const regionCases = computed(() =>
-    casesStore.cases
+const ganttRows = computed(() => {
+    const sorted = casesStore.cases
         .filter(c => c.companyId === props.region && activeStatuses.value.has(c.status))
         .map(c => ({ ...c, ganttBar: getCaseGanttBar(c, displayYear.value, displayMonth.value) }))
         .sort((a, b) => {
@@ -295,7 +341,21 @@ const regionCases = computed(() =>
             const bt = b.createdAt?.toMillis?.() ?? 0
             return at - bt
         })
-)
+
+    const rows = []
+    for (const group of GROUPS) {
+        const groupCases = sorted.filter(c => group.statuses.includes(c.status))
+        if (groupCases.length === 0) continue
+        rows.push({ type: 'group-sep', group: group.name, color: group.color, labelColor: group.labelColor, isEnded: group.name === '已結束' })
+        for (let i = 0; i < groupCases.length; i++) {
+            if (i > 0 && groupCases[i - 1].status !== groupCases[i].status) {
+                rows.push({ type: 'status-gap' })
+            }
+            rows.push({ type: 'case', data: groupCases[i], isEnded: group.name === '已結束' })
+        }
+    }
+    return rows
+})
 
 async function copyCase() {
     const c = casesStore.cases.find(x => x.id === selectedCaseId.value)
@@ -317,7 +377,7 @@ async function copyCase() {
         workTypes,
     })
     const newCaseName = `${c.name}（複製）`
-    notifStore.notifyAll(authStore.name ?? '', `新增了案件「${newCaseName}」`, docRef?.id ?? '', newCaseName)
+    notifStore.notifyAll(authStore.name ?? '', `新增了案件「${newCaseName}」`, docRef?.id ?? '', newCaseName, c.companyId)
     toast('案件已複製，請補充資料')
     if (docRef?.id) {
         const newId = docRef.id
