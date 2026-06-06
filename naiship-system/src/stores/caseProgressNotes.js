@@ -8,7 +8,9 @@ export const useCaseProgressNotesStore = defineStore('caseProgressNotes', () => 
     let unsubscribe = null
 
     function subscribe(caseId) {
-        if (unsubscribe) unsubscribe()
+        if (!caseId) return
+        if (unsubscribe) { unsubscribe(); unsubscribe = null }
+        notes.value = []
         const q = query(
             collection(db, 'cases', caseId, 'progressNotes'),
             orderBy('createdAt', 'asc')
@@ -24,17 +26,18 @@ export const useCaseProgressNotesStore = defineStore('caseProgressNotes', () => 
     }
 
     async function addNote(caseId, { text, authorId, authorName, attachments = [] }) {
-        await addDoc(
+        const ref = await addDoc(
             collection(db, 'cases', caseId, 'progressNotes'),
             { text, authorId, authorName, attachments, createdAt: serverTimestamp() }
         )
         await updateDoc(doc(db, 'cases', caseId), {
             latestNote: { text, authorName, updatedAt: serverTimestamp() }
         })
+        return ref
     }
 
     async function updateNote(caseId, noteId, { text, attachments }) {
-        await updateDoc(
+        return await updateDoc(
             doc(db, 'cases', caseId, 'progressNotes', noteId),
             { text, attachments, updatedAt: serverTimestamp() }
         )
