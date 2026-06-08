@@ -88,9 +88,16 @@
             </button>
           </div>
         </div>
-        <div>
-          <label class="text-xs text-gray-500 mb-1 block">日期 *</label>
-          <input v-model="eventForm.date" type="date" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs text-gray-500 mb-1 block">日期 *</label>
+            <input v-model="eventForm.date" type="date" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1">
+          </div>
+          <div v-if="eventForm.type !== 'followup'">
+            <label class="text-xs text-gray-500 mb-1 block">結束日期（選填）</label>
+            <input v-model="eventForm.endDate" type="date" :min="eventForm.date"
+              class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1">
+          </div>
         </div>
         <div>
           <label class="text-xs text-gray-500 mb-1 block">時間（選填）</label>
@@ -202,9 +209,16 @@
             </button>
           </div>
         </div>
-        <div>
-          <label class="text-xs text-gray-500 mb-1 block">日期</label>
-          <input v-model="editForm.date" type="date" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs text-gray-500 mb-1 block">日期</label>
+            <input v-model="editForm.date" type="date" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1">
+          </div>
+          <div v-if="editForm.type !== 'followup'">
+            <label class="text-xs text-gray-500 mb-1 block">結束日期（選填）</label>
+            <input v-model="editForm.endDate" type="date" :min="editForm.date"
+              class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1">
+          </div>
         </div>
         <div>
           <label class="text-xs text-gray-500 mb-1 block">時間（選填）</label>
@@ -341,11 +355,11 @@ const TIME_OPTIONS = (() => {
     return opts
 })()
 
-const blankEvent = () => ({ type: 'note', date: '', label: '', personName: '', hours: 0, leaveType: '', caseIds: [], personNames: [], startTime: '', endTime: '' })
+const blankEvent = () => ({ type: 'note', date: '', endDate: '', label: '', personName: '', hours: 0, leaveType: '', caseIds: [], personNames: [], startTime: '', endTime: '' })
 const eventForm = ref(blankEvent())
 const showEditEvent = ref(false)
 const editingEventId = ref(null)
-const editForm = ref({ type: 'note', date: '', label: '', personName: '', hours: 0, leaveType: '', caseIds: [], personNames: [], startTime: '', endTime: '' })
+const editForm = ref({ type: 'note', date: '', endDate: '', label: '', personName: '', hours: 0, leaveType: '', caseIds: [], personNames: [], startTime: '', endTime: '' })
 
 const activeCases = computed(() =>
     casesStore.cases.filter(c => !['completed', 'lost'].includes(c.status))
@@ -364,6 +378,7 @@ function openEditEvent(event) {
     caseIds: event.caseIds ?? (event.caseId ? [event.caseId] : []),
     personNames: event.personNames ?? (event.type === 'milestone' && event.personName ? [event.personName] : []),
     startTime: event.startTime || '', endTime: event.endTime || '',
+    endDate: event.endDate ? tsToDateStr(event.endDate) : '',
   }
   showEditEvent.value = true
 }
@@ -403,6 +418,12 @@ async function saveEditEvent() {
     } else {
       payload.startTime = ''
       payload.endTime = ''
+    }
+    if (['note', 'milestone', 'leave'].includes(editForm.value.type) &&
+        editForm.value.endDate && editForm.value.endDate > editForm.value.date) {
+      payload.endDate = Timestamp.fromDate(new Date(editForm.value.endDate))
+    } else {
+      payload.endDate = null
     }
     await eventsStore.updateEvent(editingEventId.value, payload)
     showEditEvent.value = false
@@ -485,11 +506,14 @@ const calendarCells = computed(() => {
 
   for (let d = 1; d <= daysInMonth; d++) {
     const date = new Date(currentYear.value, currentMonth.value, d)
+    const cellTime = date.getTime()
     const dayEvents = eventsStore.events.filter(e => {
-      const eDate = e.date?.toDate?.() ?? new Date(e.date)
-      return eDate.getFullYear() === currentYear.value &&
-             eDate.getMonth() === currentMonth.value &&
-             eDate.getDate() === d
+      const startTs = e.date?.toDate?.() ?? new Date(e.date)
+      const start = new Date(startTs.getFullYear(), startTs.getMonth(), startTs.getDate()).getTime()
+      if (!e.endDate) return cellTime === start
+      const endTs = e.endDate?.toDate?.() ?? new Date(e.endDate)
+      const end = new Date(endTs.getFullYear(), endTs.getMonth(), endTs.getDate()).getTime()
+      return cellTime >= start && cellTime <= end
     })
     cells.push({
       day: d, currentMonth: true,
@@ -542,6 +566,10 @@ async function submitEvent() {
     if (eventForm.value.startTime) {
       payload.startTime = eventForm.value.startTime
       payload.endTime = eventForm.value.endTime || ''
+    }
+    if (['note', 'milestone', 'leave'].includes(eventForm.value.type) &&
+        eventForm.value.endDate && eventForm.value.endDate > eventForm.value.date) {
+      payload.endDate = Timestamp.fromDate(new Date(eventForm.value.endDate))
     }
     await eventsStore.addEvent(payload)
     notifStore.notifyAll(authStore.name ?? '', `新增了行程「${payload.label}」`, '', '', payload.companyId)
