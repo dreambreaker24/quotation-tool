@@ -74,7 +74,7 @@ service cloud.firestore {
       allow read, write: if isSignedIn();
     }
     match /notifications/{notifId} {
-      allow read, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow read, delete, update: if isSignedIn() && resource.data.userId == request.auth.uid;
       allow create: if isSignedIn();
     }
     match /announcements/{announcementId} {
