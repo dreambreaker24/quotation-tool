@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { collection, query, where, orderBy, onSnapshot, addDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore'
+import { collection, query, where, orderBy, onSnapshot, addDoc, updateDoc, doc, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/firebase'
 import { useAuthStore } from '@/stores/auth'
 import { useUsersStore } from '@/stores/users'
@@ -69,7 +69,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
     }
 
     async function markRead(id) {
-        await deleteDoc(doc(db, 'notifications', id))
+        await updateDoc(doc(db, 'notifications', id), { read: true })
     }
 
     return { notifications, subscribe, cleanup, notifyAll, notifyManagers, markRead }

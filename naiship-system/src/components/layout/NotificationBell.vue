@@ -16,6 +16,7 @@
       <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
         <span class="text-sm font-semibold text-gray-800">通知</span>
         <span v-if="count > 0" class="text-[11px] text-gray-400">{{ count }} 則未讀</span>
+      <span v-else-if="notifications.length > 0" class="text-[11px] text-gray-400">全部已讀</span>
       </div>
 
       <div class="max-h-80 overflow-y-auto">
@@ -24,8 +25,9 @@
         </div>
         <button v-for="n in notifications" :key="n.id"
           @click="handleClick(n)"
-          class="w-full text-left px-4 py-3 hover:bg-gray-50 border-b border-gray-50 last:border-0 transition-colors">
-          <div class="text-xs text-gray-800 leading-snug flex items-start gap-1.5">
+          class="w-full text-left px-4 py-3 hover:bg-gray-50 border-b border-gray-50 last:border-0 transition-colors"
+          :class="n.read ? 'opacity-50' : ''">
+          <div class="text-xs leading-snug flex items-start gap-1.5" :class="n.read ? 'text-gray-400' : 'text-gray-800'">
             <span class="flex-shrink-0 text-sm leading-none mt-0.5">{{ notifIcon(n.message) }}</span>
             <span><span class="font-semibold">{{ n.actorName }}</span> {{ n.message }}</span>
           </div>
@@ -48,7 +50,7 @@ const open = ref(false)
 const bellRef = ref(null)
 
 const notifications = computed(() => notifStore.notifications)
-const count = computed(() => notifications.value.length)
+const count = computed(() => notifications.value.filter(n => !n.read).length)
 
 watch(() => authStore.user?.uid, (uid) => {
     if (uid) notifStore.subscribe(uid)
