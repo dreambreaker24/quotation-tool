@@ -19,7 +19,7 @@
       </div>
       <div class="flex flex-wrap items-center gap-2 sm:gap-4 text-[11px]">
         <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-red-400"></span>重要記事</div>
-        <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded" style="background:#c9a96e"></span>場勘外出</div>
+        <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded" style="background:#c9a96e"></span>場勘/施工</div>
         <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-blue-400"></span>員工請假</div>
         <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded" style="background:#a855f7"></span>客戶跟進</div>
         <button @click="showAddEvent = true" class="text-xs text-white px-3 py-1.5 rounded-lg" style="background:#1e2533">+ 新增</button>
@@ -340,7 +340,7 @@ const ALL_REGIONS = ['south', 'north', 'central']
 
 const eventTypes = [
   { key: 'note',      label: '重要記事',   color: '#f87171' },
-  { key: 'milestone', label: '場勘外出',   color: '#c9a96e' },
+  { key: 'milestone', label: '場勘/施工',   color: '#c9a96e' },
   { key: 'leave',     label: '員工請假',   color: '#60a5fa' },
   { key: 'followup',  label: '客戶跟進',   color: '#a855f7' },
 ]
