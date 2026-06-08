@@ -1,36 +1,10 @@
 <template>
   <div class="flex gap-4">
-    <!-- Left: employee selector (desktop only) -->
-    <div class="hidden lg:block bg-white rounded-2xl shadow-sm flex-shrink-0 overflow-hidden" style="width:200px">
-      <div class="px-4 py-3 border-b border-gray-100">
-        <div class="text-xs font-semibold text-gray-500 mb-2">選擇員工</div>
-        <input v-model="search" type="text" placeholder="搜尋..."
-          class="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1">
-      </div>
-      <div class="py-1">
-        <div @click="selectedEmployee = null"
-          class="px-4 py-2.5 cursor-pointer flex items-center gap-2"
-          :style="!selectedEmployee ? 'background:rgba(201,169,110,0.1);border-left:2px solid #c9a96e' : ''"
-          :class="!selectedEmployee ? '' : 'hover:bg-gray-50'">
-          <span class="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-[10px] text-gray-500">全</span>
-          <span class="text-xs text-gray-500">全部員工</span>
-        </div>
-        <div v-for="emp in filteredEmployees" :key="emp.id"
-          @click="selectedEmployee = emp"
-          class="px-4 py-2.5 cursor-pointer flex items-center gap-2"
-          :style="selectedEmployee?.id === emp.id ? 'background:rgba(201,169,110,0.1);border-left:2px solid #c9a96e' : ''"
-          :class="selectedEmployee?.id !== emp.id ? 'hover:bg-gray-50' : ''">
-          <span class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
-            :style="`background:${empColor(emp.id)}`">{{ emp.name?.[0] ?? '?' }}</span>
-          <div>
-            <div class="text-xs font-semibold text-gray-800">{{ emp.name }}</div>
-            <div class="text-[10px]" :class="emp.hasLog ? 'text-gray-400' : 'text-amber-500'">
-              {{ emp.hasLog ? '今日已填寫' : '⚠ 未填寫' }}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <WorkJournalEmployeeList
+      :employees="uniqueEmployees"
+      :model-value="selectedEmployee"
+      @update:model-value="selectedEmployee = $event"
+    />
 
     <!-- Right: log entries -->
     <div class="flex-1 flex flex-col gap-4">
@@ -39,11 +13,6 @@
       </div>
       <div class="bg-white rounded-2xl shadow-sm px-4 lg:px-5 py-3 flex flex-col lg:flex-row lg:items-center gap-2">
         <div class="flex-1">
-          <!-- Mobile employee select -->
-          <select v-model="mobileSelectedEmployee" class="lg:hidden text-sm border border-gray-200 rounded-lg px-3 py-2.5 bg-white mb-2 w-full min-h-[44px]">
-            <option :value="null">全部員工</option>
-            <option v-for="emp in filteredEmployees" :key="emp.id" :value="emp">{{ emp.name }}</option>
-          </select>
           <div class="flex items-center justify-between gap-2">
             <div class="text-sm font-semibold text-gray-800">
               {{ selectedEmployee ? `${selectedEmployee.name} 的工作日誌` : '全部員工工作日誌' }}
@@ -75,155 +44,18 @@
         </div>
       </div>
 
-      <div v-for="log in displayedLogs" :key="log.id" class="bg-white rounded-2xl shadow-sm p-5">
-        <div class="flex items-start justify-between mb-3">
-          <div class="flex items-center gap-2">
-            <span class="w-7 h-7 rounded-full flex items-center justify-center text-[11px] text-white font-bold"
-              :style="`background:${empColor(log.userId)}`">
-              {{ log.userName?.[0] ?? '?' }}
-            </span>
-            <div>
-              <div class="text-sm font-semibold text-gray-800">{{ log.userName }}</div>
-              <div class="text-[10px] text-gray-400">
-                {{ formatTime(log.createdAt) }}
-                <span v-if="log.updatedAt" class="ml-1 text-gray-300">（已編輯）</span>
-              </div>
-            </div>
-          </div>
-          <button v-if="canEditLog(log)" @click="openEditForm(log)"
-            class="text-xs text-gray-400 hover:text-amber-600 border border-gray-200 hover:border-amber-300 rounded-lg px-3 py-1.5 min-h-[36px] transition-colors">
-            編輯
-          </button>
-        </div>
-
-        <!-- Case entries -->
-        <div v-if="log.caseEntries?.length || log.content" class="mb-3 bg-gray-50 rounded-xl p-3">
-          <div class="text-[10px] text-gray-400 font-semibold mb-2 uppercase tracking-wide">負責案件回報</div>
-          <template v-if="log.caseEntries?.length">
-            <div v-for="entry in log.caseEntries" :key="entry.caseId"
-              class="bg-white rounded-lg p-2.5 border border-gray-100 mb-2 last:mb-0">
-              <div class="flex items-center gap-2 mb-1">
-                <span class="px-2 py-0.5 rounded-full text-[10px] bg-blue-100 text-blue-700">{{ entry.caseName }}</span>
-              </div>
-              <div class="text-xs text-gray-600 whitespace-pre-wrap">{{ entry.content }}</div>
-            </div>
-          </template>
-          <div v-else class="bg-white rounded-lg p-2.5 border border-gray-100">
-            <div class="text-xs text-gray-600 whitespace-pre-wrap">{{ log.content }}</div>
-          </div>
-        </div>
-
-        <!-- Other items -->
-        <div v-if="log.otherItems?.length" class="mb-3 bg-gray-50 rounded-xl p-3">
-          <div class="text-[10px] text-gray-400 font-semibold mb-2 uppercase tracking-wide">其他工作項目</div>
-          <div v-for="(item, i) in log.otherItems" :key="i"
-            class="bg-white rounded-lg p-2.5 border border-gray-100 mb-2 last:mb-0 text-xs text-gray-600 whitespace-pre-wrap">
-            {{ item.content }}
-          </div>
-        </div>
-
-        <!-- Fuel expenses (new multi format) -->
-        <div v-if="log.fuelExpenses?.length" class="mb-3 bg-amber-50 rounded-xl p-3">
-          <div class="flex items-center justify-between mb-2">
-            <div class="text-[10px] text-amber-600 font-semibold uppercase tracking-wide">
-              申請油資（共 {{ log.fuelExpenses.length }} 筆）
-            </div>
-            <div class="flex items-center gap-2">
-              <span v-if="log.fuelApproved" class="text-[10px] text-green-600 font-semibold">✓ 已確認</span>
-              <button v-else-if="authStore.isManager" @click="approveFuel(log.id)"
-                class="text-[11px] text-white px-2.5 py-1 rounded-lg" style="background:#22c55e">✓ 確認油資</button>
-              <span v-else class="text-[10px] text-amber-500 font-semibold">待主管確認</span>
-            </div>
-          </div>
-          <div v-for="(f, i) in log.fuelExpenses" :key="i"
-            class="flex gap-3 items-start mb-2 last:mb-0 pb-2 last:pb-0 border-b last:border-0 border-amber-100">
-            <img v-if="f.photoUrl" :src="f.photoUrl"
-              class="w-14 h-14 rounded-lg object-cover cursor-pointer flex-shrink-0"
-              @click="previewUrl = f.photoUrl">
-            <div>
-              <div class="text-xs text-gray-700 mb-1"><span class="text-gray-400">原因：</span>{{ f.reason }}</div>
-              <div class="text-xs text-gray-700"><span class="text-gray-400">路程：</span>{{ f.distance }} 公里</div>
-              <div class="text-xs text-amber-600 font-semibold mt-0.5">補貼金額：{{ f.distance * 6 }} 元</div>
-            </div>
-          </div>
-        </div>
-        <!-- Fuel expense (old single format - backward compat) -->
-        <div v-else-if="log.fuelExpense" class="mb-3 bg-amber-50 rounded-xl p-3">
-          <div class="flex items-center justify-between mb-2">
-            <div class="text-[10px] text-amber-600 font-semibold uppercase tracking-wide">申請油資</div>
-            <span v-if="log.fuelApproved !== false" class="text-[10px] text-green-600 font-semibold">✓ 已確認</span>
-          </div>
-          <div class="flex gap-3 items-start">
-            <img v-if="log.fuelExpense.photoUrl" :src="log.fuelExpense.photoUrl"
-              class="w-16 h-16 rounded-lg object-cover cursor-pointer flex-shrink-0"
-              @click="previewUrl = log.fuelExpense.photoUrl">
-            <div>
-              <div class="text-xs text-gray-700 mb-1"><span class="text-gray-400">原因：</span>{{ log.fuelExpense.reason }}</div>
-              <div class="text-xs text-gray-700"><span class="text-gray-400">路程：</span>{{ log.fuelExpense.distance }} 公里</div>
-              <div class="text-xs text-amber-600 font-semibold mt-0.5">補貼金額：{{ log.fuelExpense.distance * 6 }} 元</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Overtime items -->
-        <div v-if="log.overtimeItems?.length" class="mb-3 bg-purple-50 rounded-xl p-3">
-          <div class="flex items-center justify-between mb-2">
-            <div class="text-[10px] text-purple-600 font-semibold uppercase tracking-wide">
-              加班申請（共 {{ log.overtimeItems.length }} 筆）
-            </div>
-            <div class="flex items-center gap-2">
-              <span v-if="log.overtimeApproved" class="text-[10px] text-green-600 font-semibold">✓ 已確認</span>
-              <button v-else-if="authStore.isManager" @click="approveOvertime(log.id)"
-                class="text-[11px] text-white px-2.5 py-1 rounded-lg" style="background:#22c55e">✓ 確認加班</button>
-              <span v-else class="text-[10px] text-purple-500 font-semibold">待主管確認</span>
-            </div>
-          </div>
-          <div v-for="(ot, i) in log.overtimeItems" :key="i"
-            class="bg-white rounded-lg p-2.5 border border-purple-100 mb-2 last:mb-0 text-xs text-gray-700">
-            <div><span class="text-gray-400">原因：</span>{{ ot.reason }}</div>
-            <div class="text-purple-600 font-semibold mt-0.5">加班 {{ ot.hours }} 小時</div>
-          </div>
-        </div>
-
-        <!-- Log attachments -->
-        <div v-if="log.logAttachments?.length" class="mb-3 bg-gray-50 rounded-xl p-3">
-          <div class="text-[10px] text-gray-400 font-semibold mb-2 uppercase tracking-wide">附件</div>
-          <div class="flex gap-2 flex-wrap">
-            <a v-for="att in log.logAttachments" :key="att.url"
-              :href="att.isPdf ? (att.pdfUrl ?? att.url) : undefined" :target="att.isPdf ? '_blank' : undefined">
-              <div v-if="att.isPdf" class="w-12 h-12 rounded bg-red-100 flex items-center justify-center text-[10px] text-red-600 font-bold hover:bg-red-200">PDF</div>
-              <img v-else :src="att.url" @click.prevent="previewUrl = att.url" class="w-12 h-12 rounded object-cover cursor-pointer hover:opacity-80">
-            </a>
-          </div>
-        </div>
-
-        <!-- Replies -->
-        <div class="border-t border-gray-100 pt-3">
-          <div v-for="reply in (log.replies || [])" :key="reply.id" class="flex items-start gap-2 mb-2">
-            <span class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] text-white font-bold flex-shrink-0" style="background:#1e2533">
-              {{ reply.creatorName?.[0] ?? '管' }}
-            </span>
-            <div class="bg-blue-50 rounded-xl px-3 py-2 text-xs text-gray-700 flex-1 whitespace-pre-wrap">
-              {{ reply.content }}
-              <div class="text-[10px] text-gray-400 mt-1">{{ reply.creatorName }} · {{ formatTime(reply.createdAt) }}</div>
-            </div>
-          </div>
-          <button v-if="authStore.isManager" @click="replyTarget = log.id"
-            class="text-[11px] hover:underline ml-4 sm:ml-8" style="color:#c9a96e">
-            {{ (log.replies?.length) ? '回覆…' : '＋ 主管回覆' }}
-          </button>
-          <div v-if="replyTarget === log.id" class="mt-2 flex flex-col gap-2 ml-4 sm:ml-8">
-            <textarea v-model="replyContent" rows="3" placeholder="輸入回覆..."
-              class="w-full text-xs border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 resize-none"></textarea>
-            <div class="flex justify-end gap-2">
-              <button @click="replyTarget = null; replyContent = ''"
-                class="text-xs text-gray-500 px-3 py-1.5 rounded-lg border border-gray-200">取消</button>
-              <button @click="submitReply(log.id)"
-                class="text-xs text-white px-3 py-1.5 rounded-lg" style="background:#1e2533">送出</button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <WorkJournalLogCard
+        v-for="log in displayedLogs"
+        :key="log.id"
+        :log="log"
+        :can-edit="canEditLog(log)"
+        :is-manager="authStore.isManager"
+        @edit="openEditForm"
+        @approve-fuel="approveFuel"
+        @approve-overtime="approveOvertime"
+        @reply="handleReply"
+        @preview="previewUrl = $event"
+      />
 
       <div v-if="weekSummary" class="bg-white rounded-2xl shadow-sm px-5 py-4 flex flex-wrap items-center gap-3 sm:gap-6 text-sm">
         <span class="text-xs text-gray-400 font-semibold">本週合計</span>
@@ -250,237 +82,46 @@
     <img :src="previewUrl" class="max-h-[80vh] max-w-[90vw] rounded-xl">
   </div>
 
-  <!-- 填寫今日日誌 Modal -->
-  <div v-if="showLogForm" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center" style="background:rgba(0,0,0,0.4)">
-    <div class="bg-white sm:rounded-2xl rounded-t-2xl shadow-xl px-4 py-5 sm:p-6 w-full sm:max-w-lg sm:mx-4 max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
-      <div class="flex items-center justify-between mb-4">
-        <h3 class="text-base font-bold text-gray-800">{{ editingLog ? '編輯工作日誌' : '填寫今日工作日誌' }}</h3>
-        <button @click="showLogForm = false; editingLog = null" class="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
-      </div>
-      <div class="flex items-center gap-2 mb-4">
-        <span class="text-xs text-gray-400">{{ todayLabel }}</span>
-        <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full text-white" style="background:#c9a96e">
-          {{ regionLabel }}（本區）
-        </span>
-      </div>
-
-      <!-- 負責案件 -->
-      <div v-if="myCases.length > 0" class="mb-4">
-        <div class="text-xs font-semibold text-gray-600 mb-2">負責案件回報</div>
-        <div v-for="c in myCases" :key="c.id" class="border border-gray-100 rounded-xl p-3 mb-2">
-          <span class="px-2 py-0.5 rounded-full text-[10px] bg-blue-100 text-blue-700 mb-2 inline-block">{{ c.name }}</span>
-          <textarea v-model="logEntries[c.id]" rows="2"
-            class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 resize-none"
-            placeholder="今日工作回報..."></textarea>
-        </div>
-      </div>
-
-      <!-- 其他工作項目 -->
-      <div class="mb-4">
-        <div class="flex items-center justify-between mb-2">
-          <div class="text-xs font-semibold text-gray-600">其他工作項目</div>
-          <button @click="addOtherItem" class="text-xs" style="color:#c9a96e">+ 新增</button>
-        </div>
-        <div v-if="otherItems.length === 0" class="text-xs text-gray-400 py-1">無其他工作（可點右上新增）</div>
-        <div v-for="(item, idx) in otherItems" :key="idx" class="flex items-start gap-2 mb-2">
-          <textarea v-model="otherItems[idx].content" rows="2"
-            class="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 resize-none"
-            placeholder="描述工作內容..."></textarea>
-          <button @click="otherItems.splice(idx, 1)" class="text-red-400 hover:text-red-600 mt-2">✕</button>
-        </div>
-      </div>
-
-      <!-- 申請油資 -->
-      <div class="border border-amber-200 rounded-xl p-4 bg-amber-50/50">
-        <div class="flex items-center justify-between mb-3">
-          <div class="text-xs font-semibold text-amber-700">申請油資（選填）</div>
-          <button v-if="!isAfterDeadline || editingLog" @click="addFuelItem" class="text-xs" style="color:#c9a96e">+ 新增</button>
-        </div>
-        <!-- 編輯模式：已核准的油資顯示為鎖定 -->
-        <div v-if="editingLog?.fuelApproved" class="text-xs text-green-600 bg-green-50 rounded-lg px-3 py-2 mb-2">
-          ✓ 油資已核准，無法修改
-        </div>
-        <div v-else-if="isAfterDeadline && !editingLog" class="text-xs text-center text-red-500 py-2 bg-red-50 rounded-lg">
-          油資申請已截止（截止至隔天 19:00）
-        </div>
-        <template v-if="!editingLog?.fuelApproved && (!isAfterDeadline || editingLog)">
-          <div v-if="fuelItems.length === 0" class="text-xs text-gray-400 py-1">無油資申請（可點右上新增）</div>
-          <div v-for="(item, idx) in fuelItems" :key="idx"
-            class="border border-amber-200 rounded-xl p-3 mb-2 last:mb-0 bg-white">
-            <div class="flex items-center justify-between mb-2">
-              <span class="text-[11px] text-amber-600 font-semibold">第 {{ idx + 1 }} 筆</span>
-              <button @click="fuelItems.splice(idx, 1)" class="text-red-400 hover:text-red-600 text-xs">✕</button>
-            </div>
-            <textarea v-model="item.reason" rows="2"
-              class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 resize-none bg-white mb-2"
-              placeholder="申請原因（例：前往台南東區工地勘查）"></textarea>
-            <div class="flex flex-col sm:flex-row sm:items-end gap-3">
-              <div class="flex-1">
-                <label class="text-xs text-gray-500 mb-1 block">路程（公里）</label>
-                <input v-model.number="item.distance" type="number" min="0"
-                  class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 bg-white"
-                  placeholder="0">
-                <div v-if="item.distance > 0" class="text-xs text-amber-600 font-semibold mt-1">
-                  補貼金額：${{ item.distance * 6 }} 元（$6/公里）
-                </div>
-              </div>
-              <div>
-                <label class="text-xs text-gray-500 mb-1 block">憑證照片</label>
-                <div class="flex items-center gap-2">
-                  <button @click="triggerFuelPhoto(idx)"
-                    class="text-xs border border-dashed border-amber-300 rounded-lg px-3 py-3 sm:py-2 text-amber-600 hover:border-amber-500 transition-colors">
-                    {{ item.photoFile ? '重新選擇' : '選擇照片' }}
-                  </button>
-                  <img v-if="item.previewUrl" :src="item.previewUrl"
-                    class="w-12 h-12 sm:w-10 sm:h-10 rounded-lg object-cover cursor-pointer"
-                    @click="previewUrl = item.previewUrl">
-                </div>
-              </div>
-            </div>
-          </div>
-        </template>
-      </div>
-
-      <!-- 申請加班 -->
-      <div class="border border-purple-200 rounded-xl p-4 bg-purple-50/50 mt-3">
-        <div class="flex items-center justify-between mb-3">
-          <div class="text-xs font-semibold text-purple-700">申請加班（選填）</div>
-          <button v-if="!editingLog?.overtimeApproved && (!isAfterDeadline || editingLog)" @click="addOvertimeItem" class="text-xs" style="color:#c9a96e">+ 新增</button>
-        </div>
-        <!-- 編輯模式：已核准的加班顯示為鎖定 -->
-        <div v-if="editingLog?.overtimeApproved" class="text-xs text-green-600 bg-green-50 rounded-lg px-3 py-2 mb-2">
-          ✓ 加班已核准，無法修改
-        </div>
-        <div v-else-if="isAfterDeadline && !editingLog" class="text-xs text-center text-red-500 py-2 bg-red-50 rounded-lg">
-          加班申請已截止（截止至隔天 19:00）
-        </div>
-        <div v-else-if="overtimeItems.length === 0" class="text-xs text-gray-400 py-1">無加班申請（可點右上新增）</div>
-        <div v-for="(item, idx) in overtimeItems" :key="idx"
-          class="border border-purple-200 rounded-xl p-3 mb-2 last:mb-0 bg-white">
-          <div class="flex items-center justify-between mb-2">
-            <span class="text-[11px] text-purple-600 font-semibold">第 {{ idx + 1 }} 筆</span>
-            <button @click="overtimeItems.splice(idx, 1)" class="text-red-400 hover:text-red-600 text-xs">✕</button>
-          </div>
-          <textarea v-model="item.reason" rows="2"
-            class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 resize-none bg-white mb-2"
-            placeholder="加班原因（例：處理緊急案件、協助廠商施工）"></textarea>
-          <div class="flex items-center gap-3">
-            <label class="text-xs text-gray-500">加班時數</label>
-            <input v-model.number="item.hours" type="number" min="0" step="0.5"
-              class="w-20 text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 bg-white"
-              placeholder="0">
-            <span class="text-xs text-gray-400">小時</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- 附件 -->
-      <div class="border border-gray-200 rounded-xl p-4 bg-gray-50/50 mt-3">
-        <div class="flex items-center justify-between mb-2">
-          <div class="text-xs font-semibold text-gray-600">附件（選填）</div>
-          <button @click="logAttachInput.click()" class="text-xs" style="color:#c9a96e">+ 選擇檔案</button>
-        </div>
-        <div v-if="logAttachFiles.length" class="flex gap-2 flex-wrap">
-          <div v-for="(f, i) in logAttachFiles" :key="i" class="relative">
-            <img v-if="f.preview" :src="f.preview" class="w-12 h-12 rounded object-cover">
-            <div v-else class="w-12 h-12 rounded bg-red-100 flex items-center justify-center text-[9px] text-red-600 font-bold">PDF</div>
-            <button @click="logAttachFiles.splice(i, 1)"
-              class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-gray-600 text-white rounded-full text-[8px] leading-none flex items-center justify-center hover:bg-red-500">✕</button>
-          </div>
-        </div>
-        <div v-else class="text-[11px] text-gray-300">無附件</div>
-      </div>
-
-      <div class="flex justify-end gap-2 mt-5">
-        <button @click="showLogForm = false; editingLog = null" class="text-sm text-gray-400 px-4 py-2">取消</button>
-        <button @click="submitLog" :disabled="submitting" class="text-sm text-white px-5 py-2 rounded-xl disabled:opacity-60" style="background:#1e2533">{{ submitting ? (editingLog ? '更新中…' : '送出中…') : (editingLog ? '更新日誌' : '送出日誌') }}</button>
-      </div>
-      <input ref="fuelFileInput" type="file" accept="image/*" class="hidden" @change="handleFuelFileChange">
-      <input ref="logAttachInput" type="file" accept="image/jpeg,image/jpg,image/png,image/webp,.pdf" multiple class="hidden" @change="handleLogAttachFiles">
-    </div>
-  </div>
+  <WorkJournalLogForm
+    :show="showLogForm"
+    :editing-log="editingLog"
+    :region="region"
+    @close="showLogForm = false; editingLog = null"
+    @submitted="showLogForm = false; editingLog = null"
+  />
 </template>
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
-import { Timestamp } from 'firebase/firestore'
 import * as XLSX from 'xlsx'
 import { useWorkLogsStore } from '@/stores/workLogs'
 import { useAuthStore } from '@/stores/auth'
-import { useCasesStore } from '@/stores/cases'
-import { useNotificationsStore } from '@/stores/notifications'
-import { uploadPhoto } from '@/composables/useStorage'
 import { useToast } from '@/composables/useToast'
+import { useNotificationsStore } from '@/stores/notifications'
+import WorkJournalEmployeeList from './WorkJournalEmployeeList.vue'
+import WorkJournalLogCard from './WorkJournalLogCard.vue'
+import WorkJournalLogForm from './WorkJournalLogForm.vue'
 
 const props = defineProps({ region: String, pendingOnly: Boolean })
 const logsStore = useWorkLogsStore()
 const authStore = useAuthStore()
-const casesStore = useCasesStore()
 const notifStore = useNotificationsStore()
-
-const selectedEmployee = ref(null)
-const mobileSelectedEmployee = ref(null)
-const search = ref('')
-const replyTarget = ref(null)
-const replyContent = ref('')
-const showLogForm = ref(false)
-const editingLog = ref(null)
-const previewUrl = ref(null)
-const logEntries = ref({})
-const otherItems = ref([])
-const fuelItems = ref([])
-const overtimeItems = ref([])
-const selectedDate = ref(new Date())
-const viewMode = ref('day')
-const submitting = ref(false)
-const fuelFileInput = ref(null)
-const activeFuelIdx = ref(-1)
-const logAttachFiles = ref([])
-const logAttachInput = ref(null)
 const { toast } = useToast()
 
-const REGION_LABELS = { south: '奈拾南區', north: '奈拾北區', central: '奈拾中區' }
-const regionLabel = computed(() => REGION_LABELS[props.region] ?? props.region)
-
-const isAfterDeadline = computed(() => {
-    const now = new Date()
-    const logDate = editingLog.value?.date?.toDate?.() ?? new Date()
-    const deadline = new Date(logDate)
-    deadline.setDate(deadline.getDate() + 1)
-    deadline.setHours(19, 0, 0, 0)
-    return now >= deadline
-})
-
-const todayLabel = computed(() => {
-    const d = new Date()
-    return `${d.getFullYear()} 年 ${d.getMonth() + 1} 月 ${d.getDate()} 日`
-})
-
-const myCases = computed(() =>
-    casesStore.cases.filter(c =>
-        c.companyId === props.region &&
-        !['completed', 'lost'].includes(c.status) &&
-        (authStore.isAdmin || authStore.isManager ||
-         c.assignedTo === authStore.user?.uid ||
-         (authStore.name && c.assignees?.includes(authStore.name)))
-    )
-)
+const selectedEmployee = ref(null)
+const previewUrl = ref(null)
+const showLogForm = ref(false)
+const editingLog = ref(null)
+const selectedDate = ref(new Date())
+const viewMode = ref('day')
 
 function openLogForm() {
     editingLog.value = null
-    logEntries.value = {}
-    otherItems.value = []
-    fuelItems.value = []
-    overtimeItems.value = []
-    logAttachFiles.value = []
     showLogForm.value = true
 }
 
-function handleLogAttachFiles(e) {
-    Array.from(e.target.files).forEach(file => {
-        const isPdf = file.name.toLowerCase().endsWith('.pdf')
-        logAttachFiles.value.push({ file, preview: isPdf ? null : URL.createObjectURL(file) })
-    })
-    e.target.value = ''
+function openEditForm(log) {
+    editingLog.value = log
+    showLogForm.value = true
 }
 
 function isTodayDate(ts) {
@@ -495,142 +136,39 @@ function canEditLog(log) {
     return log.userId === authStore.user?.uid && isTodayDate(log.date)
 }
 
-function openEditForm(log) {
-    editingLog.value = log
-    logEntries.value = {}
-    logAttachFiles.value = []
-    if (log.caseEntries?.length) {
-        log.caseEntries.forEach(e => { logEntries.value[e.caseId] = e.content })
-    }
-    otherItems.value = (log.otherItems ?? []).map(i => ({ content: i.content }))
-    fuelItems.value = log.fuelApproved
-        ? []
-        : (log.fuelExpenses ?? []).map(f => ({ reason: f.reason, distance: f.distance || 0, photoFile: null, previewUrl: f.photoUrl || '' }))
-    overtimeItems.value = log.overtimeApproved
-        ? []
-        : (log.overtimeItems ?? []).map(ot => ({ reason: ot.reason, hours: ot.hours }))
-    showLogForm.value = true
-}
-
-function addOvertimeItem() {
-    overtimeItems.value.push({ reason: '', hours: 0 })
-}
-
-function addOtherItem() {
-    otherItems.value.push({ content: '' })
-}
-
-function addFuelItem() {
-    fuelItems.value.push({ reason: '', distance: 0, photoFile: null, previewUrl: '' })
-}
-
-function triggerFuelPhoto(idx) {
-    activeFuelIdx.value = idx
-    fuelFileInput.value?.click()
-}
-
-function handleFuelFileChange(e) {
-    const file = e.target.files[0]
-    if (!file || activeFuelIdx.value < 0) return
-    fuelItems.value[activeFuelIdx.value].photoFile = file
-    fuelItems.value[activeFuelIdx.value].previewUrl = URL.createObjectURL(file)
-    e.target.value = ''
-}
-
-async function submitLog() {
-    const caseEntries = myCases.value
-        .filter(c => logEntries.value[c.id]?.trim())
-        .map(c => ({ caseId: c.id, caseName: c.name, content: logEntries.value[c.id].trim() }))
-    const other = otherItems.value.filter(i => i.content.trim()).map(i => ({ content: i.content.trim() }))
-    const canAddFuel = !isAfterDeadline.value || !!editingLog.value
-    const hasFuel = canAddFuel && fuelItems.value.some(f => f.reason.trim())
-    if (!editingLog.value && caseEntries.length === 0 && other.length === 0 && !hasFuel) return
-    if (submitting.value) return
-    submitting.value = true
-
-    let fuelData = null
-    if (hasFuel && !editingLog.value?.fuelApproved) {
-        const items = []
-        for (const item of fuelItems.value) {
-            if (!item.reason.trim()) continue
-            let photoUrl = item.previewUrl || ''
-            if (item.photoFile) {
-                try { photoUrl = await uploadPhoto(item.photoFile, 'fuel') } catch (_) {}
-            }
-            items.push({ reason: item.reason.trim(), distance: item.distance || 0, photoUrl })
-        }
-        if (items.length > 0) fuelData = items
-    }
-
-    const overtimeData = editingLog.value?.overtimeApproved
-        ? []
-        : overtimeItems.value
-            .filter(i => i.reason.trim() && i.hours > 0)
-            .map(i => ({ reason: i.reason.trim(), hours: i.hours }))
-
-    if (editingLog.value) {
-        const updateData = {
-            ...(caseEntries.length > 0 ? { caseEntries } : { caseEntries: [] }),
-            ...(other.length > 0 ? { otherItems: other } : { otherItems: [] }),
-            ...(!editingLog.value.fuelApproved && {
-                fuelExpenses: fuelData ?? [],
-                ...(fuelData ? { fuelApproved: false } : {}),
-            }),
-            ...(!editingLog.value.overtimeApproved && {
-                overtimeItems: overtimeData,
-                ...(overtimeData.length > 0 ? { overtimeApproved: false } : {}),
-            }),
-        }
-        try {
-            await logsStore.updateLog(editingLog.value.id, updateData)
-            showLogForm.value = false
-            editingLog.value = null
-            toast('日誌已更新')
-        } catch {
-            toast('更新失敗，請重試', 'error')
-        }
-        submitting.value = false
-        return
-    }
-
-    const logAttachments = []
-    for (const pf of logAttachFiles.value) {
-        try {
-            const url = await uploadPhoto(pf.file, 'log')
-            const isPdf = pf.file.name.toLowerCase().endsWith('.pdf')
-            const pdfUrl = isPdf && !url.toLowerCase().endsWith('.pdf') ? url + '.pdf' : url
-            logAttachments.push({ url, isPdf, pdfUrl })
-        } catch { /* skip failed */ }
-    }
-
-    const logDoc = {
-        userId: authStore.user?.uid ?? '',
-        userName: authStore.name ?? '',
-        companyId: props.region,
-        date: Timestamp.fromDate(new Date()),
-        ...(caseEntries.length > 0 && { caseEntries }),
-        ...(other.length > 0 && { otherItems: other }),
-        ...(fuelData && { fuelExpenses: fuelData, fuelApproved: false }),
-        ...(overtimeData.length > 0 && { overtimeItems: overtimeData, overtimeApproved: false }),
-        ...(logAttachments.length > 0 && { logAttachments }),
-    }
+async function approveFuel(logId) {
     try {
-        await logsStore.addLog(logDoc)
-        notifStore.notifyAll(authStore.name ?? '', `新增了工作日誌`, '', '', authStore.companyId ?? '')
-        logAttachFiles.value = []
-        showLogForm.value = false
-        toast('日誌已送出')
+        await logsStore.approveFuel(logId, authStore.name ?? '')
+        toast('油資已確認')
     } catch {
-        toast('送出失敗，請重試', 'error')
+        toast('確認失敗，請重試', 'error')
     }
-    submitting.value = false
 }
 
-// Week helpers
+async function approveOvertime(logId) {
+    try {
+        await logsStore.approveOvertime(logId, authStore.name ?? '')
+        toast('加班已確認')
+    } catch {
+        toast('確認失敗，請重試', 'error')
+    }
+}
+
+async function handleReply(logId, content) {
+    try {
+        await logsStore.addReply(logId, content, authStore.user?.uid ?? 'unknown', authStore.name ?? '')
+        const log = logsStore.logs.find(l => l.id === logId)
+        const ownerName = log?.userName ?? ''
+        notifStore.notifyAll(authStore.name ?? '', `回覆了 ${ownerName} 的工作日誌`, '', '', authStore.companyId ?? '')
+    } catch {
+        toast('回覆失敗，請重試', 'error')
+    }
+}
+
 function getWeekStart(date) {
     const d = new Date(date)
-    const day = d.getDay() // 0=Sun
-    const diff = day === 0 ? -6 : 1 - day // adjust to Monday
+    const day = d.getDay()
+    const diff = day === 0 ? -6 : 1 - day
     d.setDate(d.getDate() + diff)
     d.setHours(0, 0, 0, 0)
     return d
@@ -651,10 +189,7 @@ const isToday = computed(() => {
 
 const isAtEnd = computed(() => {
     const today = new Date()
-    if (viewMode.value === 'week') {
-        const weekEnd = getWeekEnd(selectedDate.value)
-        return weekEnd >= today
-    }
+    if (viewMode.value === 'week') return getWeekEnd(selectedDate.value) >= today
     return isToday.value
 })
 
@@ -684,35 +219,20 @@ function shiftDate(delta) {
 watch([() => props.region, selectedDate, viewMode], ([region]) => {
     if (!region) return
     if (viewMode.value === 'week') {
-        const ws = getWeekStart(selectedDate.value)
-        const we = getWeekEnd(selectedDate.value)
-        logsStore.subscribe(region, ws, we)
+        logsStore.subscribe(region, getWeekStart(selectedDate.value), getWeekEnd(selectedDate.value))
     } else {
         logsStore.subscribe(region, selectedDate.value)
     }
 }, { immediate: true })
 
-// Sync mobile dropdown with the desktop sidebar selection
-watch(mobileSelectedEmployee, val => { selectedEmployee.value = val })
-
 onMounted(() => { if (props.pendingOnly && authStore.isManager) logsStore.subscribePending() })
 onUnmounted(() => logsStore.unsubscribe?.())
 
-const empColors = ['#c9a96e', '#a855f7', '#3b82f6', '#22c55e', '#f59e0b', '#ef4444']
-function empColor(uid) { return empColors[(uid?.charCodeAt(0) ?? 0) % empColors.length] }
-
-function formatTime(ts) {
-    if (!ts) return ''
-    const d = ts.toDate?.() ?? new Date(ts)
-    return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-}
-
-const filteredEmployees = computed(() => {
+const uniqueEmployees = computed(() => {
     const seen = new Set()
     return logsStore.logs
         .filter(l => { if (seen.has(l.userId)) return false; seen.add(l.userId); return true })
         .map(l => ({ id: l.userId, name: l.userName, hasLog: true }))
-        .filter(e => !search.value || (e.name?.includes(search.value) ?? false))
 })
 
 const displayedLogs = computed(() => {
@@ -725,22 +245,14 @@ const displayedLogs = computed(() => {
 const weekSummary = computed(() => {
     if (viewMode.value !== 'week' || displayedLogs.value.length === 0) return null
     const totalFuelKm = displayedLogs.value.reduce((sum, log) => {
-        const km = log.fuelExpenses?.reduce((s, f) => s + (f.distance || 0), 0)
-            ?? (log.fuelExpense?.distance || 0)
+        const km = log.fuelExpenses?.reduce((s, f) => s + (f.distance || 0), 0) ?? (log.fuelExpense?.distance || 0)
         return sum + km
     }, 0)
-    return {
-        count: displayedLogs.value.length,
-        fuelKm: totalFuelKm,
-        fuelAmount: totalFuelKm * 6,
-    }
+    return { count: displayedLogs.value.length, fuelKm: totalFuelKm, fuelAmount: totalFuelKm * 6 }
 })
 
 function exportWeekLogs() {
-    if (displayedLogs.value.length === 0) {
-        alert('本週無工作日誌記錄')
-        return
-    }
+    if (displayedLogs.value.length === 0) { alert('本週無工作日誌記錄'); return }
     const rows = []
     displayedLogs.value.forEach(log => {
         const dateStr = log.date
@@ -750,16 +262,8 @@ function exportWeekLogs() {
             ? log.caseEntries.map(e => `${e.caseName}：${e.content}`).join('\n')
             : (log.content || '')
         const otherWork = log.otherItems?.map(i => i.content).join('\n') || ''
-        const fuelKm = log.fuelExpenses?.reduce((s, f) => s + (f.distance || 0), 0)
-            ?? (log.fuelExpense?.distance || 0)
-        rows.push({
-            '員工姓名': log.userName || '',
-            '日期': dateStr,
-            '案件回報': caseReport,
-            '其他工作': otherWork,
-            '油資(km)': fuelKm || '',
-            '油資($)': fuelKm ? fuelKm * 6 : '',
-        })
+        const fuelKm = log.fuelExpenses?.reduce((s, f) => s + (f.distance || 0), 0) ?? (log.fuelExpense?.distance || 0)
+        rows.push({ '員工姓名': log.userName || '', '日期': dateStr, '案件回報': caseReport, '其他工作': otherWork, '油資(km)': fuelKm || '', '油資($)': fuelKm ? fuelKm * 6 : '' })
     })
     const sheet = XLSX.utils.json_to_sheet(rows)
     const wb = XLSX.utils.book_new()
@@ -768,37 +272,5 @@ function exportWeekLogs() {
     const weekEnd = getWeekEnd(selectedDate.value)
     const fmt = d => `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`
     XLSX.writeFile(wb, `工作日誌_${fmt(weekStart)}_${fmt(weekEnd)}.xlsx`)
-}
-
-async function approveFuel(logId) {
-    try {
-        await logsStore.approveFuel(logId, authStore.name ?? '')
-        toast('油資已確認')
-    } catch {
-        toast('確認失敗，請重試', 'error')
-    }
-}
-
-async function approveOvertime(logId) {
-    try {
-        await logsStore.approveOvertime(logId, authStore.name ?? '')
-        toast('加班已確認')
-    } catch {
-        toast('確認失敗，請重試', 'error')
-    }
-}
-
-async function submitReply(logId) {
-    if (!replyContent.value.trim()) return
-    try {
-        await logsStore.addReply(logId, replyContent.value, authStore.user?.uid ?? 'unknown', authStore.name ?? '')
-        const log = logsStore.logs.find(l => l.id === logId)
-        const ownerName = log?.userName ?? ''
-        notifStore.notifyAll(authStore.name ?? '', `回覆了 ${ownerName} 的工作日誌`, '', '', authStore.companyId ?? '')
-        replyContent.value = ''
-        replyTarget.value = null
-    } catch {
-        toast('回覆失敗，請重試', 'error')
-    }
 }
 </script>
