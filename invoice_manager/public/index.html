@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>發票報帳系統</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: '微軟正黑體', 'Microsoft JhengHei', sans-serif; background: #f0f2f5; color: #1a1a2e; min-height: 100vh; }
+
+/* ── Header ── */
+.header {
+    background: #2c4a6e;
+    color: #fff;
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.25);
+}
+.header h1 { font-size: 18px; font-weight: 700; letter-spacing: .5px; }
+.header .spacer { flex: 1; }
+.company-selector { display: flex; align-items: center; gap: 8px; }
+.company-selector label { font-size: 13px; opacity: .85; }
+.company-selector select {
+    background: rgba(255,255,255,.15);
+    border: 1px solid rgba(255,255,255,.3);
+    border-radius: 6px;
+    color: #fff;
+    padding: 5px 10px;
+    font-size: 14px;
+    cursor: pointer;
+}
+.company-selector select option { background: #2c4a6e; color: #fff; }
+.usage-badge {
+    background: rgba(255,255,255,.12);
+    border: 1px solid rgba(255,255,255,.2);
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 12px;
+    opacity: .9;
+}
+
+/* ── Main ── */
+.main { max-width: 1100px; margin: 24px auto; padding: 0 20px; }
+
+/* ── Drop zone ── */
+.drop-zone {
+    background: #fff;
+    border: 2px dashed #b0bec5;
+    border-radius: 12px;
+    padding: 40px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .2s, background .2s;
+    position: relative;
+}
+.drop-zone:hover, .drop-zone.drag-over {
+    border-color: #2c4a6e;
+    background: #f0f4f9;
+}
+.drop-zone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.drop-zone .icon { font-size: 40px; margin-bottom: 10px; }
+.drop-zone p { color: #607d8b; font-size: 14px; }
+.drop-zone p strong { color: #2c4a6e; }
+.drop-zone .hint { font-size: 12px; margin-top: 6px; color: #90a4ae; }
+
+.file-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; justify-content: center; }
+.file-chip {
+    background: #e8edf4;
+    border-radius: 16px;
+    padding: 4px 10px 4px 8px;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.file-chip .remove { cursor: pointer; color: #90a4ae; font-size: 14px; line-height: 1; }
+.file-chip .remove:hover { color: #e53935; }
+
+.scan-bar { display: flex; justify-content: flex-end; margin-top: 12px; }
+.btn {
+    padding: 9px 22px;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: opacity .15s, transform .1s;
+    font-weight: 600;
+}
+.btn:active { transform: scale(.97); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn-primary { background: #2c4a6e; color: #fff; }
+.btn-primary:not(:disabled):hover { background: #3a5d87; }
+.btn-success { background: #2e7d32; color: #fff; }
+.btn-success:not(:disabled):hover { background: #388e3c; }
+.btn-danger  { background: #c62828; color: #fff; }
+
+/* ── Progress ── */
+.progress-bar-wrap {
+    background: #e3e8ef;
+    border-radius: 6px;
+    height: 6px;
+    margin-top: 10px;
+    overflow: hidden;
+    display: none;
+}
+.progress-bar-fill {
+    height: 100%;
+    background: #2c4a6e;
+    border-radius: 6px;
+    width: 0%;
+    transition: width .3s;
+}
+.progress-label { font-size: 12px; color: #607d8b; margin-top: 4px; text-align: center; }
+
+/* ── Results section ── */
+.results-section { margin-top: 24px; display: none; }
+.results-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+.results-header h2 { font-size: 16px; color: #2c4a6e; }
+.results-header .actions { display: flex; gap: 8px; }
+
+/* ── Table ── */
+.table-wrap { overflow-x: auto; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.1); }
+table { width: 100%; border-collapse: collapse; background: #fff; font-size: 13px; }
+thead th {
+    background: #2c4a6e;
+    color: #fff;
+    padding: 10px 10px;
+    text-align: left;
+    font-weight: 600;
+    white-space: nowrap;
+}
+thead th:first-child { border-radius: 10px 0 0 0; }
+thead th:last-child  { border-radius: 0 10px 0 0; }
+tbody tr { border-bottom: 1px solid #e8edf4; }
+tbody tr:last-child { border-bottom: none; }
+tbody tr:nth-child(even) { background: #f7f9fc; }
+tbody tr.has-flag { background: #fff8e1; }
+tbody tr.has-flag:nth-child(even) { background: #fff3cd; }
+tbody tr.failed-row { background: #ffebee; }
+td { padding: 8px 10px; vertical-align: middle; }
+td:first-child { width: 64px; }
+
+.thumb { width: 52px; height: 52px; object-fit: cover; border-radius: 4px; border: 1px solid #ddd; }
+.thumb-pdf { width: 52px; height: 52px; background: #e8edf4; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 22px; }
+
+.editable {
+    min-width: 60px;
+    padding: 3px 6px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    outline: none;
+    background: transparent;
+    font-family: inherit;
+    font-size: 13px;
+    color: inherit;
+    width: 100%;
+}
+.editable:hover { border-color: #b0bec5; background: #fff; }
+.editable:focus { border-color: #2c4a6e; background: #fff; box-shadow: 0 0 0 2px rgba(44,74,110,.15); }
+
+.case-select {
+    border: 1px solid #b0bec5;
+    border-radius: 4px;
+    padding: 3px 6px;
+    font-family: inherit;
+    font-size: 13px;
+    background: #fff;
+    cursor: pointer;
+    max-width: 140px;
+}
+
+.flags { display: flex; flex-wrap: wrap; gap: 4px; }
+.flag-chip {
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 10px;
+    background: #ff8f00;
+    color: #fff;
+    white-space: nowrap;
+}
+.delete-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #bdbdbd;
+    font-size: 16px;
+    padding: 4px;
+    border-radius: 4px;
+}
+.delete-btn:hover { color: #e53935; background: #ffebee; }
+
+/* ── Cost panel ── */
+.cost-panel {
+    background: #fff;
+    border-radius: 10px;
+    padding: 14px 20px;
+    margin-top: 16px;
+    display: flex;
+    gap: 32px;
+    flex-wrap: wrap;
+    align-items: center;
+    box-shadow: 0 1px 4px rgba(0,0,0,.08);
+    font-size: 13px;
+    color: #546e7a;
+}
+.cost-panel .item strong { color: #2c4a6e; font-size: 14px; }
+.cost-panel .item span { display: block; font-size: 11px; color: #90a4ae; margin-top: 2px; }
+
+/* ── Toast ── */
+.toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    color: #fff;
+    box-shadow: 0 4px 16px rgba(0,0,0,.2);
+    z-index: 1000;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity .25s, transform .25s;
+    pointer-events: none;
+}
+.toast.show { opacity: 1; transform: translateY(0); }
+.toast.success { background: #2e7d32; }
+.toast.error   { background: #c62828; }
+.toast.info    { background: #1565c0; }
+
+.spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; vertical-align: middle; margin-right: 6px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div class="header">
+    <h1>發票報帳系統</h1>
+    <div class="company-selector">
+        <label>公司</label>
+        <select id="companySelect">
+            <option value="">載入中...</option>
+        </select>
+    </div>
+    <div class="spacer"></div>
+    <div class="usage-badge" id="usageBadge">本月費用：載入中</div>
+</div>
+
+<div class="main">
+
+    <!-- 上傳區 -->
+    <div class="drop-zone" id="dropZone">
+        <input type="file" id="fileInput" multiple accept=".jpg,.jpeg,.png,.webp,.pdf">
+        <div class="icon">📄</div>
+        <p><strong>拖曳發票至此</strong>，或點擊選取</p>
+        <p class="hint">支援 JPG / PNG / WEBP / PDF</p>
+    </div>
+    <div class="file-list" id="fileList"></div>
+    <div class="progress-bar-wrap" id="progressWrap">
+        <div class="progress-bar-fill" id="progressFill"></div>
+    </div>
+    <p class="progress-label" id="progressLabel"></p>
+    <div class="scan-bar">
+        <button class="btn btn-primary" id="scanBtn" disabled>開始掃描</button>
+    </div>
+
+    <!-- 結果 -->
+    <div class="results-section" id="resultsSection">
+        <div class="results-header">
+            <h2 id="resultsTitle">掃描結果</h2>
+            <div class="actions">
+                <button class="btn btn-success" id="exportBtn">匯入 Excel</button>
+            </div>
+        </div>
+        <div class="table-wrap">
+            <table id="resultsTable">
+                <thead>
+                    <tr>
+                        <th>預覽</th>
+                        <th>日期</th>
+                        <th>店家抬頭</th>
+                        <th>發票號碼</th>
+                        <th>統編</th>
+                        <th>品項</th>
+                        <th>金額</th>
+                        <th>稅額</th>
+                        <th>總金額</th>
+                        <th>案場</th>
+                        <th>狀態</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="resultsBody"></tbody>
+            </table>
+        </div>
+
+        <!-- 費用 -->
+        <div class="cost-panel" id="costPanel"></div>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+
+let selectedFiles  = [];
+let scanResults    = [];
+let caseNames      = [];
+let lastScanUsage  = null;
+
+// ── Init ───────────────────────────────────────────────────────────────────
+
+async function init() {
+    try {
+        const cfg = await fetch('/api/config').then(r => r.json());
+        const sel = document.getElementById('companySelect');
+        sel.innerHTML = cfg.companies.map(c => `<option value="${c}">${c}</option>`).join('');
+        caseNames = await fetchCaseNames(sel.value);
+        sel.addEventListener('change', async () => {
+            caseNames = await fetchCaseNames(sel.value);
+            renderTable();
+        });
+    } catch { toast('載入設定失敗', 'error'); }
+
+    loadUsage();
+}
+
+async function fetchCaseNames(company) {
+    const cfg = await fetch('/api/config').then(r => r.json());
+    // case names come from config companies - already loaded server side
+    // just return empty for now, populated via select options in table
+    return [];
+}
+
+async function loadUsage() {
+    try {
+        const u  = await fetch('/api/usage').then(r => r.json());
+        const el = document.getElementById('usageBadge');
+        el.textContent = `${u.monthKey} 累計：US$${u.cost_usd.toFixed(4)}（NT$${u.cost_twd}）`;
+    } catch { /* silent */ }
+}
+
+// ── File selection ─────────────────────────────────────────────────────────
+
+const dropZone  = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const fileList  = document.getElementById('fileList');
+const scanBtn   = document.getElementById('scanBtn');
+
+fileInput.addEventListener('change', e => addFiles([...e.target.files]));
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    addFiles([...e.dataTransfer.files]);
+});
+
+function addFiles(files) {
+    const allowed = ['.jpg', '.jpeg', '.png', '.webp', '.pdf'];
+    for (const f of files) {
+        const ext = f.name.slice(f.name.lastIndexOf('.')).toLowerCase();
+        if (!allowed.includes(ext)) { toast(`不支援的格式：${f.name}`, 'error'); continue; }
+        if (!selectedFiles.find(x => x.name === f.name && x.size === f.size)) selectedFiles.push(f);
+    }
+    renderFileList();
+    fileInput.value = '';
+}
+
+function removeFile(idx) {
+    selectedFiles.splice(idx, 1);
+    renderFileList();
+}
+
+function renderFileList() {
+    fileList.innerHTML = selectedFiles.map((f, i) =>
+        `<div class="file-chip">
+            <span>${f.name}</span>
+            <span class="remove" onclick="removeFile(${i})">×</span>
+        </div>`
+    ).join('');
+    scanBtn.disabled = selectedFiles.length === 0;
+}
+
+// ── Scan ───────────────────────────────────────────────────────────────────
+
+scanBtn.addEventListener('click', startScan);
+
+async function startScan() {
+    const company = document.getElementById('companySelect').value;
+    if (!company) { toast('請先選擇公司', 'error'); return; }
+    if (selectedFiles.length === 0) return;
+
+    scanBtn.disabled = true;
+    scanBtn.innerHTML = '<span class="spinner"></span>掃描中...';
+
+    const progressWrap  = document.getElementById('progressWrap');
+    const progressFill  = document.getElementById('progressFill');
+    const progressLabel = document.getElementById('progressLabel');
+    progressWrap.style.display = 'block';
+    progressFill.style.width   = '10%';
+    progressLabel.textContent  = `正在辨識 ${selectedFiles.length} 個檔案...`;
+
+    const fd = new FormData();
+    fd.append('company', company);
+    for (const f of selectedFiles) fd.append('files', f);
+
+    try {
+        progressFill.style.width = '40%';
+        const res  = await fetch('/api/scan', { method: 'POST', body: fd });
+        progressFill.style.width = '90%';
+        const data = await res.json();
+
+        if (!res.ok) throw new Error(data.error || '掃描失敗');
+
+        scanResults   = data.results;
+        lastScanUsage = data.usage;
+
+        progressFill.style.width = '100%';
+        setTimeout(() => { progressWrap.style.display = 'none'; }, 400);
+
+        // Load case names from config
+        const cfg  = await fetch('/api/config').then(r => r.json());
+        const co   = cfg.companies.includes(company) ? company : cfg.companies[0];
+        // case names fetched via separate endpoint not available yet
+        // use empty for now - populated from config server side already in excel
+
+        renderTable();
+        renderCostPanel(data.usage, null);
+        document.getElementById('resultsSection').style.display = 'block';
+        document.getElementById('resultsTitle').textContent = `掃描結果（${scanResults.length} 張）`;
+        document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth' });
+
+        selectedFiles = [];
+        renderFileList();
+        loadUsage();
+    } catch (err) {
+        toast(err.message, 'error');
+        progressWrap.style.display = 'none';
+    } finally {
+        scanBtn.disabled = false;
+        scanBtn.textContent = '開始掃描';
+    }
+}
+
+// ── Table ──────────────────────────────────────────────────────────────────
+
+function renderTable() {
+    const tbody = document.getElementById('resultsBody');
+    tbody.innerHTML = '';
+
+    for (let i = 0; i < scanResults.length; i++) {
+        const r   = scanResults[i];
+        const tr  = document.createElement('tr');
+        const ext = (r.sourceFile || '').split('.').pop().toLowerCase();
+
+        if (r.failed) {
+            tr.classList.add('failed-row');
+            tr.innerHTML = `
+                <td>${ext === 'pdf' ? '<div class="thumb-pdf">📄</div>' : `<img class="thumb" src="/uploads/${r.sourceFile}" onerror="this.style.display='none'">`}</td>
+                <td colspan="10" style="color:#c62828">${r.error}</td>
+                <td><button class="delete-btn" onclick="deleteRow(${i})">🗑</button></td>`;
+        } else {
+            if (r.flags && r.flags.length > 0) tr.classList.add('has-flag');
+            const caseOpts = caseNames.map(n => `<option value="${n}" ${r.case_name === n ? 'selected' : ''}>${n}</option>`).join('');
+            tr.innerHTML = `
+                <td>${ext === 'pdf' ? '<div class="thumb-pdf">📄</div>' : `<img class="thumb" src="/uploads/${r.sourceFile}" onerror="this.style.display='none'">`}</td>
+                <td><input class="editable" value="${esc(r.date)}" onchange="updateField(${i},'date',this.value)"></td>
+                <td><input class="editable" value="${esc(r.store_name)}" onchange="updateField(${i},'store_name',this.value)" style="min-width:120px"></td>
+                <td><input class="editable" value="${esc(r.invoice_number)}" onchange="updateField(${i},'invoice_number',this.value)"></td>
+                <td><input class="editable" value="${esc(r.tax_id)}" onchange="updateField(${i},'tax_id',this.value)" style="max-width:90px"></td>
+                <td><input class="editable" value="${esc(r.items)}" onchange="updateField(${i},'items',this.value)" style="min-width:120px"></td>
+                <td><input class="editable" type="number" value="${r.amount}" onchange="updateField(${i},'amount',+this.value)" style="max-width:80px;text-align:right"></td>
+                <td><input class="editable" type="number" value="${r.tax}" onchange="updateField(${i},'tax',+this.value)" style="max-width:70px;text-align:right"></td>
+                <td><input class="editable" type="number" value="${r.total}" onchange="updateField(${i},'total',+this.value)" style="max-width:80px;text-align:right"></td>
+                <td><select class="case-select" onchange="updateField(${i},'case_name',this.value)"><option value="">（未選）</option>${caseOpts}</select></td>
+                <td><div class="flags">${(r.flags||[]).map(f=>`<span class="flag-chip">${f}</span>`).join('')}</div></td>
+                <td><button class="delete-btn" onclick="deleteRow(${i})">🗑</button></td>`;
+        }
+        tbody.appendChild(tr);
+    }
+}
+
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+
+function updateField(idx, field, value) {
+    scanResults[idx][field] = value;
+    const flags = scanResults[idx].flags || [];
+    const hasFlag = flags.length > 0;
+    const tr = document.getElementById('resultsBody').children[idx];
+    if (tr) {
+        tr.classList.toggle('has-flag', hasFlag);
+        tr.classList.toggle('failed-row', !!scanResults[idx].failed);
+    }
+}
+
+function deleteRow(idx) {
+    scanResults.splice(idx, 1);
+    renderTable();
+    document.getElementById('resultsTitle').textContent = `掃描結果（${scanResults.length} 張）`;
+}
+
+// ── Export ─────────────────────────────────────────────────────────────────
+
+document.getElementById('exportBtn').addEventListener('click', async () => {
+    const company = document.getElementById('companySelect').value;
+    const toExport = scanResults.filter(r => !r.failed);
+    if (toExport.length === 0) { toast('沒有可匯入的發票', 'error'); return; }
+
+    const btn = document.getElementById('exportBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>匯入中...';
+
+    try {
+        const res  = await fetch('/api/export', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ company, invoices: toExport })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+
+        const dupMsg = data.duplicates.length > 0 ? `，略過重複 ${data.skipped} 筆` : '';
+        toast(`完成！新增 ${data.added} 筆${dupMsg}`, 'success');
+
+        renderCostPanel(lastScanUsage, data);
+        loadUsage();
+
+        // 清空結果
+        scanResults = [];
+        renderTable();
+        document.getElementById('resultsSection').style.display = 'none';
+    } catch (err) {
+        toast(err.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '匯入 Excel';
+    }
+});
+
+// ── Cost Panel ─────────────────────────────────────────────────────────────
+
+async function renderCostPanel(scanUsage, exportData) {
+    const panel = document.getElementById('costPanel');
+    if (!scanUsage) { panel.innerHTML = ''; return; }
+
+    const monthData = await fetch('/api/usage').then(r => r.json()).catch(() => null);
+    const added     = exportData ? exportData.added : '—';
+
+    panel.innerHTML = `
+        <div class="item">
+            <strong>本次掃描費用</strong>
+            <span>US$${scanUsage.cost_usd.toFixed(4)}（約 NT$${scanUsage.cost_twd}）</span>
+        </div>
+        <div class="item">
+            <strong>本次 tokens</strong>
+            <span>輸入 ${scanUsage.input_tokens.toLocaleString()} ／ 輸出 ${scanUsage.output_tokens.toLocaleString()}</span>
+        </div>
+        <div class="item">
+            <strong>本次新增</strong>
+            <span>${added} 筆發票</span>
+        </div>
+        ${monthData ? `
+        <div class="item">
+            <strong>${monthData.monthKey} 累計</strong>
+            <span>${monthData.files_scanned} 個檔案，${monthData.invoices_added} 筆，US$${monthData.cost_usd.toFixed(4)}（NT$${monthData.cost_twd}）</span>
+        </div>` : ''}
+    `;
+}
+
+// ── Toast ──────────────────────────────────────────────────────────────────
+
+let toastTimer;
+function toast(msg, type = 'info') {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className   = `toast ${type} show`;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 3500);
+}
+
+// ── Start ──────────────────────────────────────────────────────────────────
+
+init();
+</script>
+</body>
+</html>

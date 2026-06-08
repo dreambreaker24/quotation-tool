@@ -26,3 +26,4 @@ dist-ssr
 # Environment & uploads
 .env
 uploads/
+firebase-admin-key.json
