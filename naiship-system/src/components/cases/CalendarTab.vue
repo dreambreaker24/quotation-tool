@@ -62,7 +62,7 @@
           class="mt-1 text-[10px] rounded px-1.5 py-0.5 truncate text-white cursor-pointer hover:opacity-80 transition-opacity"
           :class="event.type === 'leave' ? 'bg-blue-400' : event.type === 'note' ? 'bg-red-400' : ''"
           :style="event.type === 'milestone' ? 'background:#c9a96e' : event.type === 'followup' ? 'background:#a855f7' : ''">
-          {{ event.label }}
+          {{ event.startTime ? `${event.startTime}${event.endTime ? '-' + event.endTime : ''} ` : '' }}{{ event.label }}
         </div>
       </div>
     </div>
@@ -92,6 +92,20 @@
           <label class="text-xs text-gray-500 mb-1 block">日期 *</label>
           <input v-model="eventForm.date" type="date" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1">
         </div>
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">時間（選填）</label>
+          <div class="flex items-center gap-2">
+            <select v-model="eventForm.startTime" class="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
+              <option value="">不設定</option>
+              <option v-for="t in TIME_OPTIONS" :key="t" :value="t">{{ t }}</option>
+            </select>
+            <span class="text-xs text-gray-400 flex-shrink-0">至</span>
+            <select v-model="eventForm.endTime" class="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
+              <option value="">不設定</option>
+              <option v-for="t in TIME_OPTIONS" :key="t" :value="t">{{ t }}</option>
+            </select>
+          </div>
+        </div>
         <template v-if="eventForm.type === 'leave'">
           <div>
             <label class="text-xs text-gray-500 mb-1 block">請假人員 *</label>
@@ -101,7 +115,10 @@
             </select>
           </div>
           <div>
-            <label class="text-xs text-gray-500 mb-1 block">請假時數 *</label>
+            <label class="text-xs text-gray-500 mb-1 block">
+              請假時數 *
+              <span v-if="eventForm.startTime && eventForm.endTime" class="ml-1 text-[10px] text-amber-500">（已自動計算）</span>
+            </label>
             <input v-model.number="eventForm.hours" type="number" min="0" step="0.5"
               class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1" placeholder="0">
           </div>
@@ -189,6 +206,20 @@
           <label class="text-xs text-gray-500 mb-1 block">日期</label>
           <input v-model="editForm.date" type="date" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1">
         </div>
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">時間（選填）</label>
+          <div class="flex items-center gap-2">
+            <select v-model="editForm.startTime" class="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
+              <option value="">不設定</option>
+              <option v-for="t in TIME_OPTIONS" :key="t" :value="t">{{ t }}</option>
+            </select>
+            <span class="text-xs text-gray-400 flex-shrink-0">至</span>
+            <select v-model="editForm.endTime" class="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
+              <option value="">不設定</option>
+              <option v-for="t in TIME_OPTIONS" :key="t" :value="t">{{ t }}</option>
+            </select>
+          </div>
+        </div>
         <template v-if="editForm.type === 'leave'">
           <div>
             <label class="text-xs text-gray-500 mb-1 block">請假人員</label>
@@ -198,7 +229,10 @@
             </select>
           </div>
           <div>
-            <label class="text-xs text-gray-500 mb-1 block">請假時數</label>
+            <label class="text-xs text-gray-500 mb-1 block">
+              請假時數
+              <span v-if="editForm.startTime && editForm.endTime" class="ml-1 text-[10px] text-amber-500">（已自動計算）</span>
+            </label>
             <input v-model.number="editForm.hours" type="number" min="0" step="0.5"
               class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1">
           </div>
@@ -298,11 +332,20 @@ const eventTypes = [
 ]
 const LEAVE_TYPES = ['特休', '病假', '事假', '臨請', '婚假', '喪假', '產假', '陪產假', '公假', '其他']
 
-const blankEvent = () => ({ type: 'note', date: '', label: '', personName: '', hours: 0, leaveType: '', caseIds: [], personNames: [] })
+const TIME_OPTIONS = (() => {
+    const opts = []
+    for (let h = 7; h <= 21; h++) {
+        opts.push(`${String(h).padStart(2, '0')}:00`)
+        if (h < 21) opts.push(`${String(h).padStart(2, '0')}:30`)
+    }
+    return opts
+})()
+
+const blankEvent = () => ({ type: 'note', date: '', label: '', personName: '', hours: 0, leaveType: '', caseIds: [], personNames: [], startTime: '', endTime: '' })
 const eventForm = ref(blankEvent())
 const showEditEvent = ref(false)
 const editingEventId = ref(null)
-const editForm = ref({ type: 'note', date: '', label: '', personName: '', hours: 0, leaveType: '', caseIds: [], personNames: [] })
+const editForm = ref({ type: 'note', date: '', label: '', personName: '', hours: 0, leaveType: '', caseIds: [], personNames: [], startTime: '', endTime: '' })
 
 const activeCases = computed(() =>
     casesStore.cases.filter(c => !['completed', 'lost'].includes(c.status))
@@ -320,6 +363,7 @@ function openEditEvent(event) {
     personName: event.personName || '', hours: event.hours || 0, leaveType: event.leaveType || '',
     caseIds: event.caseIds ?? (event.caseId ? [event.caseId] : []),
     personNames: event.personNames ?? (event.type === 'milestone' && event.personName ? [event.personName] : []),
+    startTime: event.startTime || '', endTime: event.endTime || '',
   }
   showEditEvent.value = true
 }
@@ -353,6 +397,13 @@ async function saveEditEvent() {
       payload.caseNames = caseNames
       payload.personNames = editForm.value.personNames.filter(Boolean)
     }
+    if (editForm.value.startTime) {
+      payload.startTime = editForm.value.startTime
+      payload.endTime = editForm.value.endTime || ''
+    } else {
+      payload.startTime = ''
+      payload.endTime = ''
+    }
     await eventsStore.updateEvent(editingEventId.value, payload)
     showEditEvent.value = false
   } catch {
@@ -368,6 +419,26 @@ async function removeEvent() {
     toast('刪除失敗，請重試', 'error')
   }
 }
+
+function calcHours(start, end) {
+    if (!start || !end) return null
+    const [sh, sm] = start.split(':').map(Number)
+    const [eh, em] = end.split(':').map(Number)
+    const diff = (eh * 60 + em - sh * 60 - sm) / 60
+    return diff > 0 ? diff : null
+}
+
+watch([() => eventForm.value.startTime, () => eventForm.value.endTime], ([start, end]) => {
+    if (eventForm.value.type !== 'leave') return
+    const h = calcHours(start, end)
+    if (h !== null) eventForm.value.hours = h
+})
+
+watch([() => editForm.value.startTime, () => editForm.value.endTime], ([start, end]) => {
+    if (editForm.value.type !== 'leave') return
+    const h = calcHours(start, end)
+    if (h !== null) editForm.value.hours = h
+})
 
 watch([() => props.region, currentYear, currentMonth, showAllRegions], ([region]) => {
   if (region) eventsStore.subscribe(
@@ -467,6 +538,10 @@ async function submitEvent() {
       payload.caseIds = eventForm.value.caseIds
       payload.caseNames = caseNames
       payload.personNames = eventForm.value.personNames.filter(Boolean)
+    }
+    if (eventForm.value.startTime) {
+      payload.startTime = eventForm.value.startTime
+      payload.endTime = eventForm.value.endTime || ''
     }
     await eventsStore.addEvent(payload)
     notifStore.notifyAll(authStore.name ?? '', `新增了行程「${payload.label}」`, '', '', payload.companyId)
