@@ -65,8 +65,8 @@
         </div>
         <div v-if="weekSummary.fuelKm > 0" class="flex items-center gap-1">
           <span class="text-gray-500 text-xs">油資</span>
-          <span class="font-semibold text-amber-600">{{ weekSummary.fuelKm }} km</span>
-          <span class="text-gray-400 text-xs">/ ${{ weekSummary.fuelAmount.toLocaleString() }}</span>
+          <span class="font-semibold text-amber-600">{{ Number(weekSummary.fuelKm).toFixed(2) }} km</span>
+          <span class="text-gray-400 text-xs">/ ${{ Number(weekSummary.fuelAmount).toFixed(2) }}</span>
         </div>
       </div>
 

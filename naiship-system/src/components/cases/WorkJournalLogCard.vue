@@ -66,8 +66,8 @@
           @click="$emit('preview', f.photoUrl)">
         <div>
           <div class="text-xs text-gray-700 mb-1"><span class="text-gray-400">原因：</span>{{ f.reason }}</div>
-          <div class="text-xs text-gray-700"><span class="text-gray-400">路程：</span>{{ f.distance }} 公里</div>
-          <div class="text-xs text-amber-600 font-semibold mt-0.5">補貼金額：{{ f.distance * 6 }} 元</div>
+          <div class="text-xs text-gray-700"><span class="text-gray-400">路程：</span>{{ Number(f.distance).toFixed(2) }} 公里</div>
+          <div class="text-xs text-amber-600 font-semibold mt-0.5">補貼金額：{{ (f.distance * 6).toFixed(2) }} 元</div>
         </div>
       </div>
     </div>
@@ -83,8 +83,8 @@
           @click="$emit('preview', log.fuelExpense.photoUrl)">
         <div>
           <div class="text-xs text-gray-700 mb-1"><span class="text-gray-400">原因：</span>{{ log.fuelExpense.reason }}</div>
-          <div class="text-xs text-gray-700"><span class="text-gray-400">路程：</span>{{ log.fuelExpense.distance }} 公里</div>
-          <div class="text-xs text-amber-600 font-semibold mt-0.5">補貼金額：{{ log.fuelExpense.distance * 6 }} 元</div>
+          <div class="text-xs text-gray-700"><span class="text-gray-400">路程：</span>{{ Number(log.fuelExpense.distance).toFixed(2) }} 公里</div>
+          <div class="text-xs text-amber-600 font-semibold mt-0.5">補貼金額：{{ (log.fuelExpense.distance * 6).toFixed(2) }} 元</div>
         </div>
       </div>
     </div>

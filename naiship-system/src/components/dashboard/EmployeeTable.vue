@@ -44,7 +44,7 @@
             <td class="text-center px-2 py-2.5">
               <template v-if="monthlyKm[emp.name]">
                 <div class="text-amber-600 font-medium">{{ Number(monthlyKm[emp.name]).toFixed(2) }} km</div>
-                <div class="text-[10px] text-amber-500">${{ fuelAmount(monthlyKm[emp.name]) }}</div>
+                <div class="text-[10px] text-amber-500">${{ fuelAmount(monthlyKm[emp.name]).toFixed(2) }}</div>
               </template>
               <span v-else class="text-gray-300">—</span>
             </td>
