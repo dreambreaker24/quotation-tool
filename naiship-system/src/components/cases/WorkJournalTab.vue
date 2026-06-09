@@ -54,7 +54,7 @@
         @approve-fuel="approveFuel"
         @approve-overtime="approveOvertime"
         @reply="handleReply"
-        @preview="previewUrl = $event"
+        @preview="handlePreview"
       />
 
       <div v-if="weekSummary" class="bg-white rounded-2xl shadow-sm px-5 py-4 flex flex-wrap items-center gap-3 sm:gap-6 text-sm">
@@ -77,9 +77,13 @@
   </div>
 
   <!-- 照片預覽 -->
-  <div v-if="previewUrl" @click="previewUrl = null"
-    class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 cursor-pointer">
-    <img :src="previewUrl" class="max-h-[80vh] max-w-[90vw] rounded-xl">
+  <div v-if="previewList.length > 0" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50"
+    @click.self="closePreview">
+    <button v-if="previewIndex > 0" @click="navigatePhoto(-1)"
+      class="absolute left-4 text-white text-3xl w-10 h-10 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/70 select-none z-10">‹</button>
+    <img :src="previewList[previewIndex]" class="max-h-[80vh] max-w-[80vw] rounded-xl cursor-default">
+    <button v-if="previewIndex < previewList.length - 1" @click="navigatePhoto(1)"
+      class="absolute right-4 text-white text-3xl w-10 h-10 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/70 select-none z-10">›</button>
   </div>
 
   <WorkJournalLogForm
@@ -108,11 +112,34 @@ const notifStore = useNotificationsStore()
 const { toast } = useToast()
 
 const selectedEmployee = ref(null)
-const previewUrl = ref(null)
+const previewList = ref([])
+const previewIndex = ref(0)
 const showLogForm = ref(false)
 const editingLog = ref(null)
 const selectedDate = ref(new Date())
 const viewMode = ref('day')
+
+function handlePreview({ urls, index }) {
+    previewList.value = urls
+    previewIndex.value = index
+}
+
+function closePreview() {
+    previewList.value = []
+    previewIndex.value = 0
+}
+
+function navigatePhoto(dir) {
+    const next = previewIndex.value + dir
+    if (next >= 0 && next < previewList.value.length) previewIndex.value = next
+}
+
+function handleKeydown(e) {
+    if (!previewList.value.length) return
+    if (e.key === 'Escape') { closePreview(); return }
+    if (e.key === 'ArrowRight') { e.preventDefault(); navigatePhoto(1) }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); navigatePhoto(-1) }
+}
 
 function openLogForm() {
     editingLog.value = null
@@ -225,8 +252,14 @@ watch([() => props.region, selectedDate, viewMode], ([region]) => {
     }
 }, { immediate: true })
 
-onMounted(() => { if (props.pendingOnly && authStore.isManager) logsStore.subscribePending() })
-onUnmounted(() => logsStore.unsubscribe?.())
+onMounted(() => {
+    if (props.pendingOnly && authStore.isManager) logsStore.subscribePending()
+    window.addEventListener('keydown', handleKeydown)
+})
+onUnmounted(() => {
+    logsStore.unsubscribe?.()
+    window.removeEventListener('keydown', handleKeydown)
+})
 
 const uniqueEmployees = computed(() => {
     const seen = new Set()

@@ -33,7 +33,7 @@
                     <a v-for="att in t.attachments" :key="att.url"
                       :href="att.isPdf ? (att.pdfUrl ?? att.url) : undefined" :target="att.isPdf ? '_blank' : undefined">
                       <div v-if="att.isPdf" class="w-10 h-10 rounded bg-red-100 flex items-center justify-center text-[9px] text-red-600 font-bold hover:bg-red-200">PDF</div>
-                      <img v-else :src="att.url" @click.prevent="previewUrl = att.url" class="w-10 h-10 rounded object-cover cursor-pointer hover:opacity-80">
+                      <img v-else :src="att.url" @click.prevent="openTaskPreview(t, att.url)" class="w-10 h-10 rounded object-cover cursor-pointer hover:opacity-80">
                     </a>
                   </div>
                   <div class="text-[10px] text-blue-400 mt-1">{{ t.creatorName }} · {{ formatTime(t.createdAt) }}</div>
@@ -78,7 +78,7 @@
                     <a v-for="att in t.attachments" :key="att.url"
                       :href="att.isPdf ? (att.pdfUrl ?? att.url) : undefined" :target="att.isPdf ? '_blank' : undefined">
                       <div v-if="att.isPdf" class="w-10 h-10 rounded bg-red-100 flex items-center justify-center text-[9px] text-red-600 font-bold hover:bg-red-200">PDF</div>
-                      <img v-else :src="att.url" @click.prevent="previewUrl = att.url" class="w-10 h-10 rounded object-cover cursor-pointer hover:opacity-80">
+                      <img v-else :src="att.url" @click.prevent="openTaskPreview(t, att.url)" class="w-10 h-10 rounded object-cover cursor-pointer hover:opacity-80">
                     </a>
                   </div>
                   <div class="text-[10px] text-amber-400 mt-1">{{ t.creatorName }} · {{ formatTime(t.createdAt) }}</div>
@@ -125,7 +125,7 @@
                   <a v-for="att in t.attachments" :key="att.url"
                     :href="att.isPdf ? (att.pdfUrl ?? att.url) : undefined" :target="att.isPdf ? '_blank' : undefined">
                     <div v-if="att.isPdf" class="w-10 h-10 rounded bg-red-100 flex items-center justify-center text-[9px] text-red-600 font-bold hover:bg-red-200">PDF</div>
-                    <img v-else :src="att.url" @click.prevent="previewUrl = att.url" class="w-10 h-10 rounded object-cover cursor-pointer hover:opacity-80">
+                    <img v-else :src="att.url" @click.prevent="openTaskPreview(t, att.url)" class="w-10 h-10 rounded object-cover cursor-pointer hover:opacity-80">
                   </a>
                 </div>
                 <div class="text-[10px] text-green-400 mt-1">{{ t.creatorName }} · {{ formatTime(t.createdAt) }}</div>
@@ -181,13 +181,18 @@
 
     <input ref="attachInput" type="file" accept="image/jpeg,image/jpg,image/png,image/webp,.pdf" multiple class="hidden" @change="handleAttachFiles">
 
-    <div v-if="previewUrl" @click="previewUrl = null" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 cursor-pointer">
-      <img :src="previewUrl" class="max-h-[80vh] max-w-[90vw] rounded-xl">
+    <div v-if="previewList.length > 0" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50"
+      @click.self="closePreview">
+      <button v-if="previewIndex > 0" @click="navigatePreview(-1)"
+        class="absolute left-4 text-white text-3xl w-10 h-10 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/70 select-none z-10">‹</button>
+      <img :src="previewList[previewIndex]" class="max-h-[80vh] max-w-[80vw] rounded-xl cursor-default">
+      <button v-if="previewIndex < previewList.length - 1" @click="navigatePreview(1)"
+        class="absolute right-4 text-white text-3xl w-10 h-10 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/70 select-none z-10">›</button>
     </div>
   </div>
 </template>
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useCaseTasksStore } from '@/stores/caseTasks'
 import { useAuthStore } from '@/stores/auth'
 import { useNotificationsStore } from '@/stores/notifications'
@@ -208,7 +213,35 @@ const editingId = ref(null)
 const editContent = ref('')
 const pendingFiles = ref([])
 const attachInput = ref(null)
-const previewUrl = ref(null)
+const previewList = ref([])
+const previewIndex = ref(-1)
+
+function openTaskPreview(task, clickedUrl) {
+    const images = (task.attachments ?? []).filter(a => !a.isPdf).map(a => a.url)
+    const idx = images.indexOf(clickedUrl)
+    previewList.value = images
+    previewIndex.value = idx >= 0 ? idx : 0
+}
+
+function closePreview() {
+    previewList.value = []
+    previewIndex.value = -1
+}
+
+function navigatePreview(dir) {
+    const next = previewIndex.value + dir
+    if (next >= 0 && next < previewList.value.length) previewIndex.value = next
+}
+
+function handleKeydown(e) {
+    if (!previewList.value.length) return
+    if (e.key === 'Escape') { closePreview(); return }
+    if (e.key === 'ArrowRight') { e.preventDefault(); navigatePreview(1) }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); navigatePreview(-1) }
+}
+
+onMounted(() => window.addEventListener('keydown', handleKeydown))
+onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
 
 const clientTasks = computed(() => tasksStore.tasks.filter(t => t.type === 'client'))
 const managerTasks = computed(() => tasksStore.tasks.filter(t => t.type === 'manager'))

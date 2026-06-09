@@ -63,7 +63,7 @@
         class="flex gap-3 items-start mb-2 last:mb-0 pb-2 last:pb-0 border-b last:border-0 border-amber-100">
         <img v-if="f.photoUrl" :src="f.photoUrl"
           class="w-14 h-14 rounded-lg object-cover cursor-pointer flex-shrink-0"
-          @click="$emit('preview', f.photoUrl)">
+          @click="previewImage(f.photoUrl)">
         <div>
           <div class="text-xs text-gray-700 mb-1"><span class="text-gray-400">原因：</span>{{ f.reason }}</div>
           <div class="text-xs text-gray-700"><span class="text-gray-400">路程：</span>{{ Number(f.distance).toFixed(2) }} 公里</div>
@@ -80,7 +80,7 @@
       <div class="flex gap-3 items-start">
         <img v-if="log.fuelExpense.photoUrl" :src="log.fuelExpense.photoUrl"
           class="w-16 h-16 rounded-lg object-cover cursor-pointer flex-shrink-0"
-          @click="$emit('preview', log.fuelExpense.photoUrl)">
+          @click="previewImage(log.fuelExpense.photoUrl)">
         <div>
           <div class="text-xs text-gray-700 mb-1"><span class="text-gray-400">原因：</span>{{ log.fuelExpense.reason }}</div>
           <div class="text-xs text-gray-700"><span class="text-gray-400">路程：</span>{{ Number(log.fuelExpense.distance).toFixed(2) }} 公里</div>
@@ -116,7 +116,7 @@
         <a v-for="att in log.logAttachments" :key="att.url"
           :href="att.isPdf ? (att.pdfUrl ?? att.url) : undefined" :target="att.isPdf ? '_blank' : undefined">
           <div v-if="att.isPdf" class="w-12 h-12 rounded bg-red-100 flex items-center justify-center text-[10px] text-red-600 font-bold hover:bg-red-200">PDF</div>
-          <img v-else :src="att.url" @click.prevent="$emit('preview', att.url)" class="w-12 h-12 rounded object-cover cursor-pointer hover:opacity-80">
+          <img v-else :src="att.url" @click.prevent="previewImage(att.url)" class="w-12 h-12 rounded object-cover cursor-pointer hover:opacity-80">
         </a>
       </div>
     </div>
@@ -161,6 +161,25 @@ const emit = defineEmits(['edit', 'approve-fuel', 'approve-overtime', 'reply', '
 
 const showReply = ref(false)
 const replyContent = ref('')
+
+function getLogImages(log) {
+    const urls = []
+    if (log.fuelExpenses?.length) {
+        log.fuelExpenses.forEach(f => { if (f.photoUrl) urls.push(f.photoUrl) })
+    } else if (log.fuelExpense?.photoUrl) {
+        urls.push(log.fuelExpense.photoUrl)
+    }
+    if (log.logAttachments?.length) {
+        log.logAttachments.forEach(att => { if (!att.isPdf) urls.push(att.url) })
+    }
+    return urls
+}
+
+function previewImage(url) {
+    const urls = getLogImages(props.log)
+    const idx = urls.indexOf(url)
+    emit('preview', { urls, index: idx >= 0 ? idx : 0 })
+}
 
 function submitReply() {
     if (!replyContent.value.trim()) return
