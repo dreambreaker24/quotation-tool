@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { collection, query, where, orderBy, onSnapshot, addDoc, updateDoc, doc, serverTimestamp } from 'firebase/firestore'
+import { collection, query, where, orderBy, onSnapshot, addDoc, updateDoc, doc, serverTimestamp, Timestamp } from 'firebase/firestore'
 import { db } from '@/firebase'
 import { useAuthStore } from '@/stores/auth'
 import { useUsersStore } from '@/stores/users'
@@ -11,9 +11,12 @@ export const useNotificationsStore = defineStore('notifications', () => {
 
     function subscribe(uid) {
         if (unsubscribe) unsubscribe()
+        const todayStart = new Date()
+        todayStart.setHours(0, 0, 0, 0)
         const q = query(
             collection(db, 'notifications'),
             where('userId', '==', uid),
+            where('createdAt', '>=', Timestamp.fromDate(todayStart)),
             orderBy('createdAt', 'desc')
         )
         unsubscribe = onSnapshot(q,

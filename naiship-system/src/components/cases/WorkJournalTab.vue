@@ -172,9 +172,10 @@ async function approveFuel(logId) {
     }
 }
 
-async function approveOvertime(logId) {
+async function approveOvertime(log) {
     try {
-        await logsStore.approveOvertime(logId, authStore.name ?? '')
+        const totalHours = (log.overtimeItems || []).reduce((s, i) => s + (i.hours || 0), 0)
+        await logsStore.approveOvertime(log.id, authStore.name ?? '', log.userId, totalHours)
         toast('加班已確認')
     } catch {
         toast('確認失敗，請重試', 'error')

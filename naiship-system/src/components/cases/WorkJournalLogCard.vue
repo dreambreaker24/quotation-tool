@@ -97,7 +97,7 @@
         </div>
         <div class="flex items-center gap-2">
           <span v-if="log.overtimeApproved" class="text-[10px] text-green-600 font-semibold">✓ 已確認</span>
-          <button v-else-if="isManager" @click="$emit('approve-overtime', log.id)"
+          <button v-else-if="isManager" @click="$emit('approve-overtime', log)"
             class="text-[11px] text-white px-2.5 py-1 rounded-lg" style="background:#22c55e">✓ 確認加班</button>
           <span v-else class="text-[10px] text-purple-500 font-semibold">待主管確認</span>
         </div>

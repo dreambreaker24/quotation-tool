@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { collection, query, where, orderBy, onSnapshot, addDoc, updateDoc, getDocs, doc, serverTimestamp, Timestamp, arrayUnion } from 'firebase/firestore'
+import { collection, query, where, orderBy, onSnapshot, addDoc, updateDoc, getDocs, doc, serverTimestamp, Timestamp, arrayUnion, increment } from 'firebase/firestore'
 import { db } from '@/firebase'
 
 export const useWorkLogsStore = defineStore('workLogs', () => {
@@ -76,12 +76,18 @@ export const useWorkLogsStore = defineStore('workLogs', () => {
         })
     }
 
-    async function approveOvertime(logId, approverName) {
-        return updateDoc(doc(db, 'workLogs', logId), {
-            overtimeApproved: true,
-            overtimeApprovedBy: approverName,
-            overtimeApprovedAt: serverTimestamp(),
-        })
+    async function approveOvertime(logId, approverName, userId, overtimeHours) {
+        const ops = [
+            updateDoc(doc(db, 'workLogs', logId), {
+                overtimeApproved: true,
+                overtimeApprovedBy: approverName,
+                overtimeApprovedAt: serverTimestamp(),
+            })
+        ]
+        if (userId && overtimeHours > 0) {
+            ops.push(updateDoc(doc(db, 'users', userId), { compensatoryHours: increment(overtimeHours) }))
+        }
+        await Promise.all(ops)
     }
 
     async function fetchMonthlyKm() {

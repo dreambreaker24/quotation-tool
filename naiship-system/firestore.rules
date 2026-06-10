@@ -9,7 +9,8 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read: if isSignedIn();
-      allow create, update: if isAdmin() || (isSignedIn() && request.auth.uid == userId);
+      allow create: if isAdmin();
+      allow update: if isAdmin() || isManager() || (isSignedIn() && request.auth.uid == userId);
       allow delete: if isAdmin() || (isSignedIn() && (request.auth.uid == userId || resource.data.email == request.auth.token.email));
     }
     match /companies/{companyId} {

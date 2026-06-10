@@ -1,4 +1,5 @@
 <template>
+  <CompensatoryPanel />
   <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
     <!-- Header -->
     <div class="flex flex-wrap items-center justify-between gap-2 px-4 sm:px-5 py-3 border-b border-gray-100">
@@ -19,7 +20,7 @@
       </div>
       <div class="flex flex-wrap items-center gap-2 sm:gap-4 text-[11px]">
         <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-red-400"></span>重要記事</div>
-        <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded" style="background:#c9a96e"></span>場勘/施工</div>
+        <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-orange-400"></span>場勘/施工</div>
         <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-blue-400"></span>員工請假</div>
         <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded" style="background:#a855f7"></span>客戶跟進</div>
         <button @click="showAddEvent = true" class="text-xs text-white px-3 py-1.5 rounded-lg" style="background:#1e2533">+ 新增</button>
@@ -49,19 +50,23 @@
         class="border-r border-b border-gray-100 p-1 sm:p-2 min-h-[70px] sm:min-h-[90px]"
         :class="[
           !cell.currentMonth && 'opacity-40',
-          cell.isToday && 'bg-amber-50/30',
+          cell.isToday ? 'bg-amber-50' : '',
           cell.currentMonth && 'cursor-pointer hover:bg-gray-50/50 transition-colors'
         ]"
         @click="cell.currentMonth && openAddOnDate(cell.dateStr)">
-        <span class="text-xs" :class="cell.isToday ? 'font-bold' : 'text-gray-600'"
-          :style="cell.isToday ? 'color:#c9a96e' : ''">
+        <span v-if="cell.isToday"
+          class="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold text-white"
+          style="background:#c9a96e">
+          {{ cell.day }}
+        </span>
+        <span v-else class="text-xs text-gray-600">
           {{ cell.day }}
         </span>
         <div v-for="event in cell.events" :key="event.id"
           @click.stop="openEditEvent(event)"
           class="mt-1 text-[10px] rounded px-1.5 py-0.5 truncate text-white cursor-pointer hover:opacity-80 transition-opacity"
           :class="event.type === 'leave' ? 'bg-blue-400' : event.type === 'note' ? 'bg-red-400' : ''"
-          :style="event.type === 'milestone' ? 'background:#c9a96e' : event.type === 'followup' ? 'background:#a855f7' : ''">
+          :style="event.type === 'milestone' ? 'background:#fb923c' : event.type === 'followup' ? 'background:#a855f7' : ''">
           {{ event.startTime ? `${event.startTime}${event.endTime ? '-' + event.endTime : ''} ` : '' }}{{ event.label }}
         </div>
       </div>
@@ -251,8 +256,13 @@
               class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1">
           </div>
           <div>
-            <label class="text-xs text-gray-500 mb-1 block">假別</label>
-            <select v-model="editForm.leaveType" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
+            <label class="text-xs text-gray-500 mb-1 block">
+              假別
+              <span v-if="editForm._origDate < todayStr" class="ml-1 text-[10px] text-red-400">（過去日期不可變更）</span>
+            </label>
+            <select v-model="editForm.leaveType"
+              :disabled="editForm._origDate < todayStr"
+              class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1 disabled:opacity-50 disabled:cursor-not-allowed">
               <option value="">— 請選擇 —</option>
               <option v-for="t in LEAVE_TYPES" :key="t" :value="t">{{ t }}</option>
             </select>
@@ -322,6 +332,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useUsersStore } from '@/stores/users'
 import { useNotificationsStore } from '@/stores/notifications'
 import { useToast } from '@/composables/useToast'
+import CompensatoryPanel from './CompensatoryPanel.vue'
 
 const props = defineProps({ region: String })
 const casesStore = useCasesStore()
@@ -332,6 +343,36 @@ const notifStore = useNotificationsStore()
 const { toast } = useToast()
 const weekDays = ['日', '一', '二', '三', '四', '五', '六']
 const today = new Date()
+const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`
+
+function findUserByName(name) {
+    return usersStore.users.find(u => u.name === name)
+}
+
+async function applyLeaveDelta(leaveType, name, deltaHours) {
+    const user = findUserByName(name)
+    if (!user) return
+    if (leaveType === '補休') await usersStore.adjustCompensatoryHours(user.id, deltaHours)
+    else if (leaveType === '特休') await usersStore.adjustAnnualLeaveHours(user.id, deltaHours / 8)
+}
+
+function getLeaveBalance(leaveType, name) {
+    const user = findUserByName(name)
+    if (!user) return 0
+    if (leaveType === '補休') return user.compensatoryHours ?? 0
+    if (leaveType === '特休') return user.annualLeaveHours ?? 0
+    return 0
+}
+
+function leaveNeeded(leaveType, hours) {
+    return leaveType === '特休' ? hours / 8 : hours
+}
+
+function leaveInsufficientMsg(leaveType) {
+    return leaveType === '特休' ? '特休天數不足' : '補休時數不足'
+}
+
+const TRACKED_LEAVE_TYPES = ['補休', '特休']
 const currentYear = ref(today.getFullYear())
 const currentMonth = ref(today.getMonth())
 const showAddEvent = ref(false)
@@ -340,11 +381,11 @@ const ALL_REGIONS = ['south', 'north', 'central']
 
 const eventTypes = [
   { key: 'note',      label: '重要記事',   color: '#f87171' },
-  { key: 'milestone', label: '場勘/施工',   color: '#c9a96e' },
+  { key: 'milestone', label: '場勘/施工',   color: '#fb923c' },
   { key: 'leave',     label: '員工請假',   color: '#60a5fa' },
   { key: 'followup',  label: '客戶跟進',   color: '#a855f7' },
 ]
-const LEAVE_TYPES = ['特休', '病假', '事假', '臨請', '婚假', '喪假', '產假', '陪產假', '公假', '其他']
+const LEAVE_TYPES = ['特休', '病假', '事假', '臨請', '婚假', '喪假', '產假', '陪產假', '公假', '補休', '其他']
 
 const TIME_OPTIONS = (() => {
     const opts = []
@@ -379,6 +420,10 @@ function openEditEvent(event) {
     personNames: event.personNames ?? (event.type === 'milestone' && event.personName ? [event.personName] : []),
     startTime: event.startTime || '', endTime: event.endTime || '',
     endDate: event.endDate ? tsToDateStr(event.endDate) : '',
+    _origLeaveType: event.leaveType || '',
+    _origHours: event.hours || 0,
+    _origPersonName: event.personName || '',
+    _origDate: tsToDateStr(event.date),
   }
   showEditEvent.value = true
 }
@@ -425,6 +470,21 @@ async function saveEditEvent() {
     } else {
       payload.endDate = null
     }
+
+    // 補休/特休時數：只對今日（含）以後的事件調整
+    if (isLeave && editForm.value._origDate >= todayStr) {
+      const wasTracked = TRACKED_LEAVE_TYPES.includes(editForm.value._origLeaveType)
+      const isTracked = TRACKED_LEAVE_TYPES.includes(editForm.value.leaveType)
+      if (wasTracked && editForm.value._origPersonName)
+        await applyLeaveDelta(editForm.value._origLeaveType, editForm.value._origPersonName, editForm.value._origHours)
+      if (isTracked && editForm.value.personName) {
+        const hours = editForm.value.hours || 0
+        const balance = getLeaveBalance(editForm.value.leaveType, editForm.value.personName)
+        if (balance < leaveNeeded(editForm.value.leaveType, hours)) { toast(leaveInsufficientMsg(editForm.value.leaveType), 'error'); return }
+        await applyLeaveDelta(editForm.value.leaveType, editForm.value.personName, -hours)
+      }
+    }
+
     await eventsStore.updateEvent(editingEventId.value, payload)
     showEditEvent.value = false
   } catch {
@@ -434,6 +494,9 @@ async function saveEditEvent() {
 
 async function removeEvent() {
   try {
+    if (TRACKED_LEAVE_TYPES.includes(editForm.value._origLeaveType) && editForm.value._origPersonName && editForm.value._origDate >= todayStr) {
+      await applyLeaveDelta(editForm.value._origLeaveType, editForm.value._origPersonName, editForm.value._origHours)
+    }
     await eventsStore.deleteEvent(editingEventId.value)
     showEditEvent.value = false
   } catch {
@@ -571,7 +634,15 @@ async function submitEvent() {
         eventForm.value.endDate && eventForm.value.endDate > eventForm.value.date) {
       payload.endDate = Timestamp.fromDate(new Date(eventForm.value.endDate))
     }
-    await eventsStore.addEvent(payload)
+    if (isLeave && TRACKED_LEAVE_TYPES.includes(eventForm.value.leaveType) && eventForm.value.personName) {
+      const hours = eventForm.value.hours || 0
+      const balance = getLeaveBalance(eventForm.value.leaveType, eventForm.value.personName)
+      if (balance < leaveNeeded(eventForm.value.leaveType, hours)) { toast(leaveInsufficientMsg(eventForm.value.leaveType), 'error'); return }
+      await eventsStore.addEvent(payload)
+      await applyLeaveDelta(eventForm.value.leaveType, eventForm.value.personName, -hours)
+    } else {
+      await eventsStore.addEvent(payload)
+    }
     notifStore.notifyAll(authStore.name ?? '', `新增了行程「${payload.label}」`, '', '', payload.companyId)
     eventForm.value = blankEvent()
     showAddEvent.value = false

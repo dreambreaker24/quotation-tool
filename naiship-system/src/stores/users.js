@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { collection, query, orderBy, onSnapshot } from 'firebase/firestore'
+import { collection, query, orderBy, onSnapshot, updateDoc, doc, increment } from 'firebase/firestore'
 import { db } from '@/firebase'
 
 export const useUsersStore = defineStore('users', () => {
@@ -15,9 +15,21 @@ export const useUsersStore = defineStore('users', () => {
         })
     }
 
+    async function updateUser(uid, data) {
+        return updateDoc(doc(db, 'users', uid), data)
+    }
+
+    async function adjustCompensatoryHours(uid, delta) {
+        return updateDoc(doc(db, 'users', uid), { compensatoryHours: increment(delta) })
+    }
+
+    async function adjustAnnualLeaveHours(uid, delta) {
+        return updateDoc(doc(db, 'users', uid), { annualLeaveHours: increment(delta) })
+    }
+
     function cleanup() {
         if (unsubscribe) { unsubscribe(); unsubscribe = null }
     }
 
-    return { users, subscribe, cleanup }
+    return { users, subscribe, updateUser, adjustCompensatoryHours, adjustAnnualLeaveHours, cleanup }
 })
