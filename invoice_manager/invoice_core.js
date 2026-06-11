@@ -183,8 +183,8 @@ const SALES_COLS = [
     { header: '案場名稱',   key: 'case_name',        width: 20 },
 ];
 const H_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2C4A6E' } };
-const H_FONT = { bold: true, color: { argb: 'FFFFFFFF' }, name: '微軟正黑體', size: 11 };
-const D_FONT = { name: '微軟正黑體', size: 10 };
+const H_FONT = { bold: true, color: { argb: 'FFFFFFFF' }, name: '微軟正黑體', size: 14 };
+const D_FONT = { name: '微軟正黑體', size: 13 };
 const BORDER = {
     top:    { style: 'thin', color: { argb: 'FFD0D7E0' } },
     bottom: { style: 'thin', color: { argb: 'FFD0D7E0' } },
