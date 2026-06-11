@@ -31,6 +31,7 @@
             <th class="text-right text-[10px] text-gray-400 font-semibold pb-2 pr-3">已收金額</th>
             <th class="text-left text-[10px] text-gray-400 font-semibold pb-2 pr-3">收款日期</th>
             <th class="text-center text-[10px] text-gray-400 font-semibold pb-2 pr-3">狀態</th>
+            <th class="text-center text-[10px] text-gray-400 font-semibold pb-2 pr-3">發票</th>
             <th class="pb-2"></th>
           </tr>
         </thead>
@@ -55,6 +56,13 @@
               <span class="text-[10px] px-2 py-0.5 rounded-full font-medium whitespace-nowrap"
                 :class="statusClass(m)">{{ statusLabel(m) }}</span>
             </td>
+            <td class="py-2 pr-3 text-center">
+              <button type="button" @click="toggleInvoice(idx)"
+                class="text-[10px] px-1.5 py-0.5 rounded-full font-medium transition-colors"
+                :class="m.hasInvoice ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'">
+                {{ m.hasInvoice ? '已開' : '未開' }}
+              </button>
+            </td>
             <td class="py-2 text-right">
               <button @click="openEdit(idx)" class="text-[11px] text-gray-400 hover:text-gray-700 mr-2">編輯</button>
               <button @click="removeMilestone(idx)" class="text-[11px] text-red-400 hover:text-red-600">刪除</button>
@@ -71,7 +79,7 @@
             <td class="pt-2 pr-3 text-right text-[11px] font-semibold text-green-600">
               ${{ totalPaid.toLocaleString() }}
             </td>
-            <td colspan="3" class="pt-2"></td>
+            <td colspan="4" class="pt-2"></td>
           </tr>
         </tfoot>
       </table>
@@ -279,6 +287,13 @@ async function submitForm() {
     } finally {
         saving.value = false
     }
+}
+
+async function toggleInvoice(idx) {
+    const updated = milestones.value.map((m, i) =>
+        i === idx ? { ...m, hasInvoice: !m.hasInvoice } : m
+    )
+    await casesStore.updateCase(props.caseId, { paymentMilestones: updated })
 }
 
 async function removeMilestone(idx) {

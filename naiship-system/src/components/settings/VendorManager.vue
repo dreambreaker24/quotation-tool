@@ -1,66 +1,99 @@
 <template>
   <div class="bg-white rounded-2xl shadow-sm p-5">
     <div class="flex items-center justify-between mb-3">
-      <h2 class="text-sm font-semibold text-gray-700">廠商管理</h2>
+      <div class="flex items-center gap-2">
+        <h2 class="text-sm font-semibold text-gray-700">廠商管理</h2>
+        <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">{{ vendorsStore.vendors.length }} 家</span>
+      </div>
       <button @click="openAdd" class="text-xs text-white px-3 py-1.5 rounded-lg" style="background:#1e2533">+ 新增廠商</button>
     </div>
 
     <div class="mb-3">
-      <input v-model="searchKeyword" type="text" placeholder="搜尋廠商名稱或工種…"
+      <input v-model="searchKeyword" type="text" placeholder="搜尋廠商名稱…"
         class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1">
     </div>
 
-    <div v-if="filteredVendors.length === 0" class="text-sm text-gray-400 text-center py-8">
-      {{ vendorsStore.vendors.length === 0 ? '尚無廠商資料，點擊右上新增' : '找不到符合的廠商' }}
-    </div>
+    <!-- 搜尋模式：平鋪列表 -->
+    <template v-if="searchKeyword.trim()">
+      <div v-if="filteredVendors.length === 0" class="text-sm text-gray-400 text-center py-8">找不到符合的廠商</div>
+      <div v-else class="flex flex-col gap-1">
+        <div v-for="v in filteredVendors" :key="v.id"
+          class="flex flex-col px-3 py-2 rounded-lg border border-gray-100 bg-gray-50/50 gap-0.5">
+          <div class="flex items-center gap-3 text-xs">
+            <div class="flex-1 min-w-0">
+              <span class="font-medium text-gray-800">{{ v.name }}</span>
+              <span v-if="v.specialty" class="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500">{{ v.specialty }}</span>
+            </div>
+            <div class="hidden sm:flex items-center gap-1 text-gray-500 flex-shrink-0">
+              <span v-if="v.contact">{{ v.contact }}</span>
+              <span v-if="v.contact && v.phone" class="text-gray-300">·</span>
+              <span v-if="v.phone">{{ v.phone }}</span>
+            </div>
+            <div class="flex items-center gap-2 flex-shrink-0">
+              <span v-if="v.rating" class="text-amber-400 text-[10px]">{{ '★'.repeat(v.rating) }}</span>
+              <span v-if="v.formSubmitted" class="text-[10px] px-1.5 py-0.5 rounded-full bg-green-100 text-green-700">✓ 資料表</span>
+              <button @click="openEdit(v)" class="text-gray-400 hover:text-gray-700">編輯</button>
+              <button v-if="authStore.isManager" @click="confirmDelete(v)" class="text-red-400 hover:text-red-600">刪除</button>
+            </div>
+          </div>
+          <div v-if="v.taxId || v.abilities" class="flex items-center gap-2 text-[10px] text-gray-400">
+            <span v-if="v.taxId">統編 {{ v.taxId }}</span>
+            <span v-if="v.taxId && v.abilities" class="text-gray-200">|</span>
+            <span v-if="v.abilities" class="truncate">{{ v.abilities }}</span>
+          </div>
+        </div>
+      </div>
+    </template>
 
-    <div v-else class="overflow-x-auto">
-      <table class="w-full text-xs min-w-[600px]">
-        <thead>
-          <tr class="bg-gray-50">
-            <th class="text-left px-3 py-2 text-gray-500 font-semibold">廠商名稱</th>
-            <th class="text-left px-3 py-2 text-gray-500 font-semibold">工種/專長</th>
-            <th class="text-left px-3 py-2 text-gray-500 font-semibold">聯絡人 / 電話</th>
-            <th class="text-left px-3 py-2 text-gray-500 font-semibold">統編 / Line</th>
-            <th class="text-center px-3 py-2 text-gray-500 font-semibold">廠商資料表</th>
-            <th class="text-center px-3 py-2 text-gray-500 font-semibold">評分</th>
-            <th class="text-center px-3 py-2 text-gray-500 font-semibold w-16">操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="v in filteredVendors" :key="v.id" class="border-t border-gray-100 hover:bg-gray-50">
-            <td class="px-3 py-2.5 font-medium text-gray-800">{{ v.name }}</td>
-            <td class="px-3 py-2.5 text-gray-600">{{ v.specialty }}</td>
-            <td class="px-3 py-2.5 text-gray-600">
-              <div>{{ v.contact || '—' }}</div>
-              <div class="text-gray-400">{{ v.phone || '' }}</div>
-            </td>
-            <td class="px-3 py-2.5 text-gray-600">
-              <div v-if="v.taxId">{{ v.taxId }}</div>
-              <div v-if="v.lineId" class="text-gray-400">{{ v.lineId }}</div>
-              <span v-if="!v.taxId && !v.lineId">—</span>
-            </td>
-            <td class="px-3 py-2.5 text-center">
-              <span v-if="v.formSubmitted"
-                class="inline-flex flex-col items-center gap-0.5">
-                <span class="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">已繳交</span>
-                <span v-if="v.formDate" class="text-[10px] text-gray-400">{{ v.formDate }}</span>
-              </span>
-              <span v-else class="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-400">未繳交</span>
-            </td>
-            <td class="px-3 py-2.5 text-center text-xs text-amber-400">
-              {{ v.rating ? '★'.repeat(v.rating) + '☆'.repeat(5 - v.rating) : '—' }}
-            </td>
-            <td class="px-3 py-2.5 text-center">
-              <div class="flex items-center justify-center gap-2">
-                <button @click="openEdit(v)" class="text-gray-400 hover:text-gray-700">編輯</button>
-                <button v-if="authStore.isManager" @click="confirmDelete(v)" class="text-red-400 hover:text-red-600">刪除</button>
+    <!-- 預設：折疊分類（全分類顯示） -->
+    <template v-else>
+      <div v-if="vendorsStore.vendors.length === 0 && !hasUncategorized" class="text-sm text-gray-400 text-center py-8">
+        尚無廠商資料，點擊右上新增
+      </div>
+      <div class="flex flex-col">
+        <div v-for="cat in allCategories" :key="cat.label">
+          <button @click="cat.list.length > 0 && toggleCategory(cat.label)"
+            class="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl transition-colors"
+            :class="cat.list.length > 0 ? 'hover:bg-gray-50 cursor-pointer' : 'cursor-default opacity-40'">
+            <span class="text-[10px] text-gray-400 inline-block transition-transform duration-150 w-2.5"
+              :style="expandedCategories[cat.label] ? 'transform:rotate(90deg)' : 'transform:rotate(0deg)'">
+              {{ cat.list.length > 0 ? '▶' : '·' }}
+            </span>
+            <span class="text-sm font-medium text-gray-700">{{ cat.label }}</span>
+            <span class="text-xs font-medium px-2 py-0.5 rounded-full"
+              :class="cat.list.length > 0 ? 'bg-gray-100 text-gray-500' : 'bg-gray-50 text-gray-300'">
+              {{ cat.list.length }}
+            </span>
+          </button>
+          <div v-if="expandedCategories[cat.label] && cat.list.length > 0" class="mx-2 mb-1 flex flex-col gap-1">
+            <div v-for="v in cat.list" :key="v.id"
+              class="flex flex-col px-3 py-2 rounded-lg border border-gray-100 bg-gray-50/60 gap-0.5">
+              <div class="flex items-center gap-3 text-xs">
+                <div class="flex-1 min-w-0">
+                  <span class="font-medium text-gray-800">{{ v.name }}</span>
+                </div>
+                <div class="hidden sm:flex items-center gap-1 text-gray-500 flex-shrink-0">
+                  <span v-if="v.contact">{{ v.contact }}</span>
+                  <span v-if="v.contact && v.phone" class="text-gray-300">·</span>
+                  <span v-if="v.phone">{{ v.phone }}</span>
+                </div>
+                <div class="flex items-center gap-2 flex-shrink-0">
+                  <span v-if="v.rating" class="text-amber-400 text-[10px]">{{ '★'.repeat(v.rating) }}</span>
+                  <span v-if="v.formSubmitted" class="text-[10px] px-1.5 py-0.5 rounded-full bg-green-100 text-green-700">✓</span>
+                  <button @click="openEdit(v)" class="text-gray-400 hover:text-gray-700">編輯</button>
+                  <button v-if="authStore.isManager" @click="confirmDelete(v)" class="text-red-400 hover:text-red-600">刪除</button>
+                </div>
               </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+              <div v-if="v.taxId || v.abilities || (cat.label === '其他' && v.specialty)" class="flex items-center gap-2 text-[10px] text-gray-400">
+                <span v-if="v.taxId">統編 {{ v.taxId }}</span>
+                <span v-if="v.taxId && (v.abilities || (cat.label === '其他' && v.specialty))" class="text-gray-200">|</span>
+                <span v-if="v.abilities || (cat.label === '其他' && v.specialty)" class="truncate">{{ v.abilities || v.specialty }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
   </div>
 
   <!-- 新增/編輯 Modal -->
@@ -77,9 +110,16 @@
             <input v-model="form.name" type="text" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1" placeholder="例：振宏水電行">
           </div>
           <div>
-            <label class="text-xs text-gray-500 mb-1 block">工種/專長 *</label>
-            <input v-model="form.specialty" type="text" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1" placeholder="例：水電、泥作">
+            <label class="text-xs text-gray-500 mb-1 block">工種分類 *</label>
+            <select v-model="form.specialty" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
+              <option value="">— 請選擇 —</option>
+              <option v-for="cat in VENDOR_CATEGORIES" :key="cat" :value="cat">{{ cat }}</option>
+            </select>
           </div>
+        </div>
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">廠商能力</label>
+          <input v-model="form.abilities" type="text" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1" placeholder="例：住宅水電、冷氣配管、弱電網路">
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
@@ -149,7 +189,8 @@
   </div>
 </template>
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, reactive } from 'vue'
+import { WORK_CATEGORIES as VENDOR_CATEGORIES } from '@/constants/workCategories'
 import { useVendorsStore } from '@/stores/vendors'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
@@ -158,19 +199,41 @@ const vendorsStore = useVendorsStore()
 const authStore = useAuthStore()
 const { toast } = useToast()
 
+const expandedCategories = reactive({})
+
+function toggleCategory(label) {
+    expandedCategories[label] = !expandedCategories[label]
+}
+
+const standardCategories = VENDOR_CATEGORIES.filter(c => c !== '其他')
+
+const allCategories = computed(() => {
+    const result = standardCategories.map(label => ({
+        label,
+        list: vendorsStore.vendors.filter(v => v.specialty === label),
+    }))
+    const others = vendorsStore.vendors.filter(v => !standardCategories.includes(v.specialty))
+    if (others.length > 0) result.push({ label: '其他', list: others })
+    return result
+})
+
+const hasUncategorized = computed(() =>
+    vendorsStore.vendors.some(v => !standardCategories.includes(v.specialty))
+)
+
 const searchKeyword = ref('')
 const filteredVendors = computed(() => {
     const kw = searchKeyword.value.trim()
     if (!kw) return vendorsStore.vendors
     return vendorsStore.vendors.filter(v =>
-        v.name.includes(kw) || v.specialty.includes(kw)
+        (v.name || '').includes(kw) || (v.specialty || '').includes(kw)
     )
 })
 
 const showForm = ref(false)
 const submitting = ref(false)
 const editingId = ref(null)
-const blankForm = () => ({ name: '', specialty: '', contact: '', phone: '', taxId: '', lineId: '', formSubmitted: false, formDate: '', companyId: '', rating: 0, notes: '' })
+const blankForm = () => ({ name: '', specialty: '', abilities: '', contact: '', phone: '', taxId: '', lineId: '', formSubmitted: false, formDate: '', companyId: '', rating: 0, notes: '' })
 const form = ref(blankForm())
 
 function openAdd() {
@@ -183,6 +246,7 @@ function openEdit(v) {
     editingId.value = v.id
     form.value = {
         name: v.name, specialty: v.specialty,
+        abilities: v.abilities || '',
         contact: v.contact || '', phone: v.phone || '',
         taxId: v.taxId || '', lineId: v.lineId || '',
         formSubmitted: v.formSubmitted || false, formDate: v.formDate || '',

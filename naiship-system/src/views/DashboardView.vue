@@ -9,6 +9,15 @@
         class="mt-2 text-[10px] text-amber-300 hover:text-amber-100 underline">前往工作日誌審核</button>
     </div>
 
+    <div v-if="authStore.isManager && hasPendingPayments"
+      class="mx-3 mb-4 rounded-xl p-3" style="background:rgba(201,169,110,0.15)">
+      <div class="text-[10px] font-semibold uppercase tracking-wide mb-1" style="color:#c9a96e">待付款</div>
+      <div v-if="pendingOwnerCount > 0" class="text-white text-xs">向業主請款 {{ pendingOwnerCount }} 筆</div>
+      <div v-if="pendingVendorCount > 0" class="text-white text-xs">廠商匯款 {{ pendingVendorCount }} 筆</div>
+      <a href="#payment-reminders"
+        class="mt-2 block text-[10px] underline hover:opacity-80" style="color:#c9a96e">前往待付款清單</a>
+    </div>
+
     <div class="px-4 py-2 text-[10px] text-gray-400 uppercase tracking-widest font-semibold">進行中案件</div>
     <div v-for="(regionCases, region) in activeCasesByRegion" :key="region" class="px-3 mt-2">
       <div class="text-[11px] font-semibold px-2 py-1" style="color:#c9a96e">{{ regionName[region] }}</div>
@@ -30,6 +39,7 @@
       </div>
     </div>
     <DashboardTodo class="mb-4" />
+    <PaymentReminders class="mt-4" />
     <StatsSection :year="selectedYear" />
     <EmployeeTable :year="selectedYear" class="mt-6" />
     <MonthlyCashFlow :year="selectedYear" :month="currentMonth" class="mt-6" />
@@ -42,6 +52,8 @@ import StatsSection from '@/components/dashboard/StatsSection.vue'
 import EmployeeTable from '@/components/dashboard/EmployeeTable.vue'
 import DashboardTodo from '@/components/dashboard/DashboardTodo.vue'
 import MonthlyCashFlow from '@/components/dashboard/MonthlyCashFlow.vue'
+import PaymentReminders from '@/components/dashboard/PaymentReminders.vue'
+import { usePaymentRemindersStore } from '@/stores/paymentReminders'
 import { useCasesStore } from '@/stores/cases'
 import { useClientsStore } from '@/stores/clients'
 import { useAuthStore } from '@/stores/auth'
@@ -74,6 +86,11 @@ const activeCasesByRegion = computed(() => {
 
 const pendingCount = computed(() => logsStore.pendingLogs.length)
 
+const remindersStore = usePaymentRemindersStore()
+const pendingOwnerCount = computed(() => remindersStore.pendingOwner.length)
+const pendingVendorCount = computed(() => remindersStore.pendingVendor.length)
+const hasPendingPayments = computed(() => pendingOwnerCount.value > 0 || pendingVendorCount.value > 0)
+
 onMounted(() => {
     const regions = authStore.isAdmin
         ? ['south', 'north', 'central']
@@ -82,9 +99,11 @@ onMounted(() => {
     casesStore.subscribe(filtered)
     clientsStore.subscribe(filtered)
     if (authStore.isManager) logsStore.subscribePending()
+    remindersStore.subscribe()
 })
 
 onUnmounted(() => {
     logsStore.cleanupPending()
+    remindersStore.cleanup()
 })
 </script>
