@@ -411,6 +411,10 @@ import { uploadPhoto, validateUploadFile } from '@/composables/useStorage'
 import { addDoc, collection, getDocs, orderBy, query, serverTimestamp, deleteDoc, doc } from 'firebase/firestore'
 import { db } from '@/firebase'
 
+function toDateStr(d) {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 function calcVendorDueDate(endDate) {
     const d = new Date(endDate + 'T00:00:00')
     const day = d.getDate()
@@ -420,13 +424,13 @@ function calcVendorDueDate(endDate) {
     const targetDay = day <= 15 ? 15 : new Date(year, month + 1, 0).getDate()
     const result = new Date(year, month, targetDay)
     while (result.getDay() === 0 || result.getDay() === 6) result.setDate(result.getDate() + 1)
-    return result.toISOString().slice(0, 10)
+    return toDateStr(result)
 }
 
 function calcOwnerDueDate(startDate) {
     const d = new Date(startDate + 'T00:00:00')
     d.setDate(d.getDate() - 7)
-    return d.toISOString().slice(0, 10)
+    return toDateStr(d)
 }
 
 function formatDateChinese(isoDate) {
@@ -554,26 +558,23 @@ async function markDone(idx) {
     updated[idx] = { ...updated[idx], done: true }
     await casesStore.updateCase(props.caseId, { workTypes: updated })
     const wt = workTypes.value[idx]
-    if (wt.endDate) {
-        const dueDate = calcVendorDueDate(wt.endDate)
-        await remindersStore.addAutoReminder(`auto_vendor_${wt.id}`, {
-            source: 'auto',
-            type: 'vendor',
-            dueDate,
-            caseId: props.caseId,
-            caseName: props.caseName,
-            companyId: caseData.value?.companyId ?? '',
-            workTypeId: wt.id,
-            workTypeName: wt.name,
-            vendorName: wt.vendorName || '',
-            amount: wtVendorCostTotal(wt),
-            createdBy: authStore.user?.uid ?? '',
-            createdByName: authStore.name ?? '',
-        })
-        toast(`已完工，廠商付款提醒：${formatDateChinese(dueDate)}`)
-    } else {
-        toast('已標記完工')
-    }
+    const effectiveEndDate = wt.endDate || new Date().toISOString().slice(0, 10)
+    const dueDate = calcVendorDueDate(effectiveEndDate)
+    await remindersStore.addAutoReminder(`auto_vendor_${wt.id}`, {
+        source: 'auto',
+        type: 'vendor',
+        dueDate,
+        caseId: props.caseId,
+        caseName: props.caseName,
+        companyId: caseData.value?.companyId ?? '',
+        workTypeId: wt.id,
+        workTypeName: wt.name,
+        vendorName: wt.vendorName || '',
+        amount: wtVendorCostTotal(wt),
+        createdBy: authStore.user?.uid ?? '',
+        createdByName: authStore.name ?? '',
+    })
+    toast(`已完工，廠商付款提醒：${formatDateChinese(dueDate)}`)
 }
 
 async function unmarkDone(idx) {
@@ -859,6 +860,11 @@ async function addVendorPayment() {
         }]
         updated[vendorPayingIdx.value] = wt
         await casesStore.updateCase(props.caseId, { workTypes: updated })
+        const totalPaid = (wt.vendorPayments || []).reduce((s, vp) => s + (vp.amount || 0), 0)
+        const totalCost = wtVendorCostTotal(wt)
+        if (totalCost > 0 && totalPaid >= totalCost) {
+            try { await remindersStore.markDone(`auto_vendor_${wt.id}`) } catch (_) {}
+        }
         showVendorPayForm.value = false
     } catch {
         toast('儲存失敗，請重試', 'error')

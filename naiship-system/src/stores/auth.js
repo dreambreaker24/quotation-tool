@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth'
+import { GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut } from 'firebase/auth'
 import { doc, getDoc, setDoc, deleteDoc, collection, query, where, getDocs } from 'firebase/firestore'
 import { auth, db } from '@/firebase'
 
@@ -56,11 +56,16 @@ export const useAuthStore = defineStore('auth', () => {
       else { role.value = null; companyId.value = null; name.value = null }
       resolveReady()
     })
+    getRedirectResult(auth).catch(() => {})
   }
 
   async function loginWithGoogle() {
     const provider = new GoogleAuthProvider()
-    await signInWithPopup(auth, provider)
+    try {
+      await signInWithPopup(auth, provider)
+    } catch {
+      await signInWithRedirect(auth, provider)
+    }
   }
 
   async function logout() {

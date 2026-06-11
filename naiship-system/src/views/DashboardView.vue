@@ -22,7 +22,7 @@
       class="mx-3 mb-4 rounded-xl p-3" style="background:rgba(59,130,246,0.15)">
       <div class="text-[10px] text-blue-300 font-semibold uppercase tracking-wide mb-1">即將到期</div>
       <div class="text-white text-sm font-bold">{{ upcomingAutoCount }} 筆</div>
-      <div class="text-[10px] text-gray-400 mt-0.5">30 天內付款排程</div>
+      <div class="text-[10px] text-gray-400 mt-0.5">本月底及下月排程</div>
       <a href="#scheduled-reminders"
         class="mt-2 block text-[10px] text-blue-300 hover:text-blue-100 underline">前往排程提醒</a>
     </div>
@@ -55,7 +55,7 @@
   </main>
 </template>
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import StatsSection from '@/components/dashboard/StatsSection.vue'
 import EmployeeTable from '@/components/dashboard/EmployeeTable.vue'
@@ -73,6 +73,93 @@ const casesStore = useCasesStore()
 const clientsStore = useClientsStore()
 const authStore = useAuthStore()
 const logsStore = useWorkLogsStore()
+
+function toDateStr(d) {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function calcVendorDueDate(endDate) {
+    const d = new Date(endDate + 'T00:00:00')
+    const day = d.getDate()
+    const nextMonthDate = new Date(d.getFullYear(), d.getMonth() + 1, 1)
+    const year = nextMonthDate.getFullYear()
+    const month = nextMonthDate.getMonth()
+    const targetDay = day <= 15 ? 15 : new Date(year, month + 1, 0).getDate()
+    const result = new Date(year, month, targetDay)
+    while (result.getDay() === 0 || result.getDay() === 6) result.setDate(result.getDate() + 1)
+    return toDateStr(result)
+}
+
+function calcOwnerDueDate(startDate) {
+    const d = new Date(startDate + 'T00:00:00')
+    d.setDate(d.getDate() - 7)
+    return toDateStr(d)
+}
+
+function wtVendorCostTotal(wt) {
+    if (wt.vendorCostFree) return 0
+    const items = wt.vendorCostItems ?? (wt.vendorCost > 0 ? [{ amount: wt.vendorCost }] : [])
+    return (items || []).reduce((s, i) => s + (i.amount || 0), 0)
+}
+
+function wtPaymentTotal(wt) {
+    if (wt.paymentFree) return 0
+    const items = wt.paymentItems ?? (wt.payment > 0 ? [{ amount: wt.payment }] : [])
+    return (items || []).reduce((s, i) => s + (i.amount || 0), 0)
+}
+
+const BACKFILL_KEY = 'naiship_reminders_backfilled_v3'
+
+async function backfillReminders() {
+    if (localStorage.getItem(BACKFILL_KEY)) return
+    const today = new Date().toISOString().slice(0, 10)
+    for (const c of casesStore.cases) {
+        for (const wt of (c.workTypes || [])) {
+            if (wt.done) {
+                const vendorCost = wtVendorCostTotal(wt)
+                const vendorPaid = (wt.vendorPayments || []).reduce((s, vp) => s + (vp.amount || 0), 0)
+                if (vendorCost > 0 && vendorPaid >= vendorCost) {
+                    await remindersStore.deleteAutoReminder(`auto_vendor_${wt.id}`)
+                } else {
+                    const effectiveEnd = wt.endDate || today
+                    await remindersStore.addAutoReminder(`auto_vendor_${wt.id}`, {
+                        source: 'auto', type: 'vendor',
+                        dueDate: calcVendorDueDate(effectiveEnd),
+                        caseId: c.id, caseName: c.name,
+                        companyId: c.companyId ?? '',
+                        workTypeId: wt.id, workTypeName: wt.name,
+                        vendorName: wt.vendorName || '',
+                        amount: wtVendorCostTotal(wt),
+                        createdBy: authStore.user?.uid ?? '',
+                        createdByName: authStore.name ?? '',
+                    })
+                }
+            }
+            if (wt.startDate) {
+                await remindersStore.addAutoReminder(`auto_owner_${wt.id}`, {
+                    source: 'auto', type: 'owner',
+                    dueDate: calcOwnerDueDate(wt.startDate),
+                    caseId: c.id, caseName: c.name,
+                    companyId: c.companyId ?? '',
+                    workTypeId: wt.id, workTypeName: wt.name,
+                    vendorName: wt.vendorName || '',
+                    amount: wtPaymentTotal(wt),
+                    createdBy: authStore.user?.uid ?? '',
+                    createdByName: authStore.name ?? '',
+                })
+            }
+        }
+    }
+    localStorage.setItem(BACKFILL_KEY, '1')
+}
+
+const backfillTriggered = ref(false)
+watch(() => casesStore.cases.length, (len) => {
+    if (len > 0 && !backfillTriggered.value && authStore.isManager) {
+        backfillTriggered.value = true
+        backfillReminders()
+    }
+})
 const selectedYear = ref(new Date().getFullYear())
 const currentMonth = new Date().getMonth() + 1
 const years = Array.from({ length: 5 }, (_, i) => selectedYear.value - i)

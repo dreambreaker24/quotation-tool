@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { collection, query, where, onSnapshot, addDoc, updateDoc, doc, serverTimestamp, setDoc, deleteDoc } from 'firebase/firestore'
+import { collection, query, where, onSnapshot, addDoc, updateDoc, doc, serverTimestamp, setDoc, deleteDoc, getDoc } from 'firebase/firestore'
 import { db } from '@/firebase'
 import { useAuthStore } from '@/stores/auth'
 
@@ -34,9 +34,27 @@ export const usePaymentRemindersStore = defineStore('paymentReminders', () => {
             .sort((a, b) => (a.dueDate || '').localeCompare(b.dueDate || ''))
     )
 
+    function thisMonthRange() {
+        const now = new Date()
+        const y = now.getFullYear(), m = now.getMonth()
+        const start = `${y}-${String(m + 1).padStart(2, '0')}-01`
+        const lastDay = new Date(y, m + 2, 0)
+        const end = `${lastDay.getFullYear()}-${String(lastDay.getMonth() + 1).padStart(2, '0')}-${String(lastDay.getDate()).padStart(2, '0')}`
+        return { start, end }
+    }
+
     const upcomingAutoSoon = computed(() => {
-        const thirtyDaysLater = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
-        return upcomingAuto.value.filter(r => r.dueDate <= thirtyDaysLater)
+        const { start, end } = thisMonthRange()
+        return upcomingAuto.value.filter(r =>
+            r.type === 'vendor' && r.dueDate >= start && r.dueDate <= end
+        )
+    })
+
+    const upcomingOwnerSoon = computed(() => {
+        const { start, end } = thisMonthRange()
+        return upcomingAuto.value.filter(r =>
+            r.type === 'owner' && r.dueDate >= start && r.dueDate <= end
+        )
     })
 
     async function addReminder(data) {
@@ -50,7 +68,13 @@ export const usePaymentRemindersStore = defineStore('paymentReminders', () => {
     }
 
     async function addAutoReminder(docId, data) {
-        await setDoc(doc(db, 'paymentReminders', docId), {
+        const ref = doc(db, 'paymentReminders', docId)
+        const snap = await getDoc(ref)
+        if (snap.exists() && snap.data().status === 'done') {
+            await updateDoc(ref, { dueDate: data.dueDate })
+            return
+        }
+        await setDoc(ref, {
             ...data,
             status: 'pending',
             createdAt: serverTimestamp(),
@@ -74,7 +98,7 @@ export const usePaymentRemindersStore = defineStore('paymentReminders', () => {
 
     return {
         reminders, pendingOwner, pendingVendor,
-        upcomingAuto, upcomingAutoSoon,
+        upcomingAuto, upcomingAutoSoon, upcomingOwnerSoon,
         subscribe, cleanup,
         addReminder, markDone,
         addAutoReminder, deleteAutoReminder,
