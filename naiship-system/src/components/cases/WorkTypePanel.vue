@@ -114,10 +114,10 @@
               </span>
             </div>
           </div>
-          <div class="flex gap-2 flex-shrink-0">
-            <button @click="openVendorPay(idx)" class="text-[11px] text-gray-400 hover:text-gray-700">記錄付款</button>
-            <button @click="openEdit(idx)" class="text-[11px] text-gray-400 hover:text-gray-700">編輯</button>
-            <button @click="removeWorkType(idx)" class="text-[11px] text-red-400 hover:text-red-600">刪除</button>
+          <div class="flex gap-1.5 flex-shrink-0">
+            <button @click="openVendorPay(idx)" class="text-[11px] px-2 py-1 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors">記錄付款</button>
+            <button @click="openEdit(idx)" class="text-[11px] px-2 py-1 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors">編輯</button>
+            <button @click="removeWorkType(idx)" class="text-[11px] px-2 py-1 rounded-lg text-red-400 hover:bg-red-50 transition-colors">刪除</button>
           </div>
         </div>
         </div>
@@ -156,12 +156,14 @@
 
   <!-- 新增/編輯工種 Modal -->
   <div v-if="showForm" class="fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.4)">
-    <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm mx-4">
-      <div class="flex items-center justify-between mb-4">
-        <h3 class="text-sm font-bold text-gray-800">{{ editingIdx !== null ? '編輯工種' : '新增工種' }}</h3>
-        <button @click="showForm = false" class="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 max-h-[90vh] flex flex-col">
+      <div class="px-6 pt-6 pb-0 flex-shrink-0">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-sm font-bold text-gray-800">{{ editingIdx !== null ? '編輯工種' : '新增工種' }}</h3>
+          <button @click="showForm = false" class="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
+        </div>
       </div>
-      <div class="flex flex-col gap-3">
+      <div class="flex flex-col gap-3 overflow-y-auto px-6 py-2 flex-1">
         <div>
           <label class="text-xs text-gray-500 mb-1 block">工種 *</label>
           <select v-model="selectedCategory" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
@@ -176,12 +178,28 @@
         </div>
         <div>
           <label class="text-xs text-gray-500 mb-1 block">負責廠商</label>
-          <select v-model="form.vendorId" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
-            <option value="">— 尚未指定 —</option>
-            <option v-for="v in regionVendors" :key="v.id" :value="v.id">
-              {{ v.name }}（{{ v.specialty }}）
-            </option>
-          </select>
+          <div class="relative">
+            <input
+              v-model="vendorSearch"
+              @focus="showVendorDropdown = true"
+              @blur="hideVendorDropdown"
+              type="text"
+              placeholder="搜尋廠商名稱…"
+              class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1"
+            >
+            <div v-if="showVendorDropdown"
+              class="absolute z-20 w-full bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-44 overflow-y-auto">
+              <button type="button" @mousedown.prevent="selectVendor(null)"
+                class="w-full text-left px-3 py-2 text-sm text-gray-400 hover:bg-gray-50">— 尚未指定 —</button>
+              <button v-for="v in filteredVendorList" :key="v.id" type="button"
+                @mousedown.prevent="selectVendor(v)"
+                class="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition-colors"
+                :class="form.vendorId === v.id ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'">
+                {{ v.name }}<span class="text-gray-400 text-xs ml-1">{{ v.specialty }}</span>
+              </button>
+              <div v-if="filteredVendorList.length === 0" class="px-3 py-2 text-sm text-gray-300">找不到符合廠商</div>
+            </div>
+          </div>
           <p v-if="regionVendors.length === 0" class="text-[11px] text-gray-400 mt-1">
             {{ selectedCategory && selectedCategory !== '__custom__' ? `尚無「${selectedCategory}」廠商，請至設定新增` : '尚無廠商，請至設定 › 廠商管理新增' }}
           </p>
@@ -291,7 +309,7 @@
           </label>
         </div>
       </div>
-      <div class="flex justify-end gap-2 mt-5">
+      <div class="flex justify-end gap-2 px-6 py-4 flex-shrink-0 border-t border-gray-100">
         <button @click="showForm = false" class="text-sm text-gray-400 px-4 py-2">取消</button>
         <button @click="submitForm" :disabled="saving" class="text-sm text-white px-5 py-2 rounded-xl disabled:opacity-60" style="background:#1e2533">
           {{ saving ? '儲存中…' : '儲存' }}
@@ -324,6 +342,8 @@
               :class="vp.hasInvoice ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'">
               {{ vp.hasInvoice ? '有發票' : '無發票' }}
             </button>
+            <button type="button" @click="deleteVendorPayment(vp.id)"
+              class="text-[10px] text-red-400 hover:text-red-600 flex-shrink-0 px-1">✕</button>
           </div>
         </div>
         <div class="mt-2 text-right text-xs font-medium text-gray-600">
@@ -470,6 +490,22 @@ watch(selectedCategory, (val) => {
     if (val && val !== '__custom__') form.value.name = val
     else if (val === '__custom__') form.value.name = ''
 })
+
+const vendorSearch = ref('')
+const showVendorDropdown = ref(false)
+const filteredVendorList = computed(() => {
+    const kw = vendorSearch.value.trim()
+    if (!kw) return regionVendors.value
+    return regionVendors.value.filter(v => v.name.includes(kw))
+})
+function selectVendor(vendor) {
+    form.value.vendorId = vendor?.id ?? ''
+    vendorSearch.value = vendor?.name ?? ''
+    showVendorDropdown.value = false
+}
+function hideVendorDropdown() {
+    setTimeout(() => { showVendorDropdown.value = false }, 150)
+}
 
 const caseData = computed(() => casesStore.cases.find(c => c.id === props.caseId))
 const workTypes = computed(() => caseData.value?.workTypes ?? [])
@@ -620,6 +656,7 @@ function vendorInvoiceStatus(wt) {
 function openAdd() {
     editingIdx.value = null
     selectedCategory.value = ''
+    vendorSearch.value = ''
     form.value = {
         name: '', vendorId: '', startDate: '', endDate: '',
         paymentItems: [], paymentFree: false,
@@ -634,6 +671,7 @@ function openEdit(idx) {
     editingIdx.value = idx
     const wt = workTypes.value[idx]
     selectedCategory.value = WORK_CATEGORIES.includes(wt.name) ? wt.name : (wt.name ? '__custom__' : '')
+    vendorSearch.value = wt.vendorName || ''
     form.value = {
         name: wt.name,
         vendorId: wt.vendorId || '',
@@ -719,6 +757,15 @@ async function sendReminder(item, type) {
         `${props.caseName}－${wt.name}：${item.description} ${typeLabel} $${(item.amount || 0).toLocaleString()}`
     )
     toast('已提醒主管')
+}
+
+async function deleteVendorPayment(vpId) {
+    if (!confirm('確定要刪除這筆付款記錄？')) return
+    const updated = [...workTypes.value]
+    const wt = { ...updated[vendorPayingIdx.value] }
+    wt.vendorPayments = wt.vendorPayments.filter(vp => vp.id !== vpId)
+    updated[vendorPayingIdx.value] = wt
+    await casesStore.updateCase(props.caseId, { workTypes: updated })
 }
 
 async function toggleVendorInvoice(vpId) {
