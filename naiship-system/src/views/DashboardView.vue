@@ -24,7 +24,15 @@
       <div class="text-white text-sm font-bold">{{ upcomingAutoCount }} 筆</div>
       <div class="text-[10px] text-gray-400 mt-0.5">本月底及下月排程</div>
       <a href="#scheduled-reminders"
-        class="mt-2 block text-[10px] text-blue-300 hover:text-blue-100 underline">前往排程提醒</a>
+        class="mt-2 block text-[10px] text-blue-300 hover:text-blue-100 underline">前往廠商排程</a>
+    </div>
+
+    <div v-if="authStore.isManager && hasOwnerItems"
+      class="mx-3 mb-4 rounded-xl p-3" style="background:rgba(201,169,110,0.15)">
+      <div class="text-[10px] font-semibold uppercase tracking-wide mb-1" style="color:#c9a96e">待請款</div>
+      <div class="text-white text-sm font-bold">{{ ownerItemsCount }} 筆</div>
+      <a href="#owner-reminders"
+        class="mt-2 block text-[10px] underline hover:opacity-80" style="color:#c9a96e">前往待請款清單</a>
     </div>
 
     <div class="px-4 py-2 text-[10px] text-gray-400 uppercase tracking-widest font-semibold">進行中案件</div>
@@ -188,6 +196,11 @@ const pendingVendorCount = computed(() => remindersStore.pendingVendor.length)
 const hasPendingPayments = computed(() => pendingOwnerCount.value > 0 || pendingVendorCount.value > 0)
 const upcomingAutoCount = computed(() => remindersStore.upcomingAutoSoon.length)
 const hasUpcomingAuto = computed(() => upcomingAutoCount.value > 0)
+const ownerItemsCount = computed(() => [
+    ...remindersStore.pendingOwner,
+    ...remindersStore.upcomingOwnerSoon,
+].filter(r => (r.amount || 0) > 0).length)
+const hasOwnerItems = computed(() => ownerItemsCount.value > 0)
 
 onMounted(() => {
     const regions = authStore.isAdmin

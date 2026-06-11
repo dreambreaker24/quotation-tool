@@ -39,7 +39,7 @@
       </div>
 
       <!-- 右半：待請款 -->
-      <div>
+      <div id="owner-reminders">
         <div class="text-xs font-semibold mb-2" style="color:#c9a96e">待請款</div>
         <div v-if="ownerItems.length === 0" class="text-[11px] text-gray-400">目前無待請款項目</div>
         <div class="flex flex-col gap-2">
