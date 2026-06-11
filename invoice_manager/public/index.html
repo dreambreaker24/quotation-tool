@@ -416,7 +416,8 @@ td:first-child { width: 64px; }
             <div class="form-grid" style="margin-top:12px">
                 <div class="form-group">
                     <label>案場名稱</label>
-                    <select id="s-case"></select>
+                    <input type="text" id="s-case" list="s-case-list" placeholder="選擇或輸入案場名稱" autocomplete="off">
+                    <datalist id="s-case-list"></datalist>
                 </div>
             </div>
             <div class="form-actions">
@@ -731,6 +732,7 @@ function switchTab(tab) {
     });
     document.getElementById('tab-purchase').classList.toggle('active', tab === 'purchase');
     document.getElementById('tab-sales').classList.toggle('active', tab === 'sales');
+    document.title = tab === 'purchase' ? '發票報帳系統 - 進項掃描' : '發票報帳系統 - 銷項輸入';
     if (tab === 'sales') populateSalsCaseSelect();
 }
 
@@ -738,25 +740,10 @@ function switchTab(tab) {
 
 let salesList = [];
 
-async function populateSalsCaseSelect() {
-    try {
-        const cfg    = await fetch('/api/config').then(r => r.json());
-        const company = document.getElementById('companySelect').value;
-        // case names come from config; for now load from API
-        // We re-fetch so the select stays in sync with company switch
-        const sel    = document.getElementById('s-case');
-        const curVal = sel.value;
-        sel.innerHTML = '<option value="">（未選）</option>';
-        // Use same caseNames from init if available
-        if (window._caseNames) {
-            window._caseNames.forEach(n => {
-                const o = document.createElement('option');
-                o.value = n; o.textContent = n;
-                if (n === curVal) o.selected = true;
-                sel.appendChild(o);
-            });
-        }
-    } catch { /* silent */ }
+function populateSalsCaseSelect() {
+    const dl    = document.getElementById('s-case-list');
+    const names = window._caseNames || [];
+    dl.innerHTML = names.map(n => `<option value="${esc(n)}">`).join('');
 }
 
 function calcSalesTax() {

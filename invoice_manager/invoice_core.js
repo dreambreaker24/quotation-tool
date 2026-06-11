@@ -241,9 +241,9 @@ function buildSummarySheet(ws, purchaseGroups, salesGroups) {
         for (const sn of Object.keys(groups).sort()) {
             const items  = groups[sn];
             const count  = items.length;
-            const amount = items.reduce((s, t) => s + (Number(t.amount) || 0), 0);
-            const tax    = items.reduce((s, t) => s + (Number(t.tax)    || 0), 0);
-            const total  = items.reduce((s, t) => s + (Number(t.total)  || 0), 0);
+            const amount = Math.round(items.reduce((s, t) => s + (Number(t.amount) || 0), 0));
+            const tax    = Math.round(items.reduce((s, t) => s + (Number(t.tax)    || 0), 0));
+            const total  = Math.round(items.reduce((s, t) => s + (Number(t.total)  || 0), 0));
             totCount += count; totAmount += amount; totTax += tax; totTotal += total;
 
             const period = sn.replace(/^銷 /, '');
