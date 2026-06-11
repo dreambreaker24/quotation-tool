@@ -411,6 +411,30 @@ import { uploadPhoto, validateUploadFile } from '@/composables/useStorage'
 import { addDoc, collection, getDocs, orderBy, query, serverTimestamp, deleteDoc, doc } from 'firebase/firestore'
 import { db } from '@/firebase'
 
+function calcVendorDueDate(endDate) {
+    const d = new Date(endDate + 'T00:00:00')
+    const day = d.getDate()
+    const nextMonthDate = new Date(d.getFullYear(), d.getMonth() + 1, 1)
+    const year = nextMonthDate.getFullYear()
+    const month = nextMonthDate.getMonth()
+    const targetDay = day <= 15 ? 15 : new Date(year, month + 1, 0).getDate()
+    const result = new Date(year, month, targetDay)
+    while (result.getDay() === 0 || result.getDay() === 6) result.setDate(result.getDate() + 1)
+    return result.toISOString().slice(0, 10)
+}
+
+function calcOwnerDueDate(startDate) {
+    const d = new Date(startDate + 'T00:00:00')
+    d.setDate(d.getDate() - 7)
+    return d.toISOString().slice(0, 10)
+}
+
+function formatDateChinese(isoDate) {
+    const d = new Date(isoDate + 'T00:00:00')
+    const days = ['日', '一', '二', '三', '四', '五', '六']
+    return `${d.getMonth() + 1}/${d.getDate()}（週${days[d.getDay()]}）`
+}
+
 const props = defineProps({ caseId: String, caseName: String })
 const vendorsStore = useVendorsStore()
 const casesStore = useCasesStore()
@@ -529,13 +553,35 @@ async function markDone(idx) {
     const updated = [...workTypes.value]
     updated[idx] = { ...updated[idx], done: true }
     await casesStore.updateCase(props.caseId, { workTypes: updated })
-    toast('已標記完工')
+    const wt = workTypes.value[idx]
+    if (wt.endDate) {
+        const dueDate = calcVendorDueDate(wt.endDate)
+        await remindersStore.addAutoReminder(`auto_vendor_${wt.id}`, {
+            source: 'auto',
+            type: 'vendor',
+            dueDate,
+            caseId: props.caseId,
+            caseName: props.caseName,
+            companyId: caseData.value?.companyId ?? '',
+            workTypeId: wt.id,
+            workTypeName: wt.name,
+            vendorName: wt.vendorName || '',
+            amount: wtVendorCostTotal(wt),
+            createdBy: authStore.user?.uid ?? '',
+            createdByName: authStore.name ?? '',
+        })
+        toast(`已完工，廠商付款提醒：${formatDateChinese(dueDate)}`)
+    } else {
+        toast('已標記完工')
+    }
 }
 
 async function unmarkDone(idx) {
     const updated = [...workTypes.value]
     updated[idx] = { ...updated[idx], done: false }
     await casesStore.updateCase(props.caseId, { workTypes: updated })
+    const wt = workTypes.value[idx]
+    await remindersStore.deleteAutoReminder(`auto_vendor_${wt.id}`)
 }
 
 function openVendorPreview(wtId, idx) {
@@ -725,6 +771,27 @@ async function submitForm() {
             updated.push(entry)
         }
         await casesStore.updateCase(props.caseId, { workTypes: updated })
+        const autoOwnerId = `auto_owner_${entry.id}`
+        if (entry.startDate) {
+            const dueDate = calcOwnerDueDate(entry.startDate)
+            const amount = entry.paymentFree ? 0 : form.value.paymentItems.reduce((s, i) => s + (i.amount || 0), 0)
+            await remindersStore.addAutoReminder(autoOwnerId, {
+                source: 'auto',
+                type: 'owner',
+                dueDate,
+                caseId: props.caseId,
+                caseName: props.caseName,
+                companyId: caseData.value?.companyId ?? '',
+                workTypeId: entry.id,
+                workTypeName: entry.name,
+                vendorName: entry.vendorName || '',
+                amount,
+                createdBy: authStore.user?.uid ?? '',
+                createdByName: authStore.name ?? '',
+            })
+        } else {
+            await remindersStore.deleteAutoReminder(autoOwnerId)
+        }
         notifStore.notifyAll(authStore.name ?? '', `更新了「${props.caseName}」的工種`, props.caseId, props.caseName, caseData.value?.companyId ?? '')
         showForm.value = false
     } catch {
@@ -802,9 +869,12 @@ async function addVendorPayment() {
 
 async function removeWorkType(idx) {
     if (!confirm(`確定要刪除「${workTypes.value[idx].name}」？`)) return
+    const wt = workTypes.value[idx]
     try {
         const updated = workTypes.value.filter((_, i) => i !== idx)
         await casesStore.updateCase(props.caseId, { workTypes: updated })
+        await remindersStore.deleteAutoReminder(`auto_vendor_${wt.id}`)
+        await remindersStore.deleteAutoReminder(`auto_owner_${wt.id}`)
     } catch {
         toast('刪除失敗，請重試', 'error')
     }

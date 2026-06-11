@@ -18,6 +18,15 @@
         class="mt-2 block text-[10px] underline hover:opacity-80" style="color:#c9a96e">前往待付款清單</a>
     </div>
 
+    <div v-if="authStore.isManager && hasUpcomingAuto"
+      class="mx-3 mb-4 rounded-xl p-3" style="background:rgba(59,130,246,0.15)">
+      <div class="text-[10px] text-blue-300 font-semibold uppercase tracking-wide mb-1">即將到期</div>
+      <div class="text-white text-sm font-bold">{{ upcomingAutoCount }} 筆</div>
+      <div class="text-[10px] text-gray-400 mt-0.5">30 天內付款排程</div>
+      <a href="#scheduled-reminders"
+        class="mt-2 block text-[10px] text-blue-300 hover:text-blue-100 underline">前往排程提醒</a>
+    </div>
+
     <div class="px-4 py-2 text-[10px] text-gray-400 uppercase tracking-widest font-semibold">進行中案件</div>
     <div v-for="(regionCases, region) in activeCasesByRegion" :key="region" class="px-3 mt-2">
       <div class="text-[11px] font-semibold px-2 py-1" style="color:#c9a96e">{{ regionName[region] }}</div>
@@ -90,6 +99,8 @@ const remindersStore = usePaymentRemindersStore()
 const pendingOwnerCount = computed(() => remindersStore.pendingOwner.length)
 const pendingVendorCount = computed(() => remindersStore.pendingVendor.length)
 const hasPendingPayments = computed(() => pendingOwnerCount.value > 0 || pendingVendorCount.value > 0)
+const upcomingAutoCount = computed(() => remindersStore.upcomingAutoSoon.length)
+const hasUpcomingAuto = computed(() => upcomingAutoCount.value > 0)
 
 onMounted(() => {
     const regions = authStore.isAdmin
