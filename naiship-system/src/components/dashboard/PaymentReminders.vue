@@ -28,8 +28,10 @@
                 <div v-if="r.note" class="text-[11px] text-gray-400 mt-0.5">{{ r.note }}</div>
               </div>
               <button v-if="authStore.isManager" @click="markDone(r.id)"
-                class="flex-shrink-0 text-[11px] px-2.5 py-1 rounded-lg bg-green-100 text-green-700 hover:bg-green-200 transition-colors whitespace-nowrap">
-                標記完成
+                :disabled="doneFeedback[r.id]"
+                class="flex-shrink-0 text-[11px] px-2.5 py-1 rounded-lg transition-colors whitespace-nowrap"
+                :class="doneFeedback[r.id] ? 'bg-green-500 text-white cursor-default' : 'bg-green-100 text-green-700 hover:bg-green-200'">
+                {{ doneFeedback[r.id] ? '✓ 已完成' : '標記完成' }}
               </button>
             </div>
           </div>
@@ -61,8 +63,10 @@
                 <div v-if="r.createdByName" class="text-[10px] text-gray-300 mt-1">{{ r.createdByName }} 建立</div>
               </div>
               <button v-if="authStore.isManager" @click="markDone(r.id)"
-                class="flex-shrink-0 text-[11px] px-2.5 py-1 rounded-lg bg-green-100 text-green-700 hover:bg-green-200 transition-colors whitespace-nowrap">
-                標記完成
+                :disabled="doneFeedback[r.id]"
+                class="flex-shrink-0 text-[11px] px-2.5 py-1 rounded-lg transition-colors whitespace-nowrap"
+                :class="doneFeedback[r.id] ? 'bg-green-500 text-white cursor-default' : 'bg-green-100 text-green-700 hover:bg-green-200'">
+                {{ doneFeedback[r.id] ? '✓ 已完成' : '標記完成' }}
               </button>
             </div>
           </div>
@@ -73,31 +77,44 @@
   </div>
 </template>
 <script setup>
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import { usePaymentRemindersStore } from '@/stores/paymentReminders'
 import { useAuthStore } from '@/stores/auth'
 
 const remindersStore = usePaymentRemindersStore()
 const authStore = useAuthStore()
+const doneFeedback = ref({})
 
-const vendorItems = computed(() => [
+function today() {
+    return new Date().toISOString().slice(0, 10)
+}
+
+function isOverdue(dueDate) {
+    return !!dueDate && dueDate < today()
+}
+
+function sortByOverdueThenDate(items) {
+    return items.sort((a, b) => {
+        const aOver = isOverdue(a.dueDate), bOver = isOverdue(b.dueDate)
+        if (aOver !== bOver) return aOver ? -1 : 1
+        return (a.dueDate || '').localeCompare(b.dueDate || '')
+    })
+}
+
+const vendorItems = computed(() => sortByOverdueThenDate([
     ...remindersStore.pendingVendor,
     ...remindersStore.upcomingAutoSoon,
-].sort((a, b) => (a.dueDate || '').localeCompare(b.dueDate || '')))
+]))
 
-const ownerItems = computed(() => [
+const ownerItems = computed(() => sortByOverdueThenDate([
     ...remindersStore.pendingOwner,
     ...remindersStore.upcomingOwnerSoon,
-].filter(r => (r.amount || 0) > 0)
- .sort((a, b) => (a.dueDate || '').localeCompare(b.dueDate || '')))
+].filter(r => (r.amount || 0) > 0)))
 
 const hasAny = computed(() => vendorItems.value.length > 0 || ownerItems.value.length > 0)
 
-function isOverdue(dueDate) {
-    return !!dueDate && dueDate < new Date().toISOString().slice(0, 10)
-}
-
 async function markDone(id) {
+    doneFeedback.value = { ...doneFeedback.value, [id]: true }
     await remindersStore.markDone(id)
 }
 </script>
