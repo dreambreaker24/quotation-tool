@@ -237,6 +237,61 @@ td:first-child { width: 64px; }
 
 .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; vertical-align: middle; margin-right: 6px; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Tabs ── */
+.tabs { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 2px solid #dce3ec; }
+.tab-btn {
+    padding: 9px 24px;
+    border: none;
+    background: none;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    color: #607d8b;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
+    transition: color .15s, border-color .15s;
+}
+.tab-btn:hover { color: #2c4a6e; }
+.tab-btn.active { color: #2c4a6e; border-bottom-color: #2c4a6e; }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* ── Sales form ── */
+.sales-form {
+    background: #fff;
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.08);
+}
+.sales-form h2 { font-size: 15px; color: #2c4a6e; margin-bottom: 16px; }
+.form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+.form-grid.three { grid-template-columns: 1fr 1fr 1fr; }
+.form-group { display: flex; flex-direction: column; gap: 4px; }
+.form-group label { font-size: 12px; color: #607d8b; font-weight: 600; }
+.form-group input, .form-group select {
+    padding: 8px 10px;
+    border: 1px solid #d0d7e0;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 13px;
+    outline: none;
+    transition: border-color .15s;
+}
+.form-group input:focus, .form-group select:focus { border-color: #2c4a6e; box-shadow: 0 0 0 2px rgba(44,74,110,.12); }
+.form-group.full { grid-column: 1 / -1; }
+.form-actions { margin-top: 16px; display: flex; justify-content: flex-end; }
+
+/* ── Sales list ── */
+.sales-list-section { margin-top: 20px; }
+.sales-list-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.sales-list-header h3 { font-size: 14px; color: #2c4a6e; }
+.sales-empty { text-align: center; padding: 32px; color: #90a4ae; font-size: 13px; background: #fff; border-radius: 10px; }
 </style>
 </head>
 <body>
@@ -254,6 +309,15 @@ td:first-child { width: 64px; }
 </div>
 
 <div class="main">
+
+    <!-- Tabs -->
+    <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('purchase')">進項掃描</button>
+        <button class="tab-btn"        onclick="switchTab('sales')">銷項輸入</button>
+    </div>
+
+    <!-- 進項 tab -->
+    <div id="tab-purchase" class="tab-panel active">
 
     <!-- 上傳區 -->
     <div class="drop-zone" id="dropZone">
@@ -304,6 +368,75 @@ td:first-child { width: 64px; }
         <!-- 費用 -->
         <div class="cost-panel" id="costPanel"></div>
     </div>
+
+    </div><!-- /tab-purchase -->
+
+    <!-- 銷項 tab -->
+    <div id="tab-sales" class="tab-panel">
+
+        <!-- 輸入表單 -->
+        <div class="sales-form">
+            <h2>新增銷項發票</h2>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>日期</label>
+                    <input type="date" id="s-date">
+                </div>
+                <div class="form-group">
+                    <label>發票號碼</label>
+                    <input type="text" id="s-invoice-number" placeholder="AB12345678">
+                </div>
+                <div class="form-group">
+                    <label>買受人名稱</label>
+                    <input type="text" id="s-buyer-name" placeholder="公司名稱">
+                </div>
+                <div class="form-group">
+                    <label>買受人統編</label>
+                    <input type="text" id="s-buyer-tax-id" placeholder="8碼統編（選填）" maxlength="8">
+                </div>
+                <div class="form-group full">
+                    <label>品項</label>
+                    <input type="text" id="s-items" placeholder="服務/商品內容">
+                </div>
+            </div>
+            <div class="form-grid three" style="margin-top:12px">
+                <div class="form-group">
+                    <label>金額（未稅）</label>
+                    <input type="number" id="s-amount" placeholder="0" min="0" oninput="calcSalesTax()">
+                </div>
+                <div class="form-group">
+                    <label>稅額（5%）</label>
+                    <input type="number" id="s-tax" placeholder="0" min="0" oninput="calcSalesTotal()">
+                </div>
+                <div class="form-group">
+                    <label>總金額</label>
+                    <input type="number" id="s-total" placeholder="0" min="0" readonly style="background:#f5f7fa">
+                </div>
+            </div>
+            <div class="form-grid" style="margin-top:12px">
+                <div class="form-group">
+                    <label>案場名稱</label>
+                    <select id="s-case"></select>
+                </div>
+            </div>
+            <div class="form-actions">
+                <button class="btn btn-primary" onclick="addSalesItem()">加入清單</button>
+            </div>
+        </div>
+
+        <!-- 清單 -->
+        <div class="sales-list-section">
+            <div class="sales-list-header">
+                <h3 id="salesListTitle">待匯入清單（0 張）</h3>
+                <button class="btn btn-success" id="salesExportBtn" disabled onclick="exportSales()">匯入 Excel</button>
+            </div>
+            <div id="salesListWrap">
+                <div class="sales-empty">尚未加入任何發票</div>
+            </div>
+        </div>
+
+    </div><!-- /tab-sales -->
+
 </div>
 
 <div class="toast" id="toast"></div>
@@ -327,6 +460,7 @@ async function init() {
         sel.addEventListener('change', async () => {
             caseNames = await fetchCaseNames(sel.value);
             renderTable();
+            populateSalsCaseSelect();
         });
     } catch { toast('載入設定失敗', 'error'); }
 
@@ -334,10 +468,12 @@ async function init() {
 }
 
 async function fetchCaseNames(company) {
-    const cfg = await fetch('/api/config').then(r => r.json());
-    // case names come from config companies - already loaded server side
-    // just return empty for now, populated via select options in table
-    return [];
+    try {
+        const cfg = await fetch('/api/config').then(r => r.json());
+        const names = cfg.caseNames?.[company] || [];
+        window._caseNames = names;
+        return names;
+    } catch { return []; }
 }
 
 async function loadUsage() {
@@ -585,6 +721,163 @@ function toast(msg, type = 'info') {
     el.className   = `toast ${type} show`;
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => el.classList.remove('show'), 3500);
+}
+
+// ── Tabs ───────────────────────────────────────────────────────────────────
+
+function switchTab(tab) {
+    document.querySelectorAll('.tab-btn').forEach((b, i) => {
+        b.classList.toggle('active', (i === 0 && tab === 'purchase') || (i === 1 && tab === 'sales'));
+    });
+    document.getElementById('tab-purchase').classList.toggle('active', tab === 'purchase');
+    document.getElementById('tab-sales').classList.toggle('active', tab === 'sales');
+    if (tab === 'sales') populateSalsCaseSelect();
+}
+
+// ── Sales ──────────────────────────────────────────────────────────────────
+
+let salesList = [];
+
+async function populateSalsCaseSelect() {
+    try {
+        const cfg    = await fetch('/api/config').then(r => r.json());
+        const company = document.getElementById('companySelect').value;
+        // case names come from config; for now load from API
+        // We re-fetch so the select stays in sync with company switch
+        const sel    = document.getElementById('s-case');
+        const curVal = sel.value;
+        sel.innerHTML = '<option value="">（未選）</option>';
+        // Use same caseNames from init if available
+        if (window._caseNames) {
+            window._caseNames.forEach(n => {
+                const o = document.createElement('option');
+                o.value = n; o.textContent = n;
+                if (n === curVal) o.selected = true;
+                sel.appendChild(o);
+            });
+        }
+    } catch { /* silent */ }
+}
+
+function calcSalesTax() {
+    const amount = parseFloat(document.getElementById('s-amount').value) || 0;
+    const tax    = Math.round(amount * 0.05);
+    document.getElementById('s-tax').value   = tax;
+    document.getElementById('s-total').value = amount + tax;
+}
+
+function calcSalesTotal() {
+    const amount = parseFloat(document.getElementById('s-amount').value) || 0;
+    const tax    = parseFloat(document.getElementById('s-tax').value)    || 0;
+    document.getElementById('s-total').value = amount + tax;
+}
+
+function addSalesItem() {
+    const date          = document.getElementById('s-date').value;
+    const invoice_number = document.getElementById('s-invoice-number').value.trim().toUpperCase().replace(/[\s\-]/g, '');
+    const buyer_name    = document.getElementById('s-buyer-name').value.trim();
+    const buyer_tax_id  = document.getElementById('s-buyer-tax-id').value.trim();
+    const items         = document.getElementById('s-items').value.trim();
+    const amount        = parseFloat(document.getElementById('s-amount').value) || 0;
+    const tax           = parseFloat(document.getElementById('s-tax').value)    || 0;
+    const total         = parseFloat(document.getElementById('s-total').value)  || 0;
+    const case_name     = document.getElementById('s-case').value;
+
+    if (!date)       { toast('請填入日期', 'error'); return; }
+    if (!buyer_name) { toast('請填入買受人名稱', 'error'); return; }
+    if (total === 0) { toast('請填入金額', 'error'); return; }
+
+    if (invoice_number && salesList.find(i => i.invoice_number === invoice_number)) {
+        toast(`發票號碼 ${invoice_number} 已在清單中`, 'error');
+        return;
+    }
+
+    salesList.push({ date, invoice_number, buyer_name, buyer_tax_id, items, amount, tax, total, case_name });
+    renderSalesList();
+
+    // 清空表單（保留日期和案場）
+    document.getElementById('s-invoice-number').value = '';
+    document.getElementById('s-buyer-name').value     = '';
+    document.getElementById('s-buyer-tax-id').value   = '';
+    document.getElementById('s-items').value          = '';
+    document.getElementById('s-amount').value         = '';
+    document.getElementById('s-tax').value            = '';
+    document.getElementById('s-total').value          = '';
+    document.getElementById('s-invoice-number').focus();
+}
+
+function deleteSalesItem(idx) {
+    salesList.splice(idx, 1);
+    renderSalesList();
+}
+
+function renderSalesList() {
+    const wrap  = document.getElementById('salesListWrap');
+    const title = document.getElementById('salesListTitle');
+    const btn   = document.getElementById('salesExportBtn');
+    title.textContent = `待匯入清單（${salesList.length} 張）`;
+    btn.disabled = salesList.length === 0;
+
+    if (salesList.length === 0) {
+        wrap.innerHTML = '<div class="sales-empty">尚未加入任何發票</div>';
+        return;
+    }
+
+    const rows = salesList.map((r, i) => `
+        <tr>
+            <td>${esc(r.date)}</td>
+            <td>${esc(r.invoice_number || '—')}</td>
+            <td>${esc(r.buyer_name)}</td>
+            <td>${esc(r.buyer_tax_id || '—')}</td>
+            <td>${esc(r.items || '—')}</td>
+            <td style="text-align:right">$${Number(r.amount).toLocaleString()}</td>
+            <td style="text-align:right">$${Number(r.tax).toLocaleString()}</td>
+            <td style="text-align:right">$${Number(r.total).toLocaleString()}</td>
+            <td>${esc(r.case_name || '—')}</td>
+            <td><button class="delete-btn" onclick="deleteSalesItem(${i})">🗑</button></td>
+        </tr>`).join('');
+
+    wrap.innerHTML = `
+        <div class="table-wrap">
+            <table>
+                <thead><tr>
+                    <th>日期</th><th>發票號碼</th><th>買受人名稱</th><th>買受人統編</th>
+                    <th>品項</th><th>金額</th><th>稅額</th><th>總金額</th><th>案場</th><th></th>
+                </tr></thead>
+                <tbody>${rows}</tbody>
+            </table>
+        </div>`;
+}
+
+async function exportSales() {
+    const company = document.getElementById('companySelect').value;
+    if (!company) { toast('請先選擇公司', 'error'); return; }
+    if (salesList.length === 0) return;
+
+    const btn = document.getElementById('salesExportBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>匯入中...';
+
+    try {
+        const res  = await fetch('/api/sales', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ company, invoices: salesList })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+
+        const dupMsg = data.duplicates.length > 0 ? `，略過重複 ${data.skipped} 筆` : '';
+        toast(`完成！新增 ${data.added} 張銷項發票${dupMsg}`, 'success');
+        salesList = [];
+        renderSalesList();
+        loadUsage();
+    } catch (err) {
+        toast(err.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '匯入 Excel';
+    }
 }
 
 // ── Start ──────────────────────────────────────────────────────────────────

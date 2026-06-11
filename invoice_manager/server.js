@@ -32,8 +32,12 @@ const upload = multer({
 
 app.get('/api/config', (req, res) => {
     const config    = core.loadConfig();
-    const companies = Object.keys(config.companies || {});
-    res.json({ companies });
+    const companies = config.companies || {};
+    const caseNames = {};
+    for (const [name, co] of Object.entries(companies)) {
+        caseNames[name] = co.case_names || [];
+    }
+    res.json({ companies: Object.keys(companies), caseNames });
 });
 
 app.get('/api/usage', (req, res) => {
@@ -111,6 +115,23 @@ app.post('/api/export', async (req, res) => {
             if (fs.existsSync(fp)) fs.unlinkSync(fp);
         }
 
+        res.json({ added, skipped, duplicates, masterPath });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/sales', async (req, res) => {
+    const { company, invoices } = req.body;
+    if (!company || !Array.isArray(invoices)) return res.status(400).json({ error: '參數錯誤' });
+
+    const config           = core.loadConfig();
+    const co               = (config.companies || {})[company] || {};
+    const masterPath       = path.join(os.homedir(), 'Desktop', co.excel_name || `${company}_發票報帳總表.xlsx`);
+    const defaultCaseNames = co.case_names || [];
+
+    try {
+        const { added, skipped, duplicates } = await core.updateExcel(invoices, masterPath, defaultCaseNames, 'sales');
         res.json({ added, skipped, duplicates, masterPath });
     } catch (err) {
         res.status(500).json({ error: err.message });
