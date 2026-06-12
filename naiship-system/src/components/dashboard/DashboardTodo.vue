@@ -9,18 +9,13 @@
 
     <!-- 自訂待辦 -->
     <div class="mb-4">
-      <div class="flex items-center justify-between mb-2">
-        <span class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">自訂待辦</span>
-        <button @click="showAddForm = !showAddForm" class="text-[10px] hover:underline" style="color:#c9a96e">+ 新增</button>
-      </div>
-      <div v-if="showAddForm" class="flex gap-2 mb-2">
-        <input v-model="newTodoText" type="text" placeholder="輸入待辦事項…"
+      <div class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">自訂待辦</div>
+      <div class="flex gap-2 mb-2">
+        <input v-model="newTodoText" type="text" placeholder="輸入待辦，Enter 新增…"
           class="flex-1 text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1"
-          @keyup.enter="addTodo" @keyup.escape="showAddForm = false; newTodoText = ''" autofocus>
-        <button @click="addTodo" class="text-xs text-white px-3 py-1 rounded-lg flex-shrink-0" style="background:#1e2533">新增</button>
-        <button @click="showAddForm = false; newTodoText = ''" class="text-xs text-gray-400 px-1.5">✕</button>
+          @keyup.enter="addTodo" @keyup.escape="newTodoText = ''">
       </div>
-      <div v-if="todosStore.todos.length === 0 && !showAddForm" class="text-xs text-gray-400 py-1">尚無自訂待辦</div>
+      <div v-if="todosStore.todos.length === 0" class="text-xs text-gray-400 py-1">尚無自訂待辦</div>
       <div v-for="todo in todosStore.todos" :key="todo.id"
         class="group flex items-center gap-2 px-3 py-2.5 rounded-xl border border-gray-100 bg-gray-50 mb-1.5 last:mb-0 border-l-4 hover:shadow-sm transition-shadow"
         :style="todo.done ? 'border-left-color:#d1d5db' : 'border-left-color:#c9a96e'">
@@ -134,7 +129,6 @@ onMounted(() => {
     usersStore.subscribe()
 })
 
-const showAddForm = ref(false)
 const newTodoText = ref('')
 const editingId = ref(null)
 const editText = ref('')
@@ -164,7 +158,6 @@ async function addTodo() {
     const name = authStore.name ?? ''
     await todosStore.addTodo(text, uid, name)
     newTodoText.value = ''
-    showAddForm.value = false
     await notifStore.notifyManagers(name, `新增待辦事項：${text}`)
 }
 

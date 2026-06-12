@@ -9,7 +9,7 @@ export const useDashboardNotesStore = defineStore('dashboardNotes', () => {
 
     function subscribe() {
         if (unsubscribe) { unsubscribe(); unsubscribe = null }
-        const q = query(collection(db, 'dashboardNotes'), orderBy('createdAt', 'desc'))
+        const q = query(collection(db, 'dashboardNotes'), orderBy('createdAt', 'asc'))
         unsubscribe = onSnapshot(q, snap => {
             notes.value = snap.docs.map(d => ({ id: d.id, ...d.data() }))
         })

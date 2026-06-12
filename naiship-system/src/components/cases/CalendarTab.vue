@@ -7,7 +7,9 @@
         <button @click="prevMonth" class="text-gray-400 hover:text-gray-700 px-2">◀</button>
         <span class="font-semibold text-gray-800">{{ displayMonth }}</span>
         <button @click="nextMonth" class="text-gray-400 hover:text-gray-700 px-2">▶</button>
-        <div class="flex rounded-lg border border-gray-200 overflow-hidden text-[11px] ml-2">
+        <button @click="goToToday"
+          class="text-[11px] px-2.5 py-1 rounded-lg border border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700 transition-colors ml-1">今天</button>
+        <div class="flex rounded-lg border border-gray-200 overflow-hidden text-[11px] ml-1">
           <button @click="showAllRegions = false"
             class="px-2.5 py-1 transition-colors"
             :class="!showAllRegions ? 'text-white' : 'text-gray-500 hover:bg-gray-50'"
@@ -19,6 +21,7 @@
         </div>
       </div>
       <div class="flex flex-wrap items-center gap-2 sm:gap-4 text-[11px]">
+        <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded" style="background:#fecdd3;border:1px solid #f9a8d4"></span>假日</div>
         <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-red-400"></span>重要記事</div>
         <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-orange-400"></span>場勘/施工</div>
         <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-blue-400"></span>員工請假</div>
@@ -550,6 +553,10 @@ function prevMonth() {
 function nextMonth() {
   if (currentMonth.value === 11) { currentMonth.value = 0; currentYear.value++ }
   else currentMonth.value++
+}
+function goToToday() {
+  currentYear.value = today.getFullYear()
+  currentMonth.value = today.getMonth()
 }
 
 const statuses = [

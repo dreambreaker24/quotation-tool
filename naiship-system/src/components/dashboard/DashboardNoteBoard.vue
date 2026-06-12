@@ -5,7 +5,7 @@
     </div>
 
     <!-- 留言列表 -->
-    <div class="flex-1 overflow-y-auto flex flex-col gap-3 mb-3 min-h-0 max-h-72">
+    <div ref="scrollEl" class="flex-1 overflow-y-auto flex flex-col gap-3 mb-3 min-h-0 max-h-72">
       <div v-if="notesStore.notes.length === 0" class="text-xs text-gray-400 py-4 text-center">尚無回覆</div>
 
       <div v-for="note in notesStore.notes" :key="note.id" class="flex gap-2.5">
@@ -97,7 +97,7 @@
   </div>
 </template>
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useDashboardNotesStore } from '@/stores/dashboardNotes'
 import { useAuthStore } from '@/stores/auth'
 import { useUsersStore } from '@/stores/users'
@@ -123,6 +123,13 @@ const editFileInput = ref(null)
 
 const previewList = ref([])
 const previewIndex = ref(0)
+const scrollEl = ref(null)
+
+function scrollToBottom() {
+    nextTick(() => { if (scrollEl.value) scrollEl.value.scrollTop = scrollEl.value.scrollHeight })
+}
+
+watch(() => notesStore.notes.length, scrollToBottom)
 
 const EMAIL_COLORS = {
     'dreambreaker24@gmail.com': '#c9a96e',
@@ -266,6 +273,7 @@ onMounted(() => {
     notesStore.subscribe()
     usersStore.subscribe()
     window.addEventListener('keydown', handleKeydown)
+    scrollToBottom()
 })
 onUnmounted(() => {
     notesStore.cleanup()
