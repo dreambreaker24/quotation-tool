@@ -36,11 +36,16 @@ export const useCaseProgressNotesStore = defineStore('caseProgressNotes', () => 
         return ref
     }
 
-    async function updateNote(caseId, noteId, { text, attachments }) {
-        return await updateDoc(
+    async function updateNote(caseId, noteId, { text, attachments, updateLatest = false, authorName = '' }) {
+        await updateDoc(
             doc(db, 'cases', caseId, 'progressNotes', noteId),
             { text, attachments, updatedAt: serverTimestamp() }
         )
+        if (updateLatest) {
+            await updateDoc(doc(db, 'cases', caseId), {
+                latestNote: { text, authorName, updatedAt: serverTimestamp() }
+            })
+        }
     }
 
     return { notes, subscribe, cleanup, addNote, updateNote }

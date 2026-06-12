@@ -78,8 +78,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { useCaseProgressNotesStore } from '@/stores/caseProgressNotes'
+import { useCasesStore } from '@/stores/cases'
 import { useAuthStore } from '@/stores/auth'
 import { useUsersStore } from '@/stores/users'
 import { useNotificationsStore } from '@/stores/notifications'
@@ -88,6 +89,7 @@ import { useToast } from '@/composables/useToast'
 
 const props = defineProps({ caseId: String, caseName: String, companyId: String })
 const notesStore = useCaseProgressNotesStore()
+const casesStore = useCasesStore()
 const authStore = useAuthStore()
 const usersStore = useUsersStore()
 const notifStore = useNotificationsStore()
@@ -95,6 +97,23 @@ const { toast } = useToast()
 
 onMounted(() => notesStore.subscribe(props.caseId))
 onUnmounted(() => notesStore.cleanup())
+
+// 自動修正 latestNote：當 subcollection 最新一則與 cases 文件上的快取不同步時更新
+watch(
+    () => notesStore.notes,
+    (notes) => {
+        if (notes.length === 0) return
+        const latest = notes[notes.length - 1]
+        const caseDoc = casesStore.cases.find(c => c.id === props.caseId)
+        if (!caseDoc) return
+        if (caseDoc.latestNote?.text !== latest.text) {
+            casesStore.updateCase(props.caseId, {
+                latestNote: { text: latest.text, authorName: latest.authorName }
+            })
+        }
+    },
+    { deep: true }
+)
 
 const showAddForm = ref(false)
 const newText = ref('')
@@ -181,9 +200,12 @@ function startEdit(note) {
 
 async function saveEdit(note) {
     if (!editText.value.trim()) return
+    const isLatest = note.id === notesStore.notes[notesStore.notes.length - 1]?.id
     await notesStore.updateNote(props.caseId, note.id, {
         text: editText.value.trim(),
         attachments: note.attachments ?? [],
+        updateLatest: isLatest,
+        authorName: note.authorName,
     })
     editingId.value = null
 }
