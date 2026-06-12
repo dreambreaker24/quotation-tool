@@ -4,7 +4,7 @@
   </template>
   <template v-else>
     <NavBar />
-    <div class="flex pt-14 min-h-screen bg-gray-100">
+    <div class="flex pt-14 min-h-screen" style="background:#f5f4f1">
       <router-view />
     </div>
   </template>

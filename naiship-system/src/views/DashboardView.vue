@@ -1,7 +1,7 @@
 <template>
   <aside class="w-56 text-white flex-shrink-0 min-h-screen pt-4 pb-6 overflow-y-auto" style="background:#1e2533">
     <!-- 待確認申請（主管才看得到） -->
-    <div v-if="authStore.isManager && pendingCount > 0" class="mx-3 mb-4 rounded-xl p-3" style="background:rgba(239,68,68,0.15)">
+    <div v-if="authStore.isManager && pendingCount > 0" class="mx-3 mb-4 rounded-xl p-3 border-l-4 border-red-400" style="background:rgba(239,68,68,0.15)">
       <div class="text-[10px] text-red-300 font-semibold uppercase tracking-wide mb-1">待確認申請</div>
       <div class="text-white text-sm font-bold">{{ pendingCount }} 筆</div>
       <div class="text-[10px] text-gray-400 mt-0.5">油資 / 加班待確認</div>
@@ -10,7 +10,7 @@
     </div>
 
     <div v-if="authStore.isManager && hasPendingPayments"
-      class="mx-3 mb-4 rounded-xl p-3" style="background:rgba(201,169,110,0.15)">
+      class="mx-3 mb-4 rounded-xl p-3 border-l-4" style="background:rgba(201,169,110,0.15);border-left-color:#c9a96e">
       <div class="text-[10px] font-semibold uppercase tracking-wide mb-1" style="color:#c9a96e">待付款</div>
       <div v-if="pendingOwnerCount > 0" class="text-white text-xs">向業主請款 {{ pendingOwnerCount }} 筆</div>
       <div v-if="pendingVendorCount > 0" class="text-white text-xs">廠商匯款 {{ pendingVendorCount }} 筆</div>
@@ -19,7 +19,7 @@
     </div>
 
     <div v-if="authStore.isManager && hasUpcomingAuto"
-      class="mx-3 mb-4 rounded-xl p-3" style="background:rgba(59,130,246,0.15)">
+      class="mx-3 mb-4 rounded-xl p-3 border-l-4 border-blue-400" style="background:rgba(59,130,246,0.15)">
       <div class="text-[10px] text-blue-300 font-semibold uppercase tracking-wide mb-1">即將到期</div>
       <div class="text-white text-sm font-bold">{{ upcomingAutoCount }} 筆</div>
       <div class="text-[10px] text-gray-400 mt-0.5">本月底及下月排程</div>
@@ -28,21 +28,25 @@
     </div>
 
     <div v-if="authStore.isManager && hasOwnerItems"
-      class="mx-3 mb-4 rounded-xl p-3" style="background:rgba(201,169,110,0.15)">
+      class="mx-3 mb-4 rounded-xl p-3 border-l-4" style="background:rgba(201,169,110,0.15);border-left-color:#c9a96e">
       <div class="text-[10px] font-semibold uppercase tracking-wide mb-1" style="color:#c9a96e">待請款</div>
       <div class="text-white text-sm font-bold">{{ ownerItemsCount }} 筆</div>
       <a href="#owner-reminders"
         class="mt-2 block text-[10px] underline hover:opacity-80" style="color:#c9a96e">前往待請款清單</a>
     </div>
 
-    <div class="px-4 py-2 text-[10px] text-gray-400 uppercase tracking-widest font-semibold">進行中案件</div>
+    <div class="px-4 py-2 text-[10px] uppercase tracking-widest font-semibold border-l-2 ml-3 pl-2" style="color:#c9a96e;border-left-color:#c9a96e">進行中案件</div>
     <div v-for="(regionCases, region) in activeCasesByRegion" :key="region" class="px-3 mt-2">
       <div class="text-[11px] font-semibold px-2 py-1" style="color:#c9a96e">{{ regionName[region] }}</div>
       <div v-for="c in regionCases" :key="c.id"
         @click="goToCase(c)"
-        class="rounded-lg px-3 py-2 cursor-pointer hover:bg-white/5 transition-colors">
-        <div class="text-xs font-medium text-white">{{ c.name }}</div>
-        <div class="text-[10px] text-gray-400">負責：{{ c.assigneeName }}</div>
+        class="rounded-lg px-1.5 py-2 cursor-pointer hover:bg-white/5 transition-colors flex items-stretch gap-2">
+        <div class="w-0.5 rounded-full flex-shrink-0 self-stretch"
+          :style="`background:${CASE_STATUS_COLORS[c.status] ?? '#6b7280'}`"></div>
+        <div class="flex-1 min-w-0">
+          <div class="text-xs font-medium text-white truncate">{{ c.name }}</div>
+          <div class="text-[10px] text-gray-400">負責：{{ c.assigneeName }}</div>
+        </div>
       </div>
     </div>
   </aside>
@@ -55,7 +59,10 @@
         </select>
       </div>
     </div>
-    <DashboardTodo class="mb-4" />
+    <div class="grid grid-cols-2 gap-4 mb-4">
+      <DashboardTodo />
+      <DashboardNoteBoard />
+    </div>
     <PaymentReminders class="mt-4" />
     <StatsSection :year="selectedYear" />
     <EmployeeTable :year="selectedYear" class="mt-6" />
@@ -68,8 +75,10 @@ import { useRouter } from 'vue-router'
 import StatsSection from '@/components/dashboard/StatsSection.vue'
 import EmployeeTable from '@/components/dashboard/EmployeeTable.vue'
 import DashboardTodo from '@/components/dashboard/DashboardTodo.vue'
+import DashboardNoteBoard from '@/components/dashboard/DashboardNoteBoard.vue'
 import MonthlyCashFlow from '@/components/dashboard/MonthlyCashFlow.vue'
 import PaymentReminders from '@/components/dashboard/PaymentReminders.vue'
+import { CASE_STATUS_COLORS } from '@/constants/caseStatus'
 import { usePaymentRemindersStore } from '@/stores/paymentReminders'
 import { useCasesStore } from '@/stores/cases'
 import { useClientsStore } from '@/stores/clients'

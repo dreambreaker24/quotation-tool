@@ -5,7 +5,7 @@
       <span class="text-[11px] text-gray-400">（已審核加班累積）</span>
     </div>
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-      <div v-for="name in TRACKED" :key="name" class="bg-gray-50 rounded-xl px-3 py-3">
+      <div v-for="name in TRACKED" :key="name" class="bg-white rounded-xl px-3 py-3 shadow-sm border border-gray-100 border-t-4" style="border-top-color:#c9a96e">
         <div class="text-[11px] text-gray-400 mb-2">{{ name }}</div>
 
         <!-- 補休 -->
@@ -43,7 +43,7 @@
 
   <!-- 調整 Modal -->
   <div v-if="editingName" class="fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.4)">
-    <div class="bg-white rounded-2xl shadow-xl p-6 w-72 mx-4">
+    <div class="bg-white rounded-2xl shadow-xl p-6 w-72 mx-4 border-t-4" style="border-top-color:#c9a96e">
       <div class="flex items-center justify-between mb-4">
         <h3 class="text-sm font-bold text-gray-800">調整{{ editingLabel }}時數 — {{ editingName }}</h3>
         <button @click="editingName = null" class="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>

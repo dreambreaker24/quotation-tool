@@ -1,6 +1,6 @@
 <template>
   <CompensatoryPanel />
-  <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
+  <div class="bg-white rounded-2xl shadow-md overflow-hidden">
     <!-- Header -->
     <div class="flex flex-wrap items-center justify-between gap-2 px-4 sm:px-5 py-3 border-b border-gray-100">
       <div class="flex items-center gap-3">
@@ -29,17 +29,19 @@
 
     <!-- Status counters -->
     <div class="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-3 p-3 sm:p-4 border-b border-gray-100 bg-gray-50/50">
-      <div v-for="s in statuses" :key="s.key" class="bg-white rounded-xl px-3 py-3 shadow-sm text-center">
-        <div class="text-xl font-bold" :class="s.color">{{ counts[s.key] }}</div>
+      <div v-for="s in statuses" :key="s.key"
+        class="bg-white rounded-xl px-3 py-3 shadow-sm text-center border-t-2"
+        :style="`border-top-color:${s.border}`">
+        <div class="text-2xl font-bold" :class="s.color">{{ counts[s.key] }}</div>
         <div class="text-[10px] text-gray-400 mt-0.5">{{ s.label }}</div>
       </div>
     </div>
 
     <!-- Day headers -->
     <div class="grid grid-cols-7 border-b border-gray-100">
-      <div v-for="d in weekDays" :key="d"
+      <div v-for="(d, i) in weekDays" :key="d"
         class="text-center text-[11px] font-semibold py-2"
-        :class="d==='日'?'text-red-400':d==='六'?'text-blue-400':'text-gray-500'">
+        :class="i===5?'text-blue-400':i===6?'text-red-400':'text-gray-500'">
         {{ d }}
       </div>
     </div>
@@ -50,7 +52,7 @@
         class="border-r border-b border-gray-100 p-1 sm:p-2 min-h-[70px] sm:min-h-[90px]"
         :class="[
           !cell.currentMonth && 'opacity-40',
-          cell.isToday ? 'bg-amber-50' : '',
+          cell.isToday ? 'bg-amber-50' : cell.isNonWorking ? 'bg-rose-50/60' : '',
           cell.currentMonth && 'cursor-pointer hover:bg-gray-50/50 transition-colors'
         ]"
         @click="cell.currentMonth && openAddOnDate(cell.dateStr)">
@@ -59,9 +61,14 @@
           style="background:#c9a96e">
           {{ cell.day }}
         </span>
-        <span v-else class="text-xs text-gray-600">
+        <span v-else class="text-xs"
+          :class="cell.dayOfWeek===6?'text-blue-500':cell.dayOfWeek===0?'text-red-500':'text-gray-600'">
           {{ cell.day }}
         </span>
+        <div v-if="cell.holidayName && cell.currentMonth"
+          class="text-[9px] text-rose-400 font-medium truncate leading-none mt-0.5">
+          {{ cell.holidayName }}
+        </div>
         <div v-for="event in cell.events" :key="event.id"
           @click.stop="openEditEvent(event)"
           class="mt-1 text-[10px] rounded px-1.5 py-0.5 truncate text-white cursor-pointer hover:opacity-80 transition-opacity"
@@ -75,7 +82,7 @@
 
   <!-- 新增事件 Modal -->
   <div v-if="showAddEvent" class="fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.4)">
-    <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm mx-4">
+    <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm mx-4 border-t-4" style="border-top-color:#c9a96e">
       <div class="flex items-center justify-between mb-5">
         <h3 class="text-base font-bold text-gray-800">新增行事曆事件</h3>
         <button @click="showAddEvent = false" class="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
@@ -196,7 +203,7 @@
 
   <!-- 編輯 / 刪除事件 Modal -->
   <div v-if="showEditEvent" class="fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.4)">
-    <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm mx-4">
+    <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm mx-4 border-t-4" style="border-top-color:#c9a96e">
       <div class="flex items-center justify-between mb-5">
         <h3 class="text-base font-bold text-gray-800">編輯事件</h3>
         <button @click="showEditEvent = false" class="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
@@ -333,6 +340,7 @@ import { useUsersStore } from '@/stores/users'
 import { useNotificationsStore } from '@/stores/notifications'
 import { useToast } from '@/composables/useToast'
 import CompensatoryPanel from './CompensatoryPanel.vue'
+import { TAIWAN_HOLIDAY_NAMES } from '@/constants/holidays'
 
 const props = defineProps({ region: String })
 const casesStore = useCasesStore()
@@ -341,7 +349,7 @@ const authStore = useAuthStore()
 const usersStore = useUsersStore()
 const notifStore = useNotificationsStore()
 const { toast } = useToast()
-const weekDays = ['日', '一', '二', '三', '四', '五', '六']
+const weekDays = ['一', '二', '三', '四', '五', '六', '日']
 const today = new Date()
 const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`
 
@@ -545,12 +553,12 @@ function nextMonth() {
 }
 
 const statuses = [
-  { key: 'pending',            label: '待約客戶',  color: 'text-gray-700' },
-  { key: 'negotiating',        label: '洽談中',    color: 'text-[#c9a96e]' },
-  { key: 'drafting',           label: '製圖中',    color: 'text-[#f472b6]' },
-  { key: 'construction',       label: '施工中',    color: 'text-blue-500' },
-  { key: 'pending_settlement', label: '待結算',    color: 'text-orange-500' },
-  { key: 'aftercare',          label: '售後/組裝', color: 'text-green-500' }
+  { key: 'pending',            label: '待約客戶',  color: 'text-gray-700',       border: '#94a3b8' },
+  { key: 'negotiating',        label: '洽談中',    color: 'text-[#c9a96e]',      border: '#c9a96e' },
+  { key: 'drafting',           label: '製圖中',    color: 'text-[#f472b6]',      border: '#f472b6' },
+  { key: 'construction',       label: '施工中',    color: 'text-blue-500',       border: '#3b82f6' },
+  { key: 'pending_settlement', label: '待結算',    color: 'text-orange-500',     border: '#f97316' },
+  { key: 'aftercare',          label: '售後/組裝', color: 'text-green-500',      border: '#22c55e' }
 ]
 
 const counts = computed(() =>
@@ -560,15 +568,23 @@ const counts = computed(() =>
 const calendarCells = computed(() => {
   const cells = []
   const first = new Date(currentYear.value, currentMonth.value, 1)
-  const startOffset = first.getDay()
+  // Monday-first: Mon=0, Tue=1, ..., Sat=5, Sun=6
+  const startOffset = (first.getDay() + 6) % 7
   const daysInMonth = new Date(currentYear.value, currentMonth.value + 1, 0).getDate()
   const prevMonthDays = new Date(currentYear.value, currentMonth.value, 0).getDate()
 
-  for (let i = startOffset - 1; i >= 0; i--)
-    cells.push({ day: prevMonthDays - i, currentMonth: false, events: [] })
+  for (let i = startOffset - 1; i >= 0; i--) {
+    const date = new Date(currentYear.value, currentMonth.value - 1, prevMonthDays - i)
+    const dow = date.getDay()
+    cells.push({ day: prevMonthDays - i, currentMonth: false, events: [], dayOfWeek: dow, isNonWorking: dow === 0 || dow === 6 })
+  }
 
   for (let d = 1; d <= daysInMonth; d++) {
     const date = new Date(currentYear.value, currentMonth.value, d)
+    const dow = date.getDay()
+    const dateStr = `${currentYear.value}-${String(currentMonth.value + 1).padStart(2,'0')}-${String(d).padStart(2,'0')}`
+    const isWeekend = dow === 0 || dow === 6
+    const holidayName = TAIWAN_HOLIDAY_NAMES[dateStr] ?? null
     const cellTime = date.getTime()
     const dayEvents = eventsStore.events.filter(e => {
       const startTs = e.date?.toDate?.() ?? new Date(e.date)
@@ -581,12 +597,21 @@ const calendarCells = computed(() => {
     cells.push({
       day: d, currentMonth: true,
       isToday: date.toDateString() === today.toDateString(),
-      dateStr: `${currentYear.value}-${String(currentMonth.value + 1).padStart(2,'0')}-${String(d).padStart(2,'0')}`,
+      dateStr,
+      dayOfWeek: dow,
+      isNonWorking: isWeekend || Boolean(holidayName),
+      holidayName,
       events: dayEvents
     })
   }
-  while (cells.length % 7 !== 0)
-    cells.push({ day: cells.length - daysInMonth - startOffset + 1, currentMonth: false, events: [] })
+
+  let nextDay = 1
+  while (cells.length % 7 !== 0) {
+    const date = new Date(currentYear.value, currentMonth.value + 1, nextDay)
+    const dow = date.getDay()
+    cells.push({ day: nextDay, currentMonth: false, events: [], dayOfWeek: dow, isNonWorking: dow === 0 || dow === 6 })
+    nextDay++
+  }
   return cells
 })
 

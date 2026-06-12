@@ -1,8 +1,8 @@
 <template>
-  <div class="bg-white rounded-2xl shadow-sm p-5">
+  <div class="bg-white rounded-2xl shadow-md p-5">
     <div class="flex items-center justify-between mb-3">
       <div class="flex items-center gap-2">
-        <h2 class="text-sm font-semibold text-gray-700">廠商管理</h2>
+        <h2 class="text-sm font-semibold text-gray-700 pl-3 border-l-2" style="border-left-color:#c9a96e">廠商管理</h2>
         <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">{{ vendorsStore.vendors.length }} 家</span>
       </div>
       <button @click="openAdd" class="text-xs text-white px-3 py-1.5 rounded-lg" style="background:#1e2533">+ 新增廠商</button>
@@ -67,7 +67,7 @@
           </button>
           <div v-if="expandedCategories[cat.label] && cat.list.length > 0" class="mx-2 mb-1 flex flex-col gap-1">
             <div v-for="v in cat.list" :key="v.id"
-              class="flex flex-col px-3 py-2 rounded-lg border border-gray-100 bg-gray-50/60 gap-0.5">
+              class="flex flex-col px-3 py-2 rounded-lg border border-gray-100 bg-gray-50/60 gap-0.5 hover:bg-white hover:shadow-sm hover:-translate-y-px transition-all cursor-default">
               <div class="flex items-center gap-3 text-xs">
                 <div class="flex-1 min-w-0">
                   <span class="font-medium text-gray-800">{{ v.name }}</span>
@@ -98,7 +98,7 @@
 
   <!-- 新增/編輯 Modal -->
   <div v-if="showForm" class="fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.4)">
-    <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
+    <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto border-t-4" style="border-top-color:#c9a96e">
       <div class="flex items-center justify-between mb-4">
         <h3 class="text-sm font-bold text-gray-800">{{ editingId ? '編輯廠商' : '新增廠商' }}</h3>
         <button @click="showForm = false" class="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>

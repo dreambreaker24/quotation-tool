@@ -16,16 +16,15 @@
       </div>
       <div v-for="emp in filtered" :key="emp.id"
         @click="$emit('update:modelValue', emp)"
-        class="px-4 py-2.5 cursor-pointer flex items-center gap-2"
-        :style="modelValue?.id === emp.id ? 'background:rgba(201,169,110,0.1);border-left:2px solid #c9a96e' : ''"
-        :class="modelValue?.id !== emp.id ? 'hover:bg-gray-50' : ''">
-        <span class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
-          :style="`background:${empColor(emp.id)}`">{{ emp.name?.[0] ?? '?' }}</span>
-        <div>
+        class="px-4 py-2.5 cursor-pointer flex items-center gap-2.5 transition-colors"
+        :class="[modelValue?.id !== emp.id ? 'hover:bg-gray-50' : '', !emp.hasLog ? 'bg-red-50/40' : '']"
+        :style="modelValue?.id === emp.id ? 'background:rgba(201,169,110,0.1);border-left:3px solid #c9a96e' : 'border-left:3px solid transparent'">
+        <span class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 ring-2 ring-offset-1"
+          :style="`background:${empColor(emp.id)};ring-color:${empColor(emp.id)}40`">{{ emp.name?.[0] ?? '?' }}</span>
+        <div class="flex-1 min-w-0">
           <div class="text-xs font-semibold text-gray-800">{{ emp.name }}</div>
-          <div class="text-[10px]" :class="emp.hasLog ? 'text-gray-400' : 'text-amber-500'">
-            {{ emp.hasLog ? '今日已填寫' : '⚠ 未填寫' }}
-          </div>
+          <div v-if="emp.hasLog" class="text-[10px] text-gray-400">今日已填寫</div>
+          <div v-else class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full inline-block bg-red-500 text-white mt-0.5">⚠ 未填寫</div>
         </div>
       </div>
     </div>

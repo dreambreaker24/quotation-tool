@@ -2,7 +2,7 @@
   <div v-if="client" class="flex-1 p-6 overflow-auto">
     <div class="bg-white rounded-2xl shadow-sm p-6 mb-4">
       <div class="flex items-center justify-between mb-4">
-        <h2 class="text-lg font-bold text-gray-800">{{ client.name }}</h2>
+        <h2 class="text-lg font-bold text-gray-800 pl-3 border-l-2" style="border-left-color:#c9a96e">{{ client.name }}</h2>
         <button v-if="!editing && authStore.isManager" @click="startEdit"
           class="text-xs border border-gray-200 rounded-lg px-3 py-1.5 text-gray-500 hover:border-gray-400">編輯</button>
         <div v-else class="flex gap-2">
@@ -47,7 +47,8 @@
           <div v-if="linkedCases.length" class="flex flex-col gap-1.5">
             <div v-for="c in linkedCases" :key="c.id" class="flex items-center gap-2">
               <span class="text-gray-700 text-sm">{{ c.name }}</span>
-              <span class="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">{{ caseStatusLabel(c.status) }}</span>
+              <span class="text-[10px] px-2 py-0.5 rounded-full text-white font-medium"
+                :style="`background:${CASE_STATUS_COLORS[c.status] ?? '#3b82f6'}`">{{ caseStatusLabel(c.status) }}</span>
             </div>
           </div>
           <p v-else class="text-gray-400">—</p>
@@ -133,7 +134,7 @@
 </template>
 <script setup>
 import { ref, computed } from 'vue'
-import { CASE_STATUS_LABELS } from '@/constants/caseStatus'
+import { CASE_STATUS_LABELS, CASE_STATUS_COLORS } from '@/constants/caseStatus'
 import { Timestamp } from 'firebase/firestore'
 import ClientContactLog from './ClientContactLog.vue'
 import { useClientsStore } from '@/stores/clients'

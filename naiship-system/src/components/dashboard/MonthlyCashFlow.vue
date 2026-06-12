@@ -1,32 +1,32 @@
 <template>
-  <div class="bg-white rounded-2xl shadow-sm p-5">
+  <div class="bg-white rounded-2xl shadow-md p-5">
     <div class="flex items-center justify-between mb-4">
-      <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide">月度現金流</h2>
+      <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide pl-3 border-l-2" style="border-left-color:#c9a96e">月度現金流</h2>
       <select v-model="localMonth" class="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white">
         <option v-for="m in monthOptions" :key="m.value" :value="m.value">{{ m.label }}</option>
       </select>
     </div>
     <div class="grid grid-cols-2 gap-3">
-      <div class="rounded-xl p-4 cursor-pointer transition-colors"
-        :style="expandedStat === 'receivable' ? 'background:#f0e8d5' : 'background:#faf7f2'"
+      <div class="rounded-xl p-4 cursor-pointer transition-colors border-l-4 overflow-hidden"
+        :style="expandedStat === 'receivable' ? 'background:#f0e8d5;border-left-color:#c9a96e' : 'background:#faf7f2;border-left-color:#c9a96e'"
         @click="toggle('receivable')">
         <div class="text-[10px] text-gray-400 font-semibold uppercase tracking-wide mb-1">本月應收</div>
         <div class="text-lg font-bold" style="color:#c9a96e">{{ formatAmount(stats.receivable) }}</div>
       </div>
-      <div class="rounded-xl p-4 cursor-pointer transition-colors"
-        :style="expandedStat === 'received' ? 'background:#d6f5e3' : 'background:#f0faf4'"
+      <div class="rounded-xl p-4 cursor-pointer transition-colors border-l-4 overflow-hidden"
+        :style="expandedStat === 'received' ? 'background:#d6f5e3;border-left-color:#22c55e' : 'background:#f0faf4;border-left-color:#22c55e'"
         @click="toggle('received')">
         <div class="text-[10px] text-gray-400 font-semibold uppercase tracking-wide mb-1">本月已收</div>
         <div class="text-lg font-bold text-green-600">{{ formatAmount(stats.received) }}</div>
       </div>
-      <div class="rounded-xl p-4 cursor-pointer transition-colors"
-        :style="expandedStat === 'payable' ? 'background:#fcd9d9' : 'background:#fdf2f2'"
+      <div class="rounded-xl p-4 cursor-pointer transition-colors border-l-4 overflow-hidden"
+        :style="expandedStat === 'payable' ? 'background:#fcd9d9;border-left-color:#ef4444' : 'background:#fdf2f2;border-left-color:#ef4444'"
         @click="toggle('payable')">
         <div class="text-[10px] text-gray-400 font-semibold uppercase tracking-wide mb-1">本月應付</div>
         <div class="text-lg font-bold text-red-500">{{ formatAmount(stats.payable) }}</div>
       </div>
-      <div class="rounded-xl p-4 cursor-pointer transition-colors"
-        :style="expandedStat === 'paid' ? 'background:#e5e7eb' : 'background:#f9fafb'"
+      <div class="rounded-xl p-4 cursor-pointer transition-colors border-l-4 overflow-hidden"
+        :style="expandedStat === 'paid' ? 'background:#e5e7eb;border-left-color:#9ca3af' : 'background:#f9fafb;border-left-color:#9ca3af'"
         @click="toggle('paid')">
         <div class="text-[10px] text-gray-400 font-semibold uppercase tracking-wide mb-1">本月已付</div>
         <div class="text-lg font-bold text-gray-600">{{ formatAmount(stats.paid) }}</div>

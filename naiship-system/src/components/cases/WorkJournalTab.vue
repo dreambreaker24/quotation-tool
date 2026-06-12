@@ -14,7 +14,7 @@
       <div class="bg-white rounded-2xl shadow-sm px-4 lg:px-5 py-3 flex flex-col lg:flex-row lg:items-center gap-2">
         <div class="flex-1">
           <div class="flex items-center justify-between gap-2">
-            <div class="text-sm font-semibold text-gray-800">
+            <div class="text-sm font-semibold text-gray-800 pl-3 border-l-2 truncate min-w-0" style="border-left-color:#c9a96e">
               {{ selectedEmployee ? `${selectedEmployee.name} 的工作日誌` : '全部員工工作日誌' }}
             </div>
             <div class="flex items-center gap-1">

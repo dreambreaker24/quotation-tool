@@ -1,7 +1,7 @@
 <template>
   <div class="w-20 sm:w-56 text-white flex-shrink-0 min-h-screen pt-4 pb-6 flex flex-col" style="background:#1e2533">
     <!-- 桌面版：完整分區標籤 -->
-    <div class="hidden sm:block px-4 py-2 text-[10px] text-gray-400 uppercase tracking-widest font-semibold">選擇分區</div>
+    <div class="hidden sm:block px-4 py-2 text-[10px] uppercase tracking-widest font-semibold border-l-2 ml-1 pl-3" style="color:#c9a96e;border-left-color:#c9a96e">選擇分區</div>
     <div class="px-1 sm:px-3 flex flex-col gap-1">
       <button v-for="r in regions" :key="r.id"
         @click="emit('select-region', r.id)"
@@ -20,7 +20,7 @@
       </button>
     </div>
     <!-- 搜尋框桌面才顯示 -->
-    <div class="hidden sm:block mt-4 px-4 py-2 text-[10px] text-gray-400 uppercase tracking-widest font-semibold">案件快搜</div>
+    <div class="hidden sm:block mt-4 px-4 py-2 text-[10px] uppercase tracking-widest font-semibold border-l-2 ml-1 pl-3" style="color:#c9a96e;border-left-color:#c9a96e">案件快搜</div>
     <div class="hidden sm:block px-3">
       <input v-model="search" type="text" placeholder="搜尋案件..."
         class="w-full text-white placeholder-gray-500 text-xs rounded-lg px-3 py-2 focus:outline-none focus:ring-1"

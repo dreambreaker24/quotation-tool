@@ -27,7 +27,9 @@
         <div v-for="entry in log.caseEntries" :key="entry.caseId"
           class="bg-white rounded-lg p-2.5 border border-gray-100 mb-2 last:mb-0">
           <div class="flex items-center gap-2 mb-1">
-            <span class="px-2 py-0.5 rounded-full text-[10px] bg-blue-100 text-blue-700">{{ entry.caseName }}</span>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-medium text-white"
+              :style="`background:${CASE_STATUS_COLORS[casesStore.cases.find(c => c.id === entry.caseId)?.status] ?? '#3b82f6'}`">
+              {{ entry.caseName }}</span>
           </div>
           <div class="text-xs text-gray-600 whitespace-pre-wrap">{{ entry.content }}</div>
         </div>
@@ -124,17 +126,22 @@
     <!-- Replies -->
     <div class="border-t border-gray-100 pt-3">
       <div v-for="reply in (log.replies || [])" :key="reply.id" class="flex items-start gap-2 mb-2">
-        <span class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] text-white font-bold flex-shrink-0" style="background:#1e2533">
+        <span class="w-8 h-8 rounded-full flex items-center justify-center text-xs text-white font-bold flex-shrink-0" style="background:#c9a96e">
           {{ reply.creatorName?.[0] ?? '管' }}
         </span>
-        <div class="bg-blue-50 rounded-xl px-3 py-2 text-xs text-gray-700 flex-1 whitespace-pre-wrap">
+        <div class="flex-1 rounded-xl px-3 py-2.5 border-l-4 text-xs text-gray-800 whitespace-pre-wrap" style="background:#fffbf4;border-left-color:#c9a96e">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full text-white" style="background:#c9a96e">主管</span>
+            <span class="text-[10px] text-gray-500">{{ reply.creatorName }} · {{ formatTime(reply.createdAt) }}</span>
+          </div>
           {{ reply.content }}
-          <div class="text-[10px] text-gray-400 mt-1">{{ reply.creatorName }} · {{ formatTime(reply.createdAt) }}</div>
         </div>
       </div>
       <button v-if="isManager" @click="showReply = !showReply"
-        class="text-[11px] hover:underline ml-4 sm:ml-8" style="color:#c9a96e">
-        {{ log.replies?.length ? '回覆…' : '＋ 主管回覆' }}
+        class="text-xs font-medium px-3 py-1.5 rounded-lg border ml-4 sm:ml-10 transition-colors"
+        style="color:#c9a96e;border-color:#c9a96e"
+        onmouseover="this.style.background='rgba(201,169,110,0.1)'" onmouseout="this.style.background=''">
+        {{ log.replies?.length ? '＋ 繼續回覆' : '＋ 主管回覆' }}
       </button>
       <div v-if="showReply" class="mt-2 flex flex-col gap-2 ml-4 sm:ml-8">
         <textarea v-model="replyContent" rows="3" placeholder="輸入回覆..."
@@ -151,6 +158,10 @@
 </template>
 <script setup>
 import { ref } from 'vue'
+import { useCasesStore } from '@/stores/cases'
+import { CASE_STATUS_COLORS } from '@/constants/caseStatus'
+
+const casesStore = useCasesStore()
 
 const props = defineProps({
     log: Object,

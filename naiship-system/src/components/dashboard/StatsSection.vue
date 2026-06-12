@@ -1,7 +1,7 @@
 <template>
   <div class="grid grid-cols-3 gap-4">
-    <div class="col-span-2 bg-white rounded-2xl shadow-sm p-5">
-      <h2 class="text-xs font-semibold text-gray-500 mb-4 uppercase tracking-wide">案件統計</h2>
+    <div class="col-span-2 bg-white rounded-2xl shadow-md p-5">
+      <h2 class="text-xs font-semibold text-gray-500 mb-4 uppercase tracking-wide pl-3 border-l-2" style="border-left-color:#c9a96e">案件統計</h2>
       <div class="grid grid-cols-3 gap-3">
         <StatCard label="進件總數" :value="String(stats.totalCount)" />
         <StatCard label="洽談案件" :value="String(stats.negotiatingCount)" />

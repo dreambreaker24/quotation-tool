@@ -1,15 +1,15 @@
 <template>
   <div v-if="hasAny" id="payment-reminders" class="mb-6">
-    <h2 class="text-sm font-bold text-gray-700 mb-3">付款清單</h2>
+    <h2 class="text-sm font-bold text-gray-700 mb-3 pl-3 border-l-2" style="border-left-color:#c9a96e">付款清單</h2>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 
       <!-- 左半：廠商付款排程 -->
       <div id="scheduled-reminders">
-        <div class="text-xs font-semibold text-blue-600 mb-2">廠商付款排程（本月底及下月）</div>
+        <div class="text-xs font-semibold text-blue-600 mb-2 pl-2 border-l-2 border-blue-300">廠商付款排程（本月底及下月）</div>
         <div v-if="vendorItems.length === 0" class="text-[11px] text-gray-400">本月底及下月無廠商付款排程</div>
         <div class="flex flex-col gap-2">
           <div v-for="r in vendorItems" :key="r.id"
-            class="border border-blue-100 rounded-xl p-3 bg-blue-50/30">
+            class="border border-blue-100 rounded-xl p-3 bg-blue-50/30 border-l-4 border-l-blue-400 hover:shadow-sm transition-shadow">
             <div class="flex items-start justify-between gap-2">
               <div class="flex-1 min-w-0">
                 <div v-if="r.source === 'auto'" class="flex items-center gap-2 mb-1">
@@ -40,11 +40,11 @@
 
       <!-- 右半：待請款 -->
       <div id="owner-reminders">
-        <div class="text-xs font-semibold mb-2" style="color:#c9a96e">待請款</div>
+        <div class="text-xs font-semibold mb-2 pl-2 border-l-2" style="color:#c9a96e;border-left-color:#c9a96e">待請款</div>
         <div v-if="ownerItems.length === 0" class="text-[11px] text-gray-400">目前無待請款項目</div>
         <div class="flex flex-col gap-2">
           <div v-for="r in ownerItems" :key="r.id"
-            class="border border-amber-100 rounded-xl p-3 bg-amber-50/30">
+            class="border border-amber-100 rounded-xl p-3 bg-amber-50/30 border-l-4 hover:shadow-sm transition-shadow" style="border-left-color:#c9a96e">
             <div class="flex items-start justify-between gap-2">
               <div class="flex-1 min-w-0">
                 <div v-if="r.source === 'auto'" class="flex items-center gap-2 mb-1">

@@ -1,7 +1,7 @@
 <template>
   <div class="w-64 bg-white border-r border-gray-200 flex flex-col flex-shrink-0 min-h-screen">
     <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-      <span class="text-sm font-semibold text-gray-700">客戶列表</span>
+      <span class="text-sm font-semibold pl-2 border-l-2" style="color:#1e2533;border-left-color:#c9a96e">客戶列表</span>
       <button @click="emit('add')" class="text-xs text-white px-2 py-1 rounded-lg" style="background:#1e2533">+ 新增</button>
     </div>
     <div class="px-4 py-2 border-b border-gray-100 flex flex-col gap-1.5">
@@ -26,9 +26,9 @@
     <div class="flex-1 overflow-y-auto">
       <div v-for="c in filteredClients" :key="c.id"
         @click="emit('select', c)"
-        class="px-4 py-3 cursor-pointer border-b border-gray-50 transition-colors"
-        :style="selected?.id === c.id ? 'background:rgba(201,169,110,0.1);border-left:2px solid #c9a96e' : ''"
-        :class="selected?.id !== c.id ? 'hover:bg-gray-50' : ''">
+        class="px-4 py-3 cursor-pointer border-b border-gray-100 transition-all border-l-4"
+        :style="selected?.id === c.id ? 'background:rgba(201,169,110,0.1);border-left-color:#c9a96e' : 'border-left-color:transparent'"
+        :class="selected?.id !== c.id ? 'hover:bg-amber-50/40 hover:border-l-amber-200 hover:-translate-y-px' : ''">
         <div class="text-sm font-medium text-gray-800">{{ c.name }}</div>
         <div class="flex items-center gap-2 mt-1 flex-wrap">
           <span class="text-[10px] px-2 py-0.5 rounded-full" :class="statusClass(c.status)">{{ statusLabel(c.status) }}</span>
@@ -65,7 +65,7 @@ const filteredClients = computed(() =>
 const statusMap = { contacted: '初次接觸', negotiating: '洽談中', signed: '已簽約', completed: '已完工', returning: '回頭客', lost: '已流失' }
 const statusClassMap = {
     contacted: 'bg-gray-100 text-gray-500',
-    negotiating: 'bg-yellow-100 text-yellow-700',
+    negotiating: 'bg-amber-100 text-amber-700',
     signed: 'bg-blue-100 text-blue-700',
     completed: 'bg-green-100 text-green-700',
     returning: 'bg-purple-100 text-purple-700',

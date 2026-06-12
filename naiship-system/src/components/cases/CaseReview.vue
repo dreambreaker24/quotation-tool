@@ -11,18 +11,20 @@
       <div v-if="reviews.length === 0" class="text-[11px] text-gray-300 text-center py-3">尚無檢討紀錄</div>
 
       <div v-for="r in reviews" :key="r.id"
-        class="border rounded-xl p-4"
-        :class="r.resolved ? 'border-green-100 bg-green-50/30' : 'border-red-100 bg-red-50/20'">
+        class="border rounded-xl overflow-hidden border-l-4"
+        :class="r.resolved ? 'border-green-100' : 'border-red-100'"
+        :style="r.resolved ? 'border-left-color:#22c55e' : 'border-left-color:#ef4444'">
         <!-- Header -->
-        <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center justify-between px-4 py-2.5"
+          :class="r.resolved ? 'bg-green-50' : 'bg-red-50'">
           <div class="flex items-center gap-2 flex-wrap">
             <span class="text-xs font-semibold text-gray-700">📋 {{ r.reportDate }}</span>
             <span v-if="r.resolved"
-              class="text-[9px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-semibold">
+              class="text-[10px] px-2.5 py-0.5 rounded-full bg-green-500 text-white font-semibold">
               ✓ 已解決 {{ r.resolvedDate }}
             </span>
-            <span v-else class="text-[9px] px-2 py-0.5 rounded-full bg-red-100 text-red-600 font-semibold">
-              待處理
+            <span v-else class="text-[10px] px-2.5 py-0.5 rounded-full bg-red-500 text-white font-bold animate-pulse">
+              ● 待處理
             </span>
           </div>
           <div class="flex items-center gap-2">
@@ -36,13 +38,15 @@
           </div>
         </div>
 
+        <!-- Content body -->
+        <div class="px-4 py-3">
         <!-- Issues -->
         <div v-if="r.issues?.length" class="mb-3">
-          <div class="text-[10px] text-gray-400 font-semibold mb-1.5 uppercase tracking-wide">缺失列舉</div>
-          <ol class="flex flex-col gap-1">
+          <div class="text-[10px] text-red-500 font-semibold mb-2 uppercase tracking-wide pl-1 border-l-2 border-red-300">缺失列舉</div>
+          <ol class="flex flex-col gap-1.5">
             <li v-for="(issue, i) in r.issues" :key="i"
-              class="text-xs text-gray-700 flex gap-2 whitespace-pre-wrap">
-              <span class="text-red-400 font-semibold flex-shrink-0">{{ i + 1 }}.</span>
+              class="text-xs text-gray-700 flex gap-2.5 whitespace-pre-wrap items-start bg-red-50/50 rounded-lg px-3 py-2">
+              <span class="w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-0.5">{{ i + 1 }}</span>
               <span>{{ issue }}</span>
             </li>
           </ol>
@@ -50,8 +54,8 @@
 
         <!-- Improvements -->
         <div v-if="r.improvements">
-          <div class="text-[10px] text-gray-400 font-semibold mb-1 uppercase tracking-wide">改善措施</div>
-          <p class="text-xs text-gray-600 whitespace-pre-wrap">{{ r.improvements }}</p>
+          <div class="text-[10px] text-green-600 font-semibold mb-2 uppercase tracking-wide pl-1 border-l-2 border-green-400">改善措施</div>
+          <p class="text-xs text-gray-700 whitespace-pre-wrap bg-green-50/60 rounded-lg px-3 py-2">{{ r.improvements }}</p>
         </div>
 
         <!-- Attachments -->
@@ -70,13 +74,14 @@
         <div class="mt-3 pt-2 border-t border-gray-100 text-[10px] text-gray-400">
           {{ r.creatorName }} · {{ formatTime(r.createdAt) }}
         </div>
+        </div><!-- end content body -->
       </div>
     </div>
   </div>
 
   <!-- 新增檢討 Modal -->
   <div v-if="showForm" class="fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.4)">
-    <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
+    <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto border-t-4" style="border-top-color:#c9a96e">
       <div class="flex items-center justify-between mb-4">
         <h3 class="text-sm font-bold text-gray-800">{{ editingId ? '編輯案件檢討' : '新增案件檢討' }}</h3>
         <button @click="showForm = false" class="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>

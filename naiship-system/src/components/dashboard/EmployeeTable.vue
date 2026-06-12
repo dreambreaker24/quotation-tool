@@ -1,7 +1,7 @@
 <template>
-  <div class="bg-white rounded-2xl shadow-sm p-5">
+  <div class="bg-white rounded-2xl shadow-md p-5">
     <div class="flex items-center justify-between mb-4">
-      <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide">員工績效</h2>
+      <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide pl-3 border-l-2" style="border-left-color:#c9a96e">員工績效</h2>
       <div class="flex items-center gap-2">
         <button @click="refreshData" :disabled="refreshing"
           class="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 text-gray-500 hover:border-gray-400 disabled:opacity-40">
@@ -18,8 +18,8 @@
     <div class="overflow-x-auto">
       <table class="w-full text-xs">
         <thead>
-          <tr class="bg-gray-50">
-            <th class="text-left px-3 py-2 text-gray-500 font-semibold sticky left-0 bg-gray-50 min-w-[110px]">員工</th>
+          <tr class="bg-gray-100">
+            <th class="text-left px-3 py-2 text-gray-600 font-semibold sticky left-0 bg-gray-100 min-w-[110px]">員工</th>
             <th class="text-center px-2 py-2 text-gray-500 font-semibold min-w-[80px]">本月加班</th>
             <th class="text-center px-2 py-2 text-gray-500 font-semibold min-w-[90px]">本月油資</th>
             <th class="text-center px-2 py-2 text-gray-500 font-semibold min-w-[90px]">本月出勤</th>
@@ -31,9 +31,13 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="emp in employeeRows" :key="emp.userId" class="border-t border-gray-100 hover:bg-gray-50">
+          <tr v-for="(emp, i) in employeeRows" :key="emp.userId" class="border-t border-gray-100 hover:bg-amber-50/40 transition-colors" :class="i % 2 === 1 ? 'bg-gray-50/60' : 'bg-white'">
             <td class="px-3 py-2.5 sticky left-0 bg-white">
-              <div class="font-semibold text-gray-700">{{ emp.name }}</div>
+              <div class="flex items-center gap-2">
+                <span class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
+                  :style="`background:${empColor(emp.name)}`">{{ emp.name?.[0] ?? '?' }}</span>
+                <div class="font-semibold text-gray-700">{{ emp.name }}</div>
+              </div>
             </td>
             <td class="text-center px-2 py-2.5">
               <template v-if="monthlyOvertime[emp.name]">
@@ -93,6 +97,16 @@ const monthlyOvertime = ref({})
 const monthlyLeave = ref({})
 const attendanceMap = ref({})
 const refreshing = ref(false)
+
+const MEMBER_COLORS = { '柏': '#c9a96e', '其宏': '#1f2937', '阿蚌': '#ef4444' }
+function empColor(name) {
+    if (!name) return '#9ca3af'
+    if (MEMBER_COLORS[name]) return MEMBER_COLORS[name]
+    let hash = 0
+    for (let i = 0; i < name.length; i++) hash += name.charCodeAt(i)
+    const fallback = ['#a855f7', '#3b82f6', '#22c55e', '#f59e0b', '#14b8a6', '#f97316']
+    return fallback[hash % fallback.length]
+}
 
 onMounted(async () => {
     await loadAll()

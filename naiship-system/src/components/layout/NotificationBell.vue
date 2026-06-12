@@ -12,7 +12,7 @@
     </button>
 
     <div v-if="open"
-      class="absolute right-0 top-10 w-80 bg-white rounded-2xl shadow-xl border border-gray-100 z-50 overflow-hidden">
+      class="absolute right-0 top-10 w-80 bg-white rounded-2xl shadow-xl border border-gray-100 z-50 overflow-hidden border-t-4" style="border-top-color:#c9a96e">
       <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
         <span class="text-sm font-semibold text-gray-800">通知</span>
         <span v-if="count > 0" class="text-[11px] text-gray-400">{{ count }} 則未讀</span>

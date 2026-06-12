@@ -1,5 +1,5 @@
 <template>
-  <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
+  <div class="bg-white rounded-2xl shadow-md overflow-hidden">
     <!-- 狀態篩選 chips -->
     <div class="px-4 py-2 border-b border-gray-100 flex items-center gap-1.5 flex-wrap">
       <span class="text-[11px] text-gray-400 font-semibold mr-1">篩選：</span>
@@ -120,7 +120,7 @@
                   :style="wt.done ? 'background:#f0fdf4' : 'background:#f9fafb'">
                   <span class="w-4"></span>
                   <span class="w-2 h-2 rounded-full flex-shrink-0" :style="`background:${wt.color};opacity:${wt.done ? 0.4 : 1}`"></span>
-                  <span class="text-[11px] flex-1 truncate" :class="wt.done ? 'text-gray-400 line-through' : 'text-gray-600'">{{ wt.name }}</span>
+                  <span class="text-[10px] flex-1 truncate" :class="wt.done ? 'text-gray-400 line-through' : 'text-gray-500'">{{ wt.name }}</span>
                   <span v-if="wt.done" class="text-[9px] px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 font-semibold flex-shrink-0 whitespace-nowrap">✓ 完工</span>
                   <template v-else>
                     <span v-if="isWtOverdue(wt, row.data)" class="text-[9px] px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-600 font-semibold flex-shrink-0 whitespace-nowrap">⚠ 逾期</span>
@@ -155,7 +155,7 @@
 
     <!-- Case action bar (when selected) -->
     <div v-if="selectedCaseId" class="px-4 pt-3 pb-2 border-t border-amber-100 bg-amber-50/40">
-      <div class="text-sm font-bold text-gray-800 mb-2 leading-snug">{{ selectedCaseName }}</div>
+      <div class="text-sm font-bold text-gray-800 mb-2 leading-snug pl-3 border-l-4" style="border-left-color:#c9a96e">{{ selectedCaseName }}</div>
       <div class="flex items-center gap-2 flex-wrap">
         <button @click="editingCaseId = selectedCaseId"
           class="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 bg-white">

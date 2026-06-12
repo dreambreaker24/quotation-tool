@@ -3,7 +3,7 @@
     <div class="flex items-center justify-between mb-3">
       <div class="flex items-center gap-2">
         <span class="text-xs font-semibold text-gray-700">{{ caseName }}</span>
-        <span class="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">工種安排</span>
+        <span class="text-[10px] px-2 py-0.5 rounded-full font-semibold" style="background:rgba(201,169,110,0.15);color:#c9a96e">工種安排</span>
       </div>
       <div class="flex items-center gap-3">
         <span v-if="totalPayment > 0" class="text-xs font-medium" style="color:#c9a96e">合計 ${{ totalPayment.toLocaleString() }}</span>
@@ -20,7 +20,7 @@
 
     <div v-else class="flex flex-col gap-2">
       <div v-for="(wt, idx) in workTypes" :key="wt.id"
-        class="border border-gray-100 rounded-xl p-3 bg-gray-50/50">
+        class="border border-gray-100 rounded-xl p-3 bg-gray-50/50 hover:bg-white hover:shadow-sm transition-all">
         <!-- Main row -->
         <div class="overflow-x-auto -mx-1 px-1">
         <div class="flex items-center gap-3 min-w-[480px]">
@@ -156,7 +156,7 @@
 
   <!-- 新增/編輯工種 Modal -->
   <div v-if="showForm" class="fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.4)">
-    <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 max-h-[90vh] flex flex-col">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 max-h-[90vh] flex flex-col border-t-4" style="border-top-color:#c9a96e">
       <div class="px-6 pt-6 pb-0 flex-shrink-0">
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-sm font-bold text-gray-800">{{ editingIdx !== null ? '編輯工種' : '新增工種' }}</h3>
@@ -289,7 +289,7 @@
               class="text-[11px] border border-dashed border-gray-200 rounded-lg py-1.5 text-gray-400 hover:border-gray-400 hover:text-gray-600 transition-colors w-full">
               + 新增一筆
             </button>
-            <div v-if="formVendorCostTotal > 0" class="text-right text-xs font-semibold mt-0.5 text-gray-700">
+            <div v-if="formVendorCostTotal > 0" class="text-right text-xs font-semibold mt-0.5 text-red-500">
               合計 ${{ formVendorCostTotal.toLocaleString() }}
             </div>
           </div>
@@ -320,7 +320,7 @@
 
   <!-- 廠商付款記錄 Modal -->
   <div v-if="showVendorPayForm" class="fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.4)">
-    <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm mx-4">
+    <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm mx-4 border-t-4" style="border-top-color:#c9a96e">
       <div class="flex items-center justify-between mb-4">
         <div>
           <h3 class="text-sm font-bold text-gray-800">廠商實付記錄</h3>

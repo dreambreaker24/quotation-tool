@@ -1,42 +1,46 @@
 <template>
   <div class="px-4 py-4 border-t border-gray-100 bg-gray-50">
-    <div class="text-xs text-gray-500 font-medium mb-3">{{ caseName }} — 上傳照片</div>
+    <div class="text-xs font-semibold text-gray-600 mb-3 pl-2 border-l-2" style="border-left-color:#c9a96e">{{ caseName }} — 檔案管理</div>
 
-    <div class="flex flex-col divide-y divide-gray-100">
-      <div v-for="type in photoTypes" :key="type.key" class="py-2">
+    <div class="flex flex-col gap-1">
+      <div v-for="type in photoTypes" :key="type.key"
+        class="rounded-xl overflow-hidden transition-colors"
+        :class="hovering === type.key ? 'ring-1 ring-amber-300' : ''">
         <!-- Category header -->
-        <div class="flex items-center gap-2 cursor-pointer select-none"
+        <div class="flex items-center gap-2 cursor-pointer select-none px-3 py-2 rounded-xl transition-colors"
+          :class="expanded[type.key] ? 'bg-white shadow-sm' : (photos[type.key]?.length ? 'bg-white/60 hover:bg-white' : 'hover:bg-white/50')"
           @click="toggle(type.key)"
           @dragover.prevent="hovering = type.key"
           @dragleave="hovering = ''"
           @drop.prevent="handleDrop($event, type.key)">
-          <span class="text-[10px] text-gray-300 w-3 leading-none">{{ expanded[type.key] ? '▼' : '▶' }}</span>
-          <span class="text-xs font-medium text-gray-600">{{ type.label }}</span>
+          <span class="text-sm">{{ type.icon }}</span>
+          <span class="text-xs font-medium text-gray-700">{{ type.label }}</span>
           <span v-if="photos[type.key]?.length"
-            class="text-[9px] min-w-[16px] h-4 px-1 rounded-full bg-gray-400 text-white leading-4 text-center">
+            class="text-[9px] min-w-[18px] h-[18px] px-1 rounded-full text-white leading-[18px] text-center font-bold" style="background:#c9a96e">
             {{ photos[type.key].length }}
           </span>
+          <span class="text-[10px] text-gray-300 ml-1">{{ expanded[type.key] ? '▼' : '▶' }}</span>
           <button @click.stop="triggerUpload(type.key)"
-            class="ml-auto text-[10px] border border-dashed rounded px-2 py-0.5 transition-colors"
-            :style="hovering === type.key ? 'border-color:#c9a96e;color:#c9a96e' : 'border-color:#d1d5db;color:#9ca3af'">
+            class="ml-auto text-[10px] px-2.5 py-1 rounded-lg border transition-colors font-medium"
+            :style="hovering === type.key ? 'border-color:#c9a96e;color:#c9a96e;background:rgba(201,169,110,0.08)' : 'border-color:#e5e7eb;color:#9ca3af'">
             + 上傳
           </button>
         </div>
 
         <!-- Photo strip -->
-        <div v-if="expanded[type.key]" class="mt-2 ml-5">
-          <div v-if="!photos[type.key]?.length" class="text-[10px] text-gray-300 py-1">尚無檔案</div>
-          <div v-else class="flex gap-2 overflow-x-auto pb-1">
+        <div v-if="expanded[type.key]" class="px-3 pb-3 pt-1 bg-white rounded-b-xl">
+          <div v-if="!photos[type.key]?.length" class="text-[11px] text-gray-300 py-2 text-center">尚無檔案，拖曳或點擊上傳</div>
+          <div v-else class="flex gap-2.5 overflow-x-auto pb-1">
             <div v-for="(item, idx) in photos[type.key]" :key="item.url"
-              class="flex-shrink-0 flex flex-col items-center gap-0.5 relative group">
+              class="flex-shrink-0 flex flex-col items-center gap-1 relative group">
               <a v-if="item.isPdf" :href="item.pdfUrl" target="_blank"
-                class="w-16 h-16 rounded bg-red-100 flex items-center justify-center text-[10px] text-red-600 font-bold hover:bg-red-200 transition-colors">PDF</a>
+                class="w-20 h-20 rounded-xl bg-red-100 flex items-center justify-center text-xs text-red-600 font-bold hover:bg-red-200 transition-colors shadow-sm">PDF</a>
               <img v-else :src="item.url"
-                class="w-16 h-16 rounded object-cover cursor-pointer hover:opacity-80"
+                class="w-20 h-20 rounded-xl object-cover cursor-pointer hover:opacity-90 shadow-sm transition-all hover:shadow-md"
                 @click="openPreview(type.key, idx)">
-              <span class="text-[8px] text-gray-400 leading-tight">{{ formatTime(item.createdAt) }}</span>
+              <span class="text-[9px] text-gray-400 leading-tight">{{ formatTime(item.createdAt) }}</span>
               <button @click="deletePhoto(type.key, item)"
-                class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-gray-600 text-white rounded-full text-[8px] leading-none hidden group-hover:flex items-center justify-center hover:bg-red-500 z-10">✕</button>
+                class="absolute -top-1 -right-1 w-4 h-4 bg-gray-500 text-white rounded-full text-[9px] leading-none hidden group-hover:flex items-center justify-center hover:bg-red-500 z-10 shadow">✕</button>
             </div>
           </div>
         </div>
@@ -73,14 +77,14 @@ const authStore = useAuthStore()
 const notifStore = useNotificationsStore()
 
 const photoTypes = [
-    { key: 'survey',       label: '場勘' },
-    { key: 'contract',     label: '合約' },
-    { key: '3d',           label: '3D 模擬' },
-    { key: 'floorplan',    label: '平面圖' },
-    { key: 'blueprint',    label: '施工圖' },
-    { key: 'construction', label: '施工' },
-    { key: 'completion',   label: '完工' },
-    { key: 'commercial',   label: '商業攝影' },
+    { key: 'survey',       label: '場勘',    icon: '📷' },
+    { key: 'contract',     label: '合約',    icon: '📄' },
+    { key: '3d',           label: '3D 模擬', icon: '🎨' },
+    { key: 'floorplan',    label: '平面圖',  icon: '📐' },
+    { key: 'blueprint',    label: '施工圖',  icon: '📋' },
+    { key: 'construction', label: '施工',    icon: '🏗️' },
+    { key: 'completion',   label: '完工',    icon: '✅' },
+    { key: 'commercial',   label: '商業攝影', icon: '🌟' },
 ]
 
 const allKeys = photoTypes.map(t => t.key)

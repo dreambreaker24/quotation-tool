@@ -14,11 +14,12 @@
     </div>
 
     <!-- 置頂最新公告 -->
-    <div v-if="announcements.length > 0" class="bg-white rounded-2xl shadow-sm p-6">
-      <div class="flex items-start justify-between gap-2 mb-3">
-        <div class="flex-1 min-w-0">
-          <span v-if="latest.pinned" class="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-semibold mr-2">📌 置頂</span>
-          <span v-else class="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-semibold mr-2">最新公告</span>
+    <div v-if="announcements.length > 0" class="bg-white rounded-2xl shadow-md overflow-hidden border-t-4" style="border-top-color:#c9a96e">
+      <!-- 公告 header bar -->
+      <div class="px-6 py-3 flex items-center justify-between gap-2" style="background:rgba(201,169,110,0.08)">
+        <div class="flex items-center gap-2">
+          <span v-if="latest.pinned" class="text-xs px-2.5 py-1 rounded-full font-bold text-white" style="background:#c9a96e">📌 置頂公告</span>
+          <span v-else class="text-xs px-2.5 py-1 rounded-full font-bold text-white" style="background:#1e2533">📢 最新公告</span>
           <span class="text-base font-bold text-gray-800">{{ latest.title }}</span>
         </div>
         <div v-if="authStore.isManager" class="flex gap-2 flex-shrink-0">
@@ -31,24 +32,28 @@
           <button @click="remove(latest)" class="text-xs text-red-400 hover:text-red-600 border border-red-100 rounded-lg px-2 py-1">刪除</button>
         </div>
       </div>
-      <p class="text-sm text-gray-700 whitespace-pre-wrap mb-4">{{ latest.content }}</p>
-      <div v-if="latest.images?.length" class="flex gap-2 flex-wrap mb-4">
-        <img v-for="url in latest.images" :key="url" :src="url"
-          @click="previewUrl = url"
-          class="w-24 h-24 object-cover rounded-xl cursor-pointer hover:opacity-80 transition-opacity">
+      <!-- 公告內容 -->
+      <div class="px-6 py-4">
+        <p class="text-sm text-gray-700 whitespace-pre-wrap mb-4">{{ latest.content }}</p>
+        <div v-if="latest.images?.length" class="flex gap-2 flex-wrap mb-4">
+          <img v-for="url in latest.images" :key="url" :src="url"
+            @click="previewUrl = url"
+            class="w-24 h-24 object-cover rounded-xl cursor-pointer hover:opacity-80 transition-opacity">
+        </div>
+        <div class="text-[11px] text-gray-400">{{ latest.createdByName }} · {{ formatDate(latest.createdAt) }}</div>
       </div>
-      <div class="text-[11px] text-gray-400">{{ latest.createdByName }} · {{ formatDate(latest.createdAt) }}</div>
     </div>
 
     <!-- 舊公告清單 -->
-    <div v-if="older.length > 0" class="bg-white rounded-2xl shadow-sm overflow-hidden">
-      <div class="px-5 py-3 border-b border-gray-100 text-xs font-semibold text-gray-500">舊公告</div>
-      <div v-for="a in older" :key="a.id" class="border-b border-gray-50 last:border-0">
+    <div v-if="older.length > 0" class="bg-white rounded-2xl shadow-md overflow-hidden">
+      <div class="px-5 py-3 border-b border-gray-100 text-xs font-semibold pl-4 border-l-2" style="color:#1e2533;border-left-color:#c9a96e">舊公告</div>
+      <div v-for="a in older" :key="a.id" class="border-b border-gray-100 last:border-0">
         <button @click="toggleExpand(a.id)"
-          class="w-full flex items-center justify-between px-5 py-3 hover:bg-gray-50 text-left transition-colors">
-          <div class="flex-1 min-w-0">
+          class="w-full flex items-center justify-between px-5 py-3.5 hover:bg-amber-50/30 text-left transition-colors">
+          <div class="flex items-center gap-3 flex-1 min-w-0">
+            <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 flex-shrink-0 whitespace-nowrap">{{ formatDate(a.createdAt) }}</span>
             <div class="text-sm font-semibold text-gray-700 truncate">{{ a.title }}</div>
-            <div class="text-[11px] text-gray-400 mt-0.5">{{ a.createdByName }} · {{ formatDate(a.createdAt) }}</div>
+            <span class="text-[10px] text-gray-400 flex-shrink-0 hidden sm:inline">{{ a.createdByName }}</span>
           </div>
           <div class="flex items-center gap-2 flex-shrink-0 ml-2">
             <div v-if="authStore.isManager" class="flex gap-1">
@@ -75,7 +80,7 @@
 
   <!-- 新增/編輯 Modal -->
   <div v-if="showForm" class="fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.4)">
-    <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+    <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto border-t-4" style="border-top-color:#c9a96e">
       <div class="flex items-center justify-between mb-4">
         <h3 class="text-base font-bold text-gray-800">{{ editingId ? '編輯公告' : '新增公告' }}</h3>
         <button @click="closeForm" class="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>

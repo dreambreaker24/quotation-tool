@@ -1,7 +1,7 @@
 <template>
-  <div class="bg-white rounded-2xl shadow-sm p-4">
+  <div class="bg-white rounded-2xl shadow-md p-4">
     <div class="flex items-center gap-2 mb-3">
-      <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide">待處理事項</h2>
+      <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide pl-3 border-l-2" style="border-left-color:#c9a96e">待處理事項</h2>
       <span v-if="totalCount > 0"
         class="text-[10px] font-bold text-white px-1.5 py-0.5 rounded-full"
         style="background:#c9a96e">{{ totalCount }}</span>
@@ -22,12 +22,18 @@
       </div>
       <div v-if="todosStore.todos.length === 0 && !showAddForm" class="text-xs text-gray-400 py-1">尚無自訂待辦</div>
       <div v-for="todo in todosStore.todos" :key="todo.id"
-        class="group flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-100 bg-gray-50 mb-1.5 last:mb-0">
-        <input type="checkbox" :checked="todo.done"
-          :disabled="!authStore.isAdmin"
-          @change="authStore.isAdmin && todosStore.updateTodo(todo.id, { done: !todo.done })"
-          class="flex-shrink-0 accent-amber-500"
-          :class="authStore.isAdmin ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'">
+        class="group flex items-center gap-2 px-3 py-2.5 rounded-xl border border-gray-100 bg-gray-50 mb-1.5 last:mb-0 border-l-4 hover:shadow-sm transition-shadow"
+        :style="todo.done ? 'border-left-color:#d1d5db' : 'border-left-color:#c9a96e'">
+        <div @click="authStore.isAdmin && todosStore.updateTodo(todo.id, { done: !todo.done })"
+          class="flex-shrink-0 w-4 h-4 rounded border-2 flex items-center justify-center transition-all"
+          :class="[
+            todo.done ? 'bg-amber-400 border-amber-400' : 'bg-white border-gray-300 hover:border-amber-400',
+            authStore.isAdmin ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'
+          ]">
+          <svg v-if="todo.done" viewBox="0 0 10 8" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-2.5 h-2">
+            <polyline points="1,4 3.5,6.5 9,1"/>
+          </svg>
+        </div>
         <template v-if="editingId === todo.id">
           <input v-model="editText" type="text"
             class="flex-1 text-xs border border-gray-200 rounded px-2 py-0.5 focus:outline-none focus:ring-1"

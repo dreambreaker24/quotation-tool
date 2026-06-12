@@ -3,7 +3,7 @@
     <div class="flex items-center justify-between mb-3">
       <div class="flex items-center gap-2">
         <span class="text-xs font-semibold text-gray-700">{{ caseName }}</span>
-        <span class="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">收款期程</span>
+        <span class="text-[10px] px-2 py-0.5 rounded-full font-semibold" style="background:rgba(201,169,110,0.15);color:#c9a96e">收款期程</span>
       </div>
       <div class="flex items-center gap-3">
         <span v-if="milestones.length" class="text-xs text-gray-500">
@@ -88,7 +88,7 @@
 
   <!-- 新增/編輯期款 Modal -->
   <div v-if="showForm" class="fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.4)">
-    <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm mx-4">
+    <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm mx-4 border-t-4" style="border-top-color:#c9a96e">
       <div class="flex items-center justify-between mb-4">
         <h3 class="text-sm font-bold text-gray-800">{{ editingIdx !== null ? '編輯期款' : '新增期款' }}</h3>
         <button @click="showForm = false" class="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
@@ -136,7 +136,7 @@
   </div>
   <!-- 套用模板 Modal -->
   <div v-if="showTemplate" class="fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.4)">
-    <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+    <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto border-t-4" style="border-top-color:#c9a96e">
       <div class="flex items-center justify-between mb-4">
         <h3 class="text-sm font-bold text-gray-800">套用收款模板</h3>
         <button @click="showTemplate = false" class="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>

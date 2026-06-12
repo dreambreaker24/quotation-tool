@@ -2,7 +2,7 @@
   <div class="border-t border-gray-200 bg-white">
     <div class="px-5 py-3 border-b border-gray-100 flex items-center gap-2">
       <span class="text-xs font-semibold text-gray-700">{{ caseName }}</span>
-      <span class="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">待辦事項</span>
+      <span class="text-[10px] px-2 py-0.5 rounded-full font-semibold" style="background:rgba(201,169,110,0.15);color:#c9a96e">待辦事項</span>
     </div>
 
     <div class="flex flex-col gap-0">
@@ -11,13 +11,18 @@
         <!-- 客戶需求 -->
         <div class="p-4">
           <div class="flex items-center justify-between mb-3">
-            <span class="text-[11px] font-semibold text-blue-600 uppercase tracking-wide">客戶需求</span>
-            <button @click="openAdd('client')" class="text-[11px] text-blue-500 hover:text-blue-700">+ 新增</button>
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold text-blue-600 pl-2 border-l-2 border-blue-400">客戶需求</span>
+              <span v-if="clientTasks.length" class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700">{{ clientTasks.filter(t=>t.done).length }}/{{ clientTasks.length }}</span>
+            </div>
+            <button @click="openAdd('client')" class="text-[11px] px-2.5 py-1 rounded-lg border border-blue-200 text-blue-500 hover:bg-blue-50">+ 新增</button>
           </div>
           <div class="flex flex-col gap-2">
             <div v-for="(t, idx) in clientTasks" :key="t.id"
-              class="group relative flex items-start gap-2 bg-blue-50 rounded-xl px-3 py-2.5 text-xs text-gray-700 leading-relaxed">
-              <span class="flex-shrink-0 font-semibold text-blue-400 w-4 text-right">{{ idx + 1 }}.</span>
+              class="group relative flex items-start gap-2.5 rounded-xl px-3 py-2.5 text-xs text-gray-700 leading-relaxed transition-opacity"
+              :class="t.done ? 'bg-gray-50 opacity-50' : 'bg-blue-50'">
+              <span class="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0 mt-0.5"
+                :class="t.done ? 'bg-gray-400' : 'bg-blue-500'">{{ idx + 1 }}</span>
               <div class="flex-1 min-w-0">
                 <template v-if="editingId === t.id">
                   <textarea v-model="editContent" rows="2"
@@ -56,13 +61,18 @@
         <!-- 主管指示 -->
         <div class="p-4">
           <div class="flex items-center justify-between mb-3">
-            <span class="text-[11px] font-semibold text-amber-600 uppercase tracking-wide">主管指示</span>
-            <button v-if="authStore.isManager" @click="openAdd('manager')" class="text-[11px] text-amber-500 hover:text-amber-700">+ 新增</button>
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold text-amber-600 pl-2 border-l-2 border-amber-400">主管指示</span>
+              <span v-if="managerTasks.length" class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">{{ managerTasks.filter(t=>t.done).length }}/{{ managerTasks.length }}</span>
+            </div>
+            <button v-if="authStore.isManager" @click="openAdd('manager')" class="text-[11px] px-2.5 py-1 rounded-lg border border-amber-200 text-amber-500 hover:bg-amber-50">+ 新增</button>
           </div>
           <div class="flex flex-col gap-2">
             <div v-for="(t, idx) in managerTasks" :key="t.id"
-              class="group relative flex items-start gap-2 bg-amber-50 rounded-xl px-3 py-2.5 text-xs text-gray-700 leading-relaxed">
-              <span class="flex-shrink-0 font-semibold text-amber-400 w-4 text-right">{{ idx + 1 }}.</span>
+              class="group relative flex items-start gap-2.5 rounded-xl px-3 py-2.5 text-xs text-gray-700 leading-relaxed transition-opacity"
+              :class="t.done ? 'bg-gray-50 opacity-50' : 'bg-amber-50'">
+              <span class="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0 mt-0.5"
+                :class="t.done ? 'bg-gray-400' : 'bg-amber-500'">{{ idx + 1 }}</span>
               <div class="flex-1 min-w-0">
                 <template v-if="editingId === t.id">
                   <textarea v-model="editContent" rows="2"
@@ -143,7 +153,7 @@
 
     <!-- 新增 Modal -->
     <div v-if="showAdd" class="fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.4)">
-      <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm mx-4">
+      <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm mx-4 border-t-4" style="border-top-color:#c9a96e">
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-sm font-bold text-gray-800">
             {{ addType === 'client' ? '新增客戶需求' : addType === 'manager' ? '新增主管指示' : '新增回覆' }}
