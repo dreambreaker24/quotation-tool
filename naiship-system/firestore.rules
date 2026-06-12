@@ -86,7 +86,8 @@ service cloud.firestore {
     match /paymentReminders/{reminderId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn();
-      allow update, delete: if isManager();
+      allow update: if isSignedIn();
+      allow delete: if isManager();
     }
   }
 }
