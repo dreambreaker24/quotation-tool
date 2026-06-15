@@ -1256,12 +1256,9 @@
       const canvas1 = await html2canvas(page1, captureOpts);
       const page1H = Math.min(canvas1.height / canvas1.width * 210, 297);
 
-      // 擷取第二頁
+      // 擷取第二頁（全高截圖，不裁切）
       const page2 = document.getElementById('a4-page-2');
-      const p2 = { height: page2.style.height, overflow: page2.style.overflow };
-      page2.style.cssText += '; height:297mm; overflow:hidden;';
       const canvas2 = await html2canvas(page2, captureOpts);
-      page2.style.height = p2.height; page2.style.overflow = p2.overflow;
 
       // 還原可見度
       costCols.forEach(el => { el.style.display = ''; });
@@ -1271,8 +1268,20 @@
       const { jsPDF } = window.jspdf;
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
       pdf.addImage(canvas1.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 210, page1H);
-      pdf.addPage();
-      pdf.addImage(canvas2.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 210, 297);
+
+      // 第二頁自動分頁：按 A4 高度切片，內容超過 297mm 自動增頁
+      const a4SlicePx = Math.round(297 / 25.4 * 96 * captureOpts.scale);
+      let sliceY = 0;
+      while (sliceY < canvas2.height) {
+        const sliceH = Math.min(a4SlicePx, canvas2.height - sliceY);
+        const slice = document.createElement('canvas');
+        slice.width = canvas2.width;
+        slice.height = sliceH;
+        slice.getContext('2d').drawImage(canvas2, 0, sliceY, canvas2.width, sliceH, 0, 0, canvas2.width, sliceH);
+        pdf.addPage();
+        pdf.addImage(slice.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 210, sliceH / canvas2.width * 210);
+        sliceY += sliceH;
+      }
       const pdfBlob = pdf.output('blob');
       if (fileHandle) {
         const writable = await fileHandle.createWritable();
