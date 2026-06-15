@@ -1256,8 +1256,18 @@
       const canvas1 = await html2canvas(page1, captureOpts);
       const page1H = Math.min(canvas1.height / canvas1.width * 210, 297);
 
-      // 擷取第二頁（全高截圖，不裁切）
+      // 擷取第二頁前，先量各工程區塊間的間隙位置（DOM px）作為智慧切割候選點
       const page2 = document.getElementById('a4-page-2');
+      const detailCont = document.getElementById('prev-detail-content');
+      const cutCandidatesDom = [];
+      if (detailCont) {
+        const sects = Array.from(detailCont.children);
+        for (let i = 0; i < sects.length - 1; i++) {
+          const bot = detailCont.offsetTop + sects[i].offsetTop + sects[i].offsetHeight;
+          const nxt = detailCont.offsetTop + sects[i + 1].offsetTop;
+          cutCandidatesDom.push(Math.round((bot + nxt) / 2));
+        }
+      }
       const canvas2 = await html2canvas(page2, captureOpts);
 
       // 還原可見度
@@ -1269,18 +1279,30 @@
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
       pdf.addImage(canvas1.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 210, page1H);
 
-      // 第二頁自動分頁：按 A4 高度切片，內容超過 297mm 自動增頁
+      // 第二頁智慧分頁：在工程區塊間隙切，不切在文字中間
       const a4SlicePx = Math.round(297 / 25.4 * 96 * captureOpts.scale);
-      let sliceY = 0;
-      while (sliceY < canvas2.height) {
-        const sliceH = Math.min(a4SlicePx, canvas2.height - sliceY);
+      let sliceStart = 0;
+      while (sliceStart < canvas2.height) {
+        const idealEnd = sliceStart + a4SlicePx;
+        let sliceEnd;
+        if (idealEnd >= canvas2.height) {
+          sliceEnd = canvas2.height;
+        } else {
+          // 從候選切割點中，選最靠近 idealEnd 且不超過的那個
+          const idealDom = idealEnd / captureOpts.scale;
+          let bestDom = idealDom;
+          for (const c of cutCandidatesDom) { if (c <= idealDom) bestDom = c; else break; }
+          sliceEnd = Math.min(Math.round(bestDom * captureOpts.scale), canvas2.height);
+          if (sliceEnd <= sliceStart) sliceEnd = Math.min(idealEnd, canvas2.height);
+        }
+        const sliceH = sliceEnd - sliceStart;
         const slice = document.createElement('canvas');
         slice.width = canvas2.width;
         slice.height = sliceH;
-        slice.getContext('2d').drawImage(canvas2, 0, sliceY, canvas2.width, sliceH, 0, 0, canvas2.width, sliceH);
+        slice.getContext('2d').drawImage(canvas2, 0, sliceStart, canvas2.width, sliceH, 0, 0, canvas2.width, sliceH);
         pdf.addPage();
         pdf.addImage(slice.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 210, sliceH / canvas2.width * 210);
-        sliceY += sliceH;
+        sliceStart = sliceEnd;
       }
       const pdfBlob = pdf.output('blob');
       if (fileHandle) {
