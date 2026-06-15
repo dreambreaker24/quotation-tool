@@ -1353,21 +1353,25 @@
   });
 
   function printWithFit() {
+    var prev = document.getElementById('__pfit');
+    if (prev) prev.remove();
     var page = document.getElementById('a4-page');
     if (page) {
-      page.style.zoom = '';
       void page.offsetHeight;
-      var a4Px = 297 / 25.4 * 96 * 0.97;
-      if (page.scrollHeight > a4Px) {
-        page.style.zoom = String(a4Px / page.scrollHeight);
-        void page.offsetHeight;
+      var a4Px = 297 / 25.4 * 96 * 0.95;
+      var h = page.scrollHeight;
+      if (h > a4Px) {
+        var s = document.createElement('style');
+        s.id = '__pfit';
+        s.textContent = '@media print{#a4-page{zoom:' + (a4Px / h).toFixed(4) + '!important}}';
+        document.head.appendChild(s);
       }
     }
     window.print();
   }
   window.addEventListener('afterprint', function () {
-    var page = document.getElementById('a4-page');
-    if (page) page.style.zoom = '';
+    var s = document.getElementById('__pfit');
+    if (s) s.remove();
   });
 </script>
 </body>
