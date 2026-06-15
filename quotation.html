@@ -93,12 +93,12 @@
         width: 100%;
         min-height: 297mm;
         box-shadow: none;
-        padding: 10mm 14mm 8mm 14mm;
+        padding: 4mm 16mm 20mm 16mm;
         page-break-inside: avoid;
         break-inside: avoid;
       }
       #prev-header {
-        margin: -10mm -14mm 0 -14mm !important;
+        margin: -4mm -16mm 0 -16mm !important;
         print-color-adjust: exact;
         -webkit-print-color-adjust: exact;
       }
@@ -1350,6 +1350,20 @@
       liveQuotes = [];
       renderHistoryList();
     }
+  });
+
+  window.addEventListener('beforeprint', function () {
+    var page = document.getElementById('a4-page');
+    if (!page) return;
+    page.style.zoom = '';
+    var a4Px = 297 / 25.4 * 96;
+    if (page.scrollHeight > a4Px) {
+      page.style.zoom = a4Px / page.scrollHeight;
+    }
+  });
+  window.addEventListener('afterprint', function () {
+    var page = document.getElementById('a4-page');
+    if (page) page.style.zoom = '';
   });
 </script>
 </body>
