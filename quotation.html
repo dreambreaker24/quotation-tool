@@ -175,7 +175,7 @@
       </button>
     </div>
     <div class="no-print" style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:20px;">
-      <button onclick="window.print()"
+      <button onclick="printWithFit()"
         style="padding:12px; background:#2C2C2C; color:#fff; border:none; border-radius:6px; cursor:pointer; font-size:14px; font-family:inherit;">
         🖨 列印
       </button>
@@ -1352,15 +1352,19 @@
     }
   });
 
-  window.addEventListener('beforeprint', function () {
+  function printWithFit() {
     var page = document.getElementById('a4-page');
-    if (!page) return;
-    page.style.zoom = '';
-    var a4Px = 297 / 25.4 * 96;
-    if (page.scrollHeight > a4Px) {
-      page.style.zoom = a4Px / page.scrollHeight;
+    if (page) {
+      page.style.zoom = '';
+      void page.offsetHeight;
+      var a4Px = 297 / 25.4 * 96 * 0.97;
+      if (page.scrollHeight > a4Px) {
+        page.style.zoom = String(a4Px / page.scrollHeight);
+        void page.offsetHeight;
+      }
     }
-  });
+    window.print();
+  }
   window.addEventListener('afterprint', function () {
     var page = document.getElementById('a4-page');
     if (page) page.style.zoom = '';
