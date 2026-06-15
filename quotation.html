@@ -91,10 +91,11 @@
       }
       #a4-page {
         width: 100%;
-        height: 297mm;
-        overflow: hidden;
+        min-height: 297mm;
         box-shadow: none;
         padding: 10mm 14mm 8mm 14mm;
+        page-break-inside: avoid;
+        break-inside: avoid;
       }
       #prev-header {
         margin: -10mm -14mm 0 -14mm !important;
