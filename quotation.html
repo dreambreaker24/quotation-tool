@@ -1256,16 +1256,17 @@
       const canvas1 = await html2canvas(page1, captureOpts);
       const page1H = Math.min(canvas1.height / canvas1.width * 210, 297);
 
-      // 擷取第二頁前，先量各工程區塊間的間隙位置（DOM px）作為智慧切割候選點
+      // 擷取第二頁前，用 getBoundingClientRect 量各工程區塊間隙的中點（DOM px）
       const page2 = document.getElementById('a4-page-2');
+      const p2Rect = page2.getBoundingClientRect();
       const detailCont = document.getElementById('prev-detail-content');
       const cutCandidatesDom = [];
       if (detailCont) {
         const sects = Array.from(detailCont.children);
         for (let i = 0; i < sects.length - 1; i++) {
-          const bot = detailCont.offsetTop + sects[i].offsetTop + sects[i].offsetHeight;
-          const nxt = detailCont.offsetTop + sects[i + 1].offsetTop;
-          cutCandidatesDom.push(Math.round((bot + nxt) / 2));
+          const bot = sects[i].getBoundingClientRect().bottom - p2Rect.top;
+          const nxt = sects[i + 1].getBoundingClientRect().top - p2Rect.top;
+          if (nxt > bot) cutCandidatesDom.push(Math.round((bot + nxt) / 2));
         }
       }
       const canvas2 = await html2canvas(page2, captureOpts);
