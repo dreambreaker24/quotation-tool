@@ -175,7 +175,7 @@
       </button>
     </div>
     <div class="no-print" style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:20px;">
-      <button onclick="printWithFit()"
+      <button onclick="window.print()"
         style="padding:12px; background:#2C2C2C; color:#fff; border:none; border-radius:6px; cursor:pointer; font-size:14px; font-family:inherit;">
         🖨 列印
       </button>
@@ -1352,23 +1352,20 @@
     }
   });
 
-  function printWithFit() {
+  window.addEventListener('beforeprint', function () {
     var prev = document.getElementById('__pfit');
     if (prev) prev.remove();
     var page = document.getElementById('a4-page');
-    if (page) {
-      void page.offsetHeight;
-      var a4Px = 297 / 25.4 * 96 * 0.95;
-      var h = page.scrollHeight;
-      if (h > a4Px) {
-        var s = document.createElement('style');
-        s.id = '__pfit';
-        s.textContent = '@media print{#a4-page{zoom:' + (a4Px / h).toFixed(4) + '!important}}';
-        document.head.appendChild(s);
-      }
+    if (!page) return;
+    var a4Px = 297 / 25.4 * 96 * 0.93;
+    var h = page.scrollHeight;
+    if (h > a4Px) {
+      var s = document.createElement('style');
+      s.id = '__pfit';
+      s.textContent = '@media print{#a4-page{zoom:' + (a4Px / h).toFixed(4) + '!important;page-break-inside:avoid!important}}';
+      document.head.appendChild(s);
     }
-    window.print();
-  }
+  });
   window.addEventListener('afterprint', function () {
     var s = document.getElementById('__pfit');
     if (s) s.remove();
