@@ -1251,12 +1251,10 @@
 
       const captureOpts = { scale: 3, useCORS: true, backgroundColor: '#ffffff' };
 
-      // 擷取第一頁（固定 297mm 高度避免超高截圖）
+      // 擷取第一頁（全高截圖，不裁切；addImage 時限縮至 297mm 以防溢出）
       const page1 = document.getElementById('a4-page');
-      const p1 = { height: page1.style.height, minHeight: page1.style.minHeight, overflow: page1.style.overflow };
-      page1.style.cssText += '; height:297mm; min-height:unset; overflow:hidden;';
       const canvas1 = await html2canvas(page1, captureOpts);
-      page1.style.height = p1.height; page1.style.minHeight = p1.minHeight; page1.style.overflow = p1.overflow;
+      const page1H = Math.min(canvas1.height / canvas1.width * 210, 297);
 
       // 擷取第二頁
       const page2 = document.getElementById('a4-page-2');
@@ -1272,7 +1270,7 @@
       // 產生 PDF
       const { jsPDF } = window.jspdf;
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-      pdf.addImage(canvas1.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 210, 297);
+      pdf.addImage(canvas1.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 210, page1H);
       pdf.addPage();
       pdf.addImage(canvas2.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 210, 297);
       const pdfBlob = pdf.output('blob');
