@@ -166,7 +166,7 @@
       <div class="flex flex-col gap-3 overflow-y-auto px-6 py-2 flex-1">
         <div>
           <label class="text-xs text-gray-500 mb-1 block">工種 *</label>
-          <select v-model="selectedCategory" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
+          <select v-model="selectedCategory" @change="onCategoryChange" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
             <option value="">— 請選擇工種 —</option>
             <option v-for="cat in WORK_CATEGORIES" :key="cat" :value="cat">{{ cat }}</option>
             <option value="__custom__">自訂…</option>
@@ -399,7 +399,7 @@
   </div>
 </template>
 <script setup>
-import { ref, computed, reactive, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, reactive, onMounted, onUnmounted } from 'vue'
 import { WORK_CATEGORIES } from '@/constants/workCategories'
 import { useVendorsStore } from '@/stores/vendors'
 import { useCasesStore } from '@/stores/cases'
@@ -514,10 +514,11 @@ const formVendorCostTotal = computed(() =>
 )
 
 const selectedCategory = ref('')
-watch(selectedCategory, (val) => {
+function onCategoryChange() {
+    const val = selectedCategory.value
     if (val && val !== '__custom__') form.value.name = val
     else if (val === '__custom__') form.value.name = ''
-})
+}
 
 const vendorSearch = ref('')
 const showVendorDropdown = ref(false)
