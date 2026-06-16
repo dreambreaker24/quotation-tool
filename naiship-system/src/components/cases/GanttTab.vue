@@ -165,6 +165,17 @@
           class="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 bg-white">
           ⧉ 複製案件
         </button>
+        <button v-if="authStore.isManager && selectedCaseStatus !== 'completed' && selectedCaseStatus !== 'lost'"
+          @click="markCaseComplete"
+          class="text-xs px-3 py-1.5 rounded-lg text-white font-medium hover:opacity-90 transition-opacity"
+          style="background:#22c55e">
+          ✓ 案件完成
+        </button>
+        <span v-else-if="selectedCaseStatus === 'completed'"
+          class="text-xs px-3 py-1.5 rounded-lg font-medium"
+          style="background:#dcfce7;color:#15803d">
+          ✓ 已完工
+        </span>
       </div>
     </div>
 
@@ -365,6 +376,19 @@ const ganttRows = computed(() => {
     }
     return rows
 })
+
+const selectedCaseStatus = computed(() =>
+    casesStore.cases.find(x => x.id === selectedCaseId.value)?.status ?? ''
+)
+
+async function markCaseComplete() {
+    const c = casesStore.cases.find(x => x.id === selectedCaseId.value)
+    if (!c) return
+    if (!confirm(`確定要將「${c.name}」標記為已完工？`)) return
+    await casesStore.updateCase(selectedCaseId.value, { status: 'completed' })
+    notifStore.notifyAll(authStore.name ?? '', `已將「${c.name}」標記為完工`, selectedCaseId.value, c.name, c.companyId)
+    toast(`「${c.name}」已標記為已完工`)
+}
 
 async function copyCase() {
     const c = casesStore.cases.find(x => x.id === selectedCaseId.value)
