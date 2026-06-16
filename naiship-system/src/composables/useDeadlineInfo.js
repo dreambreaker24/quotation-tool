@@ -1,5 +1,6 @@
 export function deadlineInfo(c) {
     if (!c.deadline) return null
+    if (c.status === 'completed' || c.status === 'lost') return null
     const d = c.deadline.toDate?.() ?? new Date(c.deadline)
     const days = Math.ceil((d - new Date()) / (1000 * 60 * 60 * 24))
     if (days < 0) return { label: `逾期 ${Math.abs(days)} 天`, color: '#ef4444', bg: 'rgba(239,68,68,0.2)' }
