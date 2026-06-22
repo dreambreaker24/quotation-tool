@@ -986,7 +986,8 @@
         _searchMatches = snap.docs.map(d => d.data())
           .filter(q => (q.contractNo && q.contractNo.toLowerCase().includes(keyword)) ||
                        (q.clientName && q.clientName.toLowerCase().includes(keyword)) ||
-                       (q.projectName && q.projectName.toLowerCase().includes(keyword)));
+                       (q.project && q.project.toLowerCase().includes(keyword)) ||
+                       (q.date && q.date.includes(keyword)));
         if (_searchMatches.length === 0) {
           results.innerHTML = '<div style="padding:10px 12px; color:#aaa; font-size:12px;">無符合結果</div>';
         } else {
