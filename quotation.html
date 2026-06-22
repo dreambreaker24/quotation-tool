@@ -1578,7 +1578,7 @@
               '<td style="padding:4px 6px;border-bottom:1px solid #e5e7eb;text-align:right;">1</td>' +
               '<td style="padding:4px 6px;border-bottom:1px solid #e5e7eb;text-align:center;">式</td>' +
               '<td style="padding:4px 6px;border-bottom:1px solid #e5e7eb;text-align:right;">—</td>' +
-              '<td style="padding:4px 6px;border-bottom:1px solid #e5e7eb;text-align:right;font-weight:bold;">' + r.total.toLocaleString() + '</td>' +
+              '<td style="padding:4px 6px;border-bottom:1px solid #e5e7eb;text-align:right;font-weight:bold;">—</td>' +
               '<td class="cost-col" style="padding:4px 6px;border-bottom:1px solid #e5e7eb;text-align:right;color:#888;">—</td>' +
               '<td class="cost-col" style="padding:4px 6px;border-bottom:1px solid #e5e7eb;text-align:right;color:#888;">—</td>';
             _tbody.appendChild(tr);
@@ -1589,6 +1589,7 @@
             if (cells[3]) cells[3].textContent = '1';
             if (cells[4]) cells[4].textContent = '式';
             if (cells[5]) cells[5].textContent = '—';
+            if (cells[6]) cells[6].textContent = '—';
           });
         }
       }
