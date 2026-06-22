@@ -890,15 +890,17 @@ out = out.replace(
     }
 );
 
-// ── A2. savePDF：檔名改為 合約編號-施工項目-報價日期.pdf ──
+// ── A2. savePDF：檔名改為 公司名稱｜合約編號｜施工項目｜報價日期.pdf ──
+// quotation.html 已有此格式（_pdfName 變數），此步驟為 no-op
 out = out.replace(
     "        pdf.save(`${contractNo}.pdf`);",
     function() {
         return (
-            `        var _proj = (document.getElementById('in-project').value || '').trim().replace(/[\\/\\\\:*?"<>|]/g, '');\n` +
-            `        var _dt = (document.getElementById('in-date').value || '').trim();\n` +
-            `        var _parts = [contractNo, _proj, _dt].filter(Boolean);\n` +
-            `        pdf.save(_parts.join('-') + '.pdf');`
+            `        var _coLabel = currentCompany === 'baiting' ? '柏延' : '奈拾設計';\n` +
+            `        var _pdfProj = (document.getElementById('in-project').value || '').trim().replace(/[\\/\\\\:*?"<>|]/g, '');\n` +
+            `        var _pdfDt = (document.getElementById('in-date').value || '').trim();\n` +
+            `        var _pdfName = [_coLabel, contractNo, _pdfProj, _pdfDt].filter(Boolean).join('｜') + '.pdf';\n` +
+            `        pdf.save(_pdfName);`
         );
     }
 );
@@ -1115,7 +1117,7 @@ fs.writeFileSync('C:/AI助理 Claude/quotation-dev.html', out, 'utf8');
 // 驗證
 const checks = [
   ['自動合約編號 newQuote', out.includes('padStart(3,')],
-  ['PDF 檔名三段式', out.includes("_parts.join('-') + '.pdf'")],
+  ['PDF 檔名四段式', out.includes("pdf.save(_pdfName)")],
   ['DEV 標題', out.includes('[DEV] 奈拾設計')],
   ['PRICE_DB', out.includes('const PRICE_DB = [')],
   ['Modal HTML', out.includes('id="price-modal"')],

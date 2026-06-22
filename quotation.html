@@ -1708,13 +1708,17 @@
     const btn = document.getElementById('btn-save-pdf');
     const origLabel = btn.textContent;
     const contractNo = document.getElementById('in-contract-no').value.trim() || '報價單';
+    const _coLabel = currentCompany === 'baiting' ? '柏延' : '奈拾設計';
+    const _pdfProj = (document.getElementById('in-project').value || '').trim().replace(/[\/\\:*?"<>|]/g, '');
+    const _pdfDt = (document.getElementById('in-date').value || '').trim();
+    const _pdfName = [_coLabel, contractNo, _pdfProj, _pdfDt].filter(Boolean).join('｜') + '.pdf';
 
     // 必須在點擊手勢的當下立刻呼叫，不能放在 await 之後
     let fileHandle = null;
     if (window.showSaveFilePicker) {
       try {
         fileHandle = await window.showSaveFilePicker({
-          suggestedName: `${contractNo}.pdf`,
+          suggestedName: _pdfName,
           types: [{ description: 'PDF 檔案', accept: { 'application/pdf': ['.pdf'] } }]
         });
       } catch (e) {
@@ -1818,10 +1822,7 @@
         await writable.write(pdfBlob);
         await writable.close();
       } else {
-        var _proj = (document.getElementById('in-project').value || '').trim().replace(/[\/\\:*?"<>|]/g, '');
-        var _dt = (document.getElementById('in-date').value || '').trim();
-        var _parts = [contractNo, _proj, _dt].filter(Boolean);
-        pdf.save(_parts.join('-') + '.pdf');
+        pdf.save(_pdfName);
       }
     } catch(e) {
       alert('PDF 產生失敗，請改用「列印」按鈕，在對話框選擇「另存為 PDF」');
