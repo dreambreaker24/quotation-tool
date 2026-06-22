@@ -1041,8 +1041,9 @@
       div.dataset.contractNo = q.contractNo;
       div.style.cssText = 'cursor:pointer; padding:10px 12px; border:1px solid #eee; border-radius:6px; margin-bottom:8px; background:#fff;';
       div.onclick = () => loadQuote(q);
+      const _titleParts = [co.name, q.contractNo, q.project, q.date].filter(Boolean).map(p => escHtml(p));
       div.innerHTML = `
-        <div style="font-weight:bold; font-size:13px; margin-bottom:2px;">${escHtml(co.name)}｜${escHtml(q.project)}｜${escHtml(q.contractNo)}</div>
+        <div style="font-weight:bold; font-size:13px; margin-bottom:2px;">${_titleParts.join('｜')}</div>
         <div style="font-size:11px; color:#aaa;">最後修改：${escHtml(q.updatedBy || q.createdBy || '—')} · ${timeAgo(q.updatedAt)}</div>
       `;
       container.appendChild(div);
