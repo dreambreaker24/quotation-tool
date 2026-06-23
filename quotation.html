@@ -233,27 +233,33 @@
     </div>
     <div class="no-print" style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:20px;">
       <button onclick="window.print()"
-        style="padding:12px; background:#2C2C2C; color:#fff; border:none; border-radius:6px; cursor:pointer; font-size:14px; font-family:inherit;">
+        style="padding:12px; background:#6b7280; color:#fff; border:none; border-radius:6px; cursor:pointer; font-size:14px; font-family:inherit;">
         🖨 列印
       </button>
       <button id="btn-save-pdf" onclick="savePDF()"
-        style="padding:12px; background:#2C2C2C; color:#fff; border:none; border-radius:6px; cursor:pointer; font-size:14px; font-family:inherit;">
+        style="padding:12px; background:#2563eb; color:#fff; border:none; border-radius:6px; cursor:pointer; font-size:14px; font-family:inherit;">
         💾 儲存 PDF
       </button>
     </div>
     <!-- 公司切換 -->
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:16px;">
       <button id="btn-naiship" onclick="switchCompany('naiship')"
-        style="padding:10px; background:#2C2C2C; color:#fff; border:none; border-radius:6px; cursor:pointer; font-family:inherit; font-size:13px;">奈拾設計</button>
+        style="padding:10px; background:#c9a96e; color:#fff; border:none; border-radius:6px; cursor:pointer; font-family:inherit; font-size:13px;">奈拾設計</button>
       <button id="btn-baiting" onclick="switchCompany('baiting')"
         style="padding:10px; background:#e0e0e0; color:#555; border:none; border-radius:6px; cursor:pointer; font-family:inherit; font-size:13px;">柏延</button>
     </div>
 
-    <!-- 新增 / 儲存 -->
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:6px;">
+    <!-- 新增 / 另存 / 儲存 -->
+    <div style="margin-bottom:6px;">
       <button onclick="newQuote()"
-        style="padding:10px; background:#fff; color:#2C2C2C; border:1px solid #2C2C2C; border-radius:6px; cursor:pointer; font-size:13px; font-family:'Microsoft JhengHei',sans-serif;">
+        style="width:100%; padding:10px; background:#059669; color:#fff; border:none; border-radius:6px; cursor:pointer; font-size:13px; font-family:'Microsoft JhengHei',sans-serif;">
         ＋ 新增空白報價單
+      </button>
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:6px;">
+      <button onclick="saveAsNew()"
+        style="padding:10px; background:#d97706; color:#fff; border:none; border-radius:6px; cursor:pointer; font-size:13px; font-family:'Microsoft JhengHei',sans-serif;">
+        📋 另存新檔
       </button>
       <button onclick="saveQuote()"
         style="padding:10px; background:#2C2C2C; color:#fff; border:none; border-radius:6px; cursor:pointer; font-size:13px; font-family:'Microsoft JhengHei',sans-serif;">
@@ -956,9 +962,9 @@
     });
     document.getElementById('prev-stamp').src = co.stamp;
     document.getElementById('prev-company-name').textContent = co.name;
-    document.getElementById('btn-naiship').style.background = id === 'naiship' ? '#2C2C2C' : '#e0e0e0';
+    document.getElementById('btn-naiship').style.background = id === 'naiship' ? '#c9a96e' : '#e0e0e0';
     document.getElementById('btn-naiship').style.color = id === 'naiship' ? '#fff' : '#555';
-    document.getElementById('btn-baiting').style.background = id === 'baiting' ? '#2C2C2C' : '#e0e0e0';
+    document.getElementById('btn-baiting').style.background = id === 'baiting' ? '#c9a96e' : '#e0e0e0';
     document.getElementById('btn-baiting').style.color = id === 'baiting' ? '#fff' : '#555';
     document.getElementById('in-company-email').value = co.email;
     document.getElementById('in-company-web').value = co.web;
@@ -1153,6 +1159,43 @@
                 : e.message || e.code || String(e);
       hint.textContent = '儲存失敗：' + msg;
       console.error('儲存錯誤：', e.code, e);
+    }
+  }
+
+  async function saveAsNew() {
+    const hint = document.getElementById('save-hint');
+    hint.style.color = '#888';
+    hint.textContent = '另存新檔中…';
+    try {
+      const user = auth.currentUser;
+      if (!user) throw new Error('尚未登入');
+      await user.getIdToken(true);
+      const yr = new Date().getFullYear();
+      const pfx = currentCompany === 'baiting' ? 'PO' : 'NS';
+      const pref = pfx + '-' + yr + '-';
+      const snap = await db.collection('quotations')
+        .where(firebase.firestore.FieldPath.documentId(), '>=', pref)
+        .where(firebase.firestore.FieldPath.documentId(), '<', pref + '')
+        .get();
+      const seqs = snap.docs.map(d => { const m = d.id.match(/-(\d+)$/); return m ? parseInt(m[1]) : 0; });
+      const next = seqs.length > 0 ? Math.max(...seqs) + 1 : 1;
+      const newId = pref + String(next).padStart(3, '0');
+      const data = serializeQuote();
+      data.contractNo = newId;
+      const userName = user.displayName || user.email || '未知用戶';
+      const now = firebase.firestore.FieldValue.serverTimestamp();
+      await db.collection('quotations').doc(newId).set({
+        ...data, createdBy: userName, createdAt: now, updatedBy: userName, updatedAt: now
+      });
+      document.getElementById('in-contract-no').value = newId;
+      document.getElementById('in-contract-no').dispatchEvent(new Event('input'));
+      hint.style.color = '#3a3';
+      hint.textContent = `已另存為：${newId}`;
+      setTimeout(() => { hint.textContent = ''; }, 3000);
+    } catch(e) {
+      hint.style.color = '#e53935';
+      hint.textContent = '另存失敗：' + (e.message || e.code || String(e));
+      console.error(e);
     }
   }
 
