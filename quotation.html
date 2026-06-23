@@ -1600,6 +1600,18 @@
           </tfoot>
         </table>`;
       container.appendChild(section);
+      if (cat.name && cat.name.includes('拆除')) {
+        var _tbody2 = section.querySelector('tbody');
+        if (_tbody2) {
+          Array.from(_tbody2.querySelectorAll('tr')).forEach(function(row) {
+            var cells = row.querySelectorAll('td');
+            if (cells[3]) cells[3].textContent = '1';
+            if (cells[4]) cells[4].textContent = '式';
+            if (cells[5]) cells[5].textContent = '—';
+            if (cells[6]) cells[6].textContent = '—';
+          });
+        }
+      }
 
       var _note = cat.note || '';
       if (_note) {
