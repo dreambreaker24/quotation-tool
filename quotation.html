@@ -365,6 +365,63 @@
       print-color-adjust: exact;
       -webkit-print-color-adjust: exact;
     }
+
+    /* ── 牌價選擇 Modal ── */
+    #price-modal {
+      display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+      background:rgba(0,0,0,0.55); z-index:9000; align-items:center; justify-content:center;
+    }
+    #price-modal.open { display:flex; }
+    #price-modal-box {
+      background:#fff; border-radius:10px; width:600px; max-height:82vh;
+      display:flex; flex-direction:column;
+      box-shadow:0 8px 40px rgba(0,0,0,0.25); overflow:hidden;
+    }
+    #price-modal-header {
+      display:flex; justify-content:space-between; align-items:center;
+      padding:14px 18px; border-bottom:1px solid #eee; flex-shrink:0;
+    }
+    #price-modal-header strong { font-size:15px; color:#2C2C2C; }
+    #price-modal-header button {
+      padding:4px 10px; background:#eee; border:none; border-radius:4px;
+      cursor:pointer; font-size:13px; color:#555; font-family:inherit;
+    }
+    #price-modal-search { padding:10px 14px 0; flex-shrink:0; }
+    #price-modal-search input {
+      width:100%; padding:8px 12px; border:1px solid #ccc; border-radius:6px;
+      font-size:14px; font-family:"Microsoft JhengHei",sans-serif; outline:none; box-sizing:border-box;
+    }
+    #price-modal-search input:focus { border-color:#2C2C2C; }
+    #price-cat-tabs { display:flex; flex-wrap:wrap; gap:4px; padding:8px 0 6px; }
+    .price-cat-tab {
+      padding:3px 10px; border-radius:20px; border:1px solid #ddd;
+      font-size:11px; cursor:pointer; white-space:nowrap; background:#fff;
+      font-family:"Microsoft JhengHei",sans-serif; color:#555;
+    }
+    .price-cat-tab.active { background:#2C2C2C; color:#fff; border-color:#2C2C2C; }
+    #price-modal-list { overflow-y:auto; flex:1; padding:4px 0 8px; }
+    .price-item { padding:8px 16px; border-bottom:1px solid #f5f5f5; cursor:pointer; }
+    .price-item:hover { background:#f7f7f7; }
+    .price-item-desc { font-size:13px; font-weight:bold; color:#1a1a1a; }
+    .price-item-spec { font-size:11px; color:#888; margin-top:1px; }
+    .price-item-meta { font-size:11px; color:#666; margin-top:2px; }
+    .price-item-meta .pv { color:#2C2C2C; font-weight:bold; }
+    @media print { #prev-contract-ol { display: block !important; } }
+    /* ── 浮水印 ── */
+    .page-watermark {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 62%;
+      opacity: 0.10;
+      filter: brightness(0);
+      pointer-events: none;
+      user-select: none;
+      z-index: 0;
+      print-color-adjust: exact;
+      -webkit-print-color-adjust: exact;
+    }
   </style>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
@@ -628,7 +685,7 @@
       <div id="prev-header" style="display:flex; justify-content:space-between; align-items:center; background:#2C2C2C; border-bottom:3px solid #c9a96e; margin: -4mm -16mm 0 -16mm; padding: 0 16mm; height:50mm; overflow:hidden;">
         <!-- 左：Logo -->
         <div style="display:flex; align-items:center;">
-          <img id="prev-logo" src="assets/奈拾設計LOGO2.png" alt="奈拾設計" style="height:390px; object-fit:contain; display:block;">
+          <img id="prev-logo" src="assets/奈拾設計LOGO2.png" alt="奈拾設計" style="height:400px; object-fit:contain; display:block; margin-left:-10px;">
         </div>
         <!-- 右：合約資訊 -->
         <div style="font-size:10pt; text-align:left; display:flex; flex-direction:column; justify-content:center; color:#fff;">
@@ -765,7 +822,7 @@
 
       <!-- 頁首色塊 -->
       <div id="prev2-header" style="display:flex; justify-content:space-between; align-items:center; background:#2C2C2C; border-bottom:3px solid #c9a96e; margin:-8mm -14mm 4mm -14mm; padding:0 14mm; height:22mm; print-color-adjust:exact; -webkit-print-color-adjust:exact;">
-        <img id="prev2-logo" src="assets/奈拾設計LOGO2.png" alt="奈拾設計" style="height:60px; object-fit:contain; display:block;">
+        <img id="prev2-logo" src="assets/奈拾設計LOGO2.png" alt="奈拾設計" style="height:160px; object-fit:contain; display:block;">
         <table style="font-size:9pt; color:#fff; line-height:1.6; border-collapse:collapse;">
           <tr>
             <td style="white-space:nowrap; padding-right:4px;">合約編號：</td>
@@ -1129,6 +1186,8 @@
 
   var DEFAULT_CONTRACT_TERMS = '付款條款：依付款條件約定期程給付，逾期每日加計千分之三違約金。\n工程變更：工程施作期間如需變更設計或材料，須雙方書面同意，並另行議定費用。\n工期延誤：因不可抗力（天災、疫情、供料延誤）造成工期延誤，雙方不互相追究。\n驗收標準：工程完工後，委託人應於 7 日內完成驗收；逾期視為驗收通過。\n保固責任：竣工驗收後，乙方提供 1 年工程保固，材料瑕疵不在此限。\n爭議處理：因本合約發生爭議，雙方同意以台灣台南地方法院為第一審管轄法院。';
 
+  var DEFAULT_CONTRACT_TERMS = '付款條款：依付款條件約定期程給付，逾期每日加計千分之三違約金。\n工程變更：工程施作期間如需變更設計或材料，須雙方書面同意，並另行議定費用。\n工期延誤：因不可抗力（天災、疫情、供料延誤）造成工期延誤，雙方不互相追究。\n驗收標準：工程完工後，委託人應於 7 日內完成驗收；逾期視為驗收通過。\n保固責任：竣工驗收後，乙方提供 1 年工程保固，材料瑕疵不在此限。\n爭議處理：因本合約發生爭議，雙方同意以台灣台南地方法院為第一審管轄法院。';
+
   const COMPANIES = {
     naiship: {
       name: '奈拾室內裝修設計有限公司',
@@ -1136,7 +1195,8 @@
       stamp: 'assets/奈拾公司章.png',
       email: 'nextdesign62@gmail.com',
       web: 'nextplus-design.com/design',
-      logoHeight: '390px',
+      logoHeight: '400px',
+      logo2Height: '160px',
       bank: { name: '玉山銀行', code: '808-0761', account: '0761-940-050557', branch: '東台南分行', holder: '奈拾室內裝修設計有限公司' },
     },
     baiting: {
@@ -1146,6 +1206,7 @@
       email: 'nextdesign62@gmail.com',
       web: 'nextplus-design.com/design',
       logoHeight: '208px',
+      logo2Height: '60px',
       bank: { name: '玉山銀行', code: '808-0761', account: '0761-940-050817', branch: '東台南分行', holder: '柏延有限公司' },
     }
   };
@@ -1156,12 +1217,18 @@
   var WM_LOGOS = { naiship: 'assets/奈拾設計LOGO2.png', baiting: 'assets/柏延LOGO.png' };
   var WM_LOGOS = { naiship: 'assets/奈拾設計LOGO2.png', baiting: 'assets/柏延LOGO.png' };
   var WM_LOGOS = { naiship: 'assets/奈拾設計LOGO2.png', baiting: 'assets/柏延LOGO.png' };
+  var WM_LOGOS = { naiship: 'assets/奈拾設計LOGO2.png', baiting: 'assets/柏延LOGO.png' };
   function switchCompany(id) {
     currentCompany = id;
     const co = COMPANIES[id];
     document.getElementById('prev-logo').src = co.logo;
     document.getElementById('prev-logo').style.height = co.logoHeight;
     document.getElementById('prev2-logo').src = co.logo;
+    ['wm-page1','wm-page2'].forEach(function(wid) {
+      var wel = document.getElementById(wid);
+      if (wel) wel.src = WM_LOGOS[id] || co.logo;
+    });
+    document.getElementById('prev2-logo').style.height = co.logo2Height || '60px';
     ['wm-page1','wm-page2'].forEach(function(wid) {
       var wel = document.getElementById(wid);
       if (wel) wel.src = WM_LOGOS[id] || co.logo;
@@ -1307,6 +1374,7 @@
       startDate: document.getElementById('in-start-date').value,
       endDate: document.getElementById('in-end-date').value,
       notes: document.getElementById('in-notes').value,
+      contractTerms: document.getElementById('in-contract-terms').value,
       contractTerms: document.getElementById('in-contract-terms').value,
       contractTerms: document.getElementById('in-contract-terms').value,
       contractTerms: document.getElementById('in-contract-terms').value,
@@ -1472,6 +1540,7 @@
     document.getElementById('in-contract-terms').value = DEFAULT_CONTRACT_TERMS;
     document.getElementById('in-contract-terms').value = DEFAULT_CONTRACT_TERMS;
     document.getElementById('in-contract-terms').value = DEFAULT_CONTRACT_TERMS;
+    document.getElementById('in-contract-terms').value = DEFAULT_CONTRACT_TERMS;
     document.getElementById('in-mgmt-pct').value = 6;
     document.getElementById('in-discount').value = '';
     document.getElementById('in-tax').checked = false;
@@ -1515,6 +1584,7 @@
     document.getElementById('in-start-date').value = q.startDate;
     document.getElementById('in-end-date').value = q.endDate;
     document.getElementById('in-notes').value = q.notes || '';
+    document.getElementById('in-contract-terms').value = q.contractTerms || DEFAULT_CONTRACT_TERMS;
     document.getElementById('in-contract-terms').value = q.contractTerms || DEFAULT_CONTRACT_TERMS;
     document.getElementById('in-contract-terms').value = q.contractTerms || DEFAULT_CONTRACT_TERMS;
     document.getElementById('in-contract-terms').value = q.contractTerms || DEFAULT_CONTRACT_TERMS;
@@ -1682,6 +1752,9 @@
     const id = subIdCounter++;
     const item = { id, catId, desc: '', spec: '', qty: 1, unit: '式', price: 0, cost: 0, margin: 0 };
     if (data) Object.assign(item, { desc: data.desc||'', spec: data.spec||'', qty: data.qty||1, unit: data.unit||'式', price: data.price||0, cost: data.cost||0, margin: data.margin||0 });
+    if (!data?.margin && item.price > 0 && item.cost > 0) {
+      item.margin = Math.round((item.price - item.cost) / item.price * 1000) / 10;
+    }
     if (!data?.margin && item.price > 0 && item.cost > 0) {
       item.margin = Math.round((item.price - item.cost) / item.price * 1000) / 10;
     }
@@ -1994,6 +2067,17 @@
   }
   window.addEventListener('beforeprint', renderContractTerms);
 
+  function renderContractTerms() {
+    var ta = document.getElementById('in-contract-terms');
+    var ol = document.getElementById('prev-contract-ol');
+    if (!ta || !ol) return;
+    var lines = ta.value.split('\n').filter(function(l) { return l.trim(); });
+    ol.innerHTML = lines.map(function(l) {
+      return '<li>' + l.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</li>';
+    }).join('');
+  }
+  window.addEventListener('beforeprint', renderContractTerms);
+
   function renderAll() { renderPage1(); renderPage2(); calcTotals(); updateLeftTotal(); updateCatSubtotals(); updateMarginColors(); requestAnimationFrame(updatePrintZoom); }
 
   function updatePrintZoom() {
@@ -2237,6 +2321,29 @@
   });
 
 </script>
+
+  <!-- 牌價選擇 Modal -->
+  <div id="price-modal" onclick="if(event.target===this)closePriceModal()">
+    <div id="price-modal-box">
+      <div id="price-modal-header">
+        <strong>從牌價表選擇</strong>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <label style="font-size:12px;color:#555;cursor:pointer;display:flex;align-items:center;gap:3px;user-select:none;">
+            <input type="checkbox" id="price-modal-multi-toggle" onchange="_priceModalMulti=this.checked" style="cursor:pointer;"> 連續新增
+          </label>
+          <button onclick="closePriceModal()">✕ 關閉</button>
+        </div>
+      </div>
+      <div id="price-modal-search">
+        <input type="text" id="price-modal-input"
+          placeholder="搜尋項目（如：磁磚、天花板、嵌燈、水電）…"
+          oninput="renderPriceList(this.value)"
+          onkeydown="if(event.key==='Escape')closePriceModal()">
+        <div id="price-cat-tabs"></div>
+      </div>
+      <div id="price-modal-list"></div>
+    </div>
+  </div>
 
   <!-- 牌價選擇 Modal -->
   <div id="price-modal" onclick="if(event.target===this)closePriceModal()">
