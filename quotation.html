@@ -1744,6 +1744,13 @@
       costCols.forEach(el => { el.style.display = showCost ? '' : 'none'; });
       if (!showCost) costSection.style.display = 'none';
 
+      // 合約條款：截圖前把 textarea 換成 ol
+      renderContractTerms();
+      const _contractTa = document.getElementById('in-contract-terms');
+      const _contractOl = document.getElementById('prev-contract-ol');
+      _contractTa.style.display = 'none';
+      _contractOl.style.display = 'block';
+
       const captureOpts = { scale: 3, useCORS: true, backgroundColor: '#ffffff' };
 
       // 擷取第一頁（全高截圖，不裁切；addImage 時限縮至 297mm 以防溢出）
@@ -1788,6 +1795,8 @@
       // 還原可見度
       costCols.forEach(el => { el.style.display = ''; });
       costSection.style.display = prevCostDisplay;
+      _contractTa.style.display = '';
+      _contractOl.style.display = 'none';
 
       // 產生 PDF
       const { jsPDF } = window.jspdf;
