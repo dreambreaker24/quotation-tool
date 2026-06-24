@@ -25,6 +25,10 @@
                   <template v-if="r.description"> · {{ r.description }}</template>
                 </div>
                 <div class="text-sm font-bold text-gray-700 mt-1">${{ (r.amount || 0).toLocaleString() }}</div>
+                <span class="text-[10px] px-1.5 py-0.5 rounded-full font-medium mt-1 inline-block"
+                  :class="getInvoiceReceived(r) ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-600'">
+                  {{ getInvoiceReceived(r) ? '發票已到 ✓' : '待收發票' }}
+                </span>
                 <div v-if="r.note" class="text-[11px] text-gray-400 mt-0.5">{{ r.note }}</div>
               </div>
               <button v-if="authStore.isManager" @click="markDone(r.id)"
@@ -80,9 +84,16 @@
 import { ref, computed } from 'vue'
 import { usePaymentRemindersStore } from '@/stores/paymentReminders'
 import { useAuthStore } from '@/stores/auth'
+import { useCasesStore } from '@/stores/cases'
 
 const remindersStore = usePaymentRemindersStore()
 const authStore = useAuthStore()
+const casesStore = useCasesStore()
+
+function getInvoiceReceived(r) {
+    const c = casesStore.cases.find(c => c.id === r.caseId)
+    return c?.workTypes?.find(wt => wt.id === r.workTypeId)?.invoiceReceived ?? false
+}
 const doneFeedback = ref({})
 
 function today() {

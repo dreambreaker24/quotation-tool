@@ -6,10 +6,6 @@
         <span class="text-[10px] px-2 py-0.5 rounded-full font-semibold" style="background:rgba(201,169,110,0.15);color:#c9a96e">工種安排</span>
       </div>
       <div class="flex items-center gap-3">
-        <span v-if="totalPayment > 0" class="text-xs font-medium" style="color:#c9a96e">合計 ${{ totalPayment.toLocaleString() }}</span>
-        <span v-if="totalPayment > 0" class="text-xs font-medium" :class="totalProfit >= 0 ? 'text-green-600' : 'text-red-500'">
-          毛利 ${{ totalProfit.toLocaleString() }}
-        </span>
         <button @click="openAdd" class="text-xs px-3 py-1.5 rounded-lg text-white" style="background:#1e2533">+ 新增工種</button>
       </div>
     </div>
@@ -25,7 +21,7 @@
         <div class="overflow-x-auto -mx-1 px-1">
         <div class="flex items-center gap-3 min-w-[480px]">
           <span class="w-2.5 h-2.5 rounded-full flex-shrink-0" :style="`background:${wt.color}`"></span>
-          <div class="flex-1 grid grid-cols-7 gap-2 items-start">
+          <div class="flex-1 grid grid-cols-6 gap-2 items-start">
             <div>
               <div class="text-[10px] text-gray-400 mb-0.5">工種</div>
               <div class="text-xs font-semibold text-gray-800">{{ wt.name }}</div>
@@ -55,15 +51,6 @@
                 class="text-[9px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 hover:bg-green-100 hover:text-green-600 font-medium mt-0.5 inline-block transition-colors">
                 ✓ 完工
               </button>
-            </div>
-            <div>
-              <div class="text-[10px] text-gray-400 mb-0.5">向業主收款</div>
-              <div class="text-xs font-medium" style="color:#c9a96e">
-                <template v-if="wt.paymentFree">
-                  <span class="px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-600 text-[10px]">免費</span>
-                </template>
-                <template v-else>{{ wtPaymentTotal(wt) > 0 ? `$${wtPaymentTotal(wt).toLocaleString()}` : '—' }}</template>
-              </div>
             </div>
             <div>
               <div class="text-[10px] text-gray-400 mb-0.5">廠商合約金額</div>
@@ -115,6 +102,13 @@
             </div>
           </div>
           <div class="flex gap-1.5 flex-shrink-0">
+            <button v-if="wt.done && wtVendorCostTotal(wt) > 0 && !wt.vendorCostFree"
+              @click="toggleInvoice(idx)"
+              class="text-[11px] px-2 py-1 rounded-lg transition-colors"
+              :class="wt.invoiceReceived ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-amber-100 text-amber-700 hover:bg-amber-200'"
+              :title="wt.invoiceReceived ? '點擊取消確認' : '確認廠商發票已到'">
+              {{ wt.invoiceReceived ? '發票已到 ✓' : '確認發票' }}
+            </button>
             <button @click="openVendorPay(idx)" class="text-[11px] px-2 py-1 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors">記錄付款</button>
             <button @click="openEdit(idx)" class="text-[11px] px-2 py-1 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors">編輯</button>
             <button @click="removeWorkType(idx)" class="text-[11px] px-2 py-1 rounded-lg text-red-400 hover:bg-red-50 transition-colors">刪除</button>
@@ -149,6 +143,103 @@
             </div>
           </div>
           <div v-else class="text-[10px] text-gray-300">尚未上傳</div>
+        </div>
+
+        <!-- Construction photos section -->
+        <div class="mt-2 pt-2 border-t border-gray-100">
+          <div class="flex items-center gap-2 mb-1.5">
+            <span class="text-[10px] text-gray-400 font-medium">施工照片</span>
+            <span v-if="wtConstructPhotoCount(wt.id)"
+              class="text-[9px] min-w-[16px] h-4 px-1 rounded-full bg-gray-400 text-white leading-4 text-center">
+              {{ wtConstructPhotoCount(wt.id) }}
+            </span>
+            <div class="ml-auto flex items-center gap-1.5">
+              <button @click="openWtFolderForm(wt.id)"
+                class="text-[9px] px-1.5 py-0.5 border border-gray-200 rounded text-gray-400 hover:border-gray-400 hover:text-gray-600 transition-colors">
+                + 資料夾
+              </button>
+              <button @click="triggerWtConstructUpload(wt.id)"
+                class="text-[10px] border border-dashed border-gray-200 rounded px-2 py-0.5 text-gray-400 hover:border-gray-400 hover:text-gray-600 transition-colors">
+                + 上傳
+              </button>
+            </div>
+          </div>
+
+          <!-- Has folders: grouped display -->
+          <template v-if="wtFoldersForWt(wt.id).length">
+            <div v-for="folder in wtFoldersForWt(wt.id)" :key="folder.id" class="mb-1">
+              <div class="flex items-center gap-1.5 cursor-pointer py-0.5" @click="toggleWtFolder(folder.id)">
+                <span class="text-[9px] text-gray-300">{{ wtFolderExpanded[folder.id] !== false ? '▼' : '▶' }}</span>
+                <span class="text-[10px] font-semibold text-gray-600">📁 {{ folder.label }}</span>
+                <span v-if="wtPhotosInFolder(wt.id, folder.id).length"
+                  class="text-[8px] min-w-[14px] h-3.5 px-0.5 rounded-full bg-gray-100 text-gray-500 leading-[14px] text-center">
+                  {{ wtPhotosInFolder(wt.id, folder.id).length }}
+                </span>
+                <div class="ml-auto flex items-center gap-1" @click.stop>
+                  <button @click="uploadToWtFolder(wt.id, folder.id)"
+                    class="text-[8px] px-1 py-0.5 border border-dashed border-gray-200 rounded text-gray-400 hover:border-amber-300 hover:text-amber-600 transition-colors">
+                    + 上傳
+                  </button>
+                  <button @click="editWtFolder(folder)"
+                    class="text-[8px] text-gray-400 hover:text-gray-700 transition-colors px-0.5">編輯</button>
+                  <button @click="deleteWtFolder(folder.id)"
+                    class="text-[8px] text-red-300 hover:text-red-500 transition-colors px-0.5">刪除</button>
+                </div>
+              </div>
+              <div v-if="folder.description && wtFolderExpanded[folder.id] !== false" class="text-[9px] text-gray-400 ml-4 mb-0.5">{{ folder.description }}</div>
+              <div v-if="wtFolderExpanded[folder.id] !== false">
+                <div v-if="!wtPhotosInFolder(wt.id, folder.id).length" class="text-[9px] text-gray-300 ml-4 py-0.5">尚無照片</div>
+                <div v-else class="flex gap-2 overflow-x-auto pb-1">
+                  <div v-for="item in wtPhotosInFolder(wt.id, folder.id)" :key="item.id"
+                    class="flex-shrink-0 flex flex-col items-center gap-0.5 relative group">
+                    <a v-if="item.isPdf" :href="item.pdfUrl" target="_blank"
+                      class="w-14 h-14 rounded bg-red-100 flex items-center justify-center text-[10px] text-red-600 font-bold hover:bg-red-200 transition-colors">PDF</a>
+                    <img v-else :src="item.url"
+                      class="w-14 h-14 rounded object-cover cursor-pointer hover:opacity-80"
+                      @click="openWtConstructPreview(wt.id, item)">
+                    <span class="text-[8px] text-gray-400 leading-tight">{{ formatTime(item.createdAt) }}</span>
+                    <button @click="deleteWtConstructPhoto(wt.id, item)"
+                      class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-gray-600 text-white rounded-full text-[8px] leading-none hidden group-hover:flex items-center justify-center hover:bg-red-500 z-10">✕</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div v-if="wtPhotosInFolder(wt.id, null).length">
+              <div class="text-[9px] text-gray-400 font-medium mb-0.5">未分類</div>
+              <div class="flex gap-2 overflow-x-auto pb-1">
+                <div v-for="item in wtPhotosInFolder(wt.id, null)" :key="item.id"
+                  class="flex-shrink-0 flex flex-col items-center gap-0.5 relative group">
+                  <a v-if="item.isPdf" :href="item.pdfUrl" target="_blank"
+                    class="w-14 h-14 rounded bg-red-100 flex items-center justify-center text-[10px] text-red-600 font-bold hover:bg-red-200 transition-colors">PDF</a>
+                  <img v-else :src="item.url"
+                    class="w-14 h-14 rounded object-cover cursor-pointer hover:opacity-80"
+                    @click="openWtConstructPreview(wt.id, item)">
+                  <span class="text-[8px] text-gray-400 leading-tight">{{ formatTime(item.createdAt) }}</span>
+                  <button @click="deleteWtConstructPhoto(wt.id, item)"
+                    class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-gray-600 text-white rounded-full text-[8px] leading-none hidden group-hover:flex items-center justify-center hover:bg-red-500 z-10">✕</button>
+                </div>
+              </div>
+            </div>
+            <div v-else-if="!wtConstructPhotoCount(wt.id)" class="text-[10px] text-gray-300">尚未上傳</div>
+          </template>
+
+          <!-- No folders: flat display -->
+          <template v-else>
+            <div v-if="wtConstructPhotos[wt.id]?.length" class="flex gap-2 overflow-x-auto pb-1">
+              <div v-for="item in wtConstructPhotos[wt.id]" :key="item.id"
+                class="flex-shrink-0 flex flex-col items-center gap-0.5 relative group">
+                <a v-if="item.isPdf" :href="item.pdfUrl" target="_blank"
+                  class="w-14 h-14 rounded bg-red-100 flex items-center justify-center text-[10px] text-red-600 font-bold hover:bg-red-200 transition-colors">PDF</a>
+                <img v-else :src="item.url"
+                  class="w-14 h-14 rounded object-cover cursor-pointer hover:opacity-80"
+                  @click="openWtConstructPreview(wt.id, item)">
+                <span class="text-[8px] text-gray-400 leading-tight">{{ formatTime(item.createdAt) }}</span>
+                <button @click="deleteWtConstructPhoto(wt.id, item)"
+                  class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-gray-600 text-white rounded-full text-[8px] leading-none hidden group-hover:flex items-center justify-center hover:bg-red-500 z-10">✕</button>
+              </div>
+            </div>
+            <div v-else class="text-[10px] text-gray-300">尚未上傳</div>
+          </template>
         </div>
       </div>
     </div>
@@ -218,43 +309,6 @@
               @input="form.endDate = $event.target.value"
               @change="form.endDate = $event.target.value"
               class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1">
-          </div>
-        </div>
-        <div>
-          <div class="flex items-center justify-between mb-1">
-            <label class="text-xs text-gray-500 font-medium">向業主收取工程款</label>
-            <label class="flex items-center gap-1.5 cursor-pointer">
-              <input type="checkbox" v-model="form.paymentFree" class="rounded">
-              <span class="text-xs text-gray-600">免費</span>
-            </label>
-          </div>
-          <div v-if="!form.paymentFree" class="flex flex-col gap-1.5">
-            <div v-for="(item, i) in form.paymentItems" :key="item.id"
-              class="border border-gray-100 rounded-lg p-2 bg-gray-50/60">
-              <div class="flex gap-1.5 mb-1.5">
-                <input v-model="item.description" type="text" placeholder="說明"
-                  class="flex-1 text-xs border border-gray-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 bg-white">
-                <input v-model.number="item.amount" type="number" min="0" placeholder="金額"
-                  class="w-24 text-xs border border-gray-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 bg-white">
-              </div>
-              <div class="flex gap-1.5 items-center">
-                <input v-model="item.note" type="text" placeholder="備註"
-                  class="flex-1 text-xs border border-gray-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 bg-white">
-                <button v-if="editingIdx !== null" type="button" @click="sendReminder(item, 'owner')"
-                  class="text-[10px] px-2 py-1 rounded bg-amber-100 text-amber-700 hover:bg-amber-200 whitespace-nowrap transition-colors">
-                  提醒主管
-                </button>
-                <button type="button" @click="removePaymentItem(i)"
-                  class="text-[10px] text-red-400 hover:text-red-600 px-1 flex-shrink-0">✕</button>
-              </div>
-            </div>
-            <button type="button" @click="addPaymentItem"
-              class="text-[11px] border border-dashed border-gray-200 rounded-lg py-1.5 text-gray-400 hover:border-gray-400 hover:text-gray-600 transition-colors w-full">
-              + 新增一筆
-            </button>
-            <div v-if="formPaymentTotal > 0" class="text-right text-xs font-semibold mt-0.5" style="color:#c9a96e">
-              合計 ${{ formPaymentTotal.toLocaleString() }}
-            </div>
           </div>
         </div>
         <div>
@@ -397,6 +451,77 @@
     <button v-if="previewImgIdx < (vendorPhotos[previewWtId]?.length ?? 0) - 1" @click="navigateVendorPhoto(1)"
       class="absolute right-4 text-white text-3xl w-10 h-10 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/70 select-none z-10">›</button>
   </div>
+
+  <!-- construction photo file input & lightbox -->
+  <input ref="wtConstructFileInput" type="file" accept="image/jpeg,image/jpg,image/png,image/webp,.pdf" multiple class="hidden" @change="handleWtConstructFiles">
+  <div v-if="previewWtConstructUrl" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50"
+    @click.self="previewWtConstructUrl = null">
+    <button v-if="previewWtConstructIdx > 0" @click="navigateWtConstruct(-1)"
+      class="absolute left-4 text-white text-3xl w-10 h-10 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/70 select-none z-10">‹</button>
+    <img :src="previewWtConstructUrl" class="max-h-[80vh] max-w-[90vw] rounded-xl cursor-default">
+    <button v-if="previewWtConstructIdx < wtConstructImgList.length - 1" @click="navigateWtConstruct(1)"
+      class="absolute right-4 text-white text-3xl w-10 h-10 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/70 select-none z-10">›</button>
+  </div>
+
+  <!-- construction folder picker modal -->
+  <div v-if="showWtFolderPicker" class="fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.4)">
+    <div class="bg-white rounded-2xl shadow-xl p-5 w-72 mx-4 border-t-4" style="border-top-color:#c9a96e">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-sm font-bold text-gray-800">選擇上傳位置</h3>
+        <button @click="showWtFolderPicker = false" class="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
+      </div>
+      <div class="flex flex-col gap-0.5">
+        <label class="flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+          <input type="radio" v-model="pendingWtFolderId" :value="null" class="accent-amber-600">
+          <span class="text-sm text-gray-700">📂 不分類</span>
+        </label>
+        <label v-for="folder in wtFoldersForWt(wtPickerWtId)" :key="folder.id"
+          class="flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+          <input type="radio" v-model="pendingWtFolderId" :value="folder.id" class="accent-amber-600">
+          <div>
+            <div class="text-sm text-gray-700">📁 {{ folder.label }}</div>
+            <div v-if="folder.description" class="text-[10px] text-gray-400">{{ folder.description }}</div>
+          </div>
+        </label>
+      </div>
+      <button @click="openWtFolderFormFromPicker"
+        class="mt-3 w-full text-[11px] border border-dashed border-gray-200 rounded-lg py-1.5 text-gray-400 hover:border-gray-400 hover:text-gray-600 transition-colors">
+        + 新增資料夾
+      </button>
+      <div class="flex justify-end gap-2 mt-4">
+        <button @click="showWtFolderPicker = false" class="text-sm text-gray-400 px-4 py-2">取消</button>
+        <button @click="confirmWtFolderPick" class="text-sm text-white px-5 py-2 rounded-xl" style="background:#1e2533">確認上傳</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- construction folder create/edit modal -->
+  <div v-if="showWtFolderForm" class="fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.4)">
+    <div class="bg-white rounded-2xl shadow-xl p-5 w-80 mx-4 border-t-4" style="border-top-color:#c9a96e">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-sm font-bold text-gray-800">{{ editingWtFolderId ? '編輯資料夾' : '新增資料夾' }}</h3>
+        <button @click="closeWtFolderForm" class="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
+      </div>
+      <div class="flex flex-col gap-3">
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">資料夾名稱 *</label>
+          <input v-model="wtFolderForm.label" type="text"
+            class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1"
+            placeholder="例：拆除、木作、油漆…">
+        </div>
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">說明（選填）</label>
+          <input v-model="wtFolderForm.description" type="text"
+            class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1"
+            placeholder="備註說明…">
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 mt-5">
+        <button @click="closeWtFolderForm" class="text-sm text-gray-400 px-4 py-2">取消</button>
+        <button @click="saveWtFolder" class="text-sm text-white px-5 py-2 rounded-xl" style="background:#1e2533">儲存</button>
+      </div>
+    </div>
+  </div>
 </template>
 <script setup>
 import { ref, computed, reactive, onMounted, onUnmounted } from 'vue'
@@ -427,12 +552,6 @@ function calcVendorDueDate(endDate) {
     return toDateStr(result)
 }
 
-function calcOwnerDueDate(startDate) {
-    const d = new Date(startDate + 'T00:00:00')
-    d.setDate(d.getDate() - 7)
-    return toDateStr(d)
-}
-
 function formatDateChinese(isoDate) {
     const d = new Date(isoDate + 'T00:00:00')
     const days = ['日', '一', '二', '三', '四', '五', '六']
@@ -452,7 +571,6 @@ const saving = ref(false)
 const editingIdx = ref(null)
 const form = ref({
     name: '', vendorId: '', startDate: '', endDate: '',
-    paymentItems: [], paymentFree: false,
     hasQuote: false, hasSchedule: false,
     vendorCostItems: [], vendorCostFree: false,
     costIncludesTax: false,
@@ -470,16 +588,185 @@ const previewVendorUrl = ref(null)
 const previewWtId = ref('')
 const previewImgIdx = ref(-1)
 
+// Construction photos per work type
+const wtConstructPhotos = reactive({})
+const wtConstructFileInput = ref(null)
+const activeWtConstructId = ref('')
+const activeWtConstructFolderId = ref(null)
+const previewWtConstructUrl = ref(null)
+const previewWtConstructWtId = ref('')
+const previewWtConstructIdx = ref(-1)
+const wtFolderExpanded = reactive({})
+const showWtFolderPicker = ref(false)
+const wtPickerWtId = ref('')
+const pendingWtFolderId = ref(null)
+const showWtFolderForm = ref(false)
+const wtFolderFormWtId = ref('')
+const editingWtFolderId = ref(null)
+const wtFolderForm = ref({ label: '', description: '' })
+const wtFolderFromPicker = ref(false)
+
+const wtPhotoFolders = computed(() => caseData.value?.wtPhotoFolders ?? [])
+const wtConstructImgList = computed(() =>
+    (wtConstructPhotos[previewWtConstructWtId.value] || []).filter(p => !p.isPdf)
+)
+
+function wtFoldersForWt(wtId) {
+    return wtPhotoFolders.value.filter(f => f.workTypeId === wtId)
+}
+
+function wtPhotosInFolder(wtId, folderId) {
+    const validIds = new Set(wtPhotoFolders.value.map(f => f.id))
+    return (wtConstructPhotos[wtId] || []).filter(p => {
+        const eff = p.folderId && validIds.has(p.folderId) ? p.folderId : null
+        return folderId === null ? eff === null : eff === folderId
+    })
+}
+
+function wtConstructPhotoCount(wtId) {
+    return (wtConstructPhotos[wtId] || []).length
+}
+
+function toggleWtFolder(folderId) {
+    wtFolderExpanded[folderId] = wtFolderExpanded[folderId] === false ? true : false
+}
+
+function openWtConstructPreview(wtId, item) {
+    const list = (wtConstructPhotos[wtId] || []).filter(p => !p.isPdf)
+    previewWtConstructWtId.value = wtId
+    previewWtConstructIdx.value = list.findIndex(p => p === item)
+    previewWtConstructUrl.value = item.url
+}
+
+function navigateWtConstruct(dir) {
+    const next = previewWtConstructIdx.value + dir
+    if (next >= 0 && next < wtConstructImgList.value.length) {
+        previewWtConstructIdx.value = next
+        previewWtConstructUrl.value = wtConstructImgList.value[next].url
+    }
+}
+
+function openWtFolderForm(wtId) {
+    wtFolderFormWtId.value = wtId
+    editingWtFolderId.value = null
+    wtFolderForm.value = { label: '', description: '' }
+    wtFolderFromPicker.value = false
+    showWtFolderForm.value = true
+}
+
+function openWtFolderFormFromPicker() {
+    showWtFolderPicker.value = false
+    wtFolderFormWtId.value = wtPickerWtId.value
+    editingWtFolderId.value = null
+    wtFolderForm.value = { label: '', description: '' }
+    wtFolderFromPicker.value = true
+    showWtFolderForm.value = true
+}
+
+function editWtFolder(folder) {
+    wtFolderFormWtId.value = folder.workTypeId
+    editingWtFolderId.value = folder.id
+    wtFolderForm.value = { label: folder.label, description: folder.description || '' }
+    wtFolderFromPicker.value = false
+    showWtFolderForm.value = true
+}
+
+function closeWtFolderForm() {
+    showWtFolderForm.value = false
+    if (wtFolderFromPicker.value) { wtFolderFromPicker.value = false; showWtFolderPicker.value = true }
+}
+
+async function saveWtFolder() {
+    if (!wtFolderForm.value.label.trim()) return
+    const folders = [...wtPhotoFolders.value]
+    let newId = null
+    if (editingWtFolderId.value) {
+        const idx = folders.findIndex(f => f.id === editingWtFolderId.value)
+        if (idx >= 0) folders[idx] = { ...folders[idx], label: wtFolderForm.value.label.trim(), description: wtFolderForm.value.description.trim() }
+    } else {
+        newId = `wtf_${Date.now()}`
+        folders.push({ id: newId, workTypeId: wtFolderFormWtId.value, label: wtFolderForm.value.label.trim(), description: wtFolderForm.value.description.trim() })
+    }
+    await casesStore.updateCase(props.caseId, { wtPhotoFolders: folders })
+    showWtFolderForm.value = false
+    if (wtFolderFromPicker.value) {
+        wtFolderFromPicker.value = false
+        if (newId) pendingWtFolderId.value = newId
+        showWtFolderPicker.value = true
+    }
+}
+
+async function deleteWtFolder(folderId) {
+    if (!confirm('確定刪除此資料夾？照片將移至未分類。')) return
+    const folders = wtPhotoFolders.value.filter(f => f.id !== folderId)
+    await casesStore.updateCase(props.caseId, { wtPhotoFolders: folders })
+}
+
+function triggerWtConstructUpload(wtId) {
+    activeWtConstructId.value = wtId
+    if (wtFoldersForWt(wtId).length > 0) {
+        wtPickerWtId.value = wtId
+        pendingWtFolderId.value = null
+        showWtFolderPicker.value = true
+    } else {
+        activeWtConstructFolderId.value = null
+        wtConstructFileInput.value?.click()
+    }
+}
+
+function uploadToWtFolder(wtId, folderId) {
+    activeWtConstructId.value = wtId
+    activeWtConstructFolderId.value = folderId
+    wtConstructFileInput.value?.click()
+}
+
+function confirmWtFolderPick() {
+    activeWtConstructFolderId.value = pendingWtFolderId.value
+    showWtFolderPicker.value = false
+    wtConstructFileInput.value?.click()
+}
+
+async function handleWtConstructFiles(e) {
+    const files = Array.from(e.target.files)
+    e.target.value = ''
+    const wtId = activeWtConstructId.value
+    const folderId = activeWtConstructFolderId.value
+    for (const file of files) {
+        const err = validateUploadFile(file)
+        if (err) { toast(err, 'error'); continue }
+        try {
+            const url = await uploadPhoto(file, 'wt_construction')
+            const isPdf = file.name.toLowerCase().endsWith('.pdf')
+            const pdfUrl = isPdf && !url.toLowerCase().endsWith('.pdf') ? url + '.pdf' : url
+            const docRef = await addDoc(collection(db, 'cases', props.caseId, 'photos'), {
+                type: 'wt_construction', workTypeId: wtId,
+                folderId: folderId ?? null,
+                url, isPdf,
+                uploadedBy: authStore.user?.uid ?? 'unknown',
+                createdAt: serverTimestamp(),
+            })
+            if (!wtConstructPhotos[wtId]) wtConstructPhotos[wtId] = []
+            wtConstructPhotos[wtId].push({ id: docRef.id, url, isPdf, pdfUrl, folderId: folderId ?? null, createdAt: { toDate: () => new Date() } })
+        } catch {
+            toast('上傳失敗，請重試', 'error')
+        }
+    }
+}
+
+async function deleteWtConstructPhoto(wtId, item) {
+    if (item.id && props.caseId) {
+        await deleteDoc(doc(db, 'cases', props.caseId, 'photos', item.id))
+    }
+    if (wtConstructPhotos[wtId]) {
+        wtConstructPhotos[wtId] = wtConstructPhotos[wtId].filter(p => p !== item)
+    }
+}
+
 const WT_COLORS = ['#3b82f6', '#f59e0b', '#22c55e', '#ef4444', '#a855f7', '#ec4899', '#14b8a6', '#f97316']
 
 function sumItems(items, free) {
     if (free) return 0
     return (items || []).reduce((s, i) => s + (i.amount || 0), 0)
-}
-
-function wtPaymentTotal(wt) {
-    const items = wt.paymentItems ?? (wt.payment > 0 ? [{ amount: wt.payment }] : [])
-    return sumItems(items, wt.paymentFree)
 }
 
 function wtVendorCostTotal(wt) {
@@ -493,12 +780,6 @@ function normalizeItems(items, legacyAmount, prefix) {
     return []
 }
 
-function addPaymentItem() {
-    form.value.paymentItems.push({ id: `pi_${Date.now()}`, description: '', amount: 0, note: '' })
-}
-function removePaymentItem(i) {
-    form.value.paymentItems.splice(i, 1)
-}
 function addVendorCostItem() {
     form.value.vendorCostItems.push({ id: `vc_${Date.now()}`, description: '', amount: 0, note: '' })
 }
@@ -506,9 +787,6 @@ function removeVendorCostItem(i) {
     form.value.vendorCostItems.splice(i, 1)
 }
 
-const formPaymentTotal = computed(() =>
-    form.value.paymentItems.reduce((s, i) => s + (i.amount || 0), 0)
-)
 const formVendorCostTotal = computed(() =>
     form.value.vendorCostItems.reduce((s, i) => s + (i.amount || 0), 0)
 )
@@ -602,6 +880,12 @@ function navigateVendorPhoto(dir) {
 }
 
 function handleVendorKeydown(e) {
+    if (previewWtConstructUrl.value) {
+        if (e.key === 'Escape') { previewWtConstructUrl.value = null; return }
+        if (e.key === 'ArrowRight' || e.key === 'Enter') { e.preventDefault(); navigateWtConstruct(1) }
+        else if (e.key === 'ArrowLeft') { e.preventDefault(); navigateWtConstruct(-1) }
+        return
+    }
     if (!previewVendorUrl.value) return
     if (e.key === 'Escape') { previewVendorUrl.value = null; return }
     if (e.key === 'ArrowRight' || e.key === 'Enter') {
@@ -623,12 +907,15 @@ onMounted(async () => {
     const q = query(collection(db, 'cases', props.caseId, 'photos'), orderBy('createdAt'))
     const snap = await getDocs(q)
     snap.docs.forEach(d => {
-        const { type, url, isPdf, workTypeId, createdAt } = d.data()
+        const { type, url, isPdf, workTypeId, folderId, createdAt } = d.data()
+        const resolvedIsPdf = isPdf ?? url.toLowerCase().endsWith('.pdf')
+        const pdfUrl = resolvedIsPdf && !url.toLowerCase().endsWith('.pdf') ? url + '.pdf' : url
         if (type === 'vendor_quote' && workTypeId) {
             if (!vendorPhotos[workTypeId]) vendorPhotos[workTypeId] = []
-            const resolvedIsPdf = isPdf ?? url.toLowerCase().endsWith('.pdf')
-            const pdfUrl = resolvedIsPdf && !url.toLowerCase().endsWith('.pdf') ? url + '.pdf' : url
             vendorPhotos[workTypeId].push({ id: d.id, url, isPdf: resolvedIsPdf, pdfUrl, createdAt })
+        } else if (type === 'wt_construction' && workTypeId) {
+            if (!wtConstructPhotos[workTypeId]) wtConstructPhotos[workTypeId] = []
+            wtConstructPhotos[workTypeId].push({ id: d.id, url, isPdf: resolvedIsPdf, pdfUrl, folderId: folderId ?? null, createdAt })
         }
     })
 })
@@ -684,10 +971,6 @@ const regionVendors = computed(() => {
     if (selectedCategory.value === '其他') return vendors.filter(v => !standardCategories.includes(v.specialty))
     return vendors.filter(v => v.specialty === selectedCategory.value)
 })
-const totalPayment = computed(() => workTypes.value.reduce((sum, wt) => sum + wtPaymentTotal(wt), 0))
-const totalVendorCost = computed(() => workTypes.value.reduce((sum, wt) => sum + wtVendorCostTotal(wt), 0))
-const totalProfit = computed(() => totalPayment.value - totalVendorCost.value)
-
 function totalVendorPaid(wt) {
     return (wt.vendorPayments || []).reduce((sum, vp) => sum + (vp.amount || 0), 0)
 }
@@ -707,7 +990,6 @@ function openAdd() {
     vendorSearch.value = ''
     form.value = {
         name: '', vendorId: '', startDate: '', endDate: '',
-        paymentItems: [], paymentFree: false,
         hasQuote: false, hasSchedule: false,
         vendorCostItems: [], vendorCostFree: false,
         costIncludesTax: false,
@@ -725,8 +1007,6 @@ function openEdit(idx) {
         vendorId: wt.vendorId || '',
         startDate: wt.startDate || '',
         endDate: wt.endDate || '',
-        paymentItems: normalizeItems(wt.paymentItems, wt.payment, 'pi'),
-        paymentFree: wt.paymentFree || false,
         hasQuote: wt.hasQuote || false,
         hasSchedule: wt.hasSchedule || false,
         vendorCostItems: normalizeItems(wt.vendorCostItems, wt.vendorCost, 'vc'),
@@ -755,8 +1035,6 @@ async function submitForm() {
             vendorName: vendor?.name ?? '',
             startDate: form.value.startDate || '',
             endDate: form.value.endDate || '',
-            paymentItems: form.value.paymentFree ? [] : form.value.paymentItems.filter(i => i.description || i.amount > 0),
-            paymentFree: form.value.paymentFree || false,
             hasQuote: form.value.hasQuote || false,
             hasSchedule: form.value.hasSchedule || false,
             vendorCostItems: form.value.vendorCostFree ? [] : form.value.vendorCostItems.filter(i => i.description || i.amount > 0),
@@ -765,6 +1043,7 @@ async function submitForm() {
             color: existing ? existing.color : WT_COLORS[workTypes.value.length % WT_COLORS.length],
             vendorPayments: existing?.vendorPayments ?? [],
             done: existing?.done ?? false,
+            invoiceReceived: existing?.invoiceReceived ?? false,
         }
         const updated = [...workTypes.value]
         if (editingIdx.value !== null) {
@@ -773,27 +1052,6 @@ async function submitForm() {
             updated.push(entry)
         }
         await casesStore.updateCase(props.caseId, { workTypes: updated })
-        const autoOwnerId = `auto_owner_${entry.id}`
-        if (entry.startDate) {
-            const dueDate = calcOwnerDueDate(entry.startDate)
-            const amount = entry.paymentFree ? 0 : form.value.paymentItems.reduce((s, i) => s + (i.amount || 0), 0)
-            await remindersStore.addAutoReminder(autoOwnerId, {
-                source: 'auto',
-                type: 'owner',
-                dueDate,
-                caseId: props.caseId,
-                caseName: props.caseName,
-                companyId: caseData.value?.companyId ?? '',
-                workTypeId: entry.id,
-                workTypeName: entry.name,
-                vendorName: entry.vendorName || '',
-                amount,
-                createdBy: authStore.user?.uid ?? '',
-                createdByName: authStore.name ?? '',
-            })
-        } else {
-            await remindersStore.deleteAutoReminder(autoOwnerId)
-        }
         notifStore.notifyAll(authStore.name ?? '', `更新了「${props.caseName}」的工種`, props.caseId, props.caseName, caseData.value?.companyId ?? '')
         showForm.value = false
     } catch {
@@ -847,6 +1105,14 @@ async function toggleVendorInvoice(vpId) {
     await casesStore.updateCase(props.caseId, { workTypes: updated })
 }
 
+async function toggleInvoice(idx) {
+    const wt = workTypes.value[idx]
+    const updated = [...workTypes.value]
+    updated[idx] = { ...wt, invoiceReceived: !wt.invoiceReceived }
+    await casesStore.updateCase(props.caseId, { workTypes: updated })
+    toast(wt.invoiceReceived ? '已取消發票確認' : '發票已確認')
+}
+
 async function addVendorPayment() {
     if (!vendorPayForm.value.amount || savingVendorPay.value) return
     savingVendorPay.value = true
@@ -881,7 +1147,6 @@ async function removeWorkType(idx) {
         const updated = workTypes.value.filter((_, i) => i !== idx)
         await casesStore.updateCase(props.caseId, { workTypes: updated })
         await remindersStore.deleteAutoReminder(`auto_vendor_${wt.id}`)
-        await remindersStore.deleteAutoReminder(`auto_owner_${wt.id}`)
     } catch {
         toast('刪除失敗，請重試', 'error')
     }

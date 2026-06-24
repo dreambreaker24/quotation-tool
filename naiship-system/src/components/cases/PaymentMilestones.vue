@@ -10,9 +10,9 @@
           應收 <span style="color:#c9a96e" class="font-medium">${{ totalDue.toLocaleString() }}</span>
           ／已收 <span class="font-medium text-green-600">${{ totalPaid.toLocaleString() }}</span>
         </span>
-        <button v-if="milestones.length < 6" @click="openTemplate"
+        <button @click="openTemplate"
           class="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">套用模板</button>
-        <button v-if="milestones.length < 6" @click="openAdd"
+        <button @click="openAdd"
           class="text-xs px-3 py-1.5 rounded-lg text-white" style="background:#1e2533">+ 新增期款</button>
       </div>
     </div>
@@ -172,18 +172,20 @@ import { ref, computed } from 'vue'
 import { useCasesStore } from '@/stores/cases'
 import { useAuthStore } from '@/stores/auth'
 import { useNotificationsStore } from '@/stores/notifications'
+import { usePaymentRemindersStore } from '@/stores/paymentReminders'
 import { useToast } from '@/composables/useToast'
 
 const props = defineProps({ caseId: String, caseName: String })
 const casesStore = useCasesStore()
 const authStore = useAuthStore()
 const notifStore = useNotificationsStore()
+const remindersStore = usePaymentRemindersStore()
 const { toast } = useToast()
 
-const LABEL_OPTIONS = ['訂金（簽約款）', '第二期款', '第三期款', '第四期款', '第五期款', '尾款']
+const LABEL_OPTIONS = ['訂金（簽約款）', '第二期款', '第三期款', '第四期款', '第五期款', '尾款', '追加']
 const TODAY = new Date().toISOString().slice(0, 10)
 
-const TEMPLATE_LABELS = ['訂金（簽約款）', '第二期款', '第三期款', '第四期款', '第五期款', '尾款']
+const TEMPLATE_LABELS = ['訂金（簽約款）', '第二期款', '第三期款', '第四期款', '第五期款', '尾款', '追加']
 
 const showTemplate = ref(false)
 const templateRows = ref([])
@@ -206,9 +208,26 @@ async function submitTemplate() {
             dueDate: r.dueDate || '',
             paidAmount: 0,
             paidDate: '',
+            hasInvoice: false,
         }))
-        const updated = [...milestones.value, ...newEntries].slice(0, 6)
+        const updated = [...milestones.value, ...newEntries]
         await casesStore.updateCase(props.caseId, { paymentMilestones: updated })
+        for (const entry of newEntries) {
+            if (entry.dueDate) {
+                await remindersStore.addAutoReminder(`auto_owner_pm_${entry.id}`, {
+                    source: 'auto',
+                    type: 'owner',
+                    dueDate: entry.dueDate,
+                    caseId: props.caseId,
+                    caseName: props.caseName,
+                    companyId: caseData.value?.companyId ?? '',
+                    workTypeName: entry.label,
+                    amount: entry.amount,
+                    createdBy: authStore.user?.uid ?? '',
+                    createdByName: authStore.name ?? '',
+                })
+            }
+        }
         showTemplate.value = false
     } catch {
         toast('建立失敗，請重試', 'error')
@@ -265,13 +284,15 @@ async function submitForm() {
     if (!form.value.label || saving.value) return
     saving.value = true
     try {
+        const existing = editingIdx.value !== null ? milestones.value[editingIdx.value] : null
         const entry = {
-            id: editingIdx.value !== null ? milestones.value[editingIdx.value].id : `pm_${Date.now()}`,
+            id: existing ? existing.id : `pm_${Date.now()}`,
             label: form.value.label,
             amount: form.value.amount || 0,
             dueDate: form.value.dueDate || '',
             paidAmount: form.value.paidAmount || 0,
             paidDate: form.value.paidDate || '',
+            hasInvoice: existing?.hasInvoice ?? false,
         }
         const updated = [...milestones.value]
         if (editingIdx.value !== null) {
@@ -280,6 +301,26 @@ async function submitForm() {
             updated.push(entry)
         }
         await casesStore.updateCase(props.caseId, { paymentMilestones: updated })
+        const remId = `auto_owner_pm_${entry.id}`
+        if (entry.dueDate) {
+            await remindersStore.addAutoReminder(remId, {
+                source: 'auto',
+                type: 'owner',
+                dueDate: entry.dueDate,
+                caseId: props.caseId,
+                caseName: props.caseName,
+                companyId: caseData.value?.companyId ?? '',
+                workTypeName: entry.label,
+                amount: entry.amount,
+                createdBy: authStore.user?.uid ?? '',
+                createdByName: authStore.name ?? '',
+            })
+            if ((entry.paidAmount || 0) >= (entry.amount || 0) && entry.amount > 0) {
+                try { await remindersStore.markDone(remId) } catch (_) {}
+            }
+        } else {
+            await remindersStore.deleteAutoReminder(remId)
+        }
         notifStore.notifyAll(authStore.name ?? '', `更新了「${props.caseName}」的收款里程碑`, props.caseId, props.caseName, caseData.value?.companyId ?? '')
         showForm.value = false
     } catch {
@@ -299,8 +340,10 @@ async function toggleInvoice(idx) {
 async function removeMilestone(idx) {
     if (!confirm(`確定要刪除「${milestones.value[idx].label}」？`)) return
     try {
+        const m = milestones.value[idx]
         const updated = milestones.value.filter((_, i) => i !== idx)
         await casesStore.updateCase(props.caseId, { paymentMilestones: updated })
+        await remindersStore.deleteAutoReminder(`auto_owner_pm_${m.id}`)
     } catch {
         toast('刪除失敗，請重試', 'error')
     }

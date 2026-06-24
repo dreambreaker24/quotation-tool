@@ -87,7 +87,7 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow create: if isSignedIn();
       allow update: if isSignedIn();
-      allow delete: if isManager();
+      allow delete: if isManager() || (resource != null && resource.data.source == 'auto');
     }
     match /dashboardNotes/{noteId} {
       allow read: if isSignedIn();

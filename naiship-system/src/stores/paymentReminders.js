@@ -84,7 +84,9 @@ export const usePaymentRemindersStore = defineStore('paymentReminders', () => {
     }
 
     async function deleteAutoReminder(docId) {
-        await deleteDoc(doc(db, 'paymentReminders', docId))
+        const ref = doc(db, 'paymentReminders', docId)
+        const snap = await getDoc(ref)
+        if (snap.exists()) await deleteDoc(ref)
     }
 
     async function markDone(id) {
