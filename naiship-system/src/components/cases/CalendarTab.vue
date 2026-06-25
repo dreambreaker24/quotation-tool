@@ -183,6 +183,7 @@
             <div v-for="(_, i) in eventForm.personNames" :key="i" class="flex gap-2 mb-1.5">
               <select v-model="eventForm.personNames[i]" class="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
                 <option value="">— 選擇人員 —</option>
+                <option value="全員">全員</option>
                 <option v-for="u in usersStore.users" :key="u.id" :value="u.name">{{ u.name }}</option>
               </select>
               <button @click="eventForm.personNames.splice(i,1)" class="text-red-400 text-xs">✕</button>
@@ -194,6 +195,21 @@
           <div>
             <label class="text-xs text-gray-500 mb-1 block">說明 *</label>
             <input v-model="eventForm.label" type="text" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1" placeholder="例：年度品質回顧">
+          </div>
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <label class="text-xs text-gray-500">人員（可多筆）</label>
+              <button @click="eventForm.personNames.push('')" class="text-[11px]" style="color:#c9a96e">+ 新增</button>
+            </div>
+            <div v-for="(_, i) in eventForm.personNames" :key="i" class="flex gap-2 mb-1.5">
+              <select v-model="eventForm.personNames[i]" class="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
+                <option value="">— 選擇人員 —</option>
+                <option value="全員">全員</option>
+                <option v-for="u in usersStore.users" :key="u.id" :value="u.name">{{ u.name }}</option>
+              </select>
+              <button @click="eventForm.personNames.splice(i,1)" class="text-red-400 text-xs">✕</button>
+            </div>
+            <div v-if="!eventForm.personNames.length" class="text-[11px] text-gray-300">點右上新增人員</div>
           </div>
         </template>
       </div>
@@ -309,6 +325,7 @@
             <div v-for="(_, i) in editForm.personNames" :key="i" class="flex gap-2 mb-1.5">
               <select v-model="editForm.personNames[i]" class="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
                 <option value="">— 選擇人員 —</option>
+                <option value="全員">全員</option>
                 <option v-for="u in usersStore.users" :key="u.id" :value="u.name">{{ u.name }}</option>
               </select>
               <button @click="editForm.personNames.splice(i,1)" class="text-red-400 text-xs">✕</button>
@@ -320,6 +337,21 @@
           <div>
             <label class="text-xs text-gray-500 mb-1 block">說明</label>
             <input v-model="editForm.label" type="text" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1">
+          </div>
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <label class="text-xs text-gray-500">人員（可多筆）</label>
+              <button @click="editForm.personNames.push('')" class="text-[11px]" style="color:#c9a96e">+ 新增</button>
+            </div>
+            <div v-for="(_, i) in editForm.personNames" :key="i" class="flex gap-2 mb-1.5">
+              <select v-model="editForm.personNames[i]" class="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
+                <option value="">— 選擇人員 —</option>
+                <option value="全員">全員</option>
+                <option v-for="u in usersStore.users" :key="u.id" :value="u.name">{{ u.name }}</option>
+              </select>
+              <button @click="editForm.personNames.splice(i,1)" class="text-red-400 text-xs">✕</button>
+            </div>
+            <div v-if="!editForm.personNames.length" class="text-[11px] text-gray-300">點右上新增人員</div>
           </div>
         </template>
       </div>
@@ -360,11 +392,18 @@ function findUserByName(name) {
     return usersStore.users.find(u => u.name === name)
 }
 
+function hoursToDays(hours) {
+    const full = Math.floor(Math.abs(hours) / 8)
+    const rem = Math.abs(hours) % 8
+    const days = full + (rem === 0 ? 0 : rem <= 4 ? 0.5 : 1)
+    return hours >= 0 ? days : -days
+}
+
 async function applyLeaveDelta(leaveType, name, deltaHours) {
     const user = findUserByName(name)
     if (!user) return
     if (leaveType === '補休') await usersStore.adjustCompensatoryHours(user.id, deltaHours)
-    else if (leaveType === '特休') await usersStore.adjustAnnualLeaveHours(user.id, deltaHours / 8)
+    else if (leaveType === '特休') await usersStore.adjustAnnualLeaveHours(user.id, hoursToDays(deltaHours))
 }
 
 function getLeaveBalance(leaveType, name) {
@@ -376,7 +415,7 @@ function getLeaveBalance(leaveType, name) {
 }
 
 function leaveNeeded(leaveType, hours) {
-    return leaveType === '特休' ? hours / 8 : hours
+    return leaveType === '特休' ? hoursToDays(hours) : hours
 }
 
 function leaveInsufficientMsg(leaveType) {
@@ -468,6 +507,9 @@ async function saveEditEvent() {
       payload.caseNames = caseNames
       payload.personNames = editForm.value.personNames.filter(Boolean)
     }
+    if (['note', 'followup'].includes(editForm.value.type)) {
+      payload.personNames = editForm.value.personNames.filter(Boolean)
+    }
     if (editForm.value.startTime) {
       payload.startTime = editForm.value.startTime
       payload.endTime = editForm.value.endTime || ''
@@ -523,6 +565,21 @@ function calcHours(start, end) {
     return diff > 0 ? diff : null
 }
 
+function calcBusinessDays(dateStr, endDateStr) {
+    if (!dateStr) return 0
+    const start = new Date(dateStr)
+    const end = endDateStr && endDateStr > dateStr ? new Date(endDateStr) : new Date(dateStr)
+    let days = 0
+    const cur = new Date(start)
+    while (cur <= end) {
+        const dow = cur.getDay()
+        const ds = `${cur.getFullYear()}-${String(cur.getMonth()+1).padStart(2,'0')}-${String(cur.getDate()).padStart(2,'0')}`
+        if (dow !== 0 && dow !== 6 && !TAIWAN_HOLIDAY_NAMES[ds]) days++
+        cur.setDate(cur.getDate() + 1)
+    }
+    return days
+}
+
 watch([() => eventForm.value.startTime, () => eventForm.value.endTime], ([start, end]) => {
     if (eventForm.value.type !== 'leave') return
     const h = calcHours(start, end)
@@ -534,6 +591,26 @@ watch([() => editForm.value.startTime, () => editForm.value.endTime], ([start, e
     const h = calcHours(start, end)
     if (h !== null) editForm.value.hours = h
 })
+
+watch(
+    [() => eventForm.value.date, () => eventForm.value.endDate, () => eventForm.value.leaveType],
+    ([date, endDate, leaveType]) => {
+        if (eventForm.value.type !== 'leave') return
+        if (!TRACKED_LEAVE_TYPES.includes(leaveType)) return
+        if (eventForm.value.startTime && eventForm.value.endTime) return
+        eventForm.value.hours = calcBusinessDays(date, endDate) * 8
+    }
+)
+
+watch(
+    [() => editForm.value.date, () => editForm.value.endDate, () => editForm.value.leaveType],
+    ([date, endDate, leaveType]) => {
+        if (editForm.value.type !== 'leave') return
+        if (!TRACKED_LEAVE_TYPES.includes(leaveType)) return
+        if (editForm.value.startTime && editForm.value.endTime) return
+        editForm.value.hours = calcBusinessDays(date, endDate) * 8
+    }
+)
 
 watch([() => props.region, currentYear, currentMonth, showAllRegions], ([region]) => {
   if (region) eventsStore.subscribe(
@@ -600,6 +677,13 @@ const calendarCells = computed(() => {
       const endTs = e.endDate?.toDate?.() ?? new Date(e.endDate)
       const end = new Date(endTs.getFullYear(), endTs.getMonth(), endTs.getDate()).getTime()
       return cellTime >= start && cellTime <= end
+    }).sort((a, b) => {
+      const aTime = a.startTime || ''
+      const bTime = b.startTime || ''
+      if (aTime !== bTime) return aTime.localeCompare(bTime)
+      const aCreated = a.createdAt?.toMillis?.() ?? 0
+      const bCreated = b.createdAt?.toMillis?.() ?? 0
+      return aCreated - bCreated
     })
     cells.push({
       day: d, currentMonth: true,
@@ -656,6 +740,9 @@ async function submitEvent() {
     if (isMilestone) {
       payload.caseIds = eventForm.value.caseIds
       payload.caseNames = caseNames
+      payload.personNames = eventForm.value.personNames.filter(Boolean)
+    }
+    if (['note', 'followup'].includes(eventForm.value.type)) {
       payload.personNames = eventForm.value.personNames.filter(Boolean)
     }
     if (eventForm.value.startTime) {
