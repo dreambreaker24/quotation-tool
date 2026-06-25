@@ -2514,14 +2514,15 @@
       const captureOpts = { scale: 3, useCORS: true, backgroundColor: '#ffffff' };
 
       // html2canvas 不支援 CSS filter:drop-shadow（logo 是黑色設計在透明背景）
-      // 截圖前先把黑色 logo 反白並用 canvas shadow 燒入光暈，截圖後還原
-      function _bakeLogoGlow(logoEl) {
+      // 截圖前先用 canvas shadow 燒入光暈；canvas 建在 sc 倍高解析度以防 html2canvas 放大時模糊
+      function _bakeLogoGlow(logoEl, sc) {
         const w = logoEl.offsetWidth;
         const h = logoEl.offsetHeight;
         if (!w || !h) return null;
         const c = document.createElement('canvas');
-        c.width = w; c.height = h;
+        c.width = w * sc; c.height = h * sc;
         const ctx = c.getContext('2d');
+        ctx.scale(sc, sc); // 以 CSS 座標繪圖，canvas 自動放 sc 倍儲存
         // 光暈層（canvas shadow 繞著 logo 輪廓）
         ctx.shadowColor = 'rgba(201,169,110,0.6)'; ctx.shadowBlur = 40;
         ctx.drawImage(logoEl, 0, 0, w, h);
@@ -2537,7 +2538,7 @@
 
       // 擷取第一頁（全高截圖，不裁切；addImage 時限縮至 297mm 以防溢出）
       const _logo1 = document.getElementById('prev-logo');
-      const _logo1Baked = _bakeLogoGlow(_logo1);
+      const _logo1Baked = _bakeLogoGlow(_logo1, captureOpts.scale);
       const _logo1OrigSrc = _logo1.src;
       const _logo1OrigFilter = _logo1.style.filter;
       if (_logo1Baked) { _logo1.src = _logo1Baked; _logo1.style.filter = 'none'; }
@@ -2580,7 +2581,7 @@
         }
       }
       const _logo2 = document.getElementById('prev2-logo');
-      const _logo2Baked = _bakeLogoGlow(_logo2);
+      const _logo2Baked = _bakeLogoGlow(_logo2, captureOpts.scale);
       const _logo2OrigSrc = _logo2.src;
       const _logo2OrigFilter = _logo2.style.filter;
       if (_logo2Baked) { _logo2.src = _logo2Baked; _logo2.style.filter = 'none'; }
