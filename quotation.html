@@ -2530,15 +2530,8 @@
         ctx.shadowColor = 'rgba(255,255,255,1)';   ctx.shadowBlur = 6;
         ctx.drawImage(logoEl, 0, 0, w, h);
         ctx.shadowBlur = 0;
-        // 把黑色 logo 反白（保留透明背景）
-        const tmp = document.createElement('canvas');
-        tmp.width = w; tmp.height = h;
-        const tc = tmp.getContext('2d');
-        tc.drawImage(logoEl, 0, 0, w, h);
-        tc.globalCompositeOperation = 'source-in';
-        tc.fillStyle = 'white';
-        tc.fillRect(0, 0, w, h);
-        ctx.drawImage(tmp, 0, 0, w, h);
+        // logo 保持黑色（跟網頁一樣），只靠光暈讓它在深色背景上顯現
+        ctx.drawImage(logoEl, 0, 0, w, h);
         return c.toDataURL('image/png');
       }
 
