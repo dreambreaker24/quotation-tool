@@ -2491,7 +2491,6 @@
 
     btn.disabled = true;
     btn.textContent = '產生中…';
-    let _glowSwap = [];
     try {
       await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
       await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
@@ -2514,26 +2513,33 @@
 
       const captureOpts = { scale: 3, useCORS: true, backgroundColor: '#ffffff' };
 
-      // html2canvas 不支援 CSS filter，截圖前暫時換成 radial-gradient 模擬發光，擷取後立即還原
-      const _glowSwap = [
-        { id: 'prev-logo', w: 420, h: 260, ox: -20 },
-        { id: 'prev2-logo', w: 220, h: 140, ox: -10 },
-      ].map(({ id, w, h, ox }) => {
-        const el = document.getElementById(id);
-        const savedFilter = el.style.filter;
-        const p = el.parentElement;
-        const savedPos = p.style.position;
-        el.style.filter = '';
-        p.style.position = 'relative';
-        const gd = document.createElement('div');
-        gd.style.cssText = `position:absolute;left:${ox}px;top:50%;transform:translateY(-50%);width:${w}px;height:${h}px;background:radial-gradient(ellipse at 35% 50%,rgba(255,255,255,.45) 0%,rgba(255,220,150,.38) 28%,rgba(201,169,110,.22) 55%,transparent 75%);pointer-events:none;z-index:0;`;
-        p.insertBefore(gd, el);
-        return { el, p, gd, savedFilter, savedPos };
-      });
+      // html2canvas 不支援 CSS filter；截圖後直接在 canvas 畫 radial-gradient，不碰 DOM
+      function _paintLogoGlow(canvas, logoEl, headerEl, pageEl, sc) {
+        const pg = pageEl.getBoundingClientRect();
+        const lo = logoEl.getBoundingClientRect();
+        const hd = headerEl.getBoundingClientRect();
+        const cx = (lo.left - pg.left + lo.width * 0.35) * sc;
+        const cy = (hd.top  - pg.top  + hd.height * 0.5) * sc;
+        const r  = Math.max(lo.width, hd.height) * sc * 1.2;
+        const ctx = canvas.getContext('2d');
+        const grd = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+        grd.addColorStop(0,    'rgba(255,255,255,0.38)');
+        grd.addColorStop(0.28, 'rgba(255,220,150,0.30)');
+        grd.addColorStop(0.55, 'rgba(201,169,110,0.18)');
+        grd.addColorStop(0.80, 'rgba(0,0,0,0)');
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        ctx.fillStyle = grd;
+        ctx.fillRect(Math.max(0,cx-r), Math.max(0,cy-r),
+                     Math.min(canvas.width,cx+r)  - Math.max(0,cx-r),
+                     Math.min(canvas.height,cy+r) - Math.max(0,cy-r));
+        ctx.restore();
+      }
 
       // 擷取第一頁（全高截圖，不裁切；addImage 時限縮至 297mm 以防溢出）
       const page1 = document.getElementById('a4-page');
       const canvas1 = await html2canvas(page1, captureOpts);
+      _paintLogoGlow(canvas1, document.getElementById('prev-logo'), document.getElementById('prev-header'), page1, captureOpts.scale);
       const _fitStyle = document.getElementById('__pfit');
       let _p1Zoom = 1;
       if (_fitStyle) {
@@ -2569,6 +2575,7 @@
         }
       }
       const canvas2 = await html2canvas(page2, captureOpts);
+      _paintLogoGlow(canvas2, document.getElementById('prev2-logo'), document.getElementById('prev2-header'), page2, captureOpts.scale);
 
       // 還原可見度
       costCols.forEach(el => { el.style.display = ''; });
@@ -2607,13 +2614,6 @@
         pdf.addImage(slice.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 210, sliceH / canvas2.width * 210);
         sliceStart = sliceEnd;
       }
-      // 擷取完畢，立即還原 filter
-      _glowSwap.forEach(({ el, p, gd, savedFilter, savedPos }) => {
-        el.style.filter = savedFilter;
-        p.style.position = savedPos;
-        gd.remove();
-      });
-
       const pdfBlob = pdf.output('blob');
       if (fileHandle) {
         const writable = await fileHandle.createWritable();
@@ -2626,11 +2626,6 @@
       alert('PDF 產生失敗，請改用「列印」按鈕，在對話框選擇「另存為 PDF」');
       console.error(e);
     } finally {
-      _glowSwap.forEach(({ el, p, gd, savedFilter, savedPos }) => {
-        el.style.filter = savedFilter;
-        p.style.position = savedPos;
-        if (gd.parentNode) gd.remove();
-      });
       btn.disabled = false;
       btn.innerHTML = origHTML;
     }
