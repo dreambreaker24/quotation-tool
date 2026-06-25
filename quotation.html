@@ -763,8 +763,8 @@
     <hr style="margin:20px 0; border-color:#eee;">
     <div class="field-group">
       <label>合約編號</label>
-      <input type="text" id="in-contract-no" placeholder="NS-2026-001">
-      <div style="font-size:11px; color:#9ca3af; margin-top:3px;">可直接修改</div>
+      <input type="text" id="in-contract-no" placeholder="NS-2026-001" oninput="validateContractNoInput()">
+      <div id="contract-no-hint" style="font-size:11px; color:#9ca3af; margin-top:3px;">格式：NS-2026-001</div>
     </div>
     <div class="field-group">
       <label>報價日期</label>
@@ -1689,12 +1689,43 @@
     });
   }
 
+  function _isValidContractNo(val) {
+    return /^(NS|PO)-\d{4}-\d{3}$/.test(val);
+  }
+
+  function validateContractNoInput() {
+    const val = document.getElementById('in-contract-no').value.trim();
+    const hint = document.getElementById('contract-no-hint');
+    const input = document.getElementById('in-contract-no');
+    if (!val) {
+      hint.style.color = '#9ca3af';
+      hint.textContent = '格式：NS-2026-001';
+      input.style.borderColor = '';
+      return;
+    }
+    if (_isValidContractNo(val)) {
+      hint.style.color = '#3a3';
+      hint.textContent = '格式正確';
+      input.style.borderColor = '#3a3';
+    } else {
+      hint.style.color = '#e53935';
+      hint.textContent = '格式錯誤，須為 NS-2026-001 或 PO-2026-001';
+      input.style.borderColor = '#e53935';
+    }
+  }
+
   async function saveQuote() {
     const contractNo = document.getElementById('in-contract-no').value.trim();
     const hint = document.getElementById('save-hint');
     if (!contractNo) {
       hint.style.color = '#e53935';
       hint.textContent = '請先填寫合約編號';
+      return;
+    }
+    if (!_isValidContractNo(contractNo)) {
+      hint.style.color = '#e53935';
+      hint.textContent = '合約編號格式錯誤，須為 NS-2026-001 或 PO-2026-001';
+      document.getElementById('in-contract-no').focus();
       return;
     }
     hint.style.color = '#888';
@@ -1723,6 +1754,12 @@
       } else {
         await docRef.set({ ...data, createdBy: userName, createdAt: now, updatedBy: userName, updatedAt: now });
       }
+      // 合約編號有改變時，刪除舊文件（避免留下孤立舊檔）
+      const _oldDocId = _currentContractNo ? _currentContractNo.replace(/\//g, '_') : null;
+      if (_oldDocId && _oldDocId !== docId) {
+        try { await db.collection('quotations').doc(_oldDocId).delete(); } catch(e) {}
+      }
+      _currentContractNo = contractNo;
       hint.style.color = '#3a3';
       hint.textContent = `已儲存：${contractNo}`;
     } catch (e) {
@@ -1838,6 +1875,7 @@
     document.getElementById('in-p5-amt').value = '';
     document.getElementById('in-p6-amt').value = '';
     document.getElementById('save-hint').textContent = '';
+    _currentContractNo = '';
     categories = [];
     catIdCounter = 0;
     subIdCounter = 0;
