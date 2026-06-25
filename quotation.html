@@ -1613,7 +1613,7 @@
       const _titleParts = [q.contractNo, q.project, q.date].filter(Boolean).map(p => escHtml(p));
       div.innerHTML = `
         <div style="font-weight:bold; font-size:13px; margin-bottom:2px;">${_titleParts.join('｜')}</div>
-        <div style="font-size:11px; color:#aaa;">最後修改：${escHtml(q.updatedBy || q.createdBy || '—')} · ${timeAgo(q.updatedAt)}</div>
+        <div style="font-size:11px; color:#aaa;">最後修改：${escHtml(_resolveUserName(q.updatedBy || q.createdBy))} · ${timeAgo(q.updatedAt)}</div>
       `;
       if (_highlightContractNo && q.contractNo === _highlightContractNo) {
         div.style.animation = '_hl-flash 1.5s ease-out';
@@ -1755,7 +1755,7 @@
       const existing = await docRef.get();
       if (existing.exists) {
         const ed = existing.data();
-        const lastBy = ed.updatedBy || ed.createdBy || '未知';
+        const lastBy = _resolveUserName(ed.updatedBy || ed.createdBy || '未知');
         const lastAt = ed.updatedAt?.toDate
           ? ed.updatedAt.toDate().toLocaleDateString('zh-TW', { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' })
           : '未知時間';
@@ -2736,8 +2736,29 @@
     return `${days} 天前`;
   }
 
+  var _usersNameCache = null; // { email: name }
+
+  async function _loadUsersNameCache() {
+    if (_usersNameCache) return;
+    _usersNameCache = {};
+    try {
+      const snap = await db.collection('users').get();
+      snap.docs.forEach(d => {
+        const data = d.data();
+        if (data.email && data.name) _usersNameCache[data.email] = data.name;
+      });
+    } catch(e) {}
+  }
+
+  function _resolveUserName(val) {
+    if (!val) return '—';
+    if (_usersNameCache && _usersNameCache[val]) return _usersNameCache[val];
+    return val;
+  }
+
   function startRealtimeListener() {
     if (unsubscribeListener) unsubscribeListener();
+    _loadUsersNameCache(); // 非同步預載，不擋住監聽啟動
     unsubscribeListener = db.collection('quotations')
       .orderBy('updatedAt', 'desc')
       .limit(4)
