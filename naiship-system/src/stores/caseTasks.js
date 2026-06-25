@@ -26,8 +26,10 @@ export const useCaseTasksStore = defineStore('caseTasks', () => {
         })
     }
 
-    async function updateTask(caseId, taskId, content) {
-        return updateDoc(doc(db, 'cases', caseId, 'tasks', taskId), { content })
+    async function updateTask(caseId, taskId, content, attachments) {
+        const data = { content }
+        if (attachments !== undefined) data.attachments = attachments
+        return updateDoc(doc(db, 'cases', caseId, 'tasks', taskId), data)
     }
 
     async function toggleDone(caseId, taskId, done, doneByEmail = '') {

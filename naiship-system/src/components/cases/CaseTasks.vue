@@ -27,13 +27,30 @@
                 <template v-if="editingId === t.id">
                   <textarea v-model="editContent" rows="2"
                     class="w-full text-xs border border-blue-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 bg-white mb-2 resize-none"></textarea>
-                  <div class="flex gap-2 justify-end">
+                  <div v-if="editExistingAttachments.length" class="flex gap-1.5 flex-wrap mb-2">
+                    <div v-for="(att, i) in editExistingAttachments" :key="att.url" class="relative">
+                      <div v-if="att.isPdf" class="w-10 h-10 rounded bg-red-100 flex items-center justify-center text-[9px] text-red-600 font-bold">PDF</div>
+                      <img v-else :src="att.url" class="w-10 h-10 rounded object-cover">
+                      <button @click="editExistingAttachments.splice(i,1)"
+                        class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-gray-600 text-white rounded-full text-[8px] leading-none flex items-center justify-center hover:bg-red-500">✕</button>
+                    </div>
+                  </div>
+                  <div v-if="editPendingFiles.length" class="flex gap-1.5 flex-wrap mb-2">
+                    <div v-for="(f, i) in editPendingFiles" :key="i" class="relative">
+                      <img v-if="f.preview" :src="f.preview" class="w-10 h-10 rounded object-cover">
+                      <div v-else class="w-10 h-10 rounded bg-red-100 flex items-center justify-center text-[9px] text-red-600 font-bold">PDF</div>
+                      <button @click="editPendingFiles.splice(i,1)"
+                        class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-gray-600 text-white rounded-full text-[8px] leading-none flex items-center justify-center hover:bg-red-500">✕</button>
+                    </div>
+                  </div>
+                  <div class="flex gap-2 justify-end items-center">
+                    <button @click="editAttachInput.click()" class="text-[10px] text-gray-400 hover:text-gray-600">📎 附件</button>
                     <button @click="saveEdit(t.id)" class="text-[10px] text-white px-2.5 py-1 rounded-lg" style="background:#3b82f6">儲存</button>
-                    <button @click="editingId = null" class="text-[10px] text-gray-400 px-2 py-1">取消</button>
+                    <button @click="cancelEdit" class="text-[10px] text-gray-400 px-2 py-1">取消</button>
                   </div>
                 </template>
                 <template v-else>
-                  <span :class="doneClass(t)" class="whitespace-pre-wrap">{{ t.content }}</span>
+                  <span :class="doneClass(t)" class="break-words" v-html="linkify(t.content)"></span>
                   <div v-if="t.attachments?.length" class="flex gap-1.5 flex-wrap mt-1.5">
                     <a v-for="att in t.attachments" :key="att.url"
                       :href="att.isPdf ? (att.pdfUrl ?? att.url) : undefined" :target="att.isPdf ? '_blank' : undefined">
@@ -41,7 +58,7 @@
                       <img v-else :src="att.url" @click.prevent="openTaskPreview(t, att.url)" class="w-10 h-10 rounded object-cover cursor-pointer hover:opacity-80">
                     </a>
                   </div>
-                  <div class="text-[10px] text-blue-400 mt-1">{{ t.creatorName }} · {{ formatTime(t.createdAt) }}</div>
+                  <div class="text-[10px] font-semibold mt-1" :style="`color:${personColor(t.createdBy)}`">{{ displayName(t) }} · {{ formatTime(t.createdAt) }}</div>
                   <div class="hidden group-hover:flex gap-1 mt-1 flex-wrap">
                     <button v-if="authStore.isManager" @click="tasksStore.toggleDone(props.caseId, t.id, !t.done, authStore.user?.email ?? '')"
                       class="text-[9px] bg-white border rounded px-1.5 py-0.5"
@@ -77,13 +94,30 @@
                 <template v-if="editingId === t.id">
                   <textarea v-model="editContent" rows="2"
                     class="w-full text-xs border border-amber-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 bg-white mb-2 resize-none"></textarea>
-                  <div class="flex gap-2 justify-end">
+                  <div v-if="editExistingAttachments.length" class="flex gap-1.5 flex-wrap mb-2">
+                    <div v-for="(att, i) in editExistingAttachments" :key="att.url" class="relative">
+                      <div v-if="att.isPdf" class="w-10 h-10 rounded bg-red-100 flex items-center justify-center text-[9px] text-red-600 font-bold">PDF</div>
+                      <img v-else :src="att.url" class="w-10 h-10 rounded object-cover">
+                      <button @click="editExistingAttachments.splice(i,1)"
+                        class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-gray-600 text-white rounded-full text-[8px] leading-none flex items-center justify-center hover:bg-red-500">✕</button>
+                    </div>
+                  </div>
+                  <div v-if="editPendingFiles.length" class="flex gap-1.5 flex-wrap mb-2">
+                    <div v-for="(f, i) in editPendingFiles" :key="i" class="relative">
+                      <img v-if="f.preview" :src="f.preview" class="w-10 h-10 rounded object-cover">
+                      <div v-else class="w-10 h-10 rounded bg-red-100 flex items-center justify-center text-[9px] text-red-600 font-bold">PDF</div>
+                      <button @click="editPendingFiles.splice(i,1)"
+                        class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-gray-600 text-white rounded-full text-[8px] leading-none flex items-center justify-center hover:bg-red-500">✕</button>
+                    </div>
+                  </div>
+                  <div class="flex gap-2 justify-end items-center">
+                    <button @click="editAttachInput.click()" class="text-[10px] text-gray-400 hover:text-gray-600">📎 附件</button>
                     <button @click="saveEdit(t.id)" class="text-[10px] text-white px-2.5 py-1 rounded-lg" style="background:#c9a96e">儲存</button>
-                    <button @click="editingId = null" class="text-[10px] text-gray-400 px-2 py-1">取消</button>
+                    <button @click="cancelEdit" class="text-[10px] text-gray-400 px-2 py-1">取消</button>
                   </div>
                 </template>
                 <template v-else>
-                  <span :class="doneClass(t)" class="whitespace-pre-wrap">{{ t.content }}</span>
+                  <span :class="doneClass(t)" class="break-words" v-html="linkify(t.content)"></span>
                   <div v-if="t.attachments?.length" class="flex gap-1.5 flex-wrap mt-1.5">
                     <a v-for="att in t.attachments" :key="att.url"
                       :href="att.isPdf ? (att.pdfUrl ?? att.url) : undefined" :target="att.isPdf ? '_blank' : undefined">
@@ -91,7 +125,7 @@
                       <img v-else :src="att.url" @click.prevent="openTaskPreview(t, att.url)" class="w-10 h-10 rounded object-cover cursor-pointer hover:opacity-80">
                     </a>
                   </div>
-                  <div class="text-[10px] text-amber-400 mt-1">{{ t.creatorName }} · {{ formatTime(t.createdAt) }}</div>
+                  <div class="text-[10px] font-semibold mt-1" :style="`color:${personColor(t.createdBy)}`">{{ displayName(t) }} · {{ formatTime(t.createdAt) }}</div>
                   <div v-if="authStore.isManager" class="hidden group-hover:flex gap-1 mt-1 flex-wrap">
                     <button @click="tasksStore.toggleDone(props.caseId, t.id, !t.done, authStore.user?.email ?? '')"
                       class="text-[9px] bg-white border rounded px-1.5 py-0.5"
@@ -117,20 +151,37 @@
         </div>
         <div class="flex flex-col gap-2">
           <div v-for="t in replyTasks" :key="t.id" class="flex items-start gap-2.5 group">
-            <span class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
-              :style="`background:${empColor(t.createdBy)}`">
-              {{ t.creatorName?.[0] ?? '?' }}
+            <span class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0 mt-0.5"
+              :style="`background:${personColor(t.createdBy)}`">
+              {{ displayName(t)?.[0] ?? '?' }}
             </span>
-            <div class="relative bg-green-50 rounded-xl px-3 py-2 flex-1 text-xs text-gray-700 leading-relaxed whitespace-pre-wrap">
+            <div class="relative bg-green-50 rounded-xl px-3 py-2 flex-1 min-w-0 text-xs text-gray-700 leading-relaxed">
               <template v-if="editingId === t.id">
                 <textarea v-model="editContent" rows="3" class="w-full text-xs border border-green-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 resize-none bg-white mb-2"></textarea>
-                <div class="flex gap-2 justify-end">
+                <div v-if="editExistingAttachments.length" class="flex gap-1.5 flex-wrap mb-2">
+                  <div v-for="(att, i) in editExistingAttachments" :key="att.url" class="relative">
+                    <div v-if="att.isPdf" class="w-10 h-10 rounded bg-red-100 flex items-center justify-center text-[9px] text-red-600 font-bold">PDF</div>
+                    <img v-else :src="att.url" class="w-10 h-10 rounded object-cover">
+                    <button @click="editExistingAttachments.splice(i,1)"
+                      class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-gray-600 text-white rounded-full text-[8px] leading-none flex items-center justify-center hover:bg-red-500">✕</button>
+                  </div>
+                </div>
+                <div v-if="editPendingFiles.length" class="flex gap-1.5 flex-wrap mb-2">
+                  <div v-for="(f, i) in editPendingFiles" :key="i" class="relative">
+                    <img v-if="f.preview" :src="f.preview" class="w-10 h-10 rounded object-cover">
+                    <div v-else class="w-10 h-10 rounded bg-red-100 flex items-center justify-center text-[9px] text-red-600 font-bold">PDF</div>
+                    <button @click="editPendingFiles.splice(i,1)"
+                      class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-gray-600 text-white rounded-full text-[8px] leading-none flex items-center justify-center hover:bg-red-500">✕</button>
+                  </div>
+                </div>
+                <div class="flex gap-2 justify-end items-center">
+                  <button @click="editAttachInput.click()" class="text-[10px] text-gray-400 hover:text-gray-600">📎 附件</button>
                   <button @click="saveEdit(t.id)" class="text-[10px] text-white px-2.5 py-1 rounded-lg" style="background:#22c55e">儲存</button>
-                  <button @click="editingId = null" class="text-[10px] text-gray-400 px-2 py-1">取消</button>
+                  <button @click="cancelEdit" class="text-[10px] text-gray-400 px-2 py-1">取消</button>
                 </div>
               </template>
               <template v-else>
-                {{ t.content }}
+                <span class="break-words" v-html="linkify(t.content)"></span>
                 <div v-if="t.attachments?.length" class="flex gap-1.5 flex-wrap mt-1.5">
                   <a v-for="att in t.attachments" :key="att.url"
                     :href="att.isPdf ? (att.pdfUrl ?? att.url) : undefined" :target="att.isPdf ? '_blank' : undefined">
@@ -138,7 +189,7 @@
                     <img v-else :src="att.url" @click.prevent="openTaskPreview(t, att.url)" class="w-10 h-10 rounded object-cover cursor-pointer hover:opacity-80">
                   </a>
                 </div>
-                <div class="text-[10px] text-green-400 mt-1">{{ t.creatorName }} · {{ formatTime(t.createdAt) }}</div>
+                <div class="text-[10px] font-semibold mt-1" :style="`color:${personColor(t.createdBy)}`">{{ displayName(t) }} · {{ formatTime(t.createdAt) }}</div>
                 <div class="absolute top-2 right-2 hidden group-hover:flex gap-1">
                   <button v-if="authStore.user?.uid === t.createdBy" @click="startEdit(t)" class="text-[9px] bg-white border border-gray-200 rounded px-1.5 py-0.5 text-gray-500 hover:text-gray-700">編輯</button>
                   <button @click="remove(t.id)" class="text-[9px] bg-white border border-red-100 rounded px-1.5 py-0.5 text-red-400 hover:text-red-600">刪除</button>
@@ -190,6 +241,7 @@
     </div>
 
     <input ref="attachInput" type="file" accept="image/jpeg,image/jpg,image/png,image/webp,.pdf" multiple class="hidden" @change="handleAttachFiles">
+    <input ref="editAttachInput" type="file" accept="image/jpeg,image/jpg,image/png,image/webp,.pdf" multiple class="hidden" @change="handleEditAttachFiles">
 
     <div v-if="previewList.length > 0" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50"
       @click.self="closePreview">
@@ -205,6 +257,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useCaseTasksStore } from '@/stores/caseTasks'
 import { useAuthStore } from '@/stores/auth'
+import { useUsersStore } from '@/stores/users'
 import { useNotificationsStore } from '@/stores/notifications'
 import { useToast } from '@/composables/useToast'
 import { uploadPhoto, validateUploadFile } from '@/composables/useStorage'
@@ -212,6 +265,7 @@ import { uploadPhoto, validateUploadFile } from '@/composables/useStorage'
 const props = defineProps({ caseId: String, caseName: String, companyId: { type: String, default: '' } })
 const tasksStore = useCaseTasksStore()
 const authStore = useAuthStore()
+const usersStore = useUsersStore()
 const notifStore = useNotificationsStore()
 const { toast } = useToast()
 
@@ -221,8 +275,11 @@ const addContent = ref('')
 const submitting = ref(false)
 const editingId = ref(null)
 const editContent = ref('')
+const editExistingAttachments = ref([])
+const editPendingFiles = ref([])
 const pendingFiles = ref([])
 const attachInput = ref(null)
+const editAttachInput = ref(null)
 const previewList = ref([])
 const previewIndex = ref(-1)
 
@@ -257,8 +314,40 @@ const clientTasks = computed(() => tasksStore.tasks.filter(t => t.type === 'clie
 const managerTasks = computed(() => tasksStore.tasks.filter(t => t.type === 'manager'))
 const replyTasks = computed(() => tasksStore.tasks.filter(t => t.type === 'reply'))
 
-const empColors = ['#c9a96e','#a855f7','#3b82f6','#22c55e','#f59e0b','#ef4444']
-function empColor(uid) { return empColors[(uid?.charCodeAt(0) ?? 0) % empColors.length] }
+const EMAIL_COLORS = {
+    'dreambreaker24@gmail.com': '#c9a96e',
+    'p8105000@gmail.com': '#1f2937',
+    'daydream54321@gmail.com': '#ef4444',
+}
+const FALLBACK_COLORS = ['#a855f7', '#3b82f6', '#22c55e', '#f59e0b', '#06b6d4', '#ec4899']
+
+function personColor(uid) {
+    if (!uid) return '#6b7280'
+    const user = usersStore.users.find(u => u.id === uid)
+    if (user?.email && EMAIL_COLORS[user.email]) return EMAIL_COLORS[user.email]
+    return FALLBACK_COLORS[(uid.charCodeAt(0) + (uid.charCodeAt(uid.length - 1) ?? 0)) % FALLBACK_COLORS.length]
+}
+
+function displayName(task) {
+    if (task.createdBy) {
+        const user = usersStore.users.find(u => u.id === task.createdBy)
+        if (user?.name) return user.name
+    }
+    return task.creatorName ?? ''
+}
+
+function linkify(text) {
+    if (!text) return ''
+    const escaped = text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+    const linked = escaped.replace(/(https?:\/\/[^\s<>"&]+)/g,
+        url => `<a href="${url}" target="_blank" rel="noopener" style="color:#3b82f6;text-decoration:underline;word-break:break-all">${url}</a>`
+    )
+    return linked.replace(/\n/g, '<br>')
+}
 
 const DONE_COLORS = {
     'dreambreaker24@gmail.com': 'line-through text-amber-500',
@@ -292,18 +381,45 @@ function handleAttachFiles(e) {
     e.target.value = ''
 }
 
+function handleEditAttachFiles(e) {
+    Array.from(e.target.files).forEach(file => {
+        if (validateUploadFile(file)) { toast(validateUploadFile(file), 'error'); return }
+        const isPdf = file.name.toLowerCase().endsWith('.pdf')
+        editPendingFiles.value.push({ file, preview: isPdf ? null : URL.createObjectURL(file) })
+    })
+    e.target.value = ''
+}
+
 function removePending(i) { pendingFiles.value.splice(i, 1) }
 
 function startEdit(task) {
     editingId.value = task.id
     editContent.value = task.content
+    editExistingAttachments.value = [...(task.attachments ?? [])]
+    editPendingFiles.value = []
+}
+
+function cancelEdit() {
+    editingId.value = null
+    editExistingAttachments.value = []
+    editPendingFiles.value = []
 }
 
 async function saveEdit(taskId) {
     if (!editContent.value.trim()) return
     try {
-        await tasksStore.updateTask(props.caseId, taskId, editContent.value.trim())
-        editingId.value = null
+        const newAttachments = []
+        for (const pf of editPendingFiles.value) {
+            try {
+                const url = await uploadPhoto(pf.file, 'task')
+                const isPdf = pf.file.name.toLowerCase().endsWith('.pdf')
+                const pdfUrl = isPdf && !url.toLowerCase().endsWith('.pdf') ? url + '.pdf' : url
+                newAttachments.push({ url, isPdf, pdfUrl })
+            } catch { /* skip failed */ }
+        }
+        const allAttachments = [...editExistingAttachments.value, ...newAttachments]
+        await tasksStore.updateTask(props.caseId, taskId, editContent.value.trim(), allAttachments)
+        cancelEdit()
     } catch {
         toast('修改失敗，請重試', 'error')
     }

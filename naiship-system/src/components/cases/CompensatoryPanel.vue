@@ -66,7 +66,7 @@ import { useUsersStore } from '@/stores/users'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
 
-const TRACKED = ['阿蚌', 'Ramy', '昆霖', '賴賴']
+const TRACKED = ['蚌', 'Ramy', '昆霖', '賴賴']
 
 const usersStore = useUsersStore()
 const authStore = useAuthStore()
@@ -79,7 +79,8 @@ const editHours = ref(0)
 
 function getHours(name, field) {
     const user = usersStore.users.find(u => u.name === name)
-    return user?.[field] ?? 0
+    const val = user?.[field] ?? 0
+    return field === 'compensatoryHours' ? +val.toFixed(1) : val
 }
 
 function openEdit(name, field, label) {

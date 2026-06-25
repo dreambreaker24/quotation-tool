@@ -11,7 +11,7 @@ export const useUsersStore = defineStore('users', () => {
         if (unsubscribe) return
         const q = query(collection(db, 'users'), orderBy('name'))
         unsubscribe = onSnapshot(q, snap => {
-            users.value = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+            users.value = snap.docs.filter(d => !d.data().disabled).map(d => ({ id: d.id, ...d.data() }))
         })
     }
 

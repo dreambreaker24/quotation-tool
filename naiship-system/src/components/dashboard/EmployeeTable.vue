@@ -98,7 +98,7 @@ const monthlyLeave = ref({})
 const attendanceMap = ref({})
 const refreshing = ref(false)
 
-const MEMBER_COLORS = { '柏': '#c9a96e', '其宏': '#1f2937', '阿蚌': '#ef4444' }
+const MEMBER_COLORS = { '柏': '#c9a96e', '其宏': '#1f2937', '蚌': '#ef4444' }
 function empColor(name) {
     if (!name) return '#9ca3af'
     if (MEMBER_COLORS[name]) return MEMBER_COLORS[name]

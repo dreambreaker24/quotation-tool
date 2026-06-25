@@ -65,8 +65,18 @@
           </td>
           <td class="px-4 py-2.5 text-gray-500 text-xs">{{ regionLabel(u.companyId) }}</td>
           <td class="px-4 py-2.5 text-right flex items-center justify-end gap-3">
-            <button @click="removeUser(u.id)" class="text-xs text-gray-400 hover:text-gray-600">停用</button>
-            <button @click="deleteUser(u.id)" class="text-xs text-red-400 hover:text-red-600">刪除</button>
+            <template v-if="renamingId === u.id">
+              <input v-model="renameValue" type="text"
+                class="text-xs border border-gray-200 rounded px-2 py-1 w-20 focus:outline-none focus:ring-1"
+                @keyup.enter="saveRename(u.id)" @keyup.escape="renamingId = null">
+              <button @click="saveRename(u.id)" class="text-xs text-white px-2 py-1 rounded" style="background:#1e2533">確認</button>
+              <button @click="renamingId = null" class="text-xs text-gray-400">取消</button>
+            </template>
+            <template v-else>
+              <button @click="startRename(u)" class="text-xs text-gray-400 hover:text-gray-600">改名</button>
+              <button @click="removeUser(u.id)" class="text-xs text-gray-400 hover:text-gray-600">停用</button>
+              <button @click="deleteUser(u.id)" class="text-xs text-red-400 hover:text-red-600">刪除</button>
+            </template>
           </td>
         </tr>
         <tr v-if="users.length === 0">
@@ -84,6 +94,8 @@ import { db } from '@/firebase'
 const users = ref([])
 const showForm = ref(false)
 const form = ref({ name: '', email: '', role: 'employee', companyId: 'south' })
+const renamingId = ref(null)
+const renameValue = ref('')
 
 const roleMap = { admin: '管理者', manager: '區域主管', employee: '員工' }
 const roleClassMap = {
@@ -103,7 +115,7 @@ function roleLabel(r) { return roleMap[r] ?? r }
 function roleClass(r) { return roleClassMap[r] ?? '' }
 function regionLabel(c) { return regionMap[c] ?? c }
 
-const MEMBER_COLORS = { '柏': '#c9a96e', '其宏': '#1f2937', '阿蚌': '#ef4444' }
+const MEMBER_COLORS = { '柏': '#c9a96e', '其宏': '#1f2937', '蚌': '#ef4444' }
 function empColor(name) {
     if (!name) return '#9ca3af'
     if (MEMBER_COLORS[name]) return MEMBER_COLORS[name]
@@ -124,6 +136,20 @@ async function createUser() {
     form.value = { name: '', email: '', role: 'employee', companyId: 'south' }
     showForm.value = false
     await loadUsers()
+}
+
+function startRename(u) {
+    renamingId.value = u.id
+    renameValue.value = u.name
+}
+
+async function saveRename(id) {
+    const name = renameValue.value.trim()
+    if (!name) return
+    await updateDoc(doc(db, 'users', id), { name })
+    const target = users.value.find(u => u.id === id)
+    if (target) target.name = name
+    renamingId.value = null
 }
 
 async function removeUser(id) {
