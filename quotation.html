@@ -2513,34 +2513,45 @@
 
       const captureOpts = { scale: 3, useCORS: true, backgroundColor: '#ffffff' };
 
-      // html2canvas 不支援 CSS filter；截圖後直接在 canvas 畫 radial-gradient，不碰 DOM
-      function _paintLogoGlow(canvas, logoEl, headerEl, pageEl, sc) {
-        const pg = pageEl.getBoundingClientRect();
-        const lo = logoEl.getBoundingClientRect();
-        const hd = headerEl.getBoundingClientRect();
-        const cx = (lo.left - pg.left + lo.width * 0.35) * sc;
-        const cy = (hd.top  - pg.top  + hd.height * 0.5) * sc;
-        const r  = Math.max(lo.width, hd.height) * sc * 1.2;
-        const ctx = canvas.getContext('2d');
-        const grd = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
-        grd.addColorStop(0,    'rgba(255,255,255,0.38)');
-        grd.addColorStop(0.28, 'rgba(255,220,150,0.30)');
-        grd.addColorStop(0.55, 'rgba(201,169,110,0.18)');
-        grd.addColorStop(0.80, 'rgba(0,0,0,0)');
-        ctx.save();
-        ctx.resetTransform(); // html2canvas 留下視窗座標 transform，必須重置才能在 canvas 正確位置作畫
-        ctx.globalCompositeOperation = 'screen';
-        ctx.fillStyle = grd;
-        ctx.fillRect(Math.max(0,cx-r), Math.max(0,cy-r),
-                     Math.min(canvas.width,cx+r)  - Math.max(0,cx-r),
-                     Math.min(canvas.height,cy+r) - Math.max(0,cy-r));
-        ctx.restore();
+      // html2canvas 不支援 CSS filter:drop-shadow（logo 是黑色設計在透明背景）
+      // 截圖前先把黑色 logo 反白並用 canvas shadow 燒入光暈，截圖後還原
+      function _bakeLogoGlow(logoEl) {
+        const w = logoEl.offsetWidth;
+        const h = logoEl.offsetHeight;
+        if (!w || !h) return null;
+        const c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        const ctx = c.getContext('2d');
+        // 光暈層（canvas shadow 繞著 logo 輪廓）
+        ctx.shadowColor = 'rgba(201,169,110,0.6)'; ctx.shadowBlur = 40;
+        ctx.drawImage(logoEl, 0, 0, w, h);
+        ctx.shadowColor = 'rgba(255,220,150,0.9)'; ctx.shadowBlur = 18;
+        ctx.drawImage(logoEl, 0, 0, w, h);
+        ctx.shadowColor = 'rgba(255,255,255,1)';   ctx.shadowBlur = 6;
+        ctx.drawImage(logoEl, 0, 0, w, h);
+        ctx.shadowBlur = 0;
+        // 把黑色 logo 反白（保留透明背景）
+        const tmp = document.createElement('canvas');
+        tmp.width = w; tmp.height = h;
+        const tc = tmp.getContext('2d');
+        tc.drawImage(logoEl, 0, 0, w, h);
+        tc.globalCompositeOperation = 'source-in';
+        tc.fillStyle = 'white';
+        tc.fillRect(0, 0, w, h);
+        ctx.drawImage(tmp, 0, 0, w, h);
+        return c.toDataURL('image/png');
       }
 
       // 擷取第一頁（全高截圖，不裁切；addImage 時限縮至 297mm 以防溢出）
+      const _logo1 = document.getElementById('prev-logo');
+      const _logo1Baked = _bakeLogoGlow(_logo1);
+      const _logo1OrigSrc = _logo1.src;
+      const _logo1OrigFilter = _logo1.style.filter;
+      if (_logo1Baked) { _logo1.src = _logo1Baked; _logo1.style.filter = 'none'; }
+      await new Promise(r => setTimeout(r, 0));
       const page1 = document.getElementById('a4-page');
       const canvas1 = await html2canvas(page1, captureOpts);
-      _paintLogoGlow(canvas1, document.getElementById('prev-logo'), document.getElementById('prev-header'), page1, captureOpts.scale);
+      _logo1.src = _logo1OrigSrc; _logo1.style.filter = _logo1OrigFilter;
       const _fitStyle = document.getElementById('__pfit');
       let _p1Zoom = 1;
       if (_fitStyle) {
@@ -2575,8 +2586,14 @@
           if (nxt > bot) cutCandidatesDom.push(Math.round((bot + nxt) / 2));
         }
       }
+      const _logo2 = document.getElementById('prev2-logo');
+      const _logo2Baked = _bakeLogoGlow(_logo2);
+      const _logo2OrigSrc = _logo2.src;
+      const _logo2OrigFilter = _logo2.style.filter;
+      if (_logo2Baked) { _logo2.src = _logo2Baked; _logo2.style.filter = 'none'; }
+      await new Promise(r => setTimeout(r, 0));
       const canvas2 = await html2canvas(page2, captureOpts);
-      _paintLogoGlow(canvas2, document.getElementById('prev2-logo'), document.getElementById('prev2-header'), page2, captureOpts.scale);
+      _logo2.src = _logo2OrigSrc; _logo2.style.filter = _logo2OrigFilter;
 
       // 還原可見度
       costCols.forEach(el => { el.style.display = ''; });
