@@ -2528,6 +2528,7 @@
         grd.addColorStop(0.55, 'rgba(201,169,110,0.18)');
         grd.addColorStop(0.80, 'rgba(0,0,0,0)');
         ctx.save();
+        ctx.resetTransform(); // html2canvas 留下視窗座標 transform，必須重置才能在 canvas 正確位置作畫
         ctx.globalCompositeOperation = 'screen';
         ctx.fillStyle = grd;
         ctx.fillRect(Math.max(0,cx-r), Math.max(0,cy-r),
