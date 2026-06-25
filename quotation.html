@@ -1693,6 +1693,11 @@
     try {
       const doc = await db.collection('users').doc(user.uid).get();
       if (doc.exists && doc.data().name) return doc.data().name;
+      // UID 對不上時改用 email 搜尋（同一人用不同帳號登入的情況）
+      if (user.email) {
+        const snap = await db.collection('users').where('email', '==', user.email).limit(1).get();
+        if (!snap.empty && snap.docs[0].data().name) return snap.docs[0].data().name;
+      }
     } catch(e) {}
     return user.displayName || user.email || '未知用戶';
   }
