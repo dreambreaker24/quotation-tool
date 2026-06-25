@@ -912,9 +912,8 @@
       <!-- 頁首 -->
       <div id="prev-header" style="display:flex; justify-content:space-between; align-items:center; background:#2C2C2C; border-bottom:3px solid #c9a96e; margin: -4mm -16mm 0 -16mm; padding: 0 16mm; height:50mm; overflow:hidden;">
         <!-- 左：Logo -->
-        <div style="position:relative; display:flex; align-items:center; margin-left:-10px;">
-          <div style="position:absolute; left:-20px; top:50%; transform:translateY(-50%); width:420px; height:260px; background:radial-gradient(ellipse at 35% 50%, rgba(255,255,255,0.45) 0%, rgba(255,220,150,0.38) 28%, rgba(201,169,110,0.22) 55%, transparent 75%); pointer-events:none; z-index:0;"></div>
-          <img id="prev-logo" src="assets/奈拾設計LOGO2.png" alt="奈拾設計" style="height:450px; object-fit:contain; display:block; position:relative; z-index:1;">
+        <div style="display:flex; align-items:center;">
+          <img id="prev-logo" src="assets/奈拾設計LOGO2.png" alt="奈拾設計" style="height:450px; object-fit:contain; display:block; margin-left:-10px; filter:drop-shadow(0 0 4px rgba(255,255,255,0.95)) drop-shadow(0 0 16px rgba(255,220,150,0.8)) drop-shadow(0 0 40px rgba(201,169,110,0.5));">
         </div>
         <!-- 右：合約資訊 -->
         <div style="font-size:10pt; text-align:left; display:flex; flex-direction:column; justify-content:center; color:#fff;">
@@ -1051,10 +1050,7 @@
 
       <!-- 頁首色塊 -->
       <div id="prev2-header" style="display:flex; justify-content:space-between; align-items:center; background:#2C2C2C; border-bottom:3px solid #c9a96e; margin:-8mm -14mm 4mm -14mm; padding:0 14mm; height:22mm; overflow:hidden; print-color-adjust:exact; -webkit-print-color-adjust:exact;">
-        <div style="position:relative; display:flex; align-items:center; height:100%;">
-          <div style="position:absolute; left:-10px; top:50%; transform:translateY(-50%); width:220px; height:140px; background:radial-gradient(ellipse at 35% 50%, rgba(255,255,255,0.45) 0%, rgba(255,220,150,0.38) 28%, rgba(201,169,110,0.22) 55%, transparent 75%); pointer-events:none; z-index:0;"></div>
-          <img id="prev2-logo" src="assets/奈拾設計LOGO2.png" alt="奈拾設計" style="height:160px; object-fit:contain; display:block; position:relative; z-index:1;">
-        </div>
+        <img id="prev2-logo" src="assets/奈拾設計LOGO2.png" alt="奈拾設計" style="height:160px; object-fit:contain; display:block; filter:drop-shadow(0 0 4px rgba(255,255,255,0.95)) drop-shadow(0 0 16px rgba(255,220,150,0.8)) drop-shadow(0 0 40px rgba(201,169,110,0.5));">
         <table style="font-size:9pt; color:#fff; line-height:1.6; border-collapse:collapse;">
           <tr>
             <td style="white-space:nowrap; padding-right:4px;">合約編號：</td>
@@ -2495,6 +2491,7 @@
 
     btn.disabled = true;
     btn.textContent = '產生中…';
+    let _glowSwap = [];
     try {
       await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
       await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
@@ -2516,6 +2513,23 @@
       _contractOl.style.display = 'block';
 
       const captureOpts = { scale: 3, useCORS: true, backgroundColor: '#ffffff' };
+
+      // html2canvas 不支援 CSS filter，截圖前暫時換成 radial-gradient 模擬發光，擷取後立即還原
+      const _glowSwap = [
+        { id: 'prev-logo', w: 420, h: 260, ox: -20 },
+        { id: 'prev2-logo', w: 220, h: 140, ox: -10 },
+      ].map(({ id, w, h, ox }) => {
+        const el = document.getElementById(id);
+        const savedFilter = el.style.filter;
+        const p = el.parentElement;
+        const savedPos = p.style.position;
+        el.style.filter = '';
+        p.style.position = 'relative';
+        const gd = document.createElement('div');
+        gd.style.cssText = `position:absolute;left:${ox}px;top:50%;transform:translateY(-50%);width:${w}px;height:${h}px;background:radial-gradient(ellipse at 35% 50%,rgba(255,255,255,.45) 0%,rgba(255,220,150,.38) 28%,rgba(201,169,110,.22) 55%,transparent 75%);pointer-events:none;z-index:0;`;
+        p.insertBefore(gd, el);
+        return { el, p, gd, savedFilter, savedPos };
+      });
 
       // 擷取第一頁（全高截圖，不裁切；addImage 時限縮至 297mm 以防溢出）
       const page1 = document.getElementById('a4-page');
@@ -2593,6 +2607,13 @@
         pdf.addImage(slice.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 210, sliceH / canvas2.width * 210);
         sliceStart = sliceEnd;
       }
+      // 擷取完畢，立即還原 filter
+      _glowSwap.forEach(({ el, p, gd, savedFilter, savedPos }) => {
+        el.style.filter = savedFilter;
+        p.style.position = savedPos;
+        gd.remove();
+      });
+
       const pdfBlob = pdf.output('blob');
       if (fileHandle) {
         const writable = await fileHandle.createWritable();
@@ -2605,6 +2626,11 @@
       alert('PDF 產生失敗，請改用「列印」按鈕，在對話框選擇「另存為 PDF」');
       console.error(e);
     } finally {
+      _glowSwap.forEach(({ el, p, gd, savedFilter, savedPos }) => {
+        el.style.filter = savedFilter;
+        p.style.position = savedPos;
+        if (gd.parentNode) gd.remove();
+      });
       btn.disabled = false;
       btn.innerHTML = origHTML;
     }
