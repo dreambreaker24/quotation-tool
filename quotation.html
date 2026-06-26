@@ -120,16 +120,24 @@
       #prev2-header {
         print-color-adjust: exact;
         -webkit-print-color-adjust: exact;
+        margin-top: 0 !important;
       }
       /* 第二頁列印設定 */
       #a4-page-2 {
         width: 100%;
         min-height: auto;
         box-shadow: none;
-        padding: 8mm 14mm 14mm 14mm;
+        padding: 0 14mm 14mm 14mm;
         margin-top: 0;
         page-break-before: always;
       }
+      /* 浮水印：第1頁的隱藏，第2頁的 fixed 讓它在每頁正中央 */
+      #wm-page1 { display: none !important; }
+      #wm-page2 { position: fixed; }
+      /* 工程明細 table：thead 每頁重複，每個 tbody 不在中間斷頁 */
+      #detail-table thead { display: table-header-group; }
+      #detail-table > tbody { break-inside: avoid; page-break-inside: avoid; }
+      #detail-table td { padding: 0; vertical-align: top; }
       .no-print { display: none !important; }
       .cost-col { display: none !important; }
       body.print-with-cost .cost-col { display: table-cell !important; }
@@ -1048,23 +1056,29 @@
     <div id="a4-page-2" style="width:210mm; min-height:297mm; background:#fff; padding:8mm 14mm 14mm 14mm; box-shadow:0 2px 12px rgba(0,0,0,0.15); font-family:'Microsoft JhengHei','Noto Sans TC',sans-serif; font-size:10pt; color:#1a1a1a; position:relative;">
       <img id="wm-page2" class="page-watermark" src="assets/奈拾設計LOGO2.png" alt="">
 
-      <!-- 頁首色塊 -->
-      <div id="prev2-header" style="display:flex; justify-content:space-between; align-items:center; background:#2C2C2C; border-bottom:3px solid #c9a96e; margin:-8mm -14mm 4mm -14mm; padding:0 14mm; height:22mm; overflow:hidden; print-color-adjust:exact; -webkit-print-color-adjust:exact;">
-        <img id="prev2-logo" src="assets/奈拾設計LOGO2.png" alt="奈拾設計" style="height:160px; object-fit:contain; display:block; filter:drop-shadow(0 0 4px rgba(255,255,255,0.95)) drop-shadow(0 0 16px rgba(255,220,150,0.8)) drop-shadow(0 0 40px rgba(201,169,110,0.5));">
-        <table style="font-size:9pt; color:#fff; line-height:1.6; border-collapse:collapse;">
+      <table id="detail-table" style="width:100%; border-collapse:collapse; table-layout:fixed;">
+        <thead>
           <tr>
-            <td style="white-space:nowrap; padding-right:4px;">合約編號：</td>
-            <td id="prev2-contract-no">NS-2026-001</td>
+            <td style="padding:0;">
+              <!-- 頁首色塊 -->
+              <div id="prev2-header" style="display:flex; justify-content:space-between; align-items:center; background:#2C2C2C; border-bottom:3px solid #c9a96e; margin:0 -14mm 4mm -14mm; padding:0 14mm; height:22mm; overflow:hidden; print-color-adjust:exact; -webkit-print-color-adjust:exact;">
+                <img id="prev2-logo" src="assets/奈拾設計LOGO2.png" alt="奈拾設計" style="height:160px; object-fit:contain; display:block; filter:drop-shadow(0 0 4px rgba(255,255,255,0.95)) drop-shadow(0 0 16px rgba(255,220,150,0.8)) drop-shadow(0 0 40px rgba(201,169,110,0.5));">
+                <table style="font-size:9pt; color:#fff; line-height:1.6; border-collapse:collapse;">
+                  <tr>
+                    <td style="white-space:nowrap; padding-right:4px;">合約編號：</td>
+                    <td id="prev2-contract-no">NS-2026-001</td>
+                  </tr>
+                  <tr>
+                    <td style="white-space:nowrap; padding-right:4px;">報價日期：</td>
+                    <td id="prev2-date">2026-05-13</td>
+                  </tr>
+                </table>
+              </div>
+            </td>
           </tr>
-          <tr>
-            <td style="white-space:nowrap; padding-right:4px;">報價日期：</td>
-            <td id="prev2-date">2026-05-13</td>
-          </tr>
-        </table>
-      </div>
-
-      <!-- 各大項細項（動態產生） -->
-      <div id="prev-detail-content"></div>
+        </thead>
+        <!-- tbody elements added dynamically by renderPage2() -->
+      </table>
 
     </div>
     </div><!-- end column wrapper -->
@@ -2248,12 +2262,12 @@
 
   // ── 渲染第二頁 ─────────────────────────────────────────
   function renderPage2() {
-    const container = document.getElementById('prev-detail-content');
-    container.innerHTML = '';
+    const table = document.getElementById('detail-table');
+    Array.from(table.querySelectorAll('tbody')).forEach(tb => tb.remove());
     categories.forEach((cat, catIdx) => {
       const catTotal = getCatTotal(cat);
       const section = document.createElement('div');
-      section.style.cssText = 'margin-bottom:8mm; page-break-inside:avoid; break-inside:avoid; border:1px solid #d8d8d8; border-radius:4px; overflow:hidden; box-shadow:0 1px 5px rgba(0,0,0,0.07);';
+      section.style.cssText = 'margin-bottom:6mm; border:1px solid #d8d8d8; border-radius:4px; overflow:hidden; box-shadow:0 1px 5px rgba(0,0,0,0.07);';
 
       const catCost = getCatCost(cat);
       const subRows = cat.subItems.map((s, idx) => {
@@ -2302,7 +2316,15 @@
             </tr>
           </tfoot>
         </table>`;
-      container.appendChild(section);
+      const tbody = document.createElement('tbody');
+      tbody.style.cssText = 'break-inside:avoid; page-break-inside:avoid;';
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.style.cssText = 'padding:0; vertical-align:top;';
+      td.appendChild(section);
+      tr.appendChild(td);
+      tbody.appendChild(tr);
+      table.appendChild(tbody);
       if (cat.name && cat.name.includes('拆除')) {
         var _tbody2 = section.querySelector('tbody');
         if (_tbody2) {
@@ -2535,9 +2557,7 @@
           suggestedName: _pdfName,
           types: [{ description: 'PDF 檔案', accept: { 'application/pdf': ['.pdf'] } }]
         });
-      } catch (e) {
-        return;
-      }
+      } catch (e) { return; }
     }
 
     btn.disabled = true;
@@ -2547,15 +2567,12 @@
       await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
 
       const showCost = document.getElementById('in-print-cost').checked;
-
-      // 根據「列印時顯示成本」暫時調整可見度
       const costCols = document.querySelectorAll('.cost-col');
       const costSection = document.getElementById('prev-cost-section');
       const prevCostDisplay = costSection.style.display;
       costCols.forEach(el => { el.style.display = showCost ? '' : 'none'; });
       if (!showCost) costSection.style.display = 'none';
 
-      // 合約條款：截圖前把 textarea 換成 ol
       renderContractTerms();
       const _contractTa = document.getElementById('in-contract-terms');
       const _contractOl = document.getElementById('prev-contract-ol');
@@ -2564,53 +2581,39 @@
 
       const captureOpts = { scale: 3, useCORS: true, backgroundColor: '#ffffff' };
 
-      // html2canvas 不支援 CSS filter:drop-shadow（logo 是黑色設計在透明背景）
-      // 截圖前先用 canvas shadow 燒入光暈；canvas 建在 sc 倍高解析度以防 html2canvas 放大時模糊
+      // html2canvas 不支援 CSS filter:drop-shadow，截圖前先用 canvas shadow 燒入光暈
       function _bakeLogoGlow(logoEl, sc) {
-        const w = logoEl.offsetWidth;
-        const h = logoEl.offsetHeight;
+        const w = logoEl.offsetWidth, h = logoEl.offsetHeight;
         if (!w || !h) return null;
         const c = document.createElement('canvas');
         c.width = w * sc; c.height = h * sc;
         const ctx = c.getContext('2d');
-        ctx.scale(sc, sc); // 以 CSS 座標繪圖，canvas 自動放 sc 倍儲存
-        // 光暈層（canvas shadow 繞著 logo 輪廓）
-        ctx.shadowColor = 'rgba(201,169,110,0.6)'; ctx.shadowBlur = 40;
-        ctx.drawImage(logoEl, 0, 0, w, h);
-        ctx.shadowColor = 'rgba(255,220,150,0.9)'; ctx.shadowBlur = 18;
-        ctx.drawImage(logoEl, 0, 0, w, h);
-        ctx.shadowColor = 'rgba(255,255,255,1)';   ctx.shadowBlur = 6;
-        ctx.drawImage(logoEl, 0, 0, w, h);
-        ctx.shadowBlur = 0;
-        // logo 保持黑色（跟網頁一樣），只靠光暈讓它在深色背景上顯現
-        ctx.drawImage(logoEl, 0, 0, w, h);
+        ctx.scale(sc, sc);
+        ctx.shadowColor = 'rgba(201,169,110,0.6)'; ctx.shadowBlur = 40; ctx.drawImage(logoEl, 0, 0, w, h);
+        ctx.shadowColor = 'rgba(255,220,150,0.9)'; ctx.shadowBlur = 18; ctx.drawImage(logoEl, 0, 0, w, h);
+        ctx.shadowColor = 'rgba(255,255,255,1)';   ctx.shadowBlur = 6;  ctx.drawImage(logoEl, 0, 0, w, h);
+        ctx.shadowBlur = 0; ctx.drawImage(logoEl, 0, 0, w, h);
         return c.toDataURL('image/png');
       }
 
-      // 擷取第一頁（全高截圖，不裁切；addImage 時限縮至 297mm 以防溢出）
+      // 擷取第一頁
       const _logo1 = document.getElementById('prev-logo');
       const _logo1Baked = _bakeLogoGlow(_logo1, captureOpts.scale);
-      const _logo1OrigSrc = _logo1.src;
-      const _logo1OrigFilter = _logo1.style.filter;
+      const _logo1OrigSrc = _logo1.src, _logo1OrigFilter = _logo1.style.filter;
       if (_logo1Baked) { _logo1.src = _logo1Baked; _logo1.style.filter = 'none'; }
       await new Promise(r => setTimeout(r, 0));
       const page1 = document.getElementById('a4-page');
       const canvas1 = await html2canvas(page1, captureOpts);
       _logo1.src = _logo1OrigSrc; _logo1.style.filter = _logo1OrigFilter;
+
       const _fitStyle = document.getElementById('__pfit');
       let _p1Zoom = 1;
-      if (_fitStyle) {
-        const _m = _fitStyle.textContent.match(/zoom:([\d.]+)/);
-        if (_m) _p1Zoom = parseFloat(_m[1]);
-      }
+      if (_fitStyle) { const _m = _fitStyle.textContent.match(/zoom:([\d.]+)/); if (_m) _p1Zoom = parseFloat(_m[1]); }
       let page1DataUrl, page1H;
       if (_p1Zoom < 0.999) {
         const _sc = document.createElement('canvas');
-        _sc.width = Math.round(canvas1.width * _p1Zoom);
-        _sc.height = Math.round(canvas1.height * _p1Zoom);
-        const _ctx = _sc.getContext('2d');
-        _ctx.scale(_p1Zoom, _p1Zoom);
-        _ctx.drawImage(canvas1, 0, 0);
+        _sc.width = Math.round(canvas1.width * _p1Zoom); _sc.height = Math.round(canvas1.height * _p1Zoom);
+        const _ctx = _sc.getContext('2d'); _ctx.scale(_p1Zoom, _p1Zoom); _ctx.drawImage(canvas1, 0, 0);
         page1DataUrl = _sc.toDataURL('image/jpeg', 0.95);
         page1H = Math.min(_sc.height / _sc.width * 210, 297);
       } else {
@@ -2618,49 +2621,50 @@
         page1H = Math.min(canvas1.height / canvas1.width * 210, 297);
       }
 
-      // 擷取第二頁前，用 getBoundingClientRect 量各工程區塊間隙的中點（DOM px）
       const page2 = document.getElementById('a4-page-2');
       const p2Rect = page2.getBoundingClientRect();
-      const detailCont = document.getElementById('prev-detail-content');
+
+      // 頁首高度（canvas 像素），用於後續各頁注入頁首
+      const _headerHeightPx = Math.round(document.getElementById('prev2-header').getBoundingClientRect().height * captureOpts.scale);
+
+      // 各 category tbody 間隙作為智慧切割候選點
       const cutCandidatesDom = [];
-      if (detailCont) {
-        const sects = Array.from(detailCont.children);
-        for (let i = 0; i < sects.length - 1; i++) {
-          const bot = sects[i].getBoundingClientRect().bottom - p2Rect.top;
-          const nxt = sects[i + 1].getBoundingClientRect().top - p2Rect.top;
-          if (nxt > bot) cutCandidatesDom.push(Math.round((bot + nxt) / 2));
-        }
+      const _tbodies = Array.from(document.getElementById('detail-table').children).filter(el => el.tagName === 'TBODY');
+      for (let i = 0; i < _tbodies.length - 1; i++) {
+        const bot = _tbodies[i].getBoundingClientRect().bottom - p2Rect.top;
+        const nxt = _tbodies[i + 1].getBoundingClientRect().top - p2Rect.top;
+        if (nxt > bot) cutCandidatesDom.push(Math.round((bot + nxt) / 2));
       }
+
       const _logo2 = document.getElementById('prev2-logo');
       const _logo2Baked = _bakeLogoGlow(_logo2, captureOpts.scale);
-      const _logo2OrigSrc = _logo2.src;
-      const _logo2OrigFilter = _logo2.style.filter;
+      const _logo2OrigSrc = _logo2.src, _logo2OrigFilter = _logo2.style.filter;
       if (_logo2Baked) { _logo2.src = _logo2Baked; _logo2.style.filter = 'none'; }
       await new Promise(r => setTimeout(r, 0));
       const canvas2 = await html2canvas(page2, captureOpts);
       _logo2.src = _logo2OrigSrc; _logo2.style.filter = _logo2OrigFilter;
 
-      // 還原可見度
       costCols.forEach(el => { el.style.display = ''; });
       costSection.style.display = prevCostDisplay;
-      _contractTa.style.display = '';
-      _contractOl.style.display = 'none';
+      _contractTa.style.display = ''; _contractOl.style.display = 'none';
 
-      // 產生 PDF
       const { jsPDF } = window.jspdf;
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
       pdf.addImage(page1DataUrl, 'JPEG', 0, 0, 210, page1H);
 
-      // 第二頁智慧分頁：在工程區塊間隙切，不切在文字中間
+      // 第二頁起：智慧分頁 + 第二片開始每頁自動注入頁首
       const a4SlicePx = Math.round(297 / 25.4 * 96 * captureOpts.scale);
       let sliceStart = 0;
+      let isFirstSlice = true;
+
       while (sliceStart < canvas2.height) {
-        const idealEnd = sliceStart + a4SlicePx;
+        // 第一片已含頁首，後續各片要留出頁首高度給注入用
+        const availPx = isFirstSlice ? a4SlicePx : (a4SlicePx - _headerHeightPx);
+        const idealEnd = sliceStart + availPx;
         let sliceEnd;
         if (idealEnd >= canvas2.height) {
           sliceEnd = canvas2.height;
         } else {
-          // 從候選切割點中，選最靠近 idealEnd 且不超過的那個
           const idealDom = idealEnd / captureOpts.scale;
           let bestDom = idealDom;
           for (const c of cutCandidatesDom) { if (c <= idealDom) bestDom = c; else break; }
@@ -2668,29 +2672,38 @@
           if (sliceEnd <= sliceStart) sliceEnd = Math.min(idealEnd, canvas2.height);
         }
         const sliceH = sliceEnd - sliceStart;
-        if (sliceH < 6) break; // 防止 logo overflow 產生的極薄空白頁
-        const slice = document.createElement('canvas');
-        slice.width = canvas2.width;
-        slice.height = sliceH;
-        slice.getContext('2d').drawImage(canvas2, 0, sliceStart, canvas2.width, sliceH, 0, 0, canvas2.width, sliceH);
+        if (sliceH < 6) break;
+
         pdf.addPage();
-        pdf.addImage(slice.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 210, sliceH / canvas2.width * 210);
+        if (isFirstSlice) {
+          // 第一片：直接輸出（頁首已在內）
+          const slice = document.createElement('canvas');
+          slice.width = canvas2.width; slice.height = sliceH;
+          slice.getContext('2d').drawImage(canvas2, 0, sliceStart, canvas2.width, sliceH, 0, 0, canvas2.width, sliceH);
+          pdf.addImage(slice.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 210, sliceH / canvas2.width * 210);
+          isFirstSlice = false;
+        } else {
+          // 後續各片：頁首（從 canvas2 頂端複製）+ 內容
+          const pageCanvas = document.createElement('canvas');
+          pageCanvas.width = canvas2.width; pageCanvas.height = _headerHeightPx + sliceH;
+          const ctx = pageCanvas.getContext('2d');
+          ctx.drawImage(canvas2, 0, 0, canvas2.width, _headerHeightPx, 0, 0, canvas2.width, _headerHeightPx);
+          ctx.drawImage(canvas2, 0, sliceStart, canvas2.width, sliceH, 0, _headerHeightPx, canvas2.width, sliceH);
+          pdf.addImage(pageCanvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 210, pageCanvas.height / canvas2.width * 210);
+        }
         sliceStart = sliceEnd;
       }
+
       const pdfBlob = pdf.output('blob');
       if (fileHandle) {
         const writable = await fileHandle.createWritable();
-        await writable.write(pdfBlob);
-        await writable.close();
-      } else {
-        pdf.save(_pdfName);
-      }
+        await writable.write(pdfBlob); await writable.close();
+      } else { pdf.save(_pdfName); }
     } catch(e) {
       alert('PDF 產生失敗，請改用「列印」按鈕，在對話框選擇「另存為 PDF」');
       console.error(e);
     } finally {
-      btn.disabled = false;
-      btn.innerHTML = origHTML;
+      btn.disabled = false; btn.innerHTML = origHTML;
     }
   }
 
