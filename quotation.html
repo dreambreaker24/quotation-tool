@@ -1053,7 +1053,7 @@
     </div>
 
     <!-- 第二頁：工程項目明細 -->
-    <div id="a4-page-2" style="width:210mm; min-height:297mm; background:#fff; padding:8mm 14mm 14mm 14mm; box-shadow:0 2px 12px rgba(0,0,0,0.15); font-family:'Microsoft JhengHei','Noto Sans TC',sans-serif; font-size:10pt; color:#1a1a1a; position:relative;">
+    <div id="a4-page-2" style="width:210mm; min-height:297mm; background:#fff; padding:0 14mm 14mm 14mm; box-shadow:0 2px 12px rgba(0,0,0,0.15); font-family:'Microsoft JhengHei','Noto Sans TC',sans-serif; font-size:10pt; color:#1a1a1a; position:relative;">
       <img id="wm-page2" class="page-watermark" src="assets/奈拾設計LOGO2.png" alt="">
 
       <table id="detail-table" style="width:100%; border-collapse:collapse; table-layout:fixed;">
@@ -2624,8 +2624,13 @@
       const page2 = document.getElementById('a4-page-2');
       const p2Rect = page2.getBoundingClientRect();
 
-      // 頁首高度（canvas 像素），用於後續各頁注入頁首
-      const _headerHeightPx = Math.round(document.getElementById('prev2-header').getBoundingClientRect().height * captureOpts.scale);
+      // 頁首高度 + gap（canvas 像素），用於後續各頁注入頁首區域
+      const _headerEl = document.getElementById('prev2-header');
+      const _headerHeightPx = Math.round(_headerEl.getBoundingClientRect().height * captureOpts.scale);
+      // 頁首區域 = dark bar(22mm) + margin-bottom(4mm)，用於注入與 availPx 計算
+      const _headerRegionPx = Math.round(
+        (_headerEl.getBoundingClientRect().bottom - p2Rect.top + 4 / 25.4 * 96) * captureOpts.scale
+      );
 
       // 各 category tbody 間隙作為智慧切割候選點
       const cutCandidatesDom = [];
@@ -2636,6 +2641,11 @@
         if (nxt > bot) cutCandidatesDom.push(Math.round((bot + nxt) / 2));
       }
 
+      // 截圖前隱藏浮水印（html2canvas 不支援 position:absolute 多頁重複，改為每頁手動疊加）
+      const _wmEl = document.getElementById('wm-page2');
+      const _wmOrigDisplay = _wmEl.style.display;
+      _wmEl.style.display = 'none';
+
       const _logo2 = document.getElementById('prev2-logo');
       const _logo2Baked = _bakeLogoGlow(_logo2, captureOpts.scale);
       const _logo2OrigSrc = _logo2.src, _logo2OrigFilter = _logo2.style.filter;
@@ -2643,6 +2653,22 @@
       await new Promise(r => setTimeout(r, 0));
       const canvas2 = await html2canvas(page2, captureOpts);
       _logo2.src = _logo2OrigSrc; _logo2.style.filter = _logo2OrigFilter;
+      _wmEl.style.display = _wmOrigDisplay;
+
+      // 預載浮水印圖片，後面每頁切片時手動以 10% 透明度疊加
+      const _wmImg = new Image();
+      _wmImg.crossOrigin = 'anonymous';
+      _wmImg.src = _wmEl.src;
+      await new Promise(r => { if (_wmImg.complete && _wmImg.naturalWidth) r(); else { _wmImg.onload = r; _wmImg.onerror = r; } });
+      const _drawWm = (ctx2, w, h) => {
+        if (!_wmImg.complete || !_wmImg.naturalWidth) return;
+        const wmW = w * 0.62;
+        const wmH = wmW * _wmImg.naturalHeight / _wmImg.naturalWidth;
+        ctx2.save();
+        ctx2.globalAlpha = 0.10;
+        ctx2.drawImage(_wmImg, (w - wmW) / 2, (h - wmH) / 2, wmW, wmH);
+        ctx2.restore();
+      };
 
       costCols.forEach(el => { el.style.display = ''; });
       costSection.style.display = prevCostDisplay;
@@ -2658,8 +2684,8 @@
       let isFirstSlice = true;
 
       while (sliceStart < canvas2.height) {
-        // 第一片已含頁首，後續各片要留出頁首高度給注入用
-        const availPx = isFirstSlice ? a4SlicePx : (a4SlicePx - _headerHeightPx);
+        // 第一片已含頁首區域，後續各片要留出 _headerRegionPx（dark bar + gap）給注入用
+        const availPx = isFirstSlice ? a4SlicePx : (a4SlicePx - _headerRegionPx);
         const idealEnd = sliceStart + availPx;
         let sliceEnd;
         if (idealEnd >= canvas2.height) {
@@ -2676,19 +2702,22 @@
 
         pdf.addPage();
         if (isFirstSlice) {
-          // 第一片：直接輸出（頁首已在內）
+          // 第一片：直接輸出（頁首已在內），加浮水印
           const slice = document.createElement('canvas');
           slice.width = canvas2.width; slice.height = sliceH;
-          slice.getContext('2d').drawImage(canvas2, 0, sliceStart, canvas2.width, sliceH, 0, 0, canvas2.width, sliceH);
+          const sliceCtx = slice.getContext('2d');
+          sliceCtx.drawImage(canvas2, 0, sliceStart, canvas2.width, sliceH, 0, 0, canvas2.width, sliceH);
+          _drawWm(sliceCtx, slice.width, slice.height);
           pdf.addImage(slice.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 210, sliceH / canvas2.width * 210);
           isFirstSlice = false;
         } else {
-          // 後續各片：頁首（從 canvas2 頂端複製）+ 內容
+          // 後續各片：注入頁首區域（dark bar + 4mm gap）+ 內容，加浮水印
           const pageCanvas = document.createElement('canvas');
-          pageCanvas.width = canvas2.width; pageCanvas.height = _headerHeightPx + sliceH;
+          pageCanvas.width = canvas2.width; pageCanvas.height = _headerRegionPx + sliceH;
           const ctx = pageCanvas.getContext('2d');
-          ctx.drawImage(canvas2, 0, 0, canvas2.width, _headerHeightPx, 0, 0, canvas2.width, _headerHeightPx);
-          ctx.drawImage(canvas2, 0, sliceStart, canvas2.width, sliceH, 0, _headerHeightPx, canvas2.width, sliceH);
+          ctx.drawImage(canvas2, 0, 0, canvas2.width, _headerRegionPx, 0, 0, canvas2.width, _headerRegionPx);
+          ctx.drawImage(canvas2, 0, sliceStart, canvas2.width, sliceH, 0, _headerRegionPx, canvas2.width, sliceH);
+          _drawWm(ctx, pageCanvas.width, pageCanvas.height);
           pdf.addImage(pageCanvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 210, pageCanvas.height / canvas2.width * 210);
         }
         sliceStart = sliceEnd;

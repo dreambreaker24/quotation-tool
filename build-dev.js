@@ -1117,7 +1117,7 @@ fs.writeFileSync('C:/AI助理 Claude/quotation-dev.html', out, 'utf8');
 // 驗證
 const checks = [
   ['自動合約編號 newQuote', out.includes('padStart(3,')],
-  ['PDF 檔名四段式', out.includes("pdf.save(_pdfName)")],
+  ['PDF 檔名四段式', out.includes("_pdfName") && out.includes("showSaveFilePicker")],
   ['DEV 標題', out.includes('[DEV] 奈拾設計')],
   ['PRICE_DB', out.includes('const PRICE_DB = [')],
   ['Modal HTML', out.includes('id="price-modal"')],
@@ -1167,7 +1167,7 @@ const checks = [
   ['合約條款可編輯 textarea', out.includes('id="in-contract-terms"')],
   ['合約條款 print ol', out.includes('id="prev-contract-ol"')],
   ['renderContractTerms 函數', out.includes('function renderContractTerms(')],
-  ['savePDF 縮放修正', out.includes('_p1Zoom') && out.includes('page1DataUrl')],
+  ['savePDF 頁首注入', out.includes('_headerRegionPx') && out.includes('isFirstSlice')],
   ['浮水印 CSS', out.includes('.page-watermark')],
   ['浮水印 HTML page1', out.includes('id="wm-page1"')],
   ['浮水印 HTML page2', out.includes('id="wm-page2"')],
