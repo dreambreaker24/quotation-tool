@@ -2263,7 +2263,7 @@
   // ── 渲染第二頁 ─────────────────────────────────────────
   function renderPage2() {
     const table = document.getElementById('detail-table');
-    Array.from(table.querySelectorAll('tbody')).forEach(tb => tb.remove());
+    Array.from(table.children).filter(el => el.tagName === 'TBODY').forEach(tb => tb.remove());
     categories.forEach((cat, catIdx) => {
       const catTotal = getCatTotal(cat);
       const section = document.createElement('div');
