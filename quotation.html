@@ -2640,6 +2640,20 @@
         const nxt = _tbodies[i + 1].getBoundingClientRect().top - p2Rect.top;
         if (nxt > bot) cutCandidatesDom.push(Math.round((bot + nxt) / 2));
       }
+      // 各大類內每一工項列的底部也加入候選，避免在列文字中間截斷
+      for (const outerTbody of _tbodies) {
+        const innerTable = outerTbody.querySelector('table');
+        if (!innerTable) continue;
+        const innerTbody = Array.from(innerTable.children).find(el => el.tagName === 'TBODY');
+        if (!innerTbody) continue;
+        const innerTrs = Array.from(innerTbody.children);
+        // 略過最後一列，避免只剩小計孤立在下一頁頂端
+        for (let j = 0; j < innerTrs.length - 1; j++) {
+          const trBot = innerTrs[j].getBoundingClientRect().bottom - p2Rect.top;
+          if (trBot > 0) cutCandidatesDom.push(Math.round(trBot));
+        }
+      }
+      cutCandidatesDom.sort((a, b) => a - b);
 
       // 截圖前隱藏浮水印（html2canvas 不支援 position:absolute 多頁重複，改為每頁手動疊加）
       const _wmEl = document.getElementById('wm-page2');
