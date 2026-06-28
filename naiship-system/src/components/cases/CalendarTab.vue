@@ -652,25 +652,13 @@ const counts = computed(() =>
 const calendarCells = computed(() => {
   const cells = []
   const first = new Date(currentYear.value, currentMonth.value, 1)
-  // Monday-first: Mon=0, Tue=1, ..., Sat=5, Sun=6
   const startOffset = (first.getDay() + 6) % 7
   const daysInMonth = new Date(currentYear.value, currentMonth.value + 1, 0).getDate()
   const prevMonthDays = new Date(currentYear.value, currentMonth.value, 0).getDate()
 
-  for (let i = startOffset - 1; i >= 0; i--) {
-    const date = new Date(currentYear.value, currentMonth.value - 1, prevMonthDays - i)
-    const dow = date.getDay()
-    cells.push({ day: prevMonthDays - i, currentMonth: false, events: [], dayOfWeek: dow, isNonWorking: dow === 0 || dow === 6 })
-  }
-
-  for (let d = 1; d <= daysInMonth; d++) {
-    const date = new Date(currentYear.value, currentMonth.value, d)
-    const dow = date.getDay()
-    const dateStr = `${currentYear.value}-${String(currentMonth.value + 1).padStart(2,'0')}-${String(d).padStart(2,'0')}`
-    const isWeekend = dow === 0 || dow === 6
-    const holidayName = TAIWAN_HOLIDAY_NAMES[dateStr] ?? null
+  function eventsForDate(date) {
     const cellTime = date.getTime()
-    const dayEvents = eventsStore.events.filter(e => {
+    return eventsStore.events.filter(e => {
       const startTs = e.date?.toDate?.() ?? new Date(e.date)
       const start = new Date(startTs.getFullYear(), startTs.getMonth(), startTs.getDate()).getTime()
       if (!e.endDate) return cellTime === start
@@ -685,6 +673,24 @@ const calendarCells = computed(() => {
       const bCreated = b.createdAt?.toMillis?.() ?? 0
       return aCreated - bCreated
     })
+  }
+
+  function toDateStr(date) {
+    return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`
+  }
+
+  for (let i = startOffset - 1; i >= 0; i--) {
+    const date = new Date(currentYear.value, currentMonth.value - 1, prevMonthDays - i)
+    const dow = date.getDay()
+    cells.push({ day: prevMonthDays - i, currentMonth: false, dateStr: toDateStr(date), events: eventsForDate(date), dayOfWeek: dow, isNonWorking: dow === 0 || dow === 6 })
+  }
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const date = new Date(currentYear.value, currentMonth.value, d)
+    const dow = date.getDay()
+    const dateStr = toDateStr(date)
+    const isWeekend = dow === 0 || dow === 6
+    const holidayName = TAIWAN_HOLIDAY_NAMES[dateStr] ?? null
     cells.push({
       day: d, currentMonth: true,
       isToday: date.toDateString() === today.toDateString(),
@@ -692,7 +698,7 @@ const calendarCells = computed(() => {
       dayOfWeek: dow,
       isNonWorking: isWeekend || Boolean(holidayName),
       holidayName,
-      events: dayEvents
+      events: eventsForDate(date)
     })
   }
 
@@ -700,7 +706,7 @@ const calendarCells = computed(() => {
   while (cells.length % 7 !== 0) {
     const date = new Date(currentYear.value, currentMonth.value + 1, nextDay)
     const dow = date.getDay()
-    cells.push({ day: nextDay, currentMonth: false, events: [], dayOfWeek: dow, isNonWorking: dow === 0 || dow === 6 })
+    cells.push({ day: nextDay, currentMonth: false, dateStr: toDateStr(date), events: eventsForDate(date), dayOfWeek: dow, isNonWorking: dow === 0 || dow === 6 })
     nextDay++
   }
   return cells

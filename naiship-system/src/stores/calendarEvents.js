@@ -10,8 +10,12 @@ export const useCalendarEventsStore = defineStore('calendarEvents', () => {
     function subscribe(companyIdOrIds, year, month) {
         if (unsubscribe) unsubscribe()
         const ids = Array.isArray(companyIdOrIds) ? companyIdOrIds : [companyIdOrIds]
-        const start = new Date(year, month, 1)
-        const end = new Date(year, month + 1, 0, 23, 59, 59)
+        const firstOfMonth = new Date(year, month, 1)
+        const startOffset = (firstOfMonth.getDay() + 6) % 7
+        const daysInMonth = new Date(year, month + 1, 0).getDate()
+        const nextDays = (7 - (startOffset + daysInMonth) % 7) % 7
+        const start = new Date(year, month, 1 - startOffset)
+        const end = new Date(year, month + 1, nextDays, 23, 59, 59)
         const q = query(
             collection(db, 'calendarEvents'),
             where('companyId', 'in', ids),
