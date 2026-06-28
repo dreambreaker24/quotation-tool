@@ -221,6 +221,7 @@ const isAtEnd = computed(() => {
     return isToday.value
 })
 
+const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六']
 function fmtDate(d) {
     return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
 }
@@ -232,8 +233,9 @@ const dateLabel = computed(() => {
         return `${fmtDate(ws)} - ${fmtDate(we)}`
     }
     const d = selectedDate.value
-    if (isToday.value) return `${fmtDate(d)}（今日）`
-    return fmtDate(d)
+    const wd = `（週${WEEKDAYS[d.getDay()]}）`
+    if (isToday.value) return `${fmtDate(d)}${wd}今日`
+    return `${fmtDate(d)}${wd}`
 })
 
 function shiftDate(delta) {
