@@ -202,9 +202,10 @@ function submitReply() {
 const EMP_COLORS = ['#c9a96e', '#a855f7', '#3b82f6', '#22c55e', '#f59e0b', '#ef4444']
 function empColor(uid) { return EMP_COLORS[(uid?.charCodeAt(0) ?? 0) % EMP_COLORS.length] }
 
+const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六']
 function formatTime(ts) {
     if (!ts) return ''
     const d = ts.toDate?.() ?? new Date(ts)
-    return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+    return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}（週${WEEKDAYS[d.getDay()]}）${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 </script>

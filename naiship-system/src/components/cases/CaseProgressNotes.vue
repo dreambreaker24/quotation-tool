@@ -140,10 +140,11 @@ function userColor(uid) {
 
 function isOwn(note) { return note.authorId === authStore.user?.uid }
 
+const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六']
 function formatTime(ts) {
     if (!ts) return ''
     const d = ts.toDate?.() ?? new Date(ts)
-    return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+    return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}（週${WEEKDAYS[d.getDay()]}）${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
 function handleFiles(e) {

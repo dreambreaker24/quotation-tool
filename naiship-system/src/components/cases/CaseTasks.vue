@@ -359,10 +359,11 @@ function doneClass(task) {
     return DONE_COLORS[task.doneByEmail] ?? 'line-through text-gray-400'
 }
 
+const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六']
 function formatTime(ts) {
     if (!ts) return ''
     const d = ts.toDate?.() ?? new Date(ts)
-    return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
+    return `${d.getMonth()+1}/${d.getDate()}（週${WEEKDAYS[d.getDay()]}）${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
 }
 
 function openAdd(type) {
