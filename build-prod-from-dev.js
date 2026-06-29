@@ -23,6 +23,9 @@ const devAuthElse = `    } else {
       document.getElementById('login-overlay').style.display = 'none';
       document.getElementById('user-status-bar').style.display = 'flex';
       document.getElementById('user-display-name').textContent = '[DEV 測試模式]';
+      _canDelete = true; // [DEV]
+      var _emBtn = document.getElementById('btn-edit-mode');
+      if (_emBtn) _emBtn.style.display = 'inline-block';
       switchCompany('naiship');
       syncHeader();
       document.getElementById('in-contract-terms').value = DEFAULT_CONTRACT_TERMS;

@@ -866,7 +866,18 @@
     <div id="save-hint" style="font-size:12px; margin-bottom:12px; min-height:16px;"></div>
 
     <!-- 過往清單 -->
-    <h2>過往清單</h2>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <h2 style="margin:0;">過往清單</h2>
+      <button id="btn-edit-mode" onclick="toggleEditMode()" style="display:none; padding:3px 9px; background:#fee2e2; color:#ef4444; border:1px solid #fca5a5; border-radius:4px; cursor:pointer; font-size:11px; font-family:inherit;">整理模式</button>
+    </div>
+    <div id="batch-bar" style="display:none; background:#fef2f2; border:1px solid #fca5a5; border-radius:4px; padding:6px 10px; margin-bottom:6px; justify-content:space-between; align-items:center;">
+      <span style="font-size:12px; color:#ef4444; font-weight:bold;">整理模式中</span>
+      <div style="display:flex; gap:6px; align-items:center;">
+        <span id="batch-count" style="font-size:12px; color:#6b7280;">已選 0 筆</span>
+        <button id="btn-batch-delete" onclick="batchDelete()" style="display:none; padding:3px 8px; background:#ef4444; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px; font-family:inherit;">刪除選取</button>
+        <button onclick="toggleEditMode()" style="padding:3px 8px; background:#e5e7eb; color:#374151; border:none; border-radius:4px; cursor:pointer; font-size:11px; font-family:inherit;">結束</button>
+      </div>
+    </div>
     <div style="margin-bottom:6px;">
       <select id="in-filter-status" onchange="renderHistoryList()" style="width:100%; padding:5px 8px; border:1px solid #ddd; border-radius:4px; font-family:inherit; font-size:12px; background:#fff;">
         <option value="">全部狀態</option>
@@ -1794,6 +1805,10 @@
   var _currentContractNo = null;
   var _currentDocId = null;
   var _highlightDocId = null;
+  var _canDelete = false;
+  var _editMode = false;
+  var _checkedDocIds = new Set();
+  var _DELETE_WHITELIST = ['dreambreaker24@hotmail.com', 'daydream543@hotmail.com.tw'];
 
   function _renderHistoryItem(q, container, isChild, folderColor) {
     const div = document.createElement('div');
@@ -1806,7 +1821,9 @@
     const _indent = isChild ? `margin-left:16px; border-left:3px solid ${_borderColor};` : '';
     div.style.cssText = `cursor:pointer; padding:${isChild?'7px 10px':'10px 12px'}; border:1px solid #eee; border-radius:6px; margin-bottom:4px; background:#fff; transition:background 0.2s; ${_indent}`;
     if (isSelected) div.classList.add('history-item-selected');
-    div.onclick = () => loadQuote(q);
+    div.onclick = _editMode
+      ? () => { var chk = document.getElementById('chk-' + _qDocId); if (chk) { chk.checked = !chk.checked; _onCheckChange(_qDocId, chk.checked); } }
+      : () => loadQuote(q);
     // 版本 badge 顏色
     const _vl = q.versionLabel || '';
     let _vBadgeStyle = 'font-size:10px; border-radius:3px; padding:1px 5px; margin-left:4px;';
@@ -1824,15 +1841,109 @@
     else _stBadgeStyle += 'background:#f3f4f6; color:#9ca3af;';
     const _statusBadge = _st ? `<span style="${_stBadgeStyle}">${escHtml(_st)}</span>` : '';
     const _titleParts = [q.contractNo, q.project, q.date].filter(Boolean).map(p => escHtml(p));
+    const _safeDocId = escHtml(_qDocId);
+    const _safeContractNo = escHtml(q.contractNo || '');
+    const _safeLabel = escHtml(([q.project, q.clientName, q.contractNo].filter(Boolean).join(' · ')).replace(/'/g, '&#39;'));
+    const _chkHtml = _editMode
+      ? `<input type="checkbox" id="chk-${_safeDocId}" style="margin-right:8px; cursor:pointer; flex-shrink:0; width:15px; height:15px;" ${_checkedDocIds.has(_qDocId)?'checked':''} onchange="_onCheckChange('${_safeDocId}',this.checked)" onclick="event.stopPropagation();">`
+      : '';
+    const _delHtml = (_canDelete && !_editMode)
+      ? `<button onclick="event.stopPropagation();deleteSingleQuote('${_safeDocId}','${_safeContractNo}','${_safeLabel}')" style="flex-shrink:0; margin-left:6px; padding:2px 7px; background:#fee2e2; color:#ef4444; border:1px solid #fca5a5; border-radius:3px; cursor:pointer; font-size:11px; font-family:inherit;" title="刪除">🗑️</button>`
+      : '';
     div.innerHTML = `
-      <div style="font-weight:bold; font-size:${isChild?'12px':'13px'}; margin-bottom:2px;">${_titleParts.join('｜')}${_versionBadge}${_statusBadge}</div>
-      <div style="font-size:11px; color:#aaa;">最後修改：${escHtml(_resolveUserName(q.updatedBy || q.createdBy))} · ${timeAgo(q.updatedAt)}</div>
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:4px;">
+        <div style="display:flex; align-items:flex-start; flex:1; min-width:0;">
+          ${_chkHtml}
+          <div style="min-width:0;">
+            <div style="font-weight:bold; font-size:${isChild?'12px':'13px'}; margin-bottom:2px;">${_titleParts.join('｜')}${_versionBadge}${_statusBadge}</div>
+            <div style="font-size:11px; color:#aaa;">最後修改：${escHtml(_resolveUserName(q.updatedBy || q.createdBy))} · ${timeAgo(q.updatedAt)}</div>
+          </div>
+        </div>
+        ${_delHtml}
+      </div>
     `;
     if (_highlightDocId && _qDocId === _highlightDocId) {
       div.style.animation = '_hl-flash 1.5s ease-out';
       _highlightDocId = null;
     }
     container.appendChild(div);
+  }
+
+  // ── 刪除功能 ───────────────────────────────────────────
+
+  function _onCheckChange(docId, checked) {
+    if (checked) _checkedDocIds.add(docId); else _checkedDocIds.delete(docId);
+    var n = _checkedDocIds.size;
+    var countEl = document.getElementById('batch-count');
+    var delBtn = document.getElementById('btn-batch-delete');
+    if (countEl) countEl.textContent = '已選 ' + n + ' 筆';
+    if (delBtn) delBtn.style.display = n > 0 ? 'inline-block' : 'none';
+  }
+
+  function toggleEditMode() {
+    _editMode = !_editMode;
+    _checkedDocIds = new Set();
+    var bar = document.getElementById('batch-bar');
+    var editBtn = document.getElementById('btn-edit-mode');
+    if (bar) bar.style.display = _editMode ? 'flex' : 'none';
+    if (editBtn) editBtn.textContent = _editMode ? '結束整理' : '整理模式';
+    var delBtn = document.getElementById('btn-batch-delete');
+    var countEl = document.getElementById('batch-count');
+    if (delBtn) delBtn.style.display = 'none';
+    if (countEl) countEl.textContent = '已選 0 筆';
+    renderHistoryList();
+  }
+
+  async function deleteSingleQuote(docId, contractNo, label) {
+    var _display = label || contractNo;
+    // B：第一次確認
+    if (!confirm('確定要刪除「' + _display + '」？\n\n此操作無法復原。')) return;
+    // A：輸入合約編號確認
+    var _input = prompt('請輸入合約編號確認刪除（' + contractNo + '）：');
+    if (_input === null) return;
+    if (_input.trim() !== contractNo) { alert('合約編號不符，取消刪除。'); return; }
+    try {
+      await db.collection('quotations').doc(docId).delete();
+      if (_currentDocId === docId) { _currentDocId = ''; _currentContractNo = ''; }
+      liveQuotes = liveQuotes.filter(q => (q._docId || q.contractNo) !== docId);
+      renderHistoryList();
+      var hint = document.getElementById('save-hint');
+      if (hint) { hint.style.color = '#ef4444'; hint.textContent = '已刪除：' + contractNo; setTimeout(() => { hint.textContent = ''; }, 3000); }
+    } catch(e) {
+      alert('刪除失敗：' + (e.message || String(e)));
+    }
+  }
+
+  async function batchDelete() {
+    var ids = Array.from(_checkedDocIds);
+    if (ids.length === 0) return;
+    var labels = ids.map(id => {
+      var q = liveQuotes.find(q => (q._docId || q.contractNo) === id);
+      return q ? (q.contractNo || id) : id;
+    });
+    // B：第一次確認，列出清單
+    var listStr = labels.map(l => '• ' + l).join('\n');
+    if (!confirm('確定要刪除以下 ' + ids.length + ' 筆？\n\n' + listStr + '\n\n此操作無法復原。')) return;
+    // A：輸入「刪除」確認
+    var _input = prompt('請輸入「刪除」確認批次刪除：');
+    if (_input === null) return;
+    if (_input.trim() !== '刪除') { alert('輸入不符，取消刪除。'); return; }
+    try {
+      await Promise.all(ids.map(id => db.collection('quotations').doc(id).delete()));
+      if (ids.includes(_currentDocId)) { _currentDocId = ''; _currentContractNo = ''; }
+      liveQuotes = liveQuotes.filter(q => !ids.includes(q._docId || q.contractNo));
+      _editMode = false;
+      _checkedDocIds = new Set();
+      var bar = document.getElementById('batch-bar');
+      var editBtn = document.getElementById('btn-edit-mode');
+      if (bar) bar.style.display = 'none';
+      if (editBtn) editBtn.textContent = '整理模式';
+      renderHistoryList();
+      var hint = document.getElementById('save-hint');
+      if (hint) { hint.style.color = '#ef4444'; hint.textContent = '已刪除 ' + ids.length + ' 筆'; setTimeout(() => { hint.textContent = ''; }, 3000); }
+    } catch(e) {
+      alert('批次刪除失敗：' + (e.message || String(e)));
+    }
   }
 
   var FOLDER_COLORS = [
@@ -3307,6 +3418,9 @@
       var _uname = await _getDisplayName(user);
       document.getElementById('user-display-name').textContent = _uname;
       document.getElementById('user-avatar').textContent = _uname.charAt(0).toUpperCase();
+      _canDelete = _DELETE_WHITELIST.includes((user.email || '').toLowerCase());
+      var _emBtn = document.getElementById('btn-edit-mode');
+      if (_emBtn) _emBtn.style.display = _canDelete ? 'inline-block' : 'none';
       switchCompany('naiship');
       syncHeader();
       if (!document.getElementById('in-contract-terms').value) document.getElementById('in-contract-terms').value = DEFAULT_CONTRACT_TERMS;
@@ -3316,6 +3430,9 @@
       document.getElementById('login-overlay').style.display = 'none';
       document.getElementById('user-status-bar').style.display = 'flex';
       document.getElementById('user-display-name').textContent = '[DEV 測試模式]';
+      _canDelete = true; // [DEV]
+      var _emBtn = document.getElementById('btn-edit-mode');
+      if (_emBtn) _emBtn.style.display = 'inline-block';
       switchCompany('naiship');
       syncHeader();
       document.getElementById('in-contract-terms').value = DEFAULT_CONTRACT_TERMS;
