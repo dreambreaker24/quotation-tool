@@ -3077,16 +3077,6 @@
       liveQuotes = [];
       renderHistoryList();
     }
-      document.getElementById('in-contract-terms').value = DEFAULT_CONTRACT_TERMS;
-      renderAll();
-      // [DEV] 從 localStorage 還原歷史清單
-      (function(){
-        var _ks = Object.keys(localStorage).filter(function(k){ return k.startsWith('q_'); });
-        liveQuotes = _ks.map(function(k){ try{ return JSON.parse(localStorage.getItem(k)); }catch(e){ return null; } })
-          .filter(Boolean).sort(function(a,b){ return (b._savedAt||'') > (a._savedAt||'') ? 1 : -1; });
-        renderHistoryList();
-      })();
-    }
   });
 
 </script>
