@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>奈拾設計 報價單</title>
+  <title>[DEV] 奈拾設計 報價單</title>
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1955,6 +1955,15 @@
     hint.textContent = '儲存中…';
     try {
       const data = serializeQuote();
+      // [DEV] localStorage 本地儲存
+      data._savedAt = new Date().toISOString();
+      var _dk = 'q_' + contractNo.replace(/\//g, '_');
+      localStorage.setItem(_dk, JSON.stringify(data));
+      var _di = liveQuotes.findIndex(function(q){ return q.contractNo === contractNo; });
+      if (_di >= 0) liveQuotes[_di] = data; else liveQuotes.unshift(data);
+      liveQuotes.sort(function(a,b){ return (b._savedAt||'') > (a._savedAt||'') ? 1 : -1; });
+      renderHistoryList();
+      throw { __DEV__: true, msg: '[DEV] 已儲存（本地）：' + contractNo };
       const user = auth.currentUser;
       if (!user) throw new Error('尚未登入');
       await user.getIdToken(true);
@@ -1987,6 +1996,7 @@
       hint.style.color = '#3a3';
       hint.textContent = `已儲存：${contractNo}`;
     } catch (e) {
+      if (e && e.__DEV__) { hint.style.color = '#3a3'; hint.textContent = e.msg; setTimeout(function(){ hint.textContent = ''; }, 3000); return; }
       hint.style.color = '#e53935';
       const msg = e.code === 'permission-denied' ? '權限不足，請重新登入後再試'
                 : e.code === 'unauthenticated' ? '登入已過期，請重新登入'
@@ -3146,11 +3156,20 @@
       renderAll();
       startRealtimeListener();
     } else {
-      document.getElementById('login-overlay').style.display = 'flex';
-      document.getElementById('user-status-bar').style.display = 'none';
-      if (unsubscribeListener) { unsubscribeListener(); unsubscribeListener = null; }
-      liveQuotes = [];
-      renderHistoryList();
+      document.getElementById('login-overlay').style.display = 'none';
+      document.getElementById('user-status-bar').style.display = 'flex';
+      document.getElementById('user-display-name').textContent = '[DEV 測試模式]';
+      switchCompany('naiship');
+      syncHeader();
+      document.getElementById('in-contract-terms').value = DEFAULT_CONTRACT_TERMS;
+      renderAll();
+      // [DEV] 從 localStorage 還原歷史清單
+      (function(){
+        var _ks = Object.keys(localStorage).filter(function(k){ return k.startsWith('q_'); });
+        liveQuotes = _ks.map(function(k){ try{ return JSON.parse(localStorage.getItem(k)); }catch(e){ return null; } })
+          .filter(Boolean).sort(function(a,b){ return (b._savedAt||'') > (a._savedAt||'') ? 1 : -1; });
+        renderHistoryList();
+      })();
     }
   });
 
