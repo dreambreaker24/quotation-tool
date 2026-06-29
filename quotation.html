@@ -1803,29 +1803,54 @@
       container.innerHTML = '<div style="color:#aaa; font-size:12px; text-align:center; padding:16px;">尚無記錄</div>';
       return;
     }
-    // 分組：parents = 沒有 sourceId 的；children = 有 sourceId 的，依 sourceId 歸屬
+    const _id = q => q._docId || q.contractNo;
+    const _caseKey = q => {
+      const p = (q.project || '').trim(), c = (q.clientName || '').trim(), a = (q.address || '').trim();
+      return (p || c || a) ? (p + '|||' + c + '|||' + a) : null;
+    };
+    // sourceId 連結 map
     const childMap = {};
-    const parents = [];
-    const renderedIds = new Set();
     liveQuotes.forEach(q => {
       if (q.sourceId) {
         if (!childMap[q.sourceId]) childMap[q.sourceId] = [];
         childMap[q.sourceId].push(q);
-      } else {
-        parents.push(q);
       }
     });
-    parents.forEach(q => {
-      _renderHistoryItem(q, container, false);
-      renderedIds.add(q.contractNo);
-      (childMap[q.contractNo] || []).forEach(child => {
-        _renderHistoryItem(child, container, true);
-        renderedIds.add(child.contractNo);
-      });
+    // 無 sourceId 的文件按 project+clientName+address 分組
+    const caseGroups = {};
+    liveQuotes.filter(q => !q.sourceId).forEach(q => {
+      const key = _caseKey(q) || _id(q);
+      if (!caseGroups[key]) caseGroups[key] = [];
+      caseGroups[key].push(q);
     });
-    // 孤兒（sourceId 指向已不存在的原始單）直接顯示
+    // 每組內按合約號升序（最小號 = parent）
+    Object.values(caseGroups).forEach(g => g.sort((a, b) => (a.contractNo || '') < (b.contractNo || '') ? -1 : 1));
+    // 組間按 liveQuotes 裡最早出現的成員排序（保留 updatedAt 排序）
+    const liveOrder = new Map(liveQuotes.map((q, i) => [_id(q), i]));
+    const sortedGroups = Object.values(caseGroups).sort((ga, gb) => {
+      const minA = Math.min(...ga.map(q => liveOrder.get(_id(q)) ?? 999));
+      const minB = Math.min(...gb.map(q => liveOrder.get(_id(q)) ?? 999));
+      return minA - minB;
+    });
+    const renderedDocIds = new Set();
+    const _renderWithChildren = (q, isChild) => {
+      if (renderedDocIds.has(_id(q))) return;
+      _renderHistoryItem(q, container, isChild);
+      renderedDocIds.add(_id(q));
+      (childMap[q.contractNo] || []).forEach(child => {
+        if (!renderedDocIds.has(_id(child))) {
+          _renderHistoryItem(child, container, true);
+          renderedDocIds.add(_id(child));
+        }
+      });
+    };
+    sortedGroups.forEach(group => {
+      _renderWithChildren(group[0], false);
+      group.slice(1).forEach(sibling => _renderWithChildren(sibling, true));
+    });
+    // 孤兒（sourceId 指向已不在清單的原始單）
     liveQuotes.forEach(q => {
-      if (!renderedIds.has(q.contractNo)) _renderHistoryItem(q, container, false);
+      if (!renderedDocIds.has(_id(q))) _renderHistoryItem(q, container, false);
     });
   }
 
@@ -2025,9 +2050,17 @@
       const next = seqs.length > 0 ? Math.max(...seqs) + 1 : 1;
       const newDocId = pref + String(next).padStart(3, '0');
       const baseContractNo = document.getElementById('in-contract-no').value.trim();
+      const currentProject = document.getElementById('in-project').value.trim();
+      const currentClient  = document.getElementById('in-client-name').value.trim();
+      const currentAddress = document.getElementById('in-address').value.trim();
       const versionCount = snap.docs.filter(d => {
         const data = d.data();
-        return d.id === baseContractNo || data.contractNo === baseContractNo;
+        const byContract = d.id === baseContractNo || data.contractNo === baseContractNo;
+        const sameCase = currentProject && currentClient && currentAddress &&
+          data.project === currentProject &&
+          data.clientName === currentClient &&
+          data.address === currentAddress;
+        return byContract || sameCase;
       }).length;
       const _selectedLabel = document.getElementById('in-version-label').value.trim();
       const _autoLabel = 'v' + (versionCount + 1);
@@ -3129,7 +3162,7 @@
     _loadUsersNameCache(); // 非同步預載，不擋住監聽啟動
     unsubscribeListener = db.collection('quotations')
       .orderBy('updatedAt', 'desc')
-      .limit(4)
+      .limit(20)
       .onSnapshot(
         snapshot => {
           liveQuotes = snapshot.docs.map(doc => ({ ...doc.data(), _docId: doc.id }));
