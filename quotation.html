@@ -761,6 +761,26 @@
 </head>
 <body>
 
+  <!-- 查詢全部 Modal -->
+  <div id="all-quotes-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:8000; align-items:center; justify-content:center;">
+    <div style="background:#fff; border-radius:10px; width:680px; max-width:95vw; max-height:85vh; display:flex; flex-direction:column; box-shadow:0 8px 32px rgba(0,0,0,0.2);">
+      <div style="padding:16px 20px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <span style="font-size:15px; font-weight:bold; color:#2C2C2C;">全部報價單</span>
+          <span id="all-quotes-count" style="font-size:12px; color:#aaa; margin-left:8px;"></span>
+        </div>
+        <button onclick="closeAllQuotesModal()" style="background:none; border:none; cursor:pointer; font-size:20px; color:#999; line-height:1;">✕</button>
+      </div>
+      <div style="padding:12px 20px; border-bottom:1px solid #eee;">
+        <input id="all-quotes-search" type="text" placeholder="搜尋合約編號、客戶、案件名稱…"
+          oninput="filterAllQuotes(this.value)"
+          style="width:100%; padding:7px 12px; border:1px solid #ddd; border-radius:6px; font-family:inherit; font-size:13px;">
+      </div>
+      <div id="all-quotes-list" style="overflow-y:auto; flex:1; padding:10px 16px;"></div>
+      <div id="all-quotes-loading" style="text-align:center; padding:24px; color:#aaa; font-size:13px; display:none;">載入中…</div>
+    </div>
+  </div>
+
   <!-- 登入 overlay -->
   <div id="login-overlay" style="position:fixed; top:0; left:0; width:100%; height:100%; background:#f0f0f0; display:flex; align-items:center; justify-content:center; z-index:9999;">
     <div style="background:#fff; padding:40px; border-radius:12px; width:360px; box-shadow:0 4px 24px rgba(0,0,0,0.12);">
@@ -868,7 +888,10 @@
     <!-- 過往清單 -->
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
       <h2 style="margin:0;">過往清單</h2>
-      <button id="btn-edit-mode" onclick="toggleEditMode()" style="display:none; padding:3px 9px; background:#fee2e2; color:#ef4444; border:1px solid #fca5a5; border-radius:4px; cursor:pointer; font-size:11px; font-family:inherit;">整理模式</button>
+      <div style="display:flex; gap:6px;">
+        <button onclick="openAllQuotesModal()" style="padding:3px 9px; background:#eff6ff; color:#1e40af; border:1px solid #93c5fd; border-radius:4px; cursor:pointer; font-size:11px; font-family:inherit;">查詢全部</button>
+        <button id="btn-edit-mode" onclick="toggleEditMode()" style="display:none; padding:3px 9px; background:#fee2e2; color:#ef4444; border:1px solid #fca5a5; border-radius:4px; cursor:pointer; font-size:11px; font-family:inherit;">整理模式</button>
+      </div>
     </div>
     <div id="batch-bar" style="display:none; background:#fef2f2; border:1px solid #fca5a5; border-radius:4px; padding:6px 10px; margin-bottom:6px; justify-content:space-between; align-items:center;">
       <span style="font-size:12px; color:#ef4444; font-weight:bold;">整理模式中</span>
@@ -877,15 +900,6 @@
         <button id="btn-batch-delete" onclick="batchDelete()" style="display:none; padding:3px 8px; background:#ef4444; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px; font-family:inherit;">刪除選取</button>
         <button onclick="toggleEditMode()" style="padding:3px 8px; background:#e5e7eb; color:#374151; border:none; border-radius:4px; cursor:pointer; font-size:11px; font-family:inherit;">結束</button>
       </div>
-    </div>
-    <div style="margin-bottom:6px;">
-      <select id="in-filter-status" onchange="renderHistoryList()" style="width:100%; padding:5px 8px; border:1px solid #ddd; border-radius:4px; font-family:inherit; font-size:12px; background:#fff;">
-        <option value="">全部狀態</option>
-        <option value="草稿">草稿</option>
-        <option value="報價中">報價中</option>
-        <option value="施工中">施工中</option>
-        <option value="完成">完成</option>
-      </select>
     </div>
     <div style="position:relative; margin-bottom:10px;">
       <div style="display:flex; gap:6px;">
@@ -945,15 +959,6 @@
     <div class="field-group">
       <label>設計師姓名</label>
       <input type="text" id="in-designer" placeholder="柏">
-    </div>
-    <div class="field-group">
-      <label>報價狀態</label>
-      <select id="in-status" onchange="syncHeader()" style="width:100%; padding:4px; border:1px solid #ccc; border-radius:3px; font-family:inherit; font-size:13px;">
-        <option value="草稿">草稿</option>
-        <option value="報價中">報價中</option>
-        <option value="施工中">施工中</option>
-        <option value="完成">完成</option>
-      </select>
     </div>
     <div class="field-group">
       <label>工程期限（起）</label>
@@ -1607,7 +1612,6 @@
     .forEach(id => document.getElementById(id)
       .addEventListener('input', syncHeader));
   document.getElementById('in-version-label').addEventListener('change', syncHeader);
-  document.getElementById('in-status').addEventListener('change', syncHeader);
 
   // ── 公司設定 ──────────────────────────────────────────
   var DEFAULT_CONTRACT_TERMS = '付款條款：依付款條件約定期程給付，逾期每日加計千分之三違約金。\n工程變更：工程施作期間如需變更設計或材料，須雙方書面同意，並另行議定費用。\n工期延誤：因不可抗力（天災、疫情、供料延誤）造成工期延誤，雙方不互相追究。\n驗收標準：工程完工後，委託人應於 7 日內完成驗收；逾期視為驗收通過。\n保固責任：竣工驗收後，乙方提供 1 年工程保固，材料瑕疵不在此限。\n爭議處理：因本合約發生爭議，雙方同意以台灣台南地方法院為第一審管轄法院。';
@@ -1808,6 +1812,7 @@
   var _canDelete = false;
   var _editMode = false;
   var _checkedDocIds = new Set();
+  var _expandedFolders = new Set();
   var _DELETE_WHITELIST = ['dreambreaker24@hotmail.com', 'daydream543@hotmail.com.tw'];
 
   function _renderHistoryItem(q, container, isChild, folderColor) {
@@ -1832,14 +1837,6 @@
     else if (/^v\d+$/i.test(_vl)) _vBadgeStyle += 'background:#dbeafe; color:#1e40af;';
     else if (_vl) _vBadgeStyle += 'background:#e5e7eb; color:#555;';
     const _versionBadge = _vl ? `<span style="${_vBadgeStyle}">${escHtml(_vl)}</span>` : '';
-    // 狀態 badge
-    const _st = q.status || '';
-    let _stBadgeStyle = 'font-size:10px; border-radius:3px; padding:1px 5px; margin-left:4px;';
-    if (_st === '完成') _stBadgeStyle += 'background:#dcfce7; color:#166534;';
-    else if (_st === '施工中') _stBadgeStyle += 'background:#fef9c3; color:#854d0e;';
-    else if (_st === '報價中') _stBadgeStyle += 'background:#dbeafe; color:#1e40af;';
-    else _stBadgeStyle += 'background:#f3f4f6; color:#9ca3af;';
-    const _statusBadge = _st ? `<span style="${_stBadgeStyle}">${escHtml(_st)}</span>` : '';
     const _titleParts = [q.contractNo, q.project, q.date].filter(Boolean).map(p => escHtml(p));
     const _safeDocId = escHtml(_qDocId);
     const _safeContractNo = escHtml(q.contractNo || '');
@@ -1855,7 +1852,7 @@
         <div style="display:flex; align-items:flex-start; flex:1; min-width:0;">
           ${_chkHtml}
           <div style="min-width:0;">
-            <div style="font-weight:bold; font-size:${isChild?'12px':'13px'}; margin-bottom:2px;">${_titleParts.join('｜')}${_versionBadge}${_statusBadge}</div>
+            <div style="font-weight:bold; font-size:${isChild?'12px':'13px'}; margin-bottom:2px;">${_titleParts.join('｜')}${_versionBadge}</div>
             <div style="font-size:11px; color:#aaa;">最後修改：${escHtml(_resolveUserName(q.updatedBy || q.createdBy))} · ${timeAgo(q.updatedAt)}</div>
           </div>
         </div>
@@ -1946,6 +1943,76 @@
     }
   }
 
+  // ── 查詢全部 Modal ────────────────────────────────────
+
+  var _allQuotesData = [];
+
+  async function openAllQuotesModal() {
+    const modal = document.getElementById('all-quotes-modal');
+    const listEl = document.getElementById('all-quotes-list');
+    const loadingEl = document.getElementById('all-quotes-loading');
+    modal.style.display = 'flex';
+    listEl.innerHTML = '';
+    loadingEl.style.display = 'block';
+    document.getElementById('all-quotes-search').value = '';
+    try {
+      const snap = await db.collection('quotations').orderBy('updatedAt', 'desc').get();
+      _allQuotesData = snap.docs.map(d => ({ ...d.data(), _docId: d.id }));
+      document.getElementById('all-quotes-count').textContent = '共 ' + _allQuotesData.length + ' 筆';
+      loadingEl.style.display = 'none';
+      _renderAllQuotesList(_allQuotesData);
+    } catch(e) {
+      loadingEl.textContent = '載入失敗：' + (e.message || String(e));
+    }
+  }
+
+  function closeAllQuotesModal() {
+    document.getElementById('all-quotes-modal').style.display = 'none';
+  }
+
+  function filterAllQuotes(val) {
+    const kw = val.trim().toLowerCase();
+    const filtered = kw.length < 1 ? _allQuotesData : _allQuotesData.filter(q =>
+      (q.contractNo || '').toLowerCase().includes(kw) ||
+      (q.clientName || '').toLowerCase().includes(kw) ||
+      (q.project || '').toLowerCase().includes(kw) ||
+      (q.address || '').toLowerCase().includes(kw)
+    );
+    _renderAllQuotesList(filtered);
+  }
+
+  function _renderAllQuotesList(list) {
+    const listEl = document.getElementById('all-quotes-list');
+    listEl.innerHTML = '';
+    if (list.length === 0) {
+      listEl.innerHTML = '<div style="text-align:center; color:#aaa; padding:24px; font-size:13px;">無符合結果</div>';
+      return;
+    }
+    list.forEach(q => {
+      const div = document.createElement('div');
+      div.style.cssText = 'padding:9px 12px; border:1px solid #eee; border-radius:6px; margin-bottom:6px; cursor:pointer; background:#fff; transition:background 0.15s;';
+      div.onmouseenter = () => div.style.background = '#f0f9ff';
+      div.onmouseleave = () => div.style.background = '#fff';
+      const _vl = q.versionLabel || '';
+      let _vBadge = '';
+      if (_vl === '草稿') _vBadge = '<span style="font-size:10px;background:#e5e7eb;color:#6b7280;border-radius:3px;padding:1px 5px;margin-left:4px;">' + escHtml(_vl) + '</span>';
+      else if (_vl === '客戶確認版') _vBadge = '<span style="font-size:10px;background:#dcfce7;color:#166534;border-radius:3px;padding:1px 5px;margin-left:4px;font-weight:bold;">' + escHtml(_vl) + '</span>';
+      else if (/^v\d+$/i.test(_vl)) _vBadge = '<span style="font-size:10px;background:#dbeafe;color:#1e40af;border-radius:3px;padding:1px 5px;margin-left:4px;">' + escHtml(_vl) + '</span>';
+      const _parts = [q.contractNo, q.project, q.date].filter(Boolean).map(p => escHtml(p));
+      div.innerHTML = `
+        <div style="font-weight:bold; font-size:13px; margin-bottom:2px;">${_parts.join('｜')}${_vBadge}</div>
+        <div style="font-size:11px; color:#aaa;">${escHtml(q.clientName || '—')} · 最後修改：${escHtml(_resolveUserName(q.updatedBy || q.createdBy))} · ${timeAgo(q.updatedAt)}</div>
+      `;
+      div.onclick = () => { loadQuote(q); closeAllQuotesModal(); };
+      listEl.appendChild(div);
+    });
+  }
+
+  // 點 overlay 背景關閉
+  document.getElementById('all-quotes-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeAllQuotesModal();
+  });
+
   var FOLDER_COLORS = [
     { bg:'#eff6ff', border:'#93c5fd', text:'#1e40af' },
     { bg:'#f0fdf4', border:'#86efac', text:'#166534' },
@@ -1958,8 +2025,7 @@
   function renderHistoryList() {
     const container = document.getElementById('history-list');
     container.innerHTML = '';
-    const _filterStatus = (document.getElementById('in-filter-status') || {}).value || '';
-    const quotes = _filterStatus ? liveQuotes.filter(q => (q.status || '草稿') === _filterStatus) : liveQuotes;
+    const quotes = liveQuotes;
     if (quotes.length === 0) {
       container.innerHTML = '<div style="color:#aaa; font-size:12px; text-align:center; padding:16px;">尚無記錄</div>';
       return;
@@ -1996,31 +2062,67 @@
     const renderedDocIds = new Set();
     let colorIdx = 0;
     sortedGroups.forEach(group => {
-      // 同案件（2筆以上）顯示資料夾 header
       const totalCount = group.reduce((n, q) => n + 1 + (childMap[q.contractNo] || []).length, 0);
       const needFolder = totalCount > 1;
       const color = needFolder ? FOLDER_COLORS[colorIdx++ % FOLDER_COLORS.length] : null;
+
       if (needFolder) {
-        const hdr = document.createElement('div');
         const p = (group[0].project || '').trim();
         const c = (group[0].clientName || '').trim();
+        const folderKey = group[0].project + '|||' + group[0].clientName + '|||' + group[0].address;
+        const isExpanded = _expandedFolders.has(folderKey);
         const label = [p, c].filter(Boolean).join(' · ') || '未命名案件';
-        hdr.style.cssText = `background:${color.bg}; border:1px solid ${color.border}; border-radius:6px; padding:5px 10px; margin-bottom:4px; display:flex; justify-content:space-between; align-items:center;`;
-        hdr.innerHTML = `<span style="font-size:12px; font-weight:bold; color:${color.text};">📁 ${escHtml(label)}</span><span style="font-size:11px; background:${color.border}; color:${color.text}; border-radius:10px; padding:1px 7px;">${totalCount} 筆</span>`;
+        const hdr = document.createElement('div');
+        hdr.style.cssText = `background:${color.bg}; border:1px solid ${color.border}; border-radius:6px; padding:6px 10px; margin-bottom:4px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; user-select:none;`;
+        hdr.innerHTML = `
+          <span style="font-size:12px; font-weight:bold; color:${color.text};">
+            <span style="margin-right:4px;">${isExpanded ? '📂' : '📁'}</span>${escHtml(label)}
+          </span>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span style="font-size:11px; background:${color.border}; color:${color.text}; border-radius:10px; padding:1px 7px;">${totalCount} 筆</span>
+            <span style="font-size:12px; color:${color.text};">${isExpanded ? '▲' : '▼'}</span>
+          </div>`;
+        hdr.onclick = () => {
+          if (_expandedFolders.has(folderKey)) _expandedFolders.delete(folderKey);
+          else _expandedFolders.add(folderKey);
+          renderHistoryList();
+        };
         container.appendChild(hdr);
-      }
-      const _renderWithChildren = (q, isChild) => {
-        if (renderedDocIds.has(_id(q))) return;
-        _renderHistoryItem(q, container, isChild || needFolder, color);
-        renderedDocIds.add(_id(q));
-        (childMap[q.contractNo] || []).forEach(child => {
-          if (!renderedDocIds.has(_id(child))) {
-            _renderHistoryItem(child, container, true, color);
-            renderedDocIds.add(_id(child));
-          }
+
+        if (isExpanded) {
+          const _renderWithChildren = (q, isChild) => {
+            if (renderedDocIds.has(_id(q))) return;
+            _renderHistoryItem(q, container, isChild || needFolder, color);
+            renderedDocIds.add(_id(q));
+            (childMap[q.contractNo] || []).forEach(child => {
+              if (!renderedDocIds.has(_id(child))) {
+                _renderHistoryItem(child, container, true, color);
+                renderedDocIds.add(_id(child));
+              }
+            });
+          };
+          group.forEach((q, i) => _renderWithChildren(q, i > 0));
+        } else {
+          // 折疊時標記為已處理，避免被孤兒邏輯重複渲染
+          group.forEach(q => {
+            renderedDocIds.add(_id(q));
+            (childMap[q.contractNo] || []).forEach(child => renderedDocIds.add(_id(child)));
+          });
+        }
+      } else {
+        // 單筆直接顯示
+        group.forEach(q => {
+          if (renderedDocIds.has(_id(q))) return;
+          _renderHistoryItem(q, container, false, null);
+          renderedDocIds.add(_id(q));
+          (childMap[q.contractNo] || []).forEach(child => {
+            if (!renderedDocIds.has(_id(child))) {
+              _renderHistoryItem(child, container, true, null);
+              renderedDocIds.add(_id(child));
+            }
+          });
         });
-      };
-      group.forEach((q, i) => _renderWithChildren(q, i > 0));
+      }
     });
     // 孤兒
     quotes.forEach(q => {
@@ -2053,7 +2155,6 @@
       designer: document.getElementById('in-designer').value,
       startDate: document.getElementById('in-start-date').value,
       endDate: document.getElementById('in-end-date').value,
-      status: document.getElementById('in-status').value || '草稿',
       notes: document.getElementById('in-notes').value,
       contractTerms: document.getElementById('in-contract-terms').value,
       contractTerms: document.getElementById('in-contract-terms').value,
@@ -2339,7 +2440,6 @@
     document.getElementById('in-company-web').value = co.web;
     document.getElementById('in-version-label').value = '';
     document.getElementById('in-source-id').value = '';
-    document.getElementById('in-status').value = '草稿';
     // 自動產生合約編號
     (async function(){
       var _yr = new Date().getFullYear();
@@ -2411,7 +2511,6 @@
     document.getElementById('in-client-phone').value = q.clientPhone;
     document.getElementById('in-address').value = q.address;
     document.getElementById('in-designer').value = q.designer;
-    document.getElementById('in-status').value = q.status || '草稿';
     document.getElementById('in-start-date').value = q.startDate;
     document.getElementById('in-end-date').value = q.endDate;
     document.getElementById('in-notes').value = q.notes || '';
