@@ -2030,7 +2030,14 @@
         return d.id === baseContractNo || data.contractNo === baseContractNo;
       }).length;
       const _selectedLabel = document.getElementById('in-version-label').value.trim();
-      const newVersionLabel = _selectedLabel || 'v' + (versionCount + 1);
+      const _autoLabel = 'v' + (versionCount + 1);
+      if (_selectedLabel && _selectedLabel !== _autoLabel) {
+        if (!confirm(`自動計算版本為 ${_autoLabel}，你選擇的是「${_selectedLabel}」\n確定要使用「${_selectedLabel}」嗎？`)) {
+          hint.textContent = '';
+          return;
+        }
+      }
+      const newVersionLabel = _selectedLabel || _autoLabel;
       const data = serializeQuote();
       data.contractNo = baseContractNo;
       data.sourceId = baseContractNo;
