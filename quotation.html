@@ -3039,22 +3039,32 @@
 
       // 第二頁起：智慧分頁 + 第二片開始每頁自動注入頁首
       const a4SlicePx = Math.round(297 / 25.4 * 96 * captureOpts.scale);
+
+      // 以 detail-table 實際底部計算有效高度，排除 min-height:297mm 產生的空白
+      // 避免內容很少時因 1px 捨入差，canvas2.height 略超 a4SlicePx 而多出一頁空白
+      const _detailEl = document.getElementById('detail-table');
+      const _detailBottom = _detailEl.getBoundingClientRect().bottom;
+      const _effectiveH = Math.min(
+        canvas2.height,
+        Math.ceil((_detailBottom - p2Rect.top + 14 / 25.4 * 96) * captureOpts.scale) + captureOpts.scale * 2
+      );
+
       let sliceStart = 0;
       let isFirstSlice = true;
 
-      while (sliceStart < canvas2.height) {
+      while (sliceStart < _effectiveH) {
         // 第一片已含頁首區域，後續各片要留出 _headerRegionPx（dark bar + gap）給注入用
         const availPx = isFirstSlice ? a4SlicePx : (a4SlicePx - _headerRegionPx);
         const idealEnd = sliceStart + availPx;
         let sliceEnd;
-        if (idealEnd >= canvas2.height) {
-          sliceEnd = canvas2.height;
+        if (idealEnd >= _effectiveH) {
+          sliceEnd = _effectiveH;
         } else {
           const idealDom = idealEnd / captureOpts.scale;
           let bestDom = idealDom;
           for (const c of cutCandidatesDom) { if (c <= idealDom) bestDom = c; else break; }
-          sliceEnd = Math.min(Math.round(bestDom * captureOpts.scale), canvas2.height);
-          if (sliceEnd <= sliceStart) sliceEnd = Math.min(idealEnd, canvas2.height);
+          sliceEnd = Math.min(Math.round(bestDom * captureOpts.scale), _effectiveH);
+          if (sliceEnd <= sliceStart) sliceEnd = Math.min(idealEnd, _effectiveH);
         }
         const sliceH = sliceEnd - sliceStart;
         if (sliceH < 6) break;
