@@ -830,12 +830,18 @@
       </div>
     </div>
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:6px;">
-      <button id="btn-save-as-new" onclick="saveAsNew()"
-        style="display:flex; align-items:center; justify-content:center; gap:6px; padding:10px; background:#d97706; color:#fff; border:none; border-radius:6px; cursor:pointer; font-size:13px; font-family:'Microsoft JhengHei',sans-serif;">
-        <span class="material-icons" style="font-size:18px;">content_copy</span>另存新檔
+      <button id="btn-save-new-version" onclick="saveAsNewVersion()"
+        style="display:flex; align-items:center; justify-content:center; gap:6px; padding:10px; background:#4f46e5; color:#fff; border:none; border-radius:6px; cursor:pointer; font-size:13px; font-family:'Microsoft JhengHei',sans-serif;">
+        <span class="material-icons" style="font-size:18px;">content_copy</span>另存新版本
       </button>
+      <button id="btn-save-new-quote" onclick="saveAsNewQuote()"
+        style="display:flex; align-items:center; justify-content:center; gap:6px; padding:10px; background:#d97706; color:#fff; border:none; border-radius:6px; cursor:pointer; font-size:13px; font-family:'Microsoft JhengHei',sans-serif;">
+        <span class="material-icons" style="font-size:18px;">add_circle_outline</span>另存新報價
+      </button>
+    </div>
+    <div style="margin-bottom:6px;">
       <button onclick="saveQuote()"
-        style="display:flex; align-items:center; justify-content:center; gap:6px; padding:10px; background:#2C2C2C; color:#fff; border:none; border-radius:6px; cursor:pointer; font-size:13px; font-family:'Microsoft JhengHei',sans-serif;">
+        style="display:flex; align-items:center; justify-content:center; gap:6px; padding:10px; width:100%; background:#2C2C2C; color:#fff; border:none; border-radius:6px; cursor:pointer; font-size:13px; font-family:'Microsoft JhengHei',sans-serif;">
         <span class="material-icons" style="font-size:18px;">cloud_upload</span>儲存報價單
       </button>
     </div>
@@ -1037,7 +1043,7 @@
         <!-- 右：合約資訊 -->
         <div style="font-size:10pt; text-align:left; display:flex; flex-direction:column; justify-content:center; color:#fff;">
           <div style="margin-bottom:5px;">合約編號：<span id="prev-contract-no">NS-2026-001</span></div>
-          <div style="margin-bottom:5px;">報價日期：<span id="prev-date">2026-05-12</span></div>
+          <div style="margin-bottom:5px;">報價日期：<span id="prev-date">2026-05-12</span><span id="prev-version" style="margin-left:6px; font-size:9pt; opacity:0.8;"></span></div>
           <div style="margin-bottom:5px; font-size:9pt; color:#e0e0e0;">官網：<span id="prev-company-web">nextplus-design.com/design</span></div>
           <div style="font-size:9pt; color:#e0e0e0;">Email：<span id="prev-company-email">nextdesign62@gmail.com</span></div>
         </div>
@@ -1182,6 +1188,10 @@
                   <tr>
                     <td style="white-space:nowrap; padding-right:4px;">報價日期：</td>
                     <td id="prev2-date">2026-05-13</td>
+                  </tr>
+                  <tr>
+                    <td style="white-space:nowrap; padding-right:4px;">版本：</td>
+                    <td id="prev2-version" style="color:#555;"></td>
                   </tr>
                 </table>
               </div>
@@ -1539,11 +1549,14 @@
     // 同步第二頁頁首
     sync('in-contract-no', 'prev2-contract-no', 'NS-2026-001');
     document.getElementById('prev2-date').textContent = date || '—';
+    const _vl = document.getElementById('in-version-label').value || '';
+    document.getElementById('prev-version').textContent = _vl;
+    document.getElementById('prev2-version').textContent = _vl;
   }
 
   ['in-company-email','in-company-web',
    'in-contract-no','in-date','in-client-name','in-project','in-client-phone',
-   'in-address','in-designer','in-start-date','in-end-date']
+   'in-address','in-designer','in-start-date','in-end-date','in-version-label']
     .forEach(id => document.getElementById(id)
       .addEventListener('input', syncHeader));
 
@@ -1694,7 +1707,7 @@
       try {
         const snap = await db.collection('quotations').orderBy('updatedAt', 'desc').limit(500).get();
         const keyword = val.toLowerCase();
-        _searchMatches = snap.docs.map(d => d.data())
+        _searchMatches = snap.docs.map(d => ({ ...d.data(), _docId: d.id }))
           .filter(q => (q.contractNo && q.contractNo.toLowerCase().includes(keyword)) ||
                        (q.clientName && q.clientName.toLowerCase().includes(keyword)) ||
                        (q.project && q.project.toLowerCase().includes(keyword)) ||
@@ -1704,10 +1717,11 @@
         } else {
           results.innerHTML = _searchMatches.map((q, i) => {
             const _rParts = [q.contractNo, q.project, q.date].filter(Boolean).map(p => escHtml(p));
+            const _vb = q.versionLabel ? ` <span style="font-size:11px; background:#e5e7eb; color:#555; border-radius:3px; padding:1px 5px;">${escHtml(q.versionLabel)}</span>` : '';
             return `<div onclick="selectSearchResult(${i})"
               style="padding:10px 12px; cursor:pointer; border-bottom:1px solid #f0f0f0; font-size:13px;"
               onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background=''"
-            >${_rParts.join('｜')}</div>`;
+            >${_rParts.join('｜')}${_vb}</div>`;
           }).join('');
         }
         results.style.display = 'block';
@@ -1740,13 +1754,16 @@
   }
 
   var _currentContractNo = null;
-  var _highlightContractNo = null;
+  var _currentDocId = null;
+  var _highlightDocId = null;
 
   function _renderHistoryItem(q, container, isChild) {
     const div = document.createElement('div');
     div.className = 'history-item';
     div.dataset.contractNo = q.contractNo;
-    const isSelected = _currentContractNo && q.contractNo === _currentContractNo;
+    div.dataset.docId = q._docId || q.contractNo;
+    const _qDocId = q._docId || q.contractNo;
+    const isSelected = _currentDocId && _qDocId === _currentDocId;
     const _indent = isChild ? 'margin-left:16px; border-left:3px solid #e5e7eb;' : '';
     div.style.cssText = `cursor:pointer; padding:${isChild?'7px 10px':'10px 12px'}; border:1px solid #eee; border-radius:6px; margin-bottom:6px; background:#fff; transition:background 0.2s; ${_indent}`;
     if (isSelected) div.classList.add('history-item-selected');
@@ -1757,9 +1774,9 @@
       <div style="font-weight:bold; font-size:${isChild?'12px':'13px'}; margin-bottom:2px;">${_titleParts.join('｜')}${_versionBadge}</div>
       <div style="font-size:11px; color:#aaa;">最後修改：${escHtml(_resolveUserName(q.updatedBy || q.createdBy))} · ${timeAgo(q.updatedAt)}</div>
     `;
-    if (_highlightContractNo && q.contractNo === _highlightContractNo) {
+    if (_highlightDocId && _qDocId === _highlightDocId) {
       div.style.animation = '_hl-flash 1.5s ease-out';
-      _highlightContractNo = null;
+      _highlightDocId = null;
     }
     container.appendChild(div);
   }
@@ -1937,7 +1954,7 @@
       await user.getIdToken(true);
       const userName = await _getDisplayName(user);
       const now = firebase.firestore.FieldValue.serverTimestamp();
-      const docId = contractNo.replace(/\//g, '_');
+      const docId = (_currentDocId || contractNo).replace(/\//g, '_');
       const docRef = db.collection('quotations').doc(docId);
       const existing = await docRef.get();
       if (existing.exists) {
@@ -1955,11 +1972,12 @@
         await docRef.set({ ...data, createdBy: userName, createdAt: now, updatedBy: userName, updatedAt: now });
       }
       // 合約編號有改變時，刪除舊文件（避免留下孤立舊檔）
-      const _oldDocId = _currentContractNo ? _currentContractNo.replace(/\//g, '_') : null;
+      const _oldDocId = _currentDocId ? _currentDocId.replace(/\//g, '_') : null;
       if (_oldDocId && _oldDocId !== docId) {
         try { await db.collection('quotations').doc(_oldDocId).delete(); } catch(e) {}
       }
       _currentContractNo = contractNo;
+      _currentDocId = docId;
       hint.style.color = '#3a3';
       hint.textContent = `已儲存：${contractNo}`;
     } catch (e) {
@@ -1978,15 +1996,15 @@
     addSubItem(catId, { desc: '工程中廢棄物清理', unit: '式', qty: 1, price: 0, cost: 18000, margin: 0 });
   }
 
-  async function saveAsNew() {
-    const btn = document.getElementById('btn-save-as-new');
+  async function saveAsNewVersion() {
+    const btn = document.getElementById('btn-save-new-version');
     if (btn.disabled) return;
     btn.disabled = true;
     const origHtml = btn.innerHTML;
     btn.innerHTML = '<span class="material-icons" style="font-size:18px;vertical-align:middle;">hourglass_empty</span> 儲存中…';
     const hint = document.getElementById('save-hint');
     hint.style.color = '#888';
-    hint.textContent = '另存新檔中…';
+    hint.textContent = '另存新版本中…';
     try {
       const user = auth.currentUser;
       if (!user) throw new Error('尚未登入');
@@ -1996,23 +2014,70 @@
       const pref = pfx + '-' + yr + '-';
       const snap = await db.collection('quotations')
         .where(firebase.firestore.FieldPath.documentId(), '>=', pref)
-        .where(firebase.firestore.FieldPath.documentId(), '<', pref + '')
+        .where(firebase.firestore.FieldPath.documentId(), '<', pref + '')
         .get();
-      const seqs = snap.docs.map(d => { const m = d.id.match(/-(d+)$/); return m ? parseInt(m[1]) : 0; });
+      const seqs = snap.docs.map(d => { const m = d.id.match(/-(\d+)$/); return m ? parseInt(m[1]) : 0; });
+      const next = seqs.length > 0 ? Math.max(...seqs) + 1 : 1;
+      const newDocId = pref + String(next).padStart(3, '0');
+      const baseContractNo = document.getElementById('in-contract-no').value.trim();
+      const versionCount = snap.docs.filter(d => {
+        const data = d.data();
+        return d.id === baseContractNo || data.contractNo === baseContractNo;
+      }).length;
+      const newVersionLabel = 'v' + (versionCount + 1);
+      const data = serializeQuote();
+      data.contractNo = baseContractNo;
+      data.sourceId = baseContractNo;
+      data.versionLabel = newVersionLabel;
+      const userName = await _getDisplayName(user);
+      const now = firebase.firestore.FieldValue.serverTimestamp();
+      await db.collection('quotations').doc(newDocId).set({
+        ...data, createdBy: userName, createdAt: now, updatedBy: userName, updatedAt: now
+      });
+      document.getElementById('in-version-label').value = newVersionLabel;
+      document.getElementById('in-source-id').value = baseContractNo;
+      _currentContractNo = baseContractNo;
+      _currentDocId = newDocId;
+      _highlightDocId = newDocId;
+      hint.style.color = '#3a3';
+      hint.textContent = '已另存為：' + baseContractNo + '（' + newVersionLabel + '）';
+    } catch(e) {
+      hint.style.color = '#e53935';
+      hint.textContent = '另存失敗：' + (e.message || e.code || String(e));
+      console.error(e);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = origHtml;
+    }
+  }
+
+  async function saveAsNewQuote() {
+    const btn = document.getElementById('btn-save-new-quote');
+    if (btn.disabled) return;
+    btn.disabled = true;
+    const origHtml = btn.innerHTML;
+    btn.innerHTML = '<span class="material-icons" style="font-size:18px;vertical-align:middle;">hourglass_empty</span> 儲存中…';
+    const hint = document.getElementById('save-hint');
+    hint.style.color = '#888';
+    hint.textContent = '另存新報價中…';
+    try {
+      const user = auth.currentUser;
+      if (!user) throw new Error('尚未登入');
+      await user.getIdToken(true);
+      const yr = new Date().getFullYear();
+      const pfx = currentCompany === 'baiting' ? 'PO' : 'NS';
+      const pref = pfx + '-' + yr + '-';
+      const snap = await db.collection('quotations')
+        .where(firebase.firestore.FieldPath.documentId(), '>=', pref)
+        .where(firebase.firestore.FieldPath.documentId(), '<', pref + '')
+        .get();
+      const seqs = snap.docs.map(d => { const m = d.id.match(/-(\d+)$/); return m ? parseInt(m[1]) : 0; });
       const next = seqs.length > 0 ? Math.max(...seqs) + 1 : 1;
       const newId = pref + String(next).padStart(3, '0');
-
-      // 版本鏈：sourceId 指向最原始的合約
-      const _curSourceId = (document.getElementById('in-source-id').value || '').trim();
-      const _curContractNo = (document.getElementById('in-contract-no').value || '').trim();
-      const newSourceId = _curSourceId || _curContractNo;
-      const _siblings = liveQuotes.filter(q => (q.sourceId || '') === newSourceId || q.contractNo === newSourceId);
-      const newVersionLabel = 'v' + (_siblings.length + 2);
-
       const data = serializeQuote();
       data.contractNo = newId;
-      data.sourceId = newSourceId;
-      data.versionLabel = newVersionLabel;
+      data.sourceId = '';
+      data.versionLabel = '';
       const userName = await _getDisplayName(user);
       const now = firebase.firestore.FieldValue.serverTimestamp();
       await db.collection('quotations').doc(newId).set({
@@ -2020,12 +2085,13 @@
       });
       document.getElementById('in-contract-no').value = newId;
       document.getElementById('in-contract-no').dispatchEvent(new Event('input'));
-      document.getElementById('in-version-label').value = newVersionLabel;
-      document.getElementById('in-source-id').value = newSourceId;
+      document.getElementById('in-version-label').value = '';
+      document.getElementById('in-source-id').value = '';
       _currentContractNo = newId;
-      _highlightContractNo = newId;
+      _currentDocId = newId;
+      _highlightDocId = newId;
       hint.style.color = '#3a3';
-      hint.textContent = `已另存為：${newId}（${newVersionLabel}）`;
+      hint.textContent = '已另存新報價：' + newId;
     } catch(e) {
       hint.style.color = '#e53935';
       hint.textContent = '另存失敗：' + (e.message || e.code || String(e));
@@ -2106,6 +2172,7 @@
     document.getElementById('in-p6-amt').value = '';
     document.getElementById('save-hint').textContent = '';
     _currentContractNo = '';
+    _currentDocId = '';
     categories = [];
     catIdCounter = 0;
     subIdCounter = 0;
@@ -2161,6 +2228,7 @@
     document.getElementById('in-version-label').value = q.versionLabel || '';
     document.getElementById('in-source-id').value = q.sourceId || '';
     _currentContractNo = q.contractNo;
+    _currentDocId = q._docId || q.contractNo;
     syncHeader();
     categories = [];
     catIdCounter = 0;
@@ -2168,8 +2236,9 @@
     document.getElementById('categories-input-list').innerHTML = '';
     (q.categories || []).forEach(d => addCategory(d));
     renderAll();
+    const _loadDocId = q._docId || q.contractNo;
     document.querySelectorAll('.history-item').forEach(el => {
-      const selected = el.dataset.contractNo === q.contractNo;
+      const selected = el.dataset.docId === _loadDocId;
       el.classList.toggle('history-item-selected', selected);
       el.style.background = selected ? '#fffdf8' : '#fff';
     });
@@ -3050,7 +3119,7 @@
       .limit(4)
       .onSnapshot(
         snapshot => {
-          liveQuotes = snapshot.docs.map(doc => doc.data());
+          liveQuotes = snapshot.docs.map(doc => ({ ...doc.data(), _docId: doc.id }));
           renderHistoryList();
         },
         err => { console.error('Firestore 監聽失敗:', err); }
@@ -3076,6 +3145,16 @@
       if (unsubscribeListener) { unsubscribeListener(); unsubscribeListener = null; }
       liveQuotes = [];
       renderHistoryList();
+    }
+      document.getElementById('in-contract-terms').value = DEFAULT_CONTRACT_TERMS;
+      renderAll();
+      // [DEV] 從 localStorage 還原歷史清單
+      (function(){
+        var _ks = Object.keys(localStorage).filter(function(k){ return k.startsWith('q_'); });
+        liveQuotes = _ks.map(function(k){ try{ return JSON.parse(localStorage.getItem(k)); }catch(e){ return null; } })
+          .filter(Boolean).sort(function(a,b){ return (b._savedAt||'') > (a._savedAt||'') ? 1 : -1; });
+        renderHistoryList();
+      })();
     }
   });
 
