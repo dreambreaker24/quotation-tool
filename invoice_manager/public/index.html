@@ -1043,7 +1043,7 @@ function switchTab(tab) {
 
 let salesList = [];
 
-['s-date', 's-invoice-number', 's-buyer-name', 's-buyer-tax-id', 's-items', 's-amount', 's-tax', 's-total', 's-case'].forEach(id => {
+['s-date', 's-invoice-number', 's-buyer-name', 's-buyer-tax-id', 's-items', 's-amount', 's-tax', 's-total'].forEach(id => {
     document.getElementById(id).addEventListener('keydown', e => {
         if (e.key === 'Enter') { e.preventDefault(); addSalesItem(); }
     });
@@ -1189,7 +1189,7 @@ async function exportSales() {
 
 let expenseList = [];
 
-['e-date', 'e-category', 'e-amount', 'e-note'].forEach(id => {
+['e-date', 'e-amount', 'e-note'].forEach(id => {
     document.getElementById(id).addEventListener('keydown', e => {
         if (e.key === 'Enter') { e.preventDefault(); addExpenseItem(); }
     });
