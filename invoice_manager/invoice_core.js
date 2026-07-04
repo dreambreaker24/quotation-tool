@@ -82,10 +82,42 @@ function getFlags(item, ownNames = []) {
     return flags;
 }
 
+const companyNameCache = new Map();
+
+async function lookupCompanyName(taxId) {
+    if (!taxId || !/^\d{8}$/.test(taxId)) return null;
+    if (companyNameCache.has(taxId)) return companyNameCache.get(taxId);
+
+    let name = null;
+    try {
+        const filter = encodeURIComponent(`Business_Accounting_NO eq ${taxId}`);
+        const url = `https://data.gcis.nat.gov.tw/od/data/api/9D17AE0D-09B5-4732-A8F4-81ADED04B679?$format=json&$filter=${filter}`;
+        const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+        if (res.ok) {
+            const data = await res.json();
+            name = data[0]?.Company_Name || null;
+        }
+    } catch {
+        name = null;
+    }
+
+    companyNameCache.set(taxId, name);
+    return name;
+}
+
 function isSuspiciousBatch(items) {
     if (items.length < 3) return false;
     const first = items[0];
-    return items.every(item => item.store_name === first.store_name && item.date === first.date);
+    const sameStoreAndDate = items.every(item => item.store_name === first.store_name && item.date === first.date);
+    if (!sameStoreAndDate) return false;
+
+    // 店家與日期相同不代表幻覺（同一天同一房東開多張發票很常見）。
+    // 只有連發票號碼或金額都重複／空白，才是真的疑似 AI 複製貼上。
+    const invoiceNums   = items.map(i => i.invoice_number).filter(Boolean);
+    const numsDuplicate = invoiceNums.length === 0 || new Set(invoiceNums).size < invoiceNums.length;
+    const amountsSame   = new Set(items.map(i => i.total)).size === 1;
+
+    return numsDuplicate || amountsSame;
 }
 
 const PROMPT = `請從這份發票提取所有發票的資訊。若有多張發票，回傳 JSON 陣列；單張則回傳單一物件。只回傳 JSON 不含任何說明：
@@ -125,8 +157,9 @@ async function extractInvoice(client, filePath, retries = 2) {
     let response;
     try {
         response = await client.messages.create({
-            model: 'claude-sonnet-4-6',
-            max_tokens: 2048,
+            model: 'claude-sonnet-5',
+            max_tokens: 4096,
+            thinking: { type: 'disabled' },
             messages: [{ role: 'user', content }]
         });
     } catch (err) {
@@ -141,7 +174,10 @@ async function extractInvoice(client, filePath, retries = 2) {
     sessionUsage.input_tokens  += response.usage.input_tokens;
     sessionUsage.output_tokens += response.usage.output_tokens;
 
-    let text = response.content[0].text.trim().replace(/^```json\s*/i, '').replace(/\s*```$/, '');
+    const textBlock = response.content.find(b => b.type === 'text');
+    if (!textBlock) throw new Error('AI 回應沒有文字內容');
+
+    let text = textBlock.text.trim().replace(/^```json\s*/i, '').replace(/\s*```$/, '');
     const parsed = JSON.parse(text);
     const items  = Array.isArray(parsed) ? parsed : [parsed];
     return items.map(item => ({
@@ -182,6 +218,13 @@ const SALES_COLS = [
     { header: '總金額',     key: 'total',           width: 12 },
     { header: '案場名稱',   key: 'case_name',        width: 20 },
 ];
+const EXPENSE_COLS = [
+    { header: '日期', key: 'date',     width: 14 },
+    { header: '類別', key: 'category', width: 16 },
+    { header: '金額', key: 'amount',   width: 14 },
+    { header: '備註', key: 'note',     width: 32 },
+];
+const EXPENSE_MONEY_COL = 3;
 const H_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2C4A6E' } };
 const H_FONT = { bold: true, color: { argb: 'FFFFFFFF' }, name: '微軟正黑體', size: 14 };
 const D_FONT = { name: '微軟正黑體', size: 13 };
@@ -224,7 +267,7 @@ function buildCaseListSheet(ws, caseNames) {
     }
 }
 
-function buildSummarySheet(ws, purchaseGroups, salesGroups) {
+function buildSummarySheet(ws, purchaseGroups, salesGroups, expenseGroups = {}) {
     ws.columns = [
         { header: '類型',       width: 8  },
         { header: '期間',       width: 16 },
@@ -268,6 +311,34 @@ function buildSummarySheet(ws, purchaseGroups, salesGroups) {
 
     addSection('進項', purchaseGroups);
     addSection('銷項', salesGroups);
+
+    if (Object.keys(expenseGroups).length > 0) {
+        let totCount = 0, totAmount = 0;
+        for (const sn of Object.keys(expenseGroups).sort()) {
+            const items  = expenseGroups[sn];
+            const count  = items.length;
+            const amount = Math.round(items.reduce((s, t) => s + (Number(t.amount) || 0), 0));
+            totCount += count; totAmount += amount;
+
+            const period = sn.replace(/^支 /, '');
+            const row = ws.addRow(['固定支出', period, count, amount, '', amount]);
+            row.height = 22;
+            row.eachCell((cell, col) => {
+                cell.font   = D_FONT; cell.border = BORDER;
+                cell.fill   = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } };
+                cell.alignment = col >= 4 ? { horizontal: 'right', vertical: 'middle' } : { vertical: 'middle' };
+                if (col === 4 || col === 6) cell.numFmt = '#,##0';
+            });
+        }
+        const tRow = ws.addRow(['固定支出合計', '', totCount, totAmount, '', totAmount]);
+        tRow.height = 24;
+        tRow.eachCell((cell, col) => {
+            cell.font   = { ...D_FONT, bold: true }; cell.border = BORDER;
+            cell.fill   = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8EDF4' } };
+            cell.alignment = col >= 4 ? { horizontal: 'right', vertical: 'middle' } : { vertical: 'middle' };
+            if (col === 4 || col === 6) cell.numFmt = '#,##0';
+        });
+    }
 }
 
 function buildSheet(ws, items) {
@@ -368,9 +439,62 @@ function buildSalesSheet(ws, items) {
     });
 }
 
-async function updateExcel(newData, masterPath, defaultCaseNames = [], type = 'purchase') {
+function buildExpenseSheet(ws, items) {
+    ws.columns = EXPENSE_COLS;
+    styleHeader(ws.getRow(1));
+
+    const sorted = [...items].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    for (let i = 0; i < sorted.length; i++) {
+        const t   = sorted[i];
+        const row = ws.addRow([t.date || '', t.category || '', Number(t.amount) || 0, t.note || '']);
+        row.height = 22;
+        const bg = i % 2 === 0 ? 'FFFFFFFF' : 'FFF5F7FA';
+        row.eachCell((cell, col) => {
+            cell.font   = D_FONT; cell.border = BORDER;
+            cell.fill   = { type: 'pattern', pattern: 'solid', fgColor: { argb: bg } };
+            cell.alignment = { vertical: 'middle', wrapText: col === 4 };
+            if (col === EXPENSE_MONEY_COL) {
+                cell.numFmt    = '#,##0';
+                cell.alignment = { horizontal: 'right', vertical: 'middle' };
+            }
+        });
+    }
+
+    const last = sorted.length + 1;
+    const tRow = ws.addRow(['', '合　計', { formula: `SUM(C2:C${last})` }, '']);
+    tRow.height = 24;
+    tRow.eachCell((cell, col) => {
+        cell.font   = { ...D_FONT, bold: true }; cell.border = BORDER;
+        cell.fill   = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8EDF4' } };
+        if (col === EXPENSE_MONEY_COL) {
+            cell.numFmt    = '#,##0';
+            cell.alignment = { horizontal: 'right', vertical: 'middle' };
+        }
+    });
+}
+
+async function getCaseNames(masterPath, defaultCaseNames = []) {
+    if (!fs.existsSync(masterPath)) return [...defaultCaseNames];
+
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.readFile(masterPath);
+
+    const caseSheet = wb.getWorksheet('案場清單');
+    if (!caseSheet) return [...defaultCaseNames];
+
+    const names = [];
+    caseSheet.eachRow((row, rowNum) => {
+        if (rowNum === 1) return;
+        const val = String(row.values[1] || '').trim();
+        if (val) names.push(val);
+    });
+    return names.length > 0 ? names : [...defaultCaseNames];
+}
+
+async function updateExcel(newData, masterPath, defaultCaseNames = [], type = 'purchase', overrideCaseNames = null) {
     const purchaseData  = [];
     const salesData     = [];
+    const expenseData   = [];
     const seenPurchase  = new Set();
     const seenSales     = new Set();
     let   caseNames     = [];
@@ -379,25 +503,39 @@ async function updateExcel(newData, masterPath, defaultCaseNames = [], type = 'p
         const existing = new ExcelJS.Workbook();
         await existing.xlsx.readFile(masterPath);
 
-        const caseSheet = existing.getWorksheet('案場清單');
-        if (caseSheet) {
-            caseSheet.eachRow((row, rowNum) => {
-                if (rowNum === 1) return;
-                const val = String(row.values[1] || '').trim();
-                if (val) caseNames.push(val);
-            });
+        if (!overrideCaseNames) {
+            const caseSheet = existing.getWorksheet('案場清單');
+            if (caseSheet) {
+                caseSheet.eachRow((row, rowNum) => {
+                    if (rowNum === 1) return;
+                    const val = String(row.values[1] || '').trim();
+                    if (val) caseNames.push(val);
+                });
+            }
         }
 
         existing.eachSheet(ws => {
             if (['年度摘要', '案場清單'].includes(ws.name)) return;
-            const isSales = ws.name.startsWith('銷 ');
+            const isSales   = ws.name.startsWith('銷 ');
+            const isExpense = ws.name.startsWith('支 ');
             ws.eachRow((row, rowNum) => {
                 if (rowNum === 1) return;
                 const v = row.values;
                 if (!v[1] && !v[2]) return;
-                if (String(v[5] || '').trim() === '合　計') return;
-                const dateVal    = v[1];
-                const dateStr    = dateVal instanceof Date ? dateVal.toISOString().slice(0, 10) : String(dateVal || '');
+                const isTotalRow = [1, 2, 3, 4, 5, 6, 7, 8, 9].some(idx => String(v[idx] || '').trim() === '合　計');
+                if (isTotalRow) return;
+
+                const dateVal = v[1];
+                const dateStr = dateVal instanceof Date ? dateVal.toISOString().slice(0, 10) : String(dateVal || '');
+
+                if (isExpense) {
+                    expenseData.push({
+                        date: dateStr, category: String(v[2] || ''),
+                        amount: Number(v[3]) || 0, note: String(v[4] || '')
+                    });
+                    return;
+                }
+
                 const invoiceNum = String(v[2] || '').replace(/[\s\-]/g, '').toUpperCase().trim();
                 if (isSales) {
                     salesData.push({
@@ -422,22 +560,30 @@ async function updateExcel(newData, masterPath, defaultCaseNames = [], type = 'p
         });
     }
 
-    if (caseNames.length === 0) caseNames = defaultCaseNames;
-
-    const targetData = type === 'sales' ? salesData : purchaseData;
-    const seenSet    = type === 'sales' ? seenSales  : seenPurchase;
+    if (overrideCaseNames) caseNames = [...overrideCaseNames];
+    else if (caseNames.length === 0) caseNames = defaultCaseNames;
 
     let added = 0, skipped = 0, duplicates = [];
-    for (const item of newData) {
-        const num = item.invoice_number || '';
-        if (num && seenSet.has(num)) {
-            duplicates.push(num);
-            skipped++;
-            continue;
+
+    if (type === 'expense') {
+        for (const item of newData) {
+            expenseData.push(item);
+            added++;
         }
-        targetData.push(item);
-        if (num) seenSet.add(num);
-        added++;
+    } else {
+        const targetData = type === 'sales' ? salesData : purchaseData;
+        const seenSet    = type === 'sales' ? seenSales  : seenPurchase;
+        for (const item of newData) {
+            const num = item.invoice_number || '';
+            if (num && seenSet.has(num)) {
+                duplicates.push(num);
+                skipped++;
+                continue;
+            }
+            targetData.push(item);
+            if (num) seenSet.add(num);
+            added++;
+        }
     }
 
     const purchaseGroups = {};
@@ -454,14 +600,24 @@ async function updateExcel(newData, masterPath, defaultCaseNames = [], type = 'p
         salesGroups[name].push(item);
     }
 
+    const expenseGroups = {};
+    for (const item of expenseData) {
+        const name = '支 ' + getBimonthlySheet(item.date || '');
+        if (!expenseGroups[name]) expenseGroups[name] = [];
+        expenseGroups[name].push(item);
+    }
+
     const wb = new ExcelJS.Workbook();
-    buildSummarySheet(wb.addWorksheet('年度摘要'), purchaseGroups, salesGroups);
+    buildSummarySheet(wb.addWorksheet('年度摘要'), purchaseGroups, salesGroups, expenseGroups);
     buildCaseListSheet(wb.addWorksheet('案場清單'), caseNames);
     for (const sn of Object.keys(purchaseGroups).sort()) {
         buildSheet(wb.addWorksheet(sn), purchaseGroups[sn]);
     }
     for (const sn of Object.keys(salesGroups).sort()) {
         buildSalesSheet(wb.addWorksheet(sn), salesGroups[sn]);
+    }
+    for (const sn of Object.keys(expenseGroups).sort()) {
+        buildExpenseSheet(wb.addWorksheet(sn), expenseGroups[sn]);
     }
 
     try {
@@ -477,7 +633,8 @@ module.exports = {
     loadConfig, saveConfig,
     parseDate, cleanStr, cleanInvoiceNum,
     extractInvoice, getFlags, isSuspiciousBatch,
-    updateExcel,
+    lookupCompanyName,
+    updateExcel, getCaseNames,
     calcCost, fmtCost,
     resetSessionUsage, getSessionUsage,
     ALL_EXTS,

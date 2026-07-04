@@ -69,6 +69,8 @@ app.post('/api/scan', upload.array('files'), async (req, res) => {
                 results.push({ sourceFile: file.filename, failed: true, error: '疑似 AI 幻覺（多張相同店家/日期），請手動確認', flags: ['⚠疑似幻覺'] });
             } else {
                 for (const inv of invoices) {
+                    const officialName = await core.lookupCompanyName(inv.tax_id);
+                    if (officialName) inv.store_name = officialName;
                     results.push({ ...inv, sourceFile: file.filename, flags: core.getFlags(inv, ownNames), failed: false });
                 }
             }
@@ -116,6 +118,59 @@ app.post('/api/export', async (req, res) => {
         }
 
         res.json({ added, skipped, duplicates, masterPath });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/cases', async (req, res) => {
+    const { company } = req.query;
+    if (!company) return res.status(400).json({ error: '參數錯誤' });
+
+    const config     = core.loadConfig();
+    const co         = (config.companies || {})[company] || {};
+    const masterPath = path.join(os.homedir(), 'Desktop', co.excel_name || `${company}_發票報帳總表.xlsx`);
+
+    try {
+        const caseNames = await core.getCaseNames(masterPath, co.case_names || []);
+        res.json({ caseNames });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/cases', async (req, res) => {
+    const { company, caseNames } = req.body;
+    if (!company || !Array.isArray(caseNames)) return res.status(400).json({ error: '參數錯誤' });
+
+    const config     = core.loadConfig();
+    const co         = (config.companies || {})[company] || {};
+    const masterPath = path.join(os.homedir(), 'Desktop', co.excel_name || `${company}_發票報帳總表.xlsx`);
+
+    try {
+        await core.updateExcel([], masterPath, [], 'purchase', caseNames);
+        if (config.companies && config.companies[company]) {
+            config.companies[company].case_names = caseNames;
+            core.saveConfig(config);
+        }
+        res.json({ ok: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/expenses', async (req, res) => {
+    const { company, expenses } = req.body;
+    if (!company || !Array.isArray(expenses)) return res.status(400).json({ error: '參數錯誤' });
+
+    const config           = core.loadConfig();
+    const co               = (config.companies || {})[company] || {};
+    const masterPath       = path.join(os.homedir(), 'Desktop', co.excel_name || `${company}_發票報帳總表.xlsx`);
+    const defaultCaseNames = co.case_names || [];
+
+    try {
+        const { added } = await core.updateExcel(expenses, masterPath, defaultCaseNames, 'expense');
+        res.json({ added, masterPath });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
