@@ -29,7 +29,10 @@
           :class="n.read ? 'opacity-50' : ''">
           <div class="text-xs leading-snug flex items-start gap-1.5" :class="n.read ? 'text-gray-400' : 'text-gray-800'">
             <span class="flex-shrink-0 text-sm leading-none mt-0.5">{{ notifIcon(n.message) }}</span>
-            <span><span class="font-semibold">{{ n.actorName }}</span> {{ n.message }}</span>
+            <span :class="n.deleted ? 'line-through opacity-60' : ''">
+              <span class="font-semibold">{{ n.actorName }}</span> {{ n.message }}
+            </span>
+            <span v-if="n.deleted" class="flex-shrink-0 text-[10px] text-gray-400 bg-gray-100 rounded px-1 py-0.5 ml-0.5 no-underline">已刪除</span>
           </div>
           <div class="text-[10px] text-gray-400 mt-1">{{ formatTime(n.createdAt) }}</div>
         </button>
@@ -42,10 +45,12 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useNotificationsStore } from '@/stores/notifications'
 import { useAuthStore } from '@/stores/auth'
+import { useNavStore } from '@/stores/nav'
 
 const router = useRouter()
 const notifStore = useNotificationsStore()
 const authStore = useAuthStore()
+const navStore = useNavStore()
 const open = ref(false)
 const bellRef = ref(null)
 
@@ -75,13 +80,17 @@ async function handleClick(n) {
     open.value = false
     await notifStore.markRead(n.id)
     if (n.caseId) {
-        const q = { caseId: n.caseId }
+        navStore.requestCaseJump(n.caseId, n.tab || '', n.companyId || '', n.photoType || '')
+        router.push({ path: '/cases', query: n.companyId ? { region: n.companyId } : {} })
+    } else if (n.message.includes('工作日誌')) {
+        const q = { tab: 'log' }
+        if (n.logDate) q.date = n.logDate
+        router.push({ path: '/cases', query: q })
+    } else if (n.tab === 'cal' || n.message.includes('行程')) {
+        const q = { tab: 'cal' }
+        if (n.eventDate) q.eventDate = n.eventDate
         if (n.companyId) q.region = n.companyId
         router.push({ path: '/cases', query: q })
-    } else if (n.message.includes('工作日誌')) {
-        router.push({ path: '/cases', query: { tab: 'log' } })
-    } else if (n.message.includes('行程')) {
-        router.push({ path: '/cases', query: { tab: 'cal' } })
     } else if (n.message.includes('公司佈達')) {
         router.push({ path: '/cases', query: { tab: 'announcement' } })
     } else if (n.message.includes('聯繫記錄')) {
@@ -95,8 +104,13 @@ function notifIcon(message) {
     if (message.includes('的收款')) return '💰'
     if (message.includes('待辦事項')) return '✅'
     if (message.includes('案件檢討')) return '📝'
-    if (message.includes('上傳了照片')) return '📷'
+    if (message.includes('上傳了')) return '📷'
     if (message.includes('公司佈達')) return '📢'
+    if (message.includes('回覆了')) return '💬'
+    if (message.includes('工作日誌')) return '📓'
+    if (message.includes('刪除了行程')) return '🗑️'
+    if (message.includes('修改了行程')) return '✏️'
+    if (message.includes('新增了行程')) return '📅'
     if (message.includes('更新了')) return '✏️'
     return '🔔'
 }

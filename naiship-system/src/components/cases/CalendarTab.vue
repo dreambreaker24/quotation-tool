@@ -56,12 +56,18 @@
         :class="[
           !cell.currentMonth && 'opacity-40',
           cell.isToday ? 'bg-amber-50' : cell.isNonWorking ? 'bg-rose-50/60' : '',
-          cell.currentMonth && 'cursor-pointer hover:bg-gray-50/50 transition-colors'
+          cell.currentMonth && 'cursor-pointer hover:bg-gray-50/50 transition-colors',
+          cell.dateStr === highlightDate && cell.currentMonth ? 'ring-2 ring-inset ring-amber-400' : ''
         ]"
         @click="cell.currentMonth && openAddOnDate(cell.dateStr)">
         <span v-if="cell.isToday"
           class="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold text-white"
           style="background:#c9a96e">
+          {{ cell.day }}
+        </span>
+        <span v-else-if="cell.dateStr === highlightDate && cell.currentMonth"
+          class="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold text-white"
+          style="background:#f59e0b">
           {{ cell.day }}
         </span>
         <span v-else class="text-xs"
@@ -377,7 +383,8 @@ import { useToast } from '@/composables/useToast'
 import CompensatoryPanel from './CompensatoryPanel.vue'
 import { TAIWAN_HOLIDAY_NAMES } from '@/constants/holidays'
 
-const props = defineProps({ region: String })
+const props = defineProps({ region: String, jumpEventDate: String })
+const emit = defineEmits(['jumped-date'])
 const casesStore = useCasesStore()
 const eventsStore = useCalendarEventsStore()
 const authStore = useAuthStore()
@@ -402,14 +409,25 @@ function hoursToDays(hours) {
 async function applyLeaveDelta(leaveType, name, deltaHours) {
     const user = findUserByName(name)
     if (!user) return
-    if (leaveType === '補休') await usersStore.adjustCompensatoryHours(user.id, deltaHours)
-    else if (leaveType === '特休') await usersStore.adjustAnnualLeaveHours(user.id, hoursToDays(deltaHours))
+    if (leaveType === '補休') {
+        if (deltaHours >= 0) {
+            // 還回補休（移除請假）：還入平日補休
+            await usersStore.adjustCompensatoryHours(user.id, deltaHours)
+        } else {
+            // 扣除補休：先扣平日，不夠再扣休息日
+            const weekday = user.compensatoryHours ?? 0
+            const fromWeekday = Math.max(deltaHours, -weekday)
+            const fromHoliday = deltaHours - fromWeekday
+            if (fromWeekday !== 0) await usersStore.adjustCompensatoryHours(user.id, fromWeekday)
+            if (fromHoliday !== 0) await usersStore.adjustCompensatoryHolidayHours(user.id, fromHoliday)
+        }
+    } else if (leaveType === '特休') await usersStore.adjustAnnualLeaveHours(user.id, hoursToDays(deltaHours))
 }
 
 function getLeaveBalance(leaveType, name) {
     const user = findUserByName(name)
     if (!user) return 0
-    if (leaveType === '補休') return user.compensatoryHours ?? 0
+    if (leaveType === '補休') return (user.compensatoryHours ?? 0) + (user.compensatoryHolidayHours ?? 0)
     if (leaveType === '特休') return user.annualLeaveHours ?? 0
     return 0
 }
@@ -425,6 +443,17 @@ function leaveInsufficientMsg(leaveType) {
 const TRACKED_LEAVE_TYPES = ['補休', '特休']
 const currentYear = ref(today.getFullYear())
 const currentMonth = ref(today.getMonth())
+const highlightDate = ref(null)
+
+watch(() => props.jumpEventDate, (dateStr) => {
+    if (!dateStr) return
+    const d = new Date(dateStr)
+    if (isNaN(d)) return
+    currentYear.value = d.getFullYear()
+    currentMonth.value = d.getMonth()
+    highlightDate.value = dateStr
+    emit('jumped-date')
+}, { immediate: true })
 const showAddEvent = ref(false)
 const showAllRegions = ref(false)
 const ALL_REGIONS = ['south', 'north', 'central']
@@ -539,6 +568,8 @@ async function saveEditEvent() {
     }
 
     await eventsStore.updateEvent(editingEventId.value, payload)
+    const editEvtDate = editForm.value.date
+    notifStore.notifyAll(authStore.name ?? '', `修改了行程「${payload.label}」（${fmtNotifDate(editEvtDate)}）`, '', '', props.region ?? '', '', 'cal', editEvtDate, false)
     showEditEvent.value = false
   } catch {
     toast('儲存失敗，請重試', 'error')
@@ -547,10 +578,15 @@ async function saveEditEvent() {
 
 async function removeEvent() {
   try {
+    const delEvtDate = editForm.value.date
+    const delLabel = editForm.value.type === 'leave'
+        ? `${editForm.value.personName} ${editForm.value.leaveType || '請假'}${editForm.value.hours ? ` ${editForm.value.hours}h` : ''}`
+        : editForm.value.label
     if (TRACKED_LEAVE_TYPES.includes(editForm.value._origLeaveType) && editForm.value._origPersonName && editForm.value._origDate >= todayStr) {
       await applyLeaveDelta(editForm.value._origLeaveType, editForm.value._origPersonName, editForm.value._origHours)
     }
     await eventsStore.deleteEvent(editingEventId.value)
+    notifStore.notifyAll(authStore.name ?? '', `刪除了行程「${delLabel}」（${fmtNotifDate(delEvtDate)}）`, '', '', props.region ?? '', '', 'cal', delEvtDate, true)
     showEditEvent.value = false
   } catch {
     toast('刪除失敗，請重試', 'error')
@@ -623,15 +659,23 @@ onUnmounted(() => eventsStore.cleanup())
 
 const displayMonth = computed(() => `${currentYear.value}年 ${currentMonth.value + 1}月`)
 
+function fmtNotifDate(dateStr) {
+  const d = new Date(dateStr)
+  return `${d.getMonth() + 1}/${d.getDate()}`
+}
+
 function prevMonth() {
+  highlightDate.value = null
   if (currentMonth.value === 0) { currentMonth.value = 11; currentYear.value-- }
   else currentMonth.value--
 }
 function nextMonth() {
+  highlightDate.value = null
   if (currentMonth.value === 11) { currentMonth.value = 0; currentYear.value++ }
   else currentMonth.value++
 }
 function goToToday() {
+  highlightDate.value = null
   currentYear.value = today.getFullYear()
   currentMonth.value = today.getMonth()
 }
@@ -768,7 +812,8 @@ async function submitEvent() {
     } else {
       await eventsStore.addEvent(payload)
     }
-    notifStore.notifyAll(authStore.name ?? '', `新增了行程「${payload.label}」`, '', '', payload.companyId)
+    const newEvtDate = eventForm.value.date
+    notifStore.notifyAll(authStore.name ?? '', `新增了行程「${payload.label}」（${fmtNotifDate(newEvtDate)}）`, '', '', payload.companyId, '', 'cal', newEvtDate, false)
     eventForm.value = blankEvent()
     showAddEvent.value = false
   } catch {

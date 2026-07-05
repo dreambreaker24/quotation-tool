@@ -48,7 +48,7 @@
           ✓ 油資已核准，無法修改
         </div>
         <div v-else-if="isAfterDeadline && !editingLog" class="text-xs text-center text-red-500 py-2 bg-red-50 rounded-lg">
-          油資申請已截止（截止至隔天 19:00）
+          油資申請已截止（截止至後天 19:00）
         </div>
         <template v-if="!editingLog?.fuelApproved && (!isAfterDeadline || editingLog)">
           <div v-if="fuelItems.length === 0" class="text-xs text-gray-400 py-1">無油資申請（可點右上新增）</div>
@@ -94,18 +94,45 @@
           <div class="text-xs font-semibold text-purple-700">申請加班（選填）</div>
           <button v-if="!editingLog?.overtimeApproved && (!isAfterDeadline || editingLog)" @click="addOvertimeItem" class="text-xs" style="color:#c9a96e">+ 新增</button>
         </div>
+        <!-- 已審核項目（唯讀顯示） -->
+        <div v-for="(ot, i) in decidedOvertimeItems" :key="'decided-'+i"
+          class="border rounded-xl p-3 mb-2 bg-white text-xs text-gray-600"
+          :class="ot.approved ? 'border-green-200' : 'border-red-200'">
+          <div class="flex items-start justify-between gap-2">
+            <div>
+              <div><span class="text-gray-400">原因：</span>{{ ot.reason }}</div>
+              <div class="text-purple-600 font-semibold mt-0.5">{{ ot.type || '平日' }} 加班 {{ ot.hours }} 小時</div>
+            </div>
+            <span :class="ot.approved ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'"
+              class="text-[10px] px-2 py-0.5 rounded-full font-semibold flex-shrink-0">
+              {{ ot.approved ? '✓ 已同意' : '✕ 不同意' }}
+            </span>
+          </div>
+        </div>
         <div v-if="editingLog?.overtimeApproved" class="text-xs text-green-600 bg-green-50 rounded-lg px-3 py-2 mb-2">
-          ✓ 加班已核准，無法修改
+          ✓ 加班已全部審核完畢
         </div>
         <div v-else-if="isAfterDeadline && !editingLog" class="text-xs text-center text-red-500 py-2 bg-red-50 rounded-lg">
-          加班申請已截止（截止至隔天 19:00）
+          加班申請已截止（截止至後天 19:00）
         </div>
-        <div v-else-if="overtimeItems.length === 0" class="text-xs text-gray-400 py-1">無加班申請（可點右上新增）</div>
+        <div v-else-if="overtimeItems.length === 0 && decidedOvertimeItems.length === 0" class="text-xs text-gray-400 py-1">無加班申請（可點右上新增）</div>
         <div v-for="(item, idx) in overtimeItems" :key="idx"
           class="border border-purple-200 rounded-xl p-3 mb-2 last:mb-0 bg-white">
           <div class="flex items-center justify-between mb-2">
             <span class="text-[11px] text-purple-600 font-semibold">第 {{ idx + 1 }} 筆</span>
             <button @click="overtimeItems.splice(idx, 1)" class="text-red-400 hover:text-red-600 text-xs">✕</button>
+          </div>
+          <div class="flex gap-1 mb-2">
+            <button @click="item.type = '平日'"
+              class="text-xs px-3 py-1 rounded-lg border transition-colors"
+              :style="(item.type || '平日') === '平日' ? 'background:#8b5cf6;color:#fff;border-color:#8b5cf6' : 'color:#8b5cf6;border-color:#c4b5fd'">
+              平日
+            </button>
+            <button @click="item.type = '休息日'"
+              class="text-xs px-3 py-1 rounded-lg border transition-colors"
+              :style="item.type === '休息日' ? 'background:#8b5cf6;color:#fff;border-color:#8b5cf6' : 'color:#8b5cf6;border-color:#c4b5fd'">
+              休息日
+            </button>
           </div>
           <textarea v-model="item.reason" rows="2"
             class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 resize-none bg-white mb-2"
@@ -182,6 +209,7 @@ const logEntries = ref({})
 const otherItems = ref([])
 const fuelItems = ref([])
 const overtimeItems = ref([])
+const decidedOvertimeItems = ref([])
 const logAttachFiles = ref([])
 
 const REGION_LABELS = { south: '奈拾南區', north: '奈拾北區', central: '奈拾中區' }
@@ -206,7 +234,7 @@ const isAfterDeadline = computed(() => {
     const now = new Date()
     const logDate = props.editingLog?.date?.toDate?.() ?? new Date()
     const deadline = new Date(logDate)
-    deadline.setDate(deadline.getDate() + 1)
+    deadline.setDate(deadline.getDate() + 2)
     deadline.setHours(19, 0, 0, 0)
     return now >= deadline
 })
@@ -222,19 +250,21 @@ watch(() => props.show, (val) => {
         fuelItems.value = log.fuelApproved
             ? []
             : (log.fuelExpenses ?? []).map(f => ({ reason: f.reason, distance: f.distance || 0, photoFile: null, previewUrl: f.photoUrl || '' }))
+        decidedOvertimeItems.value = (log.overtimeItems ?? []).filter(i => i.approved != null)
         overtimeItems.value = log.overtimeApproved
             ? []
-            : (log.overtimeItems ?? []).map(ot => ({ reason: ot.reason, hours: ot.hours }))
+            : (log.overtimeItems ?? []).filter(i => i.approved == null).map(ot => ({ reason: ot.reason, hours: ot.hours }))
     } else {
         otherItems.value = []
         fuelItems.value = []
         overtimeItems.value = []
+        decidedOvertimeItems.value = []
     }
 })
 
 function addOtherItem() { otherItems.value.push({ content: '' }) }
 function addFuelItem() { fuelItems.value.push({ reason: '', distance: 0, photoFile: null, previewUrl: '' }) }
-function addOvertimeItem() { overtimeItems.value.push({ reason: '', hours: 0 }) }
+function addOvertimeItem() { overtimeItems.value.push({ reason: '', hours: 0, type: '平日' }) }
 
 function triggerFuelPhoto(idx) {
     activeFuelIdx.value = idx
@@ -282,11 +312,12 @@ async function submitLog() {
         if (items.length > 0) fuelData = items
     }
 
+    const pendingOvertimeData = overtimeItems.value
+        .filter(i => i.reason.trim() && i.hours > 0)
+        .map(i => ({ reason: i.reason.trim(), hours: i.hours, type: i.type || '平日' }))
     const overtimeData = props.editingLog?.overtimeApproved
-        ? []
-        : overtimeItems.value
-            .filter(i => i.reason.trim() && i.hours > 0)
-            .map(i => ({ reason: i.reason.trim(), hours: i.hours }))
+        ? decidedOvertimeItems.value
+        : [...decidedOvertimeItems.value, ...pendingOvertimeData]
 
     if (props.editingLog) {
         const updateData = {
@@ -296,9 +327,9 @@ async function submitLog() {
                 fuelExpenses: fuelData ?? [],
                 ...(fuelData ? { fuelApproved: false } : {}),
             }),
-            ...(!props.editingLog.overtimeApproved && {
+            ...(overtimeData.length > 0 && {
                 overtimeItems: overtimeData,
-                ...(overtimeData.length > 0 ? { overtimeApproved: false } : {}),
+                overtimeApproved: overtimeData.every(i => i.approved != null),
             }),
         }
         try {
@@ -335,7 +366,10 @@ async function submitLog() {
     }
     try {
         await logsStore.addLog(logDoc)
-        notifStore.notifyAll(authStore.name ?? '', `新增了工作日誌`, '', '', authStore.companyId ?? '')
+        const now = new Date()
+        const dateStr = `${now.getMonth() + 1}/${now.getDate()}`
+        const logDateISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+        notifStore.notifyAll(authStore.name ?? '', `新增了 ${dateStr} 工作日誌`, '', '', authStore.companyId ?? '', logDateISO)
         toast('日誌已送出')
         emit('submitted')
     } catch {

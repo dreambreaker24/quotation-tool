@@ -275,7 +275,7 @@ async function submitReview() {
             reviews.value.unshift({ id: docRef.id, ...data, createdAt: { toDate: () => new Date() } })
         }
         if (!editingId.value) {
-            notifStore.notifyAll(authStore.name ?? '', `在「${props.caseName}」新增了案件檢討`, props.caseId, props.caseName, props.companyId)
+            notifStore.notifyAll(authStore.name ?? '', `在「${props.caseName}」新增了案件檢討`, props.caseId, props.caseName, props.companyId, '', 'review')
         }
         pendingFiles.value = []
         showForm.value = false

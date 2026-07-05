@@ -39,7 +39,7 @@ export const useWorkLogsStore = defineStore('workLogs', () => {
                 .map(d => ({ id: d.id, ...d.data() }))
                 .filter(log =>
                     (log.fuelExpenses?.length && log.fuelApproved === false) ||
-                    (log.overtimeItems?.length && log.overtimeApproved === false)
+                    (log.overtimeItems?.length && log.overtimeItems.some(i => i.approved == null))
                 )
         })
     }
@@ -76,24 +76,36 @@ export const useWorkLogsStore = defineStore('workLogs', () => {
         })
     }
 
-    async function approveOvertime(logId, approverName, userId, overtimeHours) {
+    async function approveOvertimeItem(log, itemIndex, isApproved, approverName) {
+        const prevItems = log.overtimeItems ?? []
+        const prevItem = prevItems[itemIndex]
+        const updatedItems = prevItems.map((item, i) =>
+            i === itemIndex ? { ...item, approved: isApproved } : item
+        )
+        const allDecided = updatedItems.every(i => i.approved != null)
         const ops = [
-            updateDoc(doc(db, 'workLogs', logId), {
-                overtimeApproved: true,
+            updateDoc(doc(db, 'workLogs', log.id), {
+                overtimeItems: updatedItems,
+                overtimeApproved: allDecided,
                 overtimeApprovedBy: approverName,
                 overtimeApprovedAt: serverTimestamp(),
             })
         ]
-        if (userId && overtimeHours > 0) {
-            ops.push(updateDoc(doc(db, 'users', userId), { compensatoryHours: increment(overtimeHours) }))
+        // 只在首次核准時累加補休時數，依類型寫入對應欄位
+        if (log.userId && isApproved && prevItem?.approved == null) {
+            const field = prevItem.type === '休息日' ? 'compensatoryHolidayHours' : 'compensatoryHours'
+            ops.push(updateDoc(doc(db, 'users', log.userId), {
+                [field]: increment(prevItem.hours || 0)
+            }))
         }
         await Promise.all(ops)
     }
 
-    async function fetchMonthlyKm() {
-        const now = new Date()
-        const start = Timestamp.fromDate(new Date(now.getFullYear(), now.getMonth(), 1))
-        const end = Timestamp.fromDate(new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999))
+    async function fetchMonthlyKm(year, month) {
+        const y = year ?? new Date().getFullYear()
+        const m = month != null ? month : new Date().getMonth()
+        const start = Timestamp.fromDate(new Date(y, m, 1))
+        const end = Timestamp.fromDate(new Date(y, m + 1, 0, 23, 59, 59, 999))
         const q = query(collection(db, 'workLogs'), where('date', '>=', start), where('date', '<=', end))
         const snap = await getDocs(q)
         const km = {}
@@ -114,27 +126,34 @@ export const useWorkLogsStore = defineStore('workLogs', () => {
         return km
     }
 
-    async function fetchMonthlyOvertimeHours() {
-        const now = new Date()
-        const start = Timestamp.fromDate(new Date(now.getFullYear(), now.getMonth(), 1))
-        const end = Timestamp.fromDate(new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999))
+    async function fetchMonthlyOvertimeHours(year, month) {
+        const y = year ?? new Date().getFullYear()
+        const m = month != null ? month : new Date().getMonth()
+        const start = Timestamp.fromDate(new Date(y, m, 1))
+        const end = Timestamp.fromDate(new Date(y, m + 1, 0, 23, 59, 59, 999))
         const q = query(collection(db, 'workLogs'), where('date', '>=', start), where('date', '<=', end))
         const snap = await getDocs(q)
         const hours = {}
         snap.docs.forEach(d => {
             const data = d.data()
             const name = data.userName
-            if (!name || !data.overtimeApproved || !Array.isArray(data.overtimeItems)) return
-            const total = data.overtimeItems.reduce((s, i) => s + (i.hours || 0), 0)
+            if (!name || !Array.isArray(data.overtimeItems)) return
+            const hasPerItem = data.overtimeItems.some(i => 'approved' in i)
+            // 舊格式：整批核准，全部計入；新格式：只計 approved===true 的筆
+            const total = hasPerItem
+                ? data.overtimeItems.filter(i => i.approved === true).reduce((s, i) => s + (i.hours || 0), 0)
+                : (data.overtimeApproved ? data.overtimeItems.reduce((s, i) => s + (i.hours || 0), 0) : 0)
             if (total > 0) hours[name] = (hours[name] || 0) + total
         })
         return hours
     }
 
-    async function fetchMonthlyAttendance() {
-        const now = new Date()
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-        const q = query(collection(db, 'workLogs'), where('date', '>=', Timestamp.fromDate(startOfMonth)))
+    async function fetchMonthlyAttendance(year, month) {
+        const y = year ?? new Date().getFullYear()
+        const m = month != null ? month : new Date().getMonth()
+        const start = Timestamp.fromDate(new Date(y, m, 1))
+        const end = Timestamp.fromDate(new Date(y, m + 1, 0, 23, 59, 59, 999))
+        const q = query(collection(db, 'workLogs'), where('date', '>=', start), where('date', '<=', end))
         const snap = await getDocs(q)
         const map = {}
         snap.docs.forEach(d => {
@@ -155,7 +174,7 @@ export const useWorkLogsStore = defineStore('workLogs', () => {
         logs, pendingLogs,
         subscribe, subscribePending, cleanupPending,
         addLog, updateLog, addReply,
-        approveFuel, approveOvertime,
+        approveFuel, approveOvertimeItem,
         fetchMonthlyKm, fetchMonthlyOvertimeHours, fetchMonthlyAttendance,
         unsubscribe: cleanup
     }

@@ -20,7 +20,7 @@
         :class="[modelValue?.id !== emp.id ? 'hover:bg-gray-50' : '', !emp.hasLog ? 'bg-red-50/40' : '']"
         :style="modelValue?.id === emp.id ? 'background:rgba(201,169,110,0.1);border-left:3px solid #c9a96e' : 'border-left:3px solid transparent'">
         <span class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 ring-2 ring-offset-1"
-          :style="`background:${empColor(emp.id)};ring-color:${empColor(emp.id)}40`">{{ emp.name?.[0] ?? '?' }}</span>
+          :style="`background:${empColor(emp.name)};ring-color:${empColor(emp.name)}40`">{{ emp.name?.[0] ?? '?' }}</span>
         <div class="flex-1 min-w-0">
           <div class="text-xs font-semibold text-gray-800">{{ emp.name }}</div>
           <div v-if="emp.hasLog" class="text-[10px] text-gray-400">今日已填寫</div>
@@ -48,6 +48,13 @@ const filtered = computed(() =>
     props.employees.filter(e => !search.value || e.name?.includes(search.value))
 )
 
-const EMP_COLORS = ['#c9a96e', '#a855f7', '#3b82f6', '#22c55e', '#f59e0b', '#ef4444']
-function empColor(uid) { return EMP_COLORS[(uid?.charCodeAt(0) ?? 0) % EMP_COLORS.length] }
+const MEMBER_COLORS = { '柏': '#c9a96e', '其宏': '#1f2937', '蚌': '#ef4444' }
+function empColor(name) {
+    if (!name) return '#9ca3af'
+    if (MEMBER_COLORS[name]) return MEMBER_COLORS[name]
+    let hash = 0
+    for (let i = 0; i < name.length; i++) hash += name.charCodeAt(i)
+    const fallback = ['#a855f7', '#3b82f6', '#22c55e', '#f59e0b', '#14b8a6', '#f97316']
+    return fallback[hash % fallback.length]
+}
 </script>

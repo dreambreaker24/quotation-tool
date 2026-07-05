@@ -60,7 +60,7 @@
 
           <!-- 案件列 -->
           <template v-else-if="row.type === 'case'">
-            <div class="flex border-b border-gray-100" style="height:36px"
+            <div :id="'case-row-' + row.data.id" class="flex border-b border-gray-100" style="height:36px"
               :style="[row.isEnded ? 'opacity:0.55' : '', selectedCaseId === row.data.id ? 'background:rgba(201,169,110,0.05)' : ''].filter(Boolean).join(';')">
               <div @click="selectCase(row.data.id)"
                 class="flex-shrink-0 sticky left-0 z-10 border-r border-gray-200 px-3 flex items-center gap-2 cursor-pointer transition-colors"
@@ -152,9 +152,13 @@
         </span>
       </div>
     </div>
+  </div>
 
-    <!-- Case action bar (when selected) -->
-    <div v-if="selectedCaseId" class="px-4 pt-3 pb-2 border-t border-amber-100 bg-amber-50/40">
+  <!-- Case detail panel -->
+  <div v-if="selectedCaseId" ref="caseDetailRef" class="mt-3 bg-white rounded-2xl shadow-md">
+
+    <!-- Action bar -->
+    <div class="px-4 pt-3 pb-2 border-b border-amber-100 bg-amber-50/40 rounded-t-2xl">
       <div class="text-sm font-bold text-gray-800 mb-2 leading-snug pl-3 border-l-4" style="border-left-color:#c9a96e">{{ selectedCaseName }}</div>
       <div class="flex items-center gap-2 flex-wrap">
         <button @click="editingCaseId = selectedCaseId"
@@ -179,36 +183,42 @@
       </div>
     </div>
 
-    <!-- Progress notes（洽談中/待約 only） -->
+    <!-- Sticky tab bar -->
+    <div class="flex border-b border-gray-100 bg-white overflow-x-auto sticky top-0 z-10">
+      <button v-for="tab in availableTabs" :key="tab.key"
+        @click="selectedTab = tab.key"
+        class="flex-shrink-0 text-[11px] px-4 py-2.5 font-medium border-b-2 transition-colors whitespace-nowrap flex items-center gap-1.5"
+        :class="selectedTab === tab.key
+          ? 'border-[#c9a96e] text-[#c9a96e] bg-amber-50/30'
+          : 'border-transparent text-gray-400 hover:text-gray-600 hover:bg-gray-50'">
+        {{ tab.label }}
+        <span v-if="tab.key === 'tasks' && openTaskCount > 0"
+          class="text-[9px] min-w-[16px] h-4 px-1 rounded-full text-white leading-4 text-center font-bold"
+          style="background:#c9a96e">
+          {{ openTaskCount }}
+        </span>
+      </button>
+    </div>
+
     <CaseProgressNotes
-      v-if="selectedCaseId && ['negotiating','pending'].includes(casesStore.cases.find(x => x.id === selectedCaseId)?.status)"
+      v-if="selectedTab === 'notes'"
       :key="`notes-${selectedCaseId}`"
       :case-id="selectedCaseId"
       :case-name="selectedCaseName"
       :company-id="selectedCaseCompanyId"
     />
-
-    <!-- Work type panel (when expanded) -->
-    <WorkTypePanel v-if="selectedCaseId" :key="selectedCaseId" :case-id="selectedCaseId" :case-name="selectedCaseName" :company-id="selectedCaseCompanyId" />
-
-    <!-- Payment milestones panel (when selected) -->
-    <PaymentMilestones v-if="selectedCaseId" :case-id="selectedCaseId" :case-name="selectedCaseName" :company-id="selectedCaseCompanyId" />
-
-    <!-- Photo upload section (when expanded) -->
-    <PhotoUpload v-if="expandedCaseId" :case-id="expandedCaseId" :case-name="expandedCaseName" :company-id="selectedCaseCompanyId" />
-
-    <!-- Case tasks section (when selected) -->
-    <CaseTasks v-if="selectedCaseId" :case-id="selectedCaseId" :case-name="selectedCaseName" :company-id="selectedCaseCompanyId" />
-
-    <!-- Case review section (when selected) -->
-    <CaseReview v-if="selectedCaseId" :key="`review-${selectedCaseId}`" :case-id="selectedCaseId" :case-name="selectedCaseName" :company-id="selectedCaseCompanyId" />
+    <WorkTypePanel v-if="selectedTab === 'worktype'" :key="`wt-${selectedCaseId}`" :case-id="selectedCaseId" :case-name="selectedCaseName" :company-id="selectedCaseCompanyId" />
+    <PaymentMilestones v-if="selectedTab === 'payment'" :case-id="selectedCaseId" :case-name="selectedCaseName" :company-id="selectedCaseCompanyId" />
+    <PhotoUpload v-if="selectedTab === 'photo'" :case-id="selectedCaseId" :case-name="selectedCaseName" :company-id="selectedCaseCompanyId" />
+    <CaseTasks v-if="selectedTab === 'tasks'" :case-id="selectedCaseId" :case-name="selectedCaseName" :company-id="selectedCaseCompanyId" />
+    <CaseReview v-if="selectedTab === 'review'" :key="`review-${selectedCaseId}`" :case-id="selectedCaseId" :case-name="selectedCaseName" :company-id="selectedCaseCompanyId" />
   </div>
 
   <!-- Case edit modal -->
   <CaseEditModal v-if="editingCaseId" :case-id="editingCaseId" @close="editingCaseId = null" />
 </template>
 <script setup>
-import { ref, computed, reactive, watch, onUnmounted } from 'vue'
+import { ref, computed, reactive, watch, onUnmounted, nextTick } from 'vue'
 import { CASE_STATUS_LABELS as STATUS_LABELS, CASE_STATUS_COLORS as STATUS_BAR_COLORS } from '@/constants/caseStatus'
 import { useCasesStore } from '@/stores/cases'
 import { useCaseTasksStore } from '@/stores/caseTasks'
@@ -238,7 +248,7 @@ function isWtOverdue(wt, c) {
     return wt.endDate < TODAY_STR
 }
 
-const props = defineProps({ region: String, month: String, jumpCaseId: String })
+const props = defineProps({ region: String, month: String, jumpCaseId: String, jumpCaseTab: String })
 const emit = defineEmits(['jumped'])
 const casesStore = useCasesStore()
 const tasksStore = useCaseTasksStore()
@@ -253,6 +263,7 @@ const selectedCaseId = ref(null)
 const selectedCaseName = ref('')
 const selectedCaseCompanyId = ref('')
 const editingCaseId = ref(null)
+const selectedTab = ref('worktype')
 const todayDate = new Date().getDate()
 
 const displayYear = computed(() => props.month ? Number(props.month.split('-')[0]) : new Date().getFullYear())
@@ -277,7 +288,10 @@ function getWtGanttBar(wt, year, month) {
 }
 
 function selectCase(id) {
-    expanded[id] = !expanded[id]
+    const willExpand = !expanded[id]
+    // 展開新案件前先收合其他所有案件
+    if (willExpand) Object.keys(expanded).forEach(k => { expanded[k] = false })
+    expanded[id] = willExpand
     const c = casesStore.cases.find(x => x.id === id)
 
     if (expanded[id]) {
@@ -298,13 +312,22 @@ function selectCase(id) {
     }
 }
 
-watch(() => props.jumpCaseId, (id) => {
+watch([() => props.jumpCaseId, () => casesStore.cases], ([id]) => {
     if (!id) return
     const c = casesStore.cases.find(x => x.id === id)
     if (!c) return
+    const jumpTab = props.jumpCaseTab  // 在 emit 清掉 prop 前先捕捉
     if (!expanded[id]) selectCase(id)
     emit('jumped')
-})
+    // nextTick 確保在 watch(selectedCaseId) 把 tab 重設為 'worktype' 之後再覆蓋
+    nextTick(() => {
+        if (jumpTab) {
+            const validTab = CASE_TABS.find(t => t.key === jumpTab)
+            if (validTab) selectedTab.value = jumpTab
+        }
+        document.getElementById('case-row-' + id)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    })
+}, { immediate: true })
 
 const ALL_STATUSES = ['pending', 'negotiating', 'drafting', 'construction', 'pending_settlement', 'aftercare', 'completed', 'lost']
 const activeStatuses = ref(new Set(ALL_STATUSES))
@@ -380,6 +403,32 @@ const ganttRows = computed(() => {
 const selectedCaseStatus = computed(() =>
     casesStore.cases.find(x => x.id === selectedCaseId.value)?.status ?? ''
 )
+
+const caseDetailRef = ref(null)
+
+const CASE_TABS = [
+    { key: 'worktype', label: '工程安排' },
+    { key: 'photo',    label: '檔案管理' },
+    { key: 'tasks',    label: '交辦事項' },
+    { key: 'notes',    label: '洽談備注' },
+    { key: 'payment',  label: '收款期程' },
+    { key: 'review',   label: '案件檢討' },
+]
+
+const availableTabs = computed(() => {
+    const isNeg = ['negotiating', 'pending'].includes(selectedCaseStatus.value)
+    return CASE_TABS.filter(t => t.key !== 'notes' || isNeg)
+})
+
+const openTaskCount = computed(() => tasksStore.tasks.filter(t => !t.done && (t.type === 'client' || t.type === 'manager')).length)
+
+watch(selectedCaseId, async (newId) => {
+    selectedTab.value = 'worktype'
+    if (newId) {
+        await nextTick()
+        caseDetailRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+})
 
 async function markCaseComplete() {
     const c = casesStore.cases.find(x => x.id === selectedCaseId.value)

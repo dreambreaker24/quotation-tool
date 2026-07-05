@@ -8,17 +8,31 @@
       <div v-for="name in TRACKED" :key="name" class="bg-white rounded-xl px-3 py-3 shadow-sm border border-gray-100 border-t-4" style="border-top-color:#c9a96e">
         <div class="text-[11px] text-gray-400 mb-2">{{ name }}</div>
 
-        <!-- 補休 -->
+        <!-- 平日補休 -->
         <div class="flex items-center justify-between mb-1">
           <div class="flex items-baseline gap-1.5">
-            <span class="text-[10px] text-gray-400">補休</span>
+            <span class="text-[10px] text-gray-400">平日補休</span>
             <span class="text-base font-bold text-red-500">{{ getHours(name, 'compensatoryHours') }}</span>
             <span class="text-xs font-semibold text-gray-400">H</span>
           </div>
           <div v-if="authStore.isAdmin" class="flex gap-1">
-            <button @click="openEdit(name, 'compensatoryHours', '補休')"
+            <button @click="openEdit(name, 'compensatoryHours', '平日補休')"
               class="text-[10px] text-white px-1.5 py-0.5 rounded" style="background:#1e2533">調整</button>
-            <button @click="confirmReset(name, 'compensatoryHours', '補休')"
+            <button @click="confirmReset(name, 'compensatoryHours', '平日補休')"
+              class="text-[10px] text-red-400 px-1.5 py-0.5 rounded border border-red-200 hover:bg-red-50">歸零</button>
+          </div>
+        </div>
+        <!-- 休息日補休 -->
+        <div class="flex items-center justify-between mb-1">
+          <div class="flex items-baseline gap-1.5">
+            <span class="text-[10px] text-gray-400">休息日補休</span>
+            <span class="text-base font-bold text-red-500">{{ getHours(name, 'compensatoryHolidayHours') }}</span>
+            <span class="text-xs font-semibold text-gray-400">H</span>
+          </div>
+          <div v-if="authStore.isAdmin" class="flex gap-1">
+            <button @click="openEdit(name, 'compensatoryHolidayHours', '休息日補休')"
+              class="text-[10px] text-white px-1.5 py-0.5 rounded" style="background:#1e2533">調整</button>
+            <button @click="confirmReset(name, 'compensatoryHolidayHours', '休息日補休')"
               class="text-[10px] text-red-400 px-1.5 py-0.5 rounded border border-red-200 hover:bg-red-50">歸零</button>
           </div>
         </div>

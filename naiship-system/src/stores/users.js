@@ -23,6 +23,10 @@ export const useUsersStore = defineStore('users', () => {
         return updateDoc(doc(db, 'users', uid), { compensatoryHours: increment(delta) })
     }
 
+    async function adjustCompensatoryHolidayHours(uid, delta) {
+        return updateDoc(doc(db, 'users', uid), { compensatoryHolidayHours: increment(delta) })
+    }
+
     async function adjustAnnualLeaveHours(uid, delta) {
         return updateDoc(doc(db, 'users', uid), { annualLeaveHours: increment(delta) })
     }
@@ -31,5 +35,5 @@ export const useUsersStore = defineStore('users', () => {
         if (unsubscribe) { unsubscribe(); unsubscribe = null }
     }
 
-    return { users, subscribe, updateUser, adjustCompensatoryHours, adjustAnnualLeaveHours, cleanup }
+    return { users, subscribe, updateUser, adjustCompensatoryHours, adjustCompensatoryHolidayHours, adjustAnnualLeaveHours, cleanup }
 })

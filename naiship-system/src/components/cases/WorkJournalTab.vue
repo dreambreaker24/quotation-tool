@@ -52,7 +52,7 @@
         :is-manager="authStore.isManager"
         @edit="openEditForm"
         @approve-fuel="approveFuel"
-        @approve-overtime="approveOvertime"
+        @approve-overtime-item="approveOvertimeItem"
         @reply="handleReply"
         @preview="handlePreview"
       />
@@ -101,14 +101,16 @@ import { useWorkLogsStore } from '@/stores/workLogs'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
 import { useNotificationsStore } from '@/stores/notifications'
+import { useUsersStore } from '@/stores/users'
 import WorkJournalEmployeeList from './WorkJournalEmployeeList.vue'
 import WorkJournalLogCard from './WorkJournalLogCard.vue'
 import WorkJournalLogForm from './WorkJournalLogForm.vue'
 
-const props = defineProps({ region: String, pendingOnly: Boolean })
+const props = defineProps({ region: String, pendingOnly: Boolean, jumpDate: String })
 const logsStore = useWorkLogsStore()
 const authStore = useAuthStore()
 const notifStore = useNotificationsStore()
+const usersStore = useUsersStore()
 const { toast } = useToast()
 
 const selectedEmployee = ref(null)
@@ -172,22 +174,24 @@ async function approveFuel(logId) {
     }
 }
 
-async function approveOvertime(log) {
+async function approveOvertimeItem(log, itemIndex, isApproved) {
     try {
-        const totalHours = (log.overtimeItems || []).reduce((s, i) => s + (i.hours || 0), 0)
-        await logsStore.approveOvertime(log.id, authStore.name ?? '', log.userId, totalHours)
-        toast('加班已確認')
+        await logsStore.approveOvertimeItem(log, itemIndex, isApproved, authStore.name ?? '')
+        toast(isApproved ? '加班已同意' : '加班已不同意')
     } catch {
-        toast('確認失敗，請重試', 'error')
+        toast('操作失敗，請重試', 'error')
     }
 }
 
 async function handleReply(logId, content) {
     try {
         await logsStore.addReply(logId, content, authStore.user?.uid ?? 'unknown', authStore.name ?? '')
-        const log = logsStore.logs.find(l => l.id === logId)
+        const log = logsStore.logs.find(l => l.id === logId) ?? logsStore.pendingLogs.find(l => l.id === logId)
         const ownerName = log?.userName ?? ''
-        notifStore.notifyAll(authStore.name ?? '', `回覆了 ${ownerName} 的工作日誌`, '', '', authStore.companyId ?? '')
+        const d = log?.date?.toDate?.() ?? new Date()
+        const dateStr = `${d.getMonth() + 1}/${d.getDate()}`
+        const logDateISO = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+        notifStore.notifyAll(authStore.name ?? '', `回覆了 ${ownerName} 在 ${dateStr} 的工作日誌`, '', '', authStore.companyId ?? '', logDateISO)
     } catch {
         toast('回覆失敗，請重試', 'error')
     }
@@ -246,6 +250,13 @@ function shiftDate(delta) {
     selectedDate.value = d
 }
 
+watch(() => props.jumpDate, (d) => {
+    if (!d) return
+    const parts = d.split('-')
+    if (parts.length !== 3) return
+    selectedDate.value = new Date(+parts[0], +parts[1] - 1, +parts[2])
+}, { immediate: true })
+
 watch([() => props.region, selectedDate, viewMode], ([region]) => {
     if (!region) return
     if (viewMode.value === 'week') {
@@ -268,7 +279,11 @@ const uniqueEmployees = computed(() => {
     const seen = new Set()
     return logsStore.logs
         .filter(l => { if (seen.has(l.userId)) return false; seen.add(l.userId); return true })
-        .map(l => ({ id: l.userId, name: l.userName, hasLog: true }))
+        .map(l => {
+            const currentName = usersStore.users.find(u => u.id === l.userId)?.name || l.userName
+            return { id: l.userId, name: currentName, hasLog: true }
+        })
+        .filter(e => e.name)
 })
 
 const displayedLogs = computed(() => {
@@ -299,7 +314,8 @@ function exportWeekLogs() {
             : (log.content || '')
         const otherWork = log.otherItems?.map(i => i.content).join('\n') || ''
         const fuelKm = log.fuelExpenses?.reduce((s, f) => s + (f.distance || 0), 0) ?? (log.fuelExpense?.distance || 0)
-        rows.push({ '員工姓名': log.userName || '', '日期': dateStr, '案件回報': caseReport, '其他工作': otherWork, '油資(km)': fuelKm || '', '油資($)': fuelKm ? fuelKm * 6 : '' })
+        const empName = usersStore.users.find(u => u.id === log.userId)?.name || log.userName || ''
+        rows.push({ '員工姓名': empName, '日期': dateStr, '案件回報': caseReport, '其他工作': otherWork, '油資(km)': fuelKm || '', '油資($)': fuelKm ? fuelKm * 6 : '' })
     })
     const sheet = XLSX.utils.json_to_sheet(rows)
     const wb = XLSX.utils.book_new()

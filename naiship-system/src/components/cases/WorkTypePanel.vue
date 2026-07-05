@@ -1052,7 +1052,7 @@ async function submitForm() {
             updated.push(entry)
         }
         await casesStore.updateCase(props.caseId, { workTypes: updated })
-        notifStore.notifyAll(authStore.name ?? '', `更新了「${props.caseName}」的工種`, props.caseId, props.caseName, caseData.value?.companyId ?? '')
+        notifStore.notifyAll(authStore.name ?? '', `更新了「${props.caseName}」的工種安排`, props.caseId, props.caseName, caseData.value?.companyId ?? '', '', 'worktype')
         showForm.value = false
     } catch {
         toast('儲存失敗，請重試', 'error')

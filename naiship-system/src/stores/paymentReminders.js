@@ -57,6 +57,23 @@ export const usePaymentRemindersStore = defineStore('paymentReminders', () => {
         )
     })
 
+    function nextMonthEndStr() {
+        const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Taipei' })
+        const [y, m] = today.split('-').map(Number)
+        const nextM = m === 12 ? 1 : m + 1
+        const nextY = m === 12 ? y + 1 : y
+        const lastDay = new Date(nextY, nextM, 0).getDate()
+        return `${nextY}-${String(nextM).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+    }
+
+    const vendorDisplayItems = computed(() => {
+        const endStr = nextMonthEndStr()
+        const autoVendors = upcomingAuto.value.filter(r =>
+            r.type === 'vendor' && (!r.dueDate || r.dueDate <= endStr)
+        )
+        return [...pendingVendor.value, ...autoVendors]
+    })
+
     async function addReminder(data) {
         return addDoc(collection(db, 'paymentReminders'), {
             ...data,
@@ -101,6 +118,7 @@ export const usePaymentRemindersStore = defineStore('paymentReminders', () => {
     return {
         reminders, pendingOwner, pendingVendor,
         upcomingAuto, upcomingAutoSoon, upcomingOwnerSoon,
+        vendorDisplayItems,
         subscribe, cleanup,
         addReminder, markDone,
         addAutoReminder, deleteAutoReminder,

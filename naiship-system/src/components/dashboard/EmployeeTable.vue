@@ -7,6 +7,10 @@
           class="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 text-gray-500 hover:border-gray-400 disabled:opacity-40">
           {{ refreshing ? '更新中…' : '↻ 更新里程' }}
         </button>
+        <select v-model="selectedPerfMonth" @change="loadAll"
+          class="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white">
+          <option v-for="opt in perfMonthOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+        </select>
         <select v-model="selectedRegion" class="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white">
           <option value="">全部分區</option>
           <option value="north">奈拾北區</option>
@@ -20,9 +24,9 @@
         <thead>
           <tr class="bg-gray-100">
             <th class="text-left px-3 py-2 text-gray-600 font-semibold sticky left-0 bg-gray-100 min-w-[110px]">員工</th>
-            <th class="text-center px-2 py-2 text-gray-500 font-semibold min-w-[80px]">本月加班</th>
-            <th class="text-center px-2 py-2 text-gray-500 font-semibold min-w-[90px]">本月油資</th>
-            <th class="text-center px-2 py-2 text-gray-500 font-semibold min-w-[90px]">本月出勤</th>
+            <th class="text-center px-2 py-2 text-gray-500 font-semibold min-w-[80px]">{{ perfMonthLabel }}加班</th>
+            <th class="text-center px-2 py-2 text-gray-500 font-semibold min-w-[90px]">{{ perfMonthLabel }}油資</th>
+            <th class="text-center px-2 py-2 text-gray-500 font-semibold min-w-[90px]">{{ perfMonthLabel }}出勤</th>
             <th class="text-center px-2 py-2 text-gray-500 font-semibold min-w-[60px]">未成案</th>
             <th v-for="m in months" :key="m" class="text-center px-2 py-2 text-gray-500 font-semibold min-w-[70px]">
               {{ String(m).padStart(2, '0') }}
@@ -98,6 +102,32 @@ const monthlyLeave = ref({})
 const attendanceMap = ref({})
 const refreshing = ref(false)
 
+const now = new Date()
+const defaultPerfMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+const selectedPerfMonth = ref(defaultPerfMonth)
+
+const perfMonthOptions = computed(() => {
+    const opts = []
+    const d = new Date(now.getFullYear(), now.getMonth(), 1)
+    for (let i = 0; i < 12; i++) {
+        const y = d.getFullYear()
+        const m = d.getMonth() + 1
+        opts.push({ value: `${y}-${String(m).padStart(2, '0')}`, label: `${y}年${m}月` })
+        d.setMonth(d.getMonth() - 1)
+    }
+    return opts
+})
+
+const perfMonthLabel = computed(() => {
+    const [, m] = selectedPerfMonth.value.split('-')
+    return `${parseInt(m)}月`
+})
+
+function parsedPerfMonth() {
+    const [y, m] = selectedPerfMonth.value.split('-').map(Number)
+    return { year: y, month: m - 1 }  // month 0-indexed for Date
+}
+
 const MEMBER_COLORS = { '柏': '#c9a96e', '其宏': '#1f2937', '蚌': '#ef4444' }
 function empColor(name) {
     if (!name) return '#9ca3af'
@@ -113,11 +143,12 @@ onMounted(async () => {
 })
 
 async function loadAll() {
+    const { year, month } = parsedPerfMonth()
     const [km, overtime, attendance, leave] = await Promise.all([
-        logsStore.fetchMonthlyKm(),
-        logsStore.fetchMonthlyOvertimeHours(),
-        logsStore.fetchMonthlyAttendance(),
-        eventsStore.fetchMonthlyLeave(),
+        logsStore.fetchMonthlyKm(year, month),
+        logsStore.fetchMonthlyOvertimeHours(year, month),
+        logsStore.fetchMonthlyAttendance(year, month),
+        eventsStore.fetchMonthlyLeave(year, month),
     ])
     monthlyKm.value = km
     monthlyOvertime.value = overtime

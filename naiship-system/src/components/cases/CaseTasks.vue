@@ -444,8 +444,12 @@ async function submitAdd() {
                 attachments.push({ url, isPdf, pdfUrl })
             } catch { /* skip failed */ }
         }
-        await tasksStore.addTask(props.caseId, addType.value, addContent.value.trim(), authStore.name ?? '', authStore.user?.uid ?? '', attachments)
-        notifStore.notifyAll(authStore.name ?? '', `在「${props.caseName}」新增了待辦事項`, props.caseId, props.caseName, props.companyId)
+        const taskContent = addContent.value.trim()
+        await tasksStore.addTask(props.caseId, addType.value, taskContent, authStore.name ?? '', authStore.user?.uid ?? '', attachments)
+        const taskTypeLabels = { client: '客戶需求', manager: '主管指示', reply: '人員回覆' }
+        const taskTypeLabel = taskTypeLabels[addType.value] ?? addType.value
+        const preview = taskContent.length > 20 ? taskContent.slice(0, 20) + '…' : taskContent
+        notifStore.notifyAll(authStore.name ?? '', `在「${props.caseName}」交辦事項 › ${taskTypeLabel} 新增了「${preview}」`, props.caseId, props.caseName, props.companyId, '', 'tasks')
         addContent.value = ''
         pendingFiles.value = []
         showAdd.value = false

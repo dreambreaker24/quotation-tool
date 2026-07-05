@@ -20,9 +20,9 @@
       </div>
     </div>
     <div class="flex-1 overflow-auto p-6">
-      <CalendarTab v-if="activeTab === 'cal'" :region="selectedRegion" />
-      <GanttTab v-else-if="activeTab === 'gantt'" :region="selectedRegion" :month="selectedMonth" :jump-case-id="jumpCaseId" @jumped="jumpCaseId = null" />
-      <WorkJournalTab v-else-if="activeTab === 'log'" :region="selectedRegion" :pending-only="pendingOnly" />
+      <CalendarTab v-if="activeTab === 'cal'" :region="selectedRegion" :jump-event-date="jumpEventDate" @jumped-date="jumpEventDate = null" />
+      <GanttTab v-else-if="activeTab === 'gantt'" :region="selectedRegion" :month="selectedMonth" :jump-case-id="jumpCaseId" :jump-case-tab="jumpCaseTab" @jumped="jumpCaseId = null; jumpCaseTab = null" />
+      <WorkJournalTab v-else-if="activeTab === 'log'" :region="selectedRegion" :pending-only="pendingOnly" :jump-date="jumpDate" />
       <AnnouncementTab v-else-if="activeTab === 'announcement'" />
     </div>
   </main>
@@ -46,19 +46,25 @@ import { useCasesStore } from '@/stores/cases'
 import { useClientsStore } from '@/stores/clients'
 import { useAuthStore } from '@/stores/auth'
 import { useUsersStore } from '@/stores/users'
+import { useNavStore } from '@/stores/nav'
 import { getDocs, collection, query, orderBy, limit } from 'firebase/firestore'
 import { db } from '@/firebase'
 
 const route = useRoute()
+const navStore = useNavStore()
 const validRegions = ['south', 'north', 'central']
 const selectedRegion = ref(validRegions.includes(route.query.region) ? route.query.region : 'south')
 const activeTab = ref('cal')
 const jumpCaseId = ref(null)
+const jumpCaseTab = ref(null)
+const jumpDate = ref(null)
+const jumpEventDate = ref(null)
 const pendingOnly = computed(() => route.query.pendingOnly === 'true')
 
-function jumpToCase(caseId) {
+function jumpToCase(caseId, caseTab = null) {
     activeTab.value = 'gantt'
     jumpCaseId.value = caseId
+    jumpCaseTab.value = caseTab
 }
 const showAddCase = ref(false)
 const casesStore = useCasesStore()
@@ -107,12 +113,24 @@ onMounted(() => {
     usersStore.subscribe()
     if (route.query.region && validRegions.includes(route.query.region)) selectedRegion.value = route.query.region
     if (route.query.tab) { const valid = ['cal', 'gantt', 'log', 'announcement']; if (valid.includes(route.query.tab)) switchTab(route.query.tab) }
-    if (route.query.caseId) jumpToCase(route.query.caseId)
+    if (navStore.pendingJump) {
+        const { caseId, caseTab, companyId } = navStore.pendingJump
+        if (companyId && validRegions.includes(companyId)) selectedRegion.value = companyId
+        jumpToCase(caseId, caseTab || null)
+        navStore.clearJump()
+    } else if (route.query.caseId) {
+        jumpToCase(route.query.caseId, route.query.caseTab || null)
+    }
+    if (route.query.date) jumpDate.value = route.query.date
+    if (route.query.eventDate) jumpEventDate.value = route.query.eventDate
     checkNewAnnouncement()
 })
 
-watch(() => route.query.caseId, (id) => {
-    if (id) jumpToCase(id)
+watch(() => navStore.pendingJump, (jump) => {
+    if (!jump) return
+    if (jump.companyId && validRegions.includes(jump.companyId)) selectedRegion.value = jump.companyId
+    jumpToCase(jump.caseId, jump.caseTab || null)
+    navStore.clearJump()
 })
 
 watch(() => route.query.region, (r) => {
@@ -122,6 +140,14 @@ watch(() => route.query.region, (r) => {
 watch(() => route.query.tab, (t) => {
     const valid = ['cal', 'gantt', 'log', 'announcement']
     if (t && valid.includes(t)) switchTab(t)
+})
+
+watch(() => route.query.date, (d) => {
+    if (d) jumpDate.value = d
+})
+
+watch(() => route.query.eventDate, (d) => {
+    if (d) jumpEventDate.value = d
 })
 
 const monthOptions = computed(() => {

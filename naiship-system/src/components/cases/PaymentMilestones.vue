@@ -321,7 +321,7 @@ async function submitForm() {
         } else {
             await remindersStore.deleteAutoReminder(remId)
         }
-        notifStore.notifyAll(authStore.name ?? '', `更新了「${props.caseName}」的收款里程碑`, props.caseId, props.caseName, caseData.value?.companyId ?? '')
+        notifStore.notifyAll(authStore.name ?? '', `更新了「${props.caseName}」的收款期程`, props.caseId, props.caseName, caseData.value?.companyId ?? '', '', 'payment')
         showForm.value = false
     } catch {
         toast('儲存失敗，請重試', 'error')

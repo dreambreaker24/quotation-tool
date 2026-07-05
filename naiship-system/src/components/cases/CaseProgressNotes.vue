@@ -175,10 +175,12 @@ async function submitNote() {
         const preview = text.slice(0, 30) + (text.length > 30 ? '…' : '')
         await notifStore.notifyAll(
             authStore.name ?? '',
-            `「${props.caseName}」新增了洽談進度備注：${preview}`,
+            `在「${props.caseName}」新增了洽談備注：${preview}`,
             props.caseId,
             props.caseName,
-            props.companyId
+            props.companyId,
+            '',
+            'notes'
         )
         newText.value = ''
         pendingFiles.value = []

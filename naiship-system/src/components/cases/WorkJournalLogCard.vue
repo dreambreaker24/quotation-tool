@@ -3,11 +3,11 @@
     <div class="flex items-start justify-between mb-3">
       <div class="flex items-center gap-2">
         <span class="w-7 h-7 rounded-full flex items-center justify-center text-[11px] text-white font-bold"
-          :style="`background:${empColor(log.userId)}`">
-          {{ log.userName?.[0] ?? '?' }}
+          :style="`background:${empColor(displayName)}`">
+          {{ displayName?.[0] ?? '?' }}
         </span>
         <div>
-          <div class="text-sm font-semibold text-gray-800">{{ log.userName }}</div>
+          <div class="text-sm font-semibold text-gray-800">{{ displayName }}</div>
           <div class="text-[10px] text-gray-400">
             {{ formatTime(log.createdAt) }}
             <span v-if="log.updatedAt" class="ml-1 text-gray-300">（已編輯）</span>
@@ -97,17 +97,31 @@
         <div class="text-[10px] text-purple-600 font-semibold uppercase tracking-wide">
           加班申請（共 {{ log.overtimeItems.length }} 筆）
         </div>
-        <div class="flex items-center gap-2">
-          <span v-if="log.overtimeApproved" class="text-[10px] text-green-600 font-semibold">✓ 已確認</span>
-          <button v-else-if="isManager" @click="$emit('approve-overtime', log)"
-            class="text-[11px] text-white px-2.5 py-1 rounded-lg" style="background:#22c55e">✓ 確認加班</button>
-          <span v-else class="text-[10px] text-purple-500 font-semibold">待主管確認</span>
-        </div>
+        <span v-if="allOvertimeDecided" class="text-[10px] text-green-600 font-semibold">✓ 全部已審核</span>
+        <span v-else class="text-[10px] text-purple-500 font-semibold">{{ pendingOvertimeCount }} 筆待審核</span>
       </div>
       <div v-for="(ot, i) in log.overtimeItems" :key="i"
-        class="bg-white rounded-lg p-2.5 border border-purple-100 mb-2 last:mb-0 text-xs text-gray-700">
-        <div><span class="text-gray-400">原因：</span>{{ ot.reason }}</div>
-        <div class="text-purple-600 font-semibold mt-0.5">加班 {{ ot.hours }} 小時</div>
+        class="bg-white rounded-lg p-2.5 border mb-2 last:mb-0 text-xs text-gray-700"
+        :class="ot.approved === true ? 'border-green-200' : ot.approved === false ? 'border-red-200' : 'border-purple-100'">
+        <div class="flex items-start justify-between gap-2">
+          <div class="flex-1">
+            <div><span class="text-gray-400">原因：</span>{{ ot.reason }}</div>
+            <div class="text-purple-600 font-semibold mt-0.5">{{ ot.type || '平日' }} 加班 {{ ot.hours }} 小時</div>
+          </div>
+          <div class="flex-shrink-0">
+            <span v-if="ot.approved === true"
+              class="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-semibold">✓ 同意</span>
+            <span v-else-if="ot.approved === false"
+              class="text-[10px] px-2 py-0.5 rounded-full bg-red-100 text-red-600 font-semibold">✕ 不同意</span>
+            <div v-else-if="isManager" class="flex gap-1">
+              <button @click="$emit('approve-overtime-item', log, i, true)"
+                class="text-[11px] text-white px-2 py-0.5 rounded-lg" style="background:#22c55e">✓ 同意</button>
+              <button @click="$emit('approve-overtime-item', log, i, false)"
+                class="text-[11px] text-white px-2 py-0.5 rounded-lg" style="background:#ef4444">✕ 不同意</button>
+            </div>
+            <span v-else class="text-[10px] text-purple-400">待審核</span>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -157,18 +171,32 @@
   </div>
 </template>
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useCasesStore } from '@/stores/cases'
+import { useUsersStore } from '@/stores/users'
 import { CASE_STATUS_COLORS } from '@/constants/caseStatus'
 
 const casesStore = useCasesStore()
+const usersStore = useUsersStore()
 
 const props = defineProps({
     log: Object,
     canEdit: Boolean,
     isManager: Boolean,
 })
-const emit = defineEmits(['edit', 'approve-fuel', 'approve-overtime', 'reply', 'preview'])
+const emit = defineEmits(['edit', 'approve-fuel', 'approve-overtime-item', 'reply', 'preview'])
+
+const displayName = computed(() =>
+    usersStore.users.find(u => u.id === props.log.userId)?.name || props.log.userName
+)
+
+const allOvertimeDecided = computed(() =>
+    props.log.overtimeItems?.length > 0 &&
+    props.log.overtimeItems.every(i => i.approved != null)
+)
+const pendingOvertimeCount = computed(() =>
+    props.log.overtimeItems?.filter(i => i.approved == null).length ?? 0
+)
 
 const showReply = ref(false)
 const replyContent = ref('')
@@ -199,8 +227,15 @@ function submitReply() {
     showReply.value = false
 }
 
-const EMP_COLORS = ['#c9a96e', '#a855f7', '#3b82f6', '#22c55e', '#f59e0b', '#ef4444']
-function empColor(uid) { return EMP_COLORS[(uid?.charCodeAt(0) ?? 0) % EMP_COLORS.length] }
+const MEMBER_COLORS = { '柏': '#c9a96e', '其宏': '#1f2937', '蚌': '#ef4444' }
+function empColor(name) {
+    if (!name) return '#9ca3af'
+    if (MEMBER_COLORS[name]) return MEMBER_COLORS[name]
+    let hash = 0
+    for (let i = 0; i < name.length; i++) hash += name.charCodeAt(i)
+    const fallback = ['#a855f7', '#3b82f6', '#22c55e', '#f59e0b', '#14b8a6', '#f97316']
+    return fallback[hash % fallback.length]
+}
 
 const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六']
 function formatTime(ts) {

@@ -4,6 +4,7 @@
 
     <div class="flex flex-col gap-1">
       <div v-for="type in photoTypes" :key="type.key"
+        :id="'photo-type-' + type.key"
         class="rounded-xl overflow-hidden"
         :class="hovering === type.key ? 'ring-1 ring-amber-300' : ''">
 
@@ -14,13 +15,13 @@
           @dragover.prevent="hovering = type.key"
           @dragleave="hovering = ''"
           @drop.prevent="handleDrop($event, type.key)">
+          <span class="text-[10px] text-gray-400 w-3 flex-shrink-0">{{ expanded[type.key] ? '▼' : '▶' }}</span>
           <span class="text-sm">{{ type.icon }}</span>
           <span class="text-xs font-medium text-gray-700">{{ type.label }}</span>
           <span v-if="typePhotoCount(type.key)"
             class="text-[9px] min-w-[18px] h-[18px] px-1 rounded-full text-white leading-[18px] text-center font-bold" style="background:#c9a96e">
             {{ typePhotoCount(type.key) }}
           </span>
-          <span class="text-[10px] text-gray-300 ml-1">{{ expanded[type.key] ? '▼' : '▶' }}</span>
           <div class="ml-auto flex items-center gap-1.5" @click.stop>
             <button @click="openFolderForm(type.key)"
               class="text-[10px] px-2 py-1 rounded-lg border border-gray-200 text-gray-400 hover:border-gray-400 hover:text-gray-600 transition-colors">
@@ -44,7 +45,7 @@
               <!-- Folder header -->
               <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-gray-50/60 transition-colors"
                 @click="toggleFolder(folder.id)">
-                <span class="text-[10px] text-gray-300">{{ folderExpanded[folder.id] !== false ? '▼' : '▶' }}</span>
+                <span class="text-[10px] text-gray-300">{{ folderExpanded[folder.id] === true ? '▼' : '▶' }}</span>
                 <span class="text-[11px] font-semibold text-gray-700">📁 {{ folder.label }}</span>
                 <span v-if="photosInFolder(type.key, folder.id).length"
                   class="text-[9px] min-w-[16px] h-4 px-1 rounded-full bg-gray-100 text-gray-500 leading-4 text-center">
@@ -62,10 +63,10 @@
                 </div>
               </div>
               <!-- Folder description -->
-              <div v-if="folder.description && folderExpanded[folder.id] !== false"
+              <div v-if="folder.description && folderExpanded[folder.id] === true"
                 class="text-[10px] text-gray-400 px-9 pb-1">{{ folder.description }}</div>
               <!-- Folder photos -->
-              <div v-if="folderExpanded[folder.id] !== false" class="px-3 pb-2">
+              <div v-if="folderExpanded[folder.id] === true" class="px-3 pb-2">
                 <div v-if="!photosInFolder(type.key, folder.id).length" class="text-[10px] text-gray-300 py-1.5 text-center">此資料夾尚無照片</div>
                 <div v-else class="flex gap-2 overflow-x-auto pb-1">
                   <div v-for="item in photosInFolder(type.key, folder.id)" :key="item.id"
@@ -215,15 +216,17 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { uploadPhoto, validateUploadFile } from '@/composables/useStorage'
 import { addDoc, collection, getDocs, orderBy, query, serverTimestamp, deleteDoc, doc } from 'firebase/firestore'
 import { db } from '@/firebase'
 import { useAuthStore } from '@/stores/auth'
 import { useNotificationsStore } from '@/stores/notifications'
 import { useCasesStore } from '@/stores/cases'
+import { useNavStore } from '@/stores/nav'
 
 const props = defineProps({ caseId: String, caseName: String, companyId: { type: String, default: '' } })
+const navStore = useNavStore()
 const authStore = useAuthStore()
 const notifStore = useNotificationsStore()
 const casesStore = useCasesStore()
@@ -234,7 +237,7 @@ const photoTypes = [
     { key: '3d',         label: '3D 模擬',  icon: '🎨' },
     { key: 'floorplan',  label: '平面圖',   icon: '📐' },
     { key: 'blueprint',  label: '施工圖',   icon: '📋' },
-    { key: 'completion', label: '完工',     icon: '✅' },
+    { key: 'completion', label: '驗收檢查', icon: '✅' },
     { key: 'commercial', label: '商業攝影', icon: '🌟' },
 ]
 
@@ -333,9 +336,16 @@ onMounted(async () => {
             const resolvedIsPdf = isPdf ?? url.toLowerCase().endsWith('.pdf')
             const pdfUrl = resolvedIsPdf && !url.toLowerCase().endsWith('.pdf') ? url + '.pdf' : url
             photos[resolvedType].push({ id: d.id, url, isPdf: resolvedIsPdf, pdfUrl, folderId: folderId ?? null, createdAt })
-            expanded[resolvedType] = true
         }
     })
+    const jumpType = navStore.pendingPhotoType
+    if (jumpType && photos[jumpType] !== undefined) {
+        expanded[jumpType] = true
+        navStore.clearPhotoType()
+        nextTick(() => {
+            document.getElementById('photo-type-' + jumpType)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        })
+    }
 })
 
 // Folder CRUD
@@ -422,6 +432,7 @@ function confirmPicker() {
 
 async function uploadFiles(files, typeKey, folderId) {
     uploadError.value = ''
+    let uploaded = 0
     for (const file of files) {
         const err = validateUploadFile(file)
         if (err) { uploadError.value = err; continue }
@@ -442,15 +453,22 @@ async function uploadFiles(files, typeKey, folderId) {
                 photos[typeKey].push({ id: null, url, isPdf, pdfUrl, folderId: folderId ?? null, createdAt: { toDate: () => new Date() } })
             }
             expanded[typeKey] = true
+            uploaded++
         } catch (err) {
             uploadError.value = `「${file.name}」上傳失敗：${err.message}`
         }
+    }
+    if (uploaded > 0) {
+        const typeLabel = photoTypes.find(t => t.key === typeKey)?.label ?? typeKey
+        const folder = folderId ? foldersForType(typeKey).find(f => f.id === folderId) : null
+        const path = folder ? `${typeLabel} › ${folder.label}` : typeLabel
+        const msg = `在「${props.caseName}」檔案管理 › ${path} 上傳了 ${uploaded} 個檔案`
+        notifStore.notifyAll(authStore.name ?? '', msg, props.caseId, props.caseName, props.companyId, '', 'photo', '', false, typeKey)
     }
 }
 
 async function handleFiles(e) {
     await uploadFiles(Array.from(e.target.files), activeType.value, activeFolderId.value)
-    notifStore.notifyAll(authStore.name ?? '', `在「${props.caseName}」上傳了照片`, props.caseId, props.caseName, props.companyId)
     e.target.value = ''
 }
 

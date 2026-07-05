@@ -40,10 +40,11 @@ export const useCalendarEventsStore = defineStore('calendarEvents', () => {
         return deleteDoc(doc(db, 'calendarEvents', id))
     }
 
-    async function fetchMonthlyLeave() {
-        const now = new Date()
-        const start = Timestamp.fromDate(new Date(now.getFullYear(), now.getMonth(), 1))
-        const end = Timestamp.fromDate(new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59))
+    async function fetchMonthlyLeave(year, month) {
+        const y = year ?? new Date().getFullYear()
+        const m = month != null ? month : new Date().getMonth()
+        const start = Timestamp.fromDate(new Date(y, m, 1))
+        const end = Timestamp.fromDate(new Date(y, m + 1, 0, 23, 59, 59))
         const q = query(
             collection(db, 'calendarEvents'),
             where('date', '>=', start),
