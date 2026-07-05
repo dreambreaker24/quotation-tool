@@ -41,7 +41,8 @@ const navItems = computed(() => [
   ...(auth.isManager ? [{ to: '/', label: '首頁總覽' }] : []),
   { to: '/cases', label: '案件管理' },
   { to: '/clients', label: '客戶/廠商' },
-  ...(auth.isAdmin ? [{ to: '/settings', label: '系統設定' }] : [])
+  { to: '/petty-cash', label: '零用金' },
+  ...(auth.isAdmin ? [{ to: '/payslip', label: '薪資單' }, { to: '/settings', label: '系統設定' }] : [])
 ])
 function isActive(path) {
   if (path === '/') return route.path === '/'

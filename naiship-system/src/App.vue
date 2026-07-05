@@ -30,6 +30,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useVendorsStore } from '@/stores/vendors'
 import { useUsersStore } from '@/stores/users'
 import { useClientsStore } from '@/stores/clients'
+import { usePettyCashStore } from '@/stores/pettyCash'
 
 const route = useRoute()
 const { toasts } = useToast()
@@ -37,16 +38,19 @@ const authStore = useAuthStore()
 const vendorsStore = useVendorsStore()
 const usersStore = useUsersStore()
 const clientsStore = useClientsStore()
+const pettyCashStore = usePettyCashStore()
 
 watch(() => authStore.user, (u) => {
     if (u) {
         vendorsStore.subscribe()
         usersStore.subscribe()
         clientsStore.subscribe(['south', 'north', 'central'])
+        pettyCashStore.subscribe()
     } else {
         vendorsStore.cleanup()
         usersStore.cleanup()
         clientsStore.cleanup()
+        pettyCashStore.cleanup()
     }
 }, { immediate: true })
 </script>

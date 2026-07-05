@@ -6,8 +6,13 @@ const routes = [
   { path: '/', name: 'dashboard', component: () => import('@/views/DashboardView.vue'), meta: { requireManager: true } },
   { path: '/cases', name: 'cases', component: () => import('@/views/CasesView.vue') },
   { path: '/clients', name: 'clients', component: () => import('@/views/ClientsView.vue') },
+  { path: '/petty-cash', name: 'petty-cash', component: () => import('@/views/PettyCashView.vue') },
   {
     path: '/settings', name: 'settings', component: () => import('@/views/SettingsView.vue'),
+    meta: { requireAdmin: true }
+  },
+  {
+    path: '/payslip', name: 'payslip', component: () => import('@/views/PayslipView.vue'),
     meta: { requireAdmin: true }
   }
 ]

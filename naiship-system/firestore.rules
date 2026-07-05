@@ -95,5 +95,15 @@ service cloud.firestore {
       allow update: if isSignedIn() && resource.data.authorId == request.auth.uid;
       allow delete: if isSignedIn() && (resource.data.authorId == request.auth.uid || isAdmin());
     }
+    match /pettyCash/{entryId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isAdmin() || (isSignedIn() && resource.data.createdBy == request.auth.uid);
+      allow delete: if isAdmin();
+    }
+    match /settings/{settingId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
   }
 }
