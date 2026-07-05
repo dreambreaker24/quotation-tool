@@ -42,7 +42,7 @@ body { font-family: '微軟正黑體', 'Microsoft JhengHei', sans-serif; backgro
 }
 
 /* ── Main ── */
-.main { max-width: 1500px; margin: 24px auto; padding: 0 20px; }
+.main { max-width: 1500px; margin: 24px auto; padding: 0 20px 64px; }
 
 /* ── Drop zone ── */
 .drop-zone {
@@ -60,7 +60,7 @@ body { font-family: '微軟正黑體', 'Microsoft JhengHei', sans-serif; backgro
     background: #f0f4f9;
 }
 .drop-zone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
-.drop-zone .icon { font-size: 40px; margin-bottom: 10px; }
+.drop-zone .icon { color: #90a4ae; margin-bottom: 10px; display: flex; justify-content: center; }
 .drop-zone p { color: #607d8b; font-size: 14px; }
 .drop-zone p strong { color: #2c4a6e; }
 .drop-zone .hint { font-size: 12px; margin-top: 6px; color: #90a4ae; }
@@ -96,6 +96,18 @@ body { font-family: '微軟正黑體', 'Microsoft JhengHei', sans-serif; backgro
 .btn-success { background: #2e7d32; color: #fff; }
 .btn-success:not(:disabled):hover { background: #388e3c; }
 .btn-danger  { background: #c62828; color: #fff; }
+.btn-outline {
+    background: #fff;
+    color: #2c4a6e;
+    border: 1px solid #b0bec5;
+}
+.btn-outline:not(:disabled):hover { background: #f0f4f9; border-color: #2c4a6e; }
+.btn-outline-light {
+    background: transparent;
+    color: #fff;
+    border: 1px solid rgba(255,255,255,.5);
+}
+.btn-outline-light:not(:disabled):hover { background: rgba(255,255,255,.12); }
 
 /* ── Progress ── */
 .progress-bar-wrap {
@@ -167,7 +179,7 @@ td { padding: 8px 10px; vertical-align: middle; }
 td:first-child { width: 64px; }
 
 .thumb { width: 72px; height: 72px; object-fit: cover; border-radius: 4px; border: 1px solid #ddd; }
-.thumb-pdf { width: 72px; height: 72px; background: #e8edf4; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 26px; }
+.thumb-pdf { width: 72px; height: 72px; background: #e8edf4; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #6b8caf; }
 
 .editable {
     min-width: 60px;
@@ -203,6 +215,15 @@ td:first-child { width: 64px; }
     color: #fff;
     white-space: nowrap;
 }
+.flag-chip.severity-high   { background: #c62828; }
+.flag-chip.severity-medium { background: #78909c; }
+.flag-chip.severity-info   { background: #1565c0; }
+
+.amount-total {
+    font-weight: 700 !important;
+    font-size: 14px !important;
+    color: #2c4a6e;
+}
 .delete-btn {
     background: none;
     border: none;
@@ -211,6 +232,9 @@ td:first-child { width: 64px; }
     font-size: 16px;
     padding: 4px;
     border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 .delete-btn:hover { color: #e53935; background: #ffebee; }
 
@@ -251,6 +275,24 @@ td:first-child { width: 64px; }
 .toast.success { background: #2e7d32; }
 .toast.error   { background: #c62828; }
 .toast.info    { background: #1565c0; }
+
+/* ── Sticky import bar ── */
+.sticky-import-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #fff;
+    box-shadow: 0 -2px 12px rgba(0,0,0,.12);
+    padding: 12px 24px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    z-index: 1500;
+}
+.sticky-import-bar.show { display: flex; }
+.sticky-import-bar span { font-size: 13px; color: #546e7a; }
 
 .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; vertical-align: middle; margin-right: 6px; }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -371,7 +413,31 @@ td:first-child { width: 64px; }
 .sales-list-section { margin-top: 20px; }
 .sales-list-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .sales-list-header h3 { font-size: 14px; color: #2c4a6e; }
-.sales-empty { text-align: center; padding: 32px; color: #90a4ae; font-size: 13px; background: #fff; border-radius: 10px; }
+.sales-empty {
+    text-align: center;
+    padding: 32px;
+    color: #90a4ae;
+    font-size: 13px;
+    background: #fff;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+.sales-empty svg { color: #cfd8e3; }
+
+/* ── 窄螢幕 ── */
+@media (max-width: 900px) {
+    .header { flex-wrap: wrap; row-gap: 8px; }
+    .header .spacer { flex-basis: 100%; height: 0; }
+    .main { padding: 0 12px 64px; margin-top: 12px; }
+    .form-grid, .form-grid.three { grid-template-columns: 1fr; }
+    .scan-bar, .bulk-case-bar { flex-wrap: wrap; }
+    .bulk-case-bar input { width: 100%; }
+    .cost-panel { gap: 16px; }
+    .modal { width: calc(100vw - 40px); }
+}
 </style>
 </head>
 <body>
@@ -385,7 +451,7 @@ td:first-child { width: 64px; }
         </select>
     </div>
     <div class="spacer"></div>
-    <button class="btn btn-primary" id="manageCasesBtn" style="padding:6px 14px;font-size:13px">管理案場</button>
+    <button class="btn btn-outline-light" id="manageCasesBtn" style="padding:6px 14px;font-size:13px">管理案場</button>
     <div class="usage-badge" id="usageBadge">本月費用：載入中</div>
 </div>
 
@@ -395,10 +461,10 @@ td:first-child { width: 64px; }
         <div class="case-modal-list" id="caseModalList"></div>
         <div class="case-add-row">
             <input type="text" id="caseModalNewName" placeholder="新增案場名稱">
-            <button class="btn btn-primary" id="caseModalAddBtn">新增</button>
+            <button class="btn btn-outline" id="caseModalAddBtn">新增</button>
         </div>
         <div class="modal-actions">
-            <button class="btn btn-primary" id="caseModalCancelBtn">取消</button>
+            <button class="btn btn-outline" id="caseModalCancelBtn">取消</button>
             <button class="btn btn-success" id="caseModalSaveBtn">儲存</button>
         </div>
     </div>
@@ -419,7 +485,7 @@ td:first-child { width: 64px; }
     <!-- 上傳區 -->
     <div class="drop-zone" id="dropZone">
         <input type="file" id="fileInput" multiple accept=".jpg,.jpeg,.png,.webp,.pdf">
-        <div class="icon">📄</div>
+        <div class="icon"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></div>
         <p><strong>拖曳發票至此</strong>，或點擊選取</p>
         <p class="hint">支援 JPG / PNG / WEBP / PDF</p>
     </div>
@@ -429,7 +495,7 @@ td:first-child { width: 64px; }
     </div>
     <p class="progress-label" id="progressLabel"></p>
     <div class="scan-bar" style="justify-content:space-between">
-        <button class="btn btn-primary" id="manualAddBtn">手動新增一筆</button>
+        <button class="btn btn-outline" id="manualAddBtn">手動新增一筆</button>
         <button class="btn btn-primary" id="scanBtn" disabled>開始掃描</button>
     </div>
 
@@ -444,7 +510,7 @@ td:first-child { width: 64px; }
         <div class="bulk-case-bar">
             <input type="text" id="bulkCaseInput" list="bulk-case-list" placeholder="選擇或輸入案場" autocomplete="off">
             <datalist id="bulk-case-list"></datalist>
-            <button class="btn btn-primary" id="bulkApplyCaseBtn">套用到已勾選</button>
+            <button class="btn btn-outline" id="bulkApplyCaseBtn">套用到已勾選</button>
         </div>
         <div class="table-wrap">
             <table id="resultsTable">
@@ -536,7 +602,7 @@ td:first-child { width: 64px; }
                 <button class="btn btn-success" id="salesExportBtn" disabled onclick="exportSales()">匯入 Excel</button>
             </div>
             <div id="salesListWrap">
-                <div class="sales-empty">尚未加入任何發票</div>
+                <div class="sales-empty"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/></svg>還沒有任何銷項發票，填寫上面表單並按「加入清單」</div>
             </div>
         </div>
 
@@ -579,7 +645,7 @@ td:first-child { width: 64px; }
                 </div>
             </div>
             <div class="form-actions" style="justify-content:space-between">
-                <button class="btn btn-primary" id="saveTemplateBtn">存為範本</button>
+                <button class="btn btn-outline" id="saveTemplateBtn">存為範本</button>
                 <button class="btn btn-primary" onclick="addExpenseItem()">加入清單</button>
             </div>
         </div>
@@ -591,7 +657,7 @@ td:first-child { width: 64px; }
                 <button class="btn btn-success" id="expenseExportBtn" disabled onclick="exportExpenses()">匯入 Excel</button>
             </div>
             <div id="expenseListWrap">
-                <div class="sales-empty">尚未加入任何支出</div>
+                <div class="sales-empty"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/></svg>還沒有任何固定支出，填寫上面表單並按「加入清單」</div>
             </div>
         </div>
 
@@ -601,6 +667,11 @@ td:first-child { width: 64px; }
 
 <div class="toast" id="toast"></div>
 
+<div class="sticky-import-bar" id="stickyImportBar">
+    <span id="stickyImportLabel"></span>
+    <button class="btn btn-success" id="stickyImportBtn">匯入 Excel</button>
+</div>
+
 <script>
 // ── State ──────────────────────────────────────────────────────────────────
 
@@ -608,6 +679,13 @@ let selectedFiles  = [];
 let scanResults    = [];
 let caseNames      = [];
 let lastScanUsage  = null;
+
+// ── Icons ──────────────────────────────────────────────────────────────────
+
+const ICON_PDF   = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>';
+const ICON_TRASH = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>';
+const ICON_EDIT  = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
+const ICON_EMPTY = '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/></svg>';
 
 // ── Init ───────────────────────────────────────────────────────────────────
 
@@ -762,16 +840,16 @@ function renderTable() {
             tr.classList.add('failed-row');
             tr.innerHTML = `
                 <td></td>
-                <td>${ext === 'pdf' ? '<div class="thumb-pdf">📄</div>' : `<a href="/uploads/${r.sourceFile}" target="_blank"><img class="thumb" src="/uploads/${r.sourceFile}" onerror="this.style.display='none'"></a>`}</td>
+                <td>${ext === 'pdf' ? `<div class="thumb-pdf">${ICON_PDF}</div>` : `<a href="/uploads/${r.sourceFile}" target="_blank"><img class="thumb" src="/uploads/${r.sourceFile}" onerror="this.style.display='none'"></a>`}</td>
                 <td colspan="9" style="color:#c62828">${r.error}</td>
-                <td><button class="btn btn-primary" style="padding:4px 10px;font-size:12px" onclick="manualFix(${i})">手動輸入</button></td>
-                <td><button class="delete-btn" onclick="deleteRow(${i})">🗑</button></td>`;
+                <td><button class="btn btn-outline" style="padding:4px 10px;font-size:12px" onclick="manualFix(${i})">手動輸入</button></td>
+                <td><button class="delete-btn" onclick="deleteRow(${i})">${ICON_TRASH}</button></td>`;
         } else {
             if (r.flags && r.flags.length > 0) tr.classList.add('has-flag');
             const caseOpts = caseNames.map(n => `<option value="${esc(n)}">`).join('');
             const previewHtml = !r.sourceFile
-                ? '<div class="thumb-pdf">✍️</div>'
-                : (ext === 'pdf' ? '<div class="thumb-pdf">📄</div>' : `<a href="/uploads/${r.sourceFile}" target="_blank"><img class="thumb" src="/uploads/${r.sourceFile}" onerror="this.style.display='none'"></a>`);
+                ? `<div class="thumb-pdf">${ICON_EDIT}</div>`
+                : (ext === 'pdf' ? `<div class="thumb-pdf">${ICON_PDF}</div>` : `<a href="/uploads/${r.sourceFile}" target="_blank"><img class="thumb" src="/uploads/${r.sourceFile}" onerror="this.style.display='none'"></a>`);
             tr.innerHTML = `
                 <td><input type="checkbox" class="row-chk" data-idx="${i}"></td>
                 <td>${previewHtml}</td>
@@ -782,15 +860,16 @@ function renderTable() {
                 <td><input class="editable" value="${esc(r.items)}" onchange="updateField(${i},'items',this.value)" style="min-width:220px"></td>
                 <td><input class="editable" type="number" value="${r.amount}" onchange="updateField(${i},'amount',+this.value)" style="min-width:100px;text-align:right"></td>
                 <td><input class="editable" type="number" value="${r.tax}" onchange="updateField(${i},'tax',+this.value)" style="min-width:90px;text-align:right"></td>
-                <td><input class="editable" type="number" value="${r.total}" onchange="updateField(${i},'total',+this.value)" style="min-width:100px;text-align:right"></td>
+                <td><input class="editable amount-total" type="number" value="${r.total}" onchange="updateField(${i},'total',+this.value)" style="min-width:100px;text-align:right"></td>
                 <td><input class="editable case-select" list="case-dl-${i}" value="${esc(r.case_name)}" onchange="updateField(${i},'case_name',this.value)" placeholder="選擇或輸入案場" autocomplete="off"><datalist id="case-dl-${i}">${caseOpts}</datalist></td>
-                <td><div class="flags">${(r.flags||[]).map(f=>`<span class="flag-chip">${f}</span>`).join('')}</div></td>
-                <td><button class="delete-btn" onclick="deleteRow(${i})">🗑</button></td>`;
+                <td><div class="flags">${(r.flags||[]).map(f=>`<span class="flag-chip ${flagSeverity(f)}">${f}</span>`).join('')}</div></td>
+                <td><button class="delete-btn" onclick="deleteRow(${i})">${ICON_TRASH}</button></td>`;
         }
         tbody.appendChild(tr);
     }
 
     populateBulkCaseList();
+    updateStickyBar();
 }
 
 function populateBulkCaseList() {
@@ -816,6 +895,13 @@ document.getElementById('bulkApplyCaseBtn').addEventListener('click', () => {
 });
 
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+
+function flagSeverity(f) {
+    if (f === '⚠金額為0' || f === '⚠店家空白') return 'severity-high';
+    if (f === '⚠自家公司') return 'severity-medium';
+    if (f === '⚠手動輸入') return 'severity-info';
+    return '';
+}
 
 function updateField(idx, field, value) {
     scanResults[idx][field] = value;
@@ -862,14 +948,13 @@ document.getElementById('manualAddBtn').addEventListener('click', () => {
 
 // ── Export ─────────────────────────────────────────────────────────────────
 
-document.getElementById('exportBtn').addEventListener('click', async () => {
+async function exportPurchase() {
     const company = document.getElementById('companySelect').value;
     const toExport = scanResults.filter(r => !r.failed);
     if (toExport.length === 0) { toast('沒有可匯入的發票', 'error'); return; }
 
-    const btn = document.getElementById('exportBtn');
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span>匯入中...';
+    const btns = [document.getElementById('exportBtn'), document.getElementById('stickyImportBtn')];
+    btns.forEach(b => { b.disabled = true; b.innerHTML = '<span class="spinner"></span>匯入中...'; });
 
     try {
         const res  = await fetch('/api/export', {
@@ -893,10 +978,12 @@ document.getElementById('exportBtn').addEventListener('click', async () => {
     } catch (err) {
         toast(err.message, 'error');
     } finally {
-        btn.disabled = false;
-        btn.textContent = '匯入 Excel';
+        btns.forEach(b => { b.disabled = false; b.textContent = '匯入 Excel'; });
+        updateStickyBar();
     }
-});
+}
+
+document.getElementById('exportBtn').addEventListener('click', exportPurchase);
 
 // ── 案場管理 ────────────────────────────────────────────────────────────────
 
@@ -920,13 +1007,13 @@ async function openCaseModal() {
 function renderCaseModalList() {
     const wrap = document.getElementById('caseModalList');
     if (modalCaseNames.length === 0) {
-        wrap.innerHTML = '<div class="sales-empty">尚無案場</div>';
+        wrap.innerHTML = `<div class="sales-empty">${ICON_EMPTY}還沒有案場，在下面輸入名稱新增第一個</div>`;
         return;
     }
     wrap.innerHTML = modalCaseNames.map((n, i) => `
         <div class="case-modal-row">
             <span>${esc(n)}</span>
-            <button class="delete-btn" onclick="removeCaseModalName(${i})">🗑</button>
+            <button class="delete-btn" onclick="removeCaseModalName(${i})">${ICON_TRASH}</button>
         </div>`).join('');
 }
 
@@ -1026,8 +1113,10 @@ function toast(msg, type = 'info') {
 // ── Tabs ───────────────────────────────────────────────────────────────────
 
 const TAB_TITLES = { purchase: '進項掃描', sales: '銷項輸入', expense: '固定支出' };
+let currentTab = 'purchase';
 
 function switchTab(tab) {
+    currentTab = tab;
     const order = ['purchase', 'sales', 'expense'];
     document.querySelectorAll('.tab-btn').forEach((b, i) => {
         b.classList.toggle('active', order[i] === tab);
@@ -1037,7 +1126,38 @@ function switchTab(tab) {
     document.getElementById('tab-expense').classList.toggle('active', tab === 'expense');
     document.title = `發票報帳系統 - ${TAB_TITLES[tab]}`;
     if (tab === 'sales') populateSalsCaseSelect();
+    updateStickyBar();
 }
+
+function updateStickyBar() {
+    const bar   = document.getElementById('stickyImportBar');
+    const label = document.getElementById('stickyImportLabel');
+    let count = 0, text = '';
+
+    if (currentTab === 'purchase') {
+        count = scanResults.filter(r => !r.failed).length;
+        text  = `${count} 筆進項待匯入`;
+    } else if (currentTab === 'sales') {
+        count = salesList.length;
+        text  = `${count} 張銷項待匯入`;
+    } else if (currentTab === 'expense') {
+        count = expenseList.length;
+        text  = `${count} 筆固定支出待匯入`;
+    }
+
+    if (count > 0) {
+        label.textContent = text;
+        bar.classList.add('show');
+    } else {
+        bar.classList.remove('show');
+    }
+}
+
+document.getElementById('stickyImportBtn').addEventListener('click', () => {
+    if (currentTab === 'purchase') exportPurchase();
+    else if (currentTab === 'sales') exportSales();
+    else if (currentTab === 'expense') exportExpenses();
+});
 
 // ── Sales ──────────────────────────────────────────────────────────────────
 
@@ -1117,9 +1237,10 @@ function renderSalesList() {
     const btn   = document.getElementById('salesExportBtn');
     title.textContent = `待匯入清單（${salesList.length} 張）`;
     btn.disabled = salesList.length === 0;
+    updateStickyBar();
 
     if (salesList.length === 0) {
-        wrap.innerHTML = '<div class="sales-empty">尚未加入任何發票</div>';
+        wrap.innerHTML = `<div class="sales-empty">${ICON_EMPTY}還沒有任何銷項發票，填寫上面表單並按「加入清單」</div>`;
         return;
     }
 
@@ -1133,9 +1254,9 @@ function renderSalesList() {
             <td><input class="editable" value="${esc(r.items)}" onchange="updateSalesField(${i},'items',this.value)"></td>
             <td><input class="editable" type="number" value="${r.amount}" onchange="updateSalesField(${i},'amount',+this.value)" style="text-align:right"></td>
             <td><input class="editable" type="number" value="${r.tax}" onchange="updateSalesField(${i},'tax',+this.value)" style="text-align:right"></td>
-            <td><input class="editable" type="number" value="${r.total}" onchange="updateSalesField(${i},'total',+this.value)" style="text-align:right"></td>
+            <td><input class="editable amount-total" type="number" value="${r.total}" onchange="updateSalesField(${i},'total',+this.value)" style="text-align:right"></td>
             <td><input class="editable" list="s-list-case-dl-${i}" value="${esc(r.case_name)}" onchange="updateSalesField(${i},'case_name',this.value)"><datalist id="s-list-case-dl-${i}">${caseOpts}</datalist></td>
-            <td><button class="delete-btn" onclick="deleteSalesItem(${i})">🗑</button></td>
+            <td><button class="delete-btn" onclick="deleteSalesItem(${i})">${ICON_TRASH}</button></td>
         </tr>`).join('');
 
     wrap.innerHTML = `
@@ -1159,9 +1280,8 @@ async function exportSales() {
     if (!company) { toast('請先選擇公司', 'error'); return; }
     if (salesList.length === 0) return;
 
-    const btn = document.getElementById('salesExportBtn');
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span>匯入中...';
+    const btns = [document.getElementById('salesExportBtn'), document.getElementById('stickyImportBtn')];
+    btns.forEach(b => { b.disabled = true; b.innerHTML = '<span class="spinner"></span>匯入中...'; });
 
     try {
         const res  = await fetch('/api/sales', {
@@ -1180,8 +1300,8 @@ async function exportSales() {
     } catch (err) {
         toast(err.message, 'error');
     } finally {
-        btn.disabled = false;
-        btn.textContent = '匯入 Excel';
+        btns.forEach(b => { b.disabled = false; b.textContent = '匯入 Excel'; });
+        updateStickyBar();
     }
 }
 
@@ -1284,9 +1404,10 @@ function renderExpenseList() {
     const btn   = document.getElementById('expenseExportBtn');
     title.textContent = `待匯入清單（${expenseList.length} 筆）`;
     btn.disabled = expenseList.length === 0;
+    updateStickyBar();
 
     if (expenseList.length === 0) {
-        wrap.innerHTML = '<div class="sales-empty">尚未加入任何支出</div>';
+        wrap.innerHTML = `<div class="sales-empty">${ICON_EMPTY}還沒有任何固定支出，填寫上面表單並按「加入清單」</div>`;
         return;
     }
 
@@ -1296,9 +1417,9 @@ function renderExpenseList() {
         <tr>
             <td><input class="editable" value="${esc(r.date)}" onchange="updateExpenseField(${i},'date',this.value)"></td>
             <td><input class="editable" list="e-list-category-dl-${i}" value="${esc(r.category)}" onchange="updateExpenseField(${i},'category',this.value)"><datalist id="e-list-category-dl-${i}">${categoryOpts}</datalist></td>
-            <td><input class="editable" type="number" value="${r.amount}" onchange="updateExpenseField(${i},'amount',+this.value)" style="text-align:right"></td>
+            <td><input class="editable amount-total" type="number" value="${r.amount}" onchange="updateExpenseField(${i},'amount',+this.value)" style="text-align:right"></td>
             <td><input class="editable" value="${esc(r.note)}" onchange="updateExpenseField(${i},'note',this.value)"></td>
-            <td><button class="delete-btn" onclick="deleteExpenseItem(${i})">🗑</button></td>
+            <td><button class="delete-btn" onclick="deleteExpenseItem(${i})">${ICON_TRASH}</button></td>
         </tr>`).join('');
 
     wrap.innerHTML = `
@@ -1320,9 +1441,8 @@ async function exportExpenses() {
     if (!company) { toast('請先選擇公司', 'error'); return; }
     if (expenseList.length === 0) return;
 
-    const btn = document.getElementById('expenseExportBtn');
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span>匯入中...';
+    const btns = [document.getElementById('expenseExportBtn'), document.getElementById('stickyImportBtn')];
+    btns.forEach(b => { b.disabled = true; b.innerHTML = '<span class="spinner"></span>匯入中...'; });
 
     try {
         const res  = await fetch('/api/expenses', {
@@ -1339,8 +1459,8 @@ async function exportExpenses() {
     } catch (err) {
         toast(err.message, 'error');
     } finally {
-        btn.disabled = false;
-        btn.textContent = '匯入 Excel';
+        btns.forEach(b => { b.disabled = false; b.textContent = '匯入 Excel'; });
+        updateStickyBar();
     }
 }
 
