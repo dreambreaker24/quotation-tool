@@ -1,0 +1,828 @@
+<template>
+  <div class="ps-app">
+
+    <!-- 左側表單 -->
+    <div class="ps-form-panel">
+      <div class="ps-app-header">
+        <div class="ps-app-title">薪資單產生器</div>
+        <div class="ps-app-sub">奈拾室內裝修設計有限公司</div>
+      </div>
+
+      <!-- 員工 -->
+      <div class="ps-section">
+        <div class="ps-section-label">員工</div>
+        <div class="ps-field">
+          <label>選擇員工</label>
+          <select @change="selectEmployee($event.target.value)">
+            <option value="">── 選擇員工 ──</option>
+            <option v-for="e in EMPLOYEES" :key="e.name" :value="e.name">
+              {{ e.name }} — {{ e.job }}
+            </option>
+          </select>
+        </div>
+        <div class="ps-row2">
+          <div class="ps-field">
+            <label>發薪月份</label>
+            <input type="month" v-model="form.payMonth" @input="compute">
+          </div>
+          <div class="ps-field">
+            <label>發薪日</label>
+            <input type="text" v-model="form.payDate" placeholder="例：7 月 5 日" @input="compute">
+          </div>
+        </div>
+        <div class="ps-row2">
+          <div class="ps-field">
+            <label>員工姓名</label>
+            <input type="text" v-model="form.empName" @input="compute">
+          </div>
+          <div class="ps-field">
+            <label>職稱</label>
+            <input type="text" v-model="form.empJob" @input="compute" placeholder="自動帶入">
+          </div>
+        </div>
+      </div>
+
+      <!-- 應付 -->
+      <div class="ps-section">
+        <div class="ps-section-label">應付項目</div>
+        <div class="ps-field">
+          <label>薪水</label>
+          <input type="number" v-model.number="form.base" min="0" @input="onBaseChange" placeholder="0">
+          <span v-if="form.base > 0" class="ps-hint">{{ fmtNum(form.base) }}</span>
+        </div>
+
+        <!-- 加班費 -->
+        <div class="ps-ot-header">
+          <span></span><span class="ps-col-label">時數</span><span class="ps-col-label">金額</span>
+        </div>
+        <div class="ps-ot-row">
+          <span class="ps-ot-label">平日加班費</span>
+          <input type="number" v-model.number="form.otWeekdayHours" min="0" step="0.5"
+            @input="calcOTFromHours('weekday')" placeholder="0">
+          <input type="number" v-model.number="form.otWeekday" min="0" @input="compute" placeholder="0">
+        </div>
+        <div class="ps-ot-row">
+          <span class="ps-ot-label">休息日加班費</span>
+          <input type="number" v-model.number="form.otHolidayHours" min="0" step="0.5"
+            @input="calcOTFromHours('restday')" placeholder="0">
+          <input type="number" v-model.number="form.otHoliday" min="0" @input="compute" placeholder="0">
+        </div>
+
+        <!-- 油資 -->
+        <div class="ps-ot-header" style="margin-top:6px">
+          <span></span><span class="ps-col-label">公里數</span><span class="ps-col-label">金額</span>
+        </div>
+        <div class="ps-ot-row">
+          <span class="ps-ot-label">油資補助</span>
+          <input type="number" v-model.number="form.fuelKm" min="0" step="1"
+            @input="calcFuel" placeholder="0">
+          <input type="number" v-model.number="form.fuel" min="0" @input="compute" placeholder="0">
+        </div>
+
+        <div class="ps-field">
+          <label>全勤獎金</label>
+          <input type="number" v-model.number="form.attend" min="0" @input="compute" placeholder="0">
+          <span v-if="form.attend > 0" class="ps-hint">{{ fmtNum(form.attend) }}</span>
+        </div>
+        <div class="ps-field">
+          <label><input type="text" v-model="form.addName1" placeholder="其他加項名稱" @input="compute" class="ps-name-input"></label>
+          <input type="number" v-model.number="form.addAmt1" min="0" @input="compute" placeholder="0">
+          <span v-if="form.addAmt1 > 0" class="ps-hint">{{ fmtNum(form.addAmt1) }}</span>
+        </div>
+        <div class="ps-field">
+          <label><input type="text" v-model="form.addName2" placeholder="其他加項名稱" @input="compute" class="ps-name-input"></label>
+          <input type="number" v-model.number="form.addAmt2" min="0" @input="compute" placeholder="0">
+          <span v-if="form.addAmt2 > 0" class="ps-hint">{{ fmtNum(form.addAmt2) }}</span>
+        </div>
+        <div class="ps-subtotal">應付合計 <strong>{{ fmt(totalAdd) }}</strong></div>
+      </div>
+
+      <!-- 扣除 -->
+      <div class="ps-section">
+        <div class="ps-section-label" style="display:flex;justify-content:space-between;align-items:center">
+          扣除項目
+          <label class="ps-toggle-wrap">
+            <input type="checkbox" v-model="autoIns" @change="onAutoInsChange" class="ps-toggle-check">
+            <span class="ps-toggle-track"><span class="ps-toggle-thumb"></span></span>
+            <span class="ps-toggle-label">勞健保自動試算</span>
+          </label>
+        </div>
+        <div v-if="autoIns" class="ps-ins-hint">
+          勞保投保薪資：<strong>NT$ {{ laborGrade.toLocaleString('zh-TW') }}</strong>（費率 13.5%，員工負擔 20%）<br>
+          健保投保金額：<strong>NT$ {{ healthGrade.toLocaleString('zh-TW') }}</strong>（費率 5.17%，員工負擔 30%）
+        </div>
+        <div class="ps-field">
+          <label>勞保（員工負擔）</label>
+          <input type="number" v-model.number="form.labor" min="0" @input="compute" placeholder="0">
+          <span v-if="form.labor > 0" class="ps-hint">{{ fmtNum(form.labor) }}</span>
+        </div>
+        <div class="ps-field">
+          <label>健保（員工負擔）</label>
+          <input type="number" v-model.number="form.health" min="0" @input="compute" placeholder="0">
+          <span v-if="form.health > 0" class="ps-hint">{{ fmtNum(form.health) }}</span>
+        </div>
+
+        <!-- 請假試算 -->
+        <div class="ps-leave-block">
+          <div class="ps-leave-title">📅 請假扣款（勞基法）</div>
+          <div class="ps-leave-row">
+            <span>事假（全薪扣）</span>
+            <input type="number" v-model.number="form.personalDays" min="0" step="0.5" @input="calcLeave" placeholder="0">
+            <span class="ps-leave-unit">天</span>
+            <span class="ps-leave-result">{{ personalDeductPreview }}</span>
+          </div>
+          <div class="ps-leave-row">
+            <span>病假（半薪扣）</span>
+            <input type="number" v-model.number="form.sickDays" min="0" step="0.5" @input="calcLeave" placeholder="0">
+            <span class="ps-leave-unit">天</span>
+            <span class="ps-leave-result">{{ sickDeductPreview }}</span>
+          </div>
+          <div class="ps-leave-row">
+            <span>颱風假（全薪扣）</span>
+            <input type="number" v-model.number="form.typhoonDays" min="0" step="0.5" @input="calcLeave" placeholder="0">
+            <span class="ps-leave-unit">天</span>
+            <span class="ps-leave-result">{{ typhoonDeductPreview }}</span>
+          </div>
+          <div class="ps-leave-total">{{ leaveTotalText }}</div>
+        </div>
+
+        <div class="ps-field">
+          <label><input type="text" v-model="form.deductName1" placeholder="其他扣除名稱" @input="compute" class="ps-name-input"></label>
+          <input type="number" v-model.number="form.deductAmt1" min="0" @input="compute" placeholder="0">
+          <span v-if="form.deductAmt1 > 0" class="ps-hint">{{ fmtNum(form.deductAmt1) }}</span>
+        </div>
+        <div class="ps-field">
+          <label><input type="text" v-model="form.deductName2" placeholder="其他扣除名稱" @input="compute" class="ps-name-input"></label>
+          <input type="number" v-model.number="form.deductAmt2" min="0" @input="compute" placeholder="0">
+          <span v-if="form.deductAmt2 > 0" class="ps-hint">{{ fmtNum(form.deductAmt2) }}</span>
+        </div>
+        <div class="ps-subtotal" style="color:#ef4444">扣除合計 <strong>－ {{ fmt(totalDeduct) }}</strong></div>
+      </div>
+
+      <!-- 備註 -->
+      <div class="ps-section">
+        <div class="ps-section-label">備註（選填）</div>
+        <textarea v-model="form.remark" @input="compute" placeholder="例：含業績獎金，請妥善保存" class="ps-textarea"></textarea>
+      </div>
+
+      <!-- 按鈕 -->
+      <div class="ps-btn-row">
+        <button class="ps-btn-primary" :disabled="downloading" @click="downloadJpg">
+          {{ downloading ? '生成中…' : '↓ 下載 JPG' }}
+        </button>
+        <button class="ps-btn-ghost" @click="resetForm">清空</button>
+      </div>
+      <div class="ps-btn-note">下載格式：1/3 A4 橫向（1169 × 2480px）</div>
+    </div>
+
+    <!-- 右側預覽 -->
+    <div class="ps-preview-panel">
+      <div class="ps-preview-hint">即時預覽 ── 填寫左側後自動更新</div>
+
+      <div id="ps-payslip" ref="slipEl">
+
+        <!-- Header -->
+        <div class="sl-header">
+          <img class="sl-logo" src="/logo-crop.png" alt="奈拾設計">
+          <div class="sl-co-zh">奈拾室內裝修設計有限公司</div>
+          <div class="sl-co-en">NEXT PLUS DESIGN CO., LTD.</div>
+          <div class="sl-header-bottom">
+            <div class="sl-title">薪資明細</div>
+            <div class="sl-period">{{ periodText }}<br>發薪日：{{ form.payDate || '—' }}</div>
+          </div>
+        </div>
+
+        <!-- 員工資訊帶 -->
+        <div class="sl-employee">
+          <div>
+            <div class="sl-job">{{ form.empJob || '職稱' }}</div>
+            <div class="sl-name">{{ form.empName || '員工姓名' }}</div>
+          </div>
+          <div class="sl-paydate">{{ form.payDate ? `發薪日\n${form.payDate}` : '' }}</div>
+        </div>
+
+        <!-- 明細 body -->
+        <div class="sl-body">
+
+          <div class="sl-sec-title">應 付 項 目</div>
+
+          <div class="sl-row">
+            <span class="sl-row-name">薪水</span>
+            <span class="sl-row-amt">{{ fmt(form.base) }}</span>
+          </div>
+          <div v-if="form.otWeekday > 0" class="sl-row">
+            <span class="sl-row-name">{{ form.otWeekdayHours > 0 ? `平日加班費（${form.otWeekdayHours} 小時）` : '平日加班費' }}</span>
+            <span class="sl-row-amt">{{ fmt(form.otWeekday) }}</span>
+          </div>
+          <div v-if="form.otHoliday > 0" class="sl-row">
+            <span class="sl-row-name">{{ form.otHolidayHours > 0 ? `休息日加班費（${form.otHolidayHours} 小時）` : '休息日加班費' }}</span>
+            <span class="sl-row-amt">{{ fmt(form.otHoliday) }}</span>
+          </div>
+          <div v-if="form.otWeekday > 0 && form.otHoliday > 0" class="sl-row sl-row-total">
+            <span class="sl-row-name">加班費合計</span>
+            <span class="sl-row-amt">{{ fmt(form.otWeekday + form.otHoliday) }}</span>
+          </div>
+          <div v-if="form.fuel > 0" class="sl-row">
+            <span class="sl-row-name">{{ form.fuelKm > 0 ? `油資補助（${form.fuelKm} 公里）` : '油資補助' }}</span>
+            <span class="sl-row-amt">{{ fmt(form.fuel) }}</span>
+          </div>
+          <div v-if="form.attend > 0" class="sl-row">
+            <span class="sl-row-name">全勤獎金</span>
+            <span class="sl-row-amt">{{ fmt(form.attend) }}</span>
+          </div>
+          <div v-if="form.addAmt1 > 0" class="sl-row">
+            <span class="sl-row-name">{{ form.addName1 || '其他加項' }}</span>
+            <span class="sl-row-amt">{{ fmt(form.addAmt1) }}</span>
+          </div>
+          <div v-if="form.addAmt2 > 0" class="sl-row">
+            <span class="sl-row-name">{{ form.addName2 || '其他加項' }}</span>
+            <span class="sl-row-amt">{{ fmt(form.addAmt2) }}</span>
+          </div>
+
+          <div class="sl-subtotal">
+            <span>應付小計</span><span>{{ fmt(totalAdd) }}</span>
+          </div>
+
+          <div class="sl-sec-title">扣 除 項 目</div>
+
+          <template v-if="totalDeduct === 0">
+            <div class="sl-no-deduct">（本月無扣除項目）</div>
+          </template>
+          <template v-else>
+            <div v-if="form.labor > 0" class="sl-row">
+              <span class="sl-row-name">勞保（員工負擔）</span>
+              <span class="sl-row-amt neg">{{ fmtNeg(form.labor) }}</span>
+            </div>
+            <div v-if="form.health > 0" class="sl-row">
+              <span class="sl-row-name">健保（員工負擔）</span>
+              <span class="sl-row-amt neg">{{ fmtNeg(form.health) }}</span>
+            </div>
+            <div v-if="pDeduct > 0" class="sl-row">
+              <span class="sl-row-name">事假（{{ form.personalDays }} 天）</span>
+              <span class="sl-row-amt neg">{{ fmtNeg(pDeduct) }}</span>
+            </div>
+            <div v-if="sDeduct > 0" class="sl-row">
+              <span class="sl-row-name">病假（{{ form.sickDays }} 天）</span>
+              <span class="sl-row-amt neg">{{ fmtNeg(sDeduct) }}</span>
+            </div>
+            <div v-if="tDeduct > 0" class="sl-row">
+              <span class="sl-row-name">颱風假（{{ form.typhoonDays }} 天）</span>
+              <span class="sl-row-amt neg">{{ fmtNeg(tDeduct) }}</span>
+            </div>
+            <div v-if="[pDeduct, sDeduct, tDeduct].filter(v => v > 0).length >= 2" class="sl-row sl-row-total">
+              <span class="sl-row-name">請假扣款合計</span>
+              <span class="sl-row-amt neg">{{ fmtNeg(pDeduct + sDeduct + tDeduct) }}</span>
+            </div>
+            <div v-if="form.deductAmt1 > 0" class="sl-row">
+              <span class="sl-row-name">{{ form.deductName1 || '其他扣除' }}</span>
+              <span class="sl-row-amt neg">{{ fmtNeg(form.deductAmt1) }}</span>
+            </div>
+            <div v-if="form.deductAmt2 > 0" class="sl-row">
+              <span class="sl-row-name">{{ form.deductName2 || '其他扣除' }}</span>
+              <span class="sl-row-amt neg">{{ fmtNeg(form.deductAmt2) }}</span>
+            </div>
+            <div class="sl-subtotal" style="color:#ef4444">
+              <span>扣除小計</span><span>－ {{ fmt(totalDeduct) }}</span>
+            </div>
+          </template>
+
+        </div>
+
+        <!-- 實發 -->
+        <div class="sl-net-block">
+          <div class="sl-net-label">本月實發金額</div>
+          <div class="sl-net-amount">{{ fmt(Math.ceil(totalAdd - totalDeduct)) }}</div>
+        </div>
+
+        <!-- 雇主提撥 -->
+        <div v-if="form.base > 0" class="sl-contrib">
+          <span class="sl-contrib-label">公司提撥勞退（供員工參考）</span>
+          <div class="sl-contrib-right">
+            <div class="sl-contrib-amt">{{ fmt(Math.round(form.base * 0.06)) }}</div>
+            <div class="sl-contrib-note">月薪 × 6%</div>
+          </div>
+        </div>
+
+        <!-- 備註 -->
+        <div v-if="form.remark" class="sl-remark">
+          <div class="sl-remark-title">備 註</div>
+          <div class="sl-remark-body">{{ form.remark }}</div>
+        </div>
+
+        <!-- Footer -->
+        <div class="sl-footer">
+          <div class="sl-seal">奈拾</div>
+          <div class="sl-footer-note">本薪資單由系統自動生成<br>如有疑問請洽公司財務</div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, computed, onMounted } from 'vue'
+import html2canvas from 'html2canvas'
+
+const slipEl = ref(null)
+const downloading = ref(false)
+const autoIns = ref(false)
+
+/* ── 員工清單 ── */
+const EMPLOYEES = [
+    { name: '陳柏兆', job: '執行總監',     salary: 65000 },
+    { name: '柯其宏', job: '營運總監',     salary: 65000 },
+    { name: '蕭雅丰', job: '設計總監',     salary: 50000 },
+    { name: '郭瑞怡', job: '設計師',       salary: 37000 },
+    { name: '謝昆霖', job: '工程管理師',   salary: 37000 },
+    { name: '賴芃諭', job: '品牌視覺企劃', salary: 42000 },
+]
+
+onMounted(() => {
+    loadForm()
+    compute()
+})
+
+function selectEmployee(name) {
+    if (!name) return
+    const e = EMPLOYEES.find(e => e.name === name)
+    if (!e) return
+    form.value.empName = e.name
+    form.value.empJob  = e.job
+    form.value.base    = e.salary
+    autoIns.value = true
+    onBaseChange()
+}
+
+/* ── 表單狀態 ── */
+const INIT_FORM = () => ({
+    payMonth: new Date().toISOString().slice(0, 7),
+    payDate: '', empName: '', empJob: '', base: 0,
+    otWeekdayHours: 0, otWeekday: 0,
+    otHolidayHours: 0, otHoliday: 0,
+    fuelKm: 0, fuel: 0, attend: 0,
+    addName1: '', addAmt1: 0, addName2: '', addAmt2: 0,
+    labor: 0, health: 0,
+    personalDays: 0, sickDays: 0, typhoonDays: 0,
+    deductName1: '', deductAmt1: 0, deductName2: '', deductAmt2: 0,
+    remark: ''
+})
+const form = ref(INIT_FORM())
+
+function saveForm() {
+    localStorage.setItem('ps_form_v1', JSON.stringify(form.value))
+}
+function loadForm() {
+    const saved = JSON.parse(localStorage.getItem('ps_form_v1') || 'null')
+    if (saved) Object.assign(form.value, saved)
+}
+function resetForm() {
+    if (!confirm('確定要清空所有欄位？')) return
+    form.value = INIT_FORM()
+    autoIns.value = false
+    saveForm()
+}
+
+/* ── 勞健保級距 ── */
+const LABOR_GRADES  = [27470,28800,30300,31800,33300,34800,36300,38200,40100,42000,43900,45800]
+const HEALTH_GRADES = [27470,28800,30300,31800,33300,34800,36300,38200,40100,42000,43900,45800,
+    48200,50600,53000,55400,57800,60800,63800,66800,72800,83300,104500,131700,157000,219500]
+
+function getGrade(salary, table) {
+    const max = table[table.length - 1]
+    if (salary >= max) return max
+    return table.find(g => g >= salary) ?? max
+}
+
+const laborGrade  = computed(() => getGrade(form.value.base, LABOR_GRADES))
+const healthGrade = computed(() => getGrade(form.value.base, HEALTH_GRADES))
+
+function calcAutoIns() {
+    form.value.labor  = Math.round(laborGrade.value  * 0.135 * 0.2) || 0
+    form.value.health = Math.round(healthGrade.value * 0.0517 * 0.3) || 0
+}
+
+function onAutoInsChange() {
+    if (autoIns.value) calcAutoIns()
+    compute()
+}
+
+function onBaseChange() {
+    if (autoIns.value) calcAutoIns()
+    calcOTFromHours('weekday')
+    calcOTFromHours('restday')
+    calcLeave()
+    compute()
+}
+
+/* ── 加班費 ── */
+function calcOTFromHours(type) {
+    const base = form.value.base
+    const hours = type === 'weekday' ? (form.value.otWeekdayHours || 0) : (form.value.otHolidayHours || 0)
+    if (hours === 0) {
+        if (type === 'weekday') form.value.otWeekday = 0
+        else                    form.value.otHoliday = 0
+    } else if (base > 0) {
+        const hourly = base / 240
+        let pay = 0
+        if (type === 'weekday') {
+            pay = Math.min(hours, 2) * hourly * (4/3) + Math.max(hours - 2, 0) * hourly * (5/3)
+        } else {
+            pay = Math.min(hours, 2) * hourly * (4/3)
+                + Math.min(Math.max(hours - 2, 0), 6) * hourly * (5/3)
+                + Math.max(hours - 8, 0) * hourly * (8/3)
+        }
+        if (type === 'weekday') form.value.otWeekday = Math.round(pay)
+        else                    form.value.otHoliday = Math.round(pay)
+    }
+    compute()
+}
+
+/* ── 油資 ── */
+function calcFuel() {
+    const km = form.value.fuelKm || 0
+    form.value.fuel = km > 0 ? km * 6 : 0
+    compute()
+}
+
+/* ── 請假 ── */
+const pDeduct = computed(() => {
+    const base = form.value.base
+    return base > 0 ? Math.round((form.value.personalDays || 0) * base / 30) : 0
+})
+const sDeduct = computed(() => {
+    const base = form.value.base
+    return base > 0 ? Math.round((form.value.sickDays || 0) * base / 30 * 0.5) : 0
+})
+const tDeduct = computed(() => {
+    const base = form.value.base
+    return base > 0 ? Math.round((form.value.typhoonDays || 0) * base / 30) : 0
+})
+const personalDeductPreview = computed(() =>
+    pDeduct.value > 0 ? `扣 NT$ ${pDeduct.value.toLocaleString('zh-TW')}` : ''
+)
+const sickDeductPreview = computed(() =>
+    sDeduct.value > 0 ? `扣 NT$ ${sDeduct.value.toLocaleString('zh-TW')}` : ''
+)
+const typhoonDeductPreview = computed(() =>
+    tDeduct.value > 0 ? `扣 NT$ ${tDeduct.value.toLocaleString('zh-TW')}` : ''
+)
+const leaveTotalText = computed(() => {
+    const t = pDeduct.value + sDeduct.value + tDeduct.value
+    return t > 0 ? `合計扣 NT$ ${t.toLocaleString('zh-TW')}` : (form.value.base > 0 ? '無扣款' : '請先填薪水')
+})
+
+function calcLeave() { compute() }
+
+/* ── 合計 ── */
+const totalAdd = computed(() =>
+    (form.value.base || 0) + (form.value.otWeekday || 0) + (form.value.otHoliday || 0)
+    + (form.value.fuel || 0) + (form.value.attend || 0)
+    + (form.value.addAmt1 || 0) + (form.value.addAmt2 || 0)
+)
+const totalDeduct = computed(() =>
+    (form.value.labor || 0) + (form.value.health || 0)
+    + pDeduct.value + sDeduct.value + tDeduct.value
+    + (form.value.deductAmt1 || 0) + (form.value.deductAmt2 || 0)
+)
+
+/* ── 月份文字 ── */
+const periodText = computed(() => {
+    const v = form.value.payMonth
+    if (!v) return '— 年 — 月份'
+    const [y, m] = v.split('-')
+    return `${y} 年 ${parseInt(m)} 月份`
+})
+
+/* ── 工具 ── */
+function fmt(n)    { return 'NT$ ' + (n || 0).toLocaleString('zh-TW') }
+function fmtNeg(n) { return '－ NT$ ' + (n || 0).toLocaleString('zh-TW') }
+function fmtNum(n) { return 'NT$ ' + (n || 0).toLocaleString('zh-TW') }
+
+function compute() {
+    saveForm()
+}
+
+/* ── 下載 ── */
+async function downloadJpg() {
+    if (!slipEl.value) return
+    downloading.value = true
+    try {
+        const outW = 1169, outH = 2480
+        const renderScale = outW / slipEl.value.offsetWidth
+
+        // onclone 裡烘焙光暈：在截圖前替換 logo img，讓 html2canvas 直接截到含光暈的版本
+        // 用大 canvas（加 padding）+ negative margin，讓光暈有空間展開且不影響佈局
+        const slipCanvas = await html2canvas(slipEl.value, {
+            scale: renderScale, useCORS: true, backgroundColor: '#ffffff', logging: false,
+            onclone: (cloneDoc, cloneEl) => {
+                const cloneLogo = cloneEl.querySelector('.sl-logo')
+                if (!cloneLogo) return
+                const dw = cloneLogo.offsetWidth
+                const dh = cloneLogo.offsetHeight
+                if (!dw || !dh) return
+
+                const pad = 100  // 大於最大 shadowBlur(100)，讓光暈不被 canvas 截斷
+                const c = cloneDoc.createElement('canvas')
+                c.width  = (dw + pad * 2) * renderScale
+                c.height = (dh + pad * 2) * renderScale
+                const cctx = c.getContext('2d')
+                cctx.scale(renderScale, renderScale)
+                cctx.shadowColor = 'rgba(201,169,110,0.5)'; cctx.shadowBlur = 100; cctx.drawImage(cloneLogo, pad, pad, dw, dh)
+                cctx.shadowColor = 'rgba(201,169,110,0.9)'; cctx.shadowBlur = 55;  cctx.drawImage(cloneLogo, pad, pad, dw, dh)
+                cctx.shadowColor = 'rgba(255,220,150,1)';   cctx.shadowBlur = 22;  cctx.drawImage(cloneLogo, pad, pad, dw, dh)
+                cctx.shadowColor = 'rgba(255,255,255,1)';   cctx.shadowBlur = 6;   cctx.drawImage(cloneLogo, pad, pad, dw, dh)
+                cctx.shadowBlur = 0; cctx.drawImage(cloneLogo, pad, pad, dw, dh)
+
+                cloneLogo.src          = c.toDataURL('image/png')
+                cloneLogo.style.filter = 'none'
+                cloneLogo.style.width  = `${dw + pad * 2}px`
+                cloneLogo.style.height = `${dh + pad * 2}px`
+                cloneLogo.style.margin = `-${pad}px`
+            }
+        })
+
+        // 輸出 canvas 1169 × 2480
+        const outCanvas = document.createElement('canvas')
+        outCanvas.width  = outW
+        outCanvas.height = outH
+        const ctx = outCanvas.getContext('2d')
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(0, 0, outW, outH)
+
+        const fitScale = Math.min(outW / slipCanvas.width, outH / slipCanvas.height)
+        const drawW = Math.round(slipCanvas.width  * fitScale)
+        const drawH = Math.round(slipCanvas.height * fitScale)
+        const offX  = Math.round((outW - drawW) / 2)
+        ctx.drawImage(slipCanvas, offX, 0, drawW, drawH)
+
+        // 浮水印：中央 LOGO 10% 透明度疊加（同報價單做法）
+        const wmImg = new Image()
+        wmImg.src = '/logo-wm.png'
+        await new Promise(r => { if (wmImg.complete && wmImg.naturalWidth) r(); else { wmImg.onload = r; wmImg.onerror = r } })
+        if (wmImg.naturalWidth) {
+            const wmW = drawW * 0.62
+            const wmH = wmW * wmImg.naturalHeight / wmImg.naturalWidth
+            ctx.save()
+            ctx.globalAlpha = 0.10
+            ctx.drawImage(wmImg, offX + (drawW - wmW) / 2, (drawH - wmH) / 2, wmW, wmH)
+            ctx.restore()
+        }
+
+        // 日期浮水印（右下角）
+        const ts = new Date().toLocaleString('zh-TW', {
+            year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
+        })
+        const fs = Math.round(outW * 0.03)
+        ctx.font = `${fs}px "Microsoft JhengHei", sans-serif`
+        ctx.textAlign = 'right'
+        ctx.fillStyle = 'rgba(160,154,144,0.5)'
+        ctx.fillText(`產生於 ${ts}`, outW - fs * 0.5, outH - fs * 0.8)
+
+        const [y, m]   = (form.value.payMonth || '').split('-')
+        const filename = `薪資單_${form.value.empName || '員工'}_${(y||'')+(m||'')}.jpg`
+        const blob = await new Promise(r => outCanvas.toBlob(r, 'image/jpeg', 0.95))
+
+        if (window.showSaveFilePicker) {
+            try {
+                const handle = await window.showSaveFilePicker({
+                    suggestedName: filename,
+                    startIn: 'desktop',
+                    types: [{ description: 'JPEG 圖片', accept: { 'image/jpeg': ['.jpg'] } }]
+                })
+                const writable = await handle.createWritable()
+                await writable.write(blob)
+                await writable.close()
+            } catch (err) {
+                if (err.name !== 'AbortError') throw err
+            }
+        } else {
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.download = filename; a.href = url; a.click()
+            URL.revokeObjectURL(url)
+        }
+    } catch (e) {
+        alert('生成失敗：' + e.message)
+    }
+    downloading.value = false
+}
+</script>
+
+<style scoped>
+/* ── 整體佈局 ── */
+.ps-app { display:flex; gap:0; min-height:calc(100vh - 56px); background:#f4f3ef; }
+.ps-form-panel {
+    width:440px; flex-shrink:0; background:#fff;
+    border-right:1px solid #ebe9e3;
+    overflow-y:auto; padding:0 0 32px; position:sticky; top:56px; max-height:calc(100vh - 56px);
+}
+.ps-preview-panel { flex:1; padding:24px 32px; display:flex; flex-direction:column; align-items:center; gap:16px; }
+
+/* ── 表單 header ── */
+.ps-app-header { background:#1e2533; padding:20px 24px 16px; }
+.ps-app-title  { font-size:16px; font-weight:700; color:#c9a96e; }
+.ps-app-sub    { font-size:11px; color:rgba(255,255,255,0.45); margin-top:3px; }
+
+/* ── Section ── */
+.ps-section { padding:16px 20px; border-bottom:1px solid #ebe9e3; }
+.ps-section-label { font-size:10px; font-weight:700; color:#c9a96e; letter-spacing:1.5px; margin-bottom:10px; }
+
+/* ── Fields ── */
+.ps-field { display:flex; flex-direction:column; gap:3px; margin-bottom:8px; }
+.ps-field label { font-size:11px; color:#6b7280; }
+.ps-field input, .ps-field select, .ps-field textarea {
+    padding:7px 10px; border:1px solid #e5e7eb; border-radius:6px;
+    font-size:13px; font-family:inherit; background:#fafaf8; outline:none;
+}
+.ps-field input:focus, .ps-field select:focus { border-color:#c9a96e; }
+.ps-hint { font-size:10px; color:#c9a96e; text-align:right; }
+.ps-row2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+
+/* ── 加班費三欄 ── */
+.ps-ot-header { display:grid; grid-template-columns:1fr 62px 110px; gap:6px; margin-bottom:3px; }
+.ps-col-label  { font-size:10px; color:#9ca3af; text-align:right; }
+.ps-ot-row    { display:grid; grid-template-columns:1fr 62px 110px; gap:6px; margin-bottom:6px; align-items:center; }
+.ps-ot-label  { font-size:12px; color:#4b5563; }
+.ps-ot-row input {
+    padding:6px 8px; border:1px solid #e5e7eb; border-radius:6px;
+    font-size:12px; font-family:inherit; text-align:right;
+}
+.ps-ot-row input:focus { border-color:#c9a96e; outline:none; }
+
+/* ── 請假試算 ── */
+.ps-leave-block {
+    background:#f8f7f4; border:1px solid #eeebe4; border-radius:7px;
+    padding:10px 12px; margin-bottom:8px;
+}
+.ps-leave-title { font-size:10px; font-weight:700; color:#c9a96e; letter-spacing:1px; margin-bottom:8px; }
+.ps-leave-row   { display:flex; gap:6px; align-items:center; margin-bottom:6px; }
+.ps-leave-row span:first-child { font-size:11px; color:#6b7280; width:90px; flex-shrink:0; }
+.ps-leave-row input {
+    width:60px; padding:5px 7px; border:1px solid #e5e7eb; border-radius:5px;
+    font-size:12px; text-align:right; font-family:inherit;
+}
+.ps-leave-row input:focus { border-color:#c9a96e; outline:none; }
+.ps-leave-unit   { font-size:11px; color:#9ca3af; }
+.ps-leave-result { font-size:11px; color:#c9a96e; flex:1; text-align:right; }
+.ps-leave-total  { font-size:12px; color:#c9a96e; font-weight:600; text-align:right; margin-top:6px; padding-top:6px; border-top:1px dashed #eeebe4; }
+
+/* ── 名稱 input（inline label） ── */
+.ps-name-input {
+    width:100%; padding:5px 8px; border:1px solid #e5e7eb; border-radius:5px;
+    font-size:12px; font-family:inherit;
+}
+.ps-name-input:focus { border-color:#c9a96e; outline:none; }
+
+/* ── 小計 ── */
+.ps-subtotal { text-align:right; font-size:12px; color:#6b7280; padding-top:6px; border-top:1px solid #ebe9e3; margin-top:4px; }
+.ps-subtotal strong { color:#1e2533; font-size:13px; margin-left:8px; }
+
+/* ── 勞健保 toggle ── */
+.ps-toggle-wrap  { display:flex; align-items:center; gap:6px; cursor:pointer; }
+.ps-toggle-check { display:none; }
+.ps-toggle-track {
+    width:32px; height:18px; border-radius:9px; background:#e5e7eb;
+    position:relative; transition:background 0.2s;
+}
+.ps-toggle-check:checked + .ps-toggle-track { background:#c9a96e; }
+.ps-toggle-thumb {
+    width:14px; height:14px; border-radius:50%; background:#fff;
+    position:absolute; top:2px; left:2px; transition:left 0.2s;
+}
+.ps-toggle-check:checked + .ps-toggle-track .ps-toggle-thumb { left:16px; }
+.ps-toggle-label { font-size:11px; color:#6b7280; }
+.ps-ins-hint {
+    font-size:11px; color:#6b7280; background:#f8f7f4;
+    border:1px solid #eeebe4; border-radius:6px; padding:8px 10px;
+    margin-bottom:10px; line-height:1.6;
+}
+
+/* ── Textarea ── */
+.ps-textarea { width:100%; resize:vertical; min-height:60px; font-size:13px; font-family:inherit; }
+
+/* ── 按鈕 ── */
+.ps-btn-row { display:flex; gap:8px; padding:16px 20px 4px; }
+.ps-btn-primary {
+    flex:1; padding:10px; border:none; border-radius:8px;
+    background:#1e2533; color:#c9a96e; font-size:13px; font-weight:700;
+    cursor:pointer; font-family:inherit; transition:opacity 0.15s;
+}
+.ps-btn-primary:hover { opacity:0.85; }
+.ps-btn-primary:disabled { opacity:0.5; cursor:default; }
+.ps-btn-ghost {
+    padding:10px 16px; border:1px solid #e5e7eb; border-radius:8px;
+    background:#fff; color:#6b7280; font-size:13px; cursor:pointer; font-family:inherit;
+}
+.ps-btn-ghost:hover { border-color:#c9a96e; color:#c9a96e; }
+.ps-btn-note { font-size:10px; color:#b0a99a; text-align:center; padding:0 20px 8px; }
+
+/* ── 預覽提示 ── */
+.ps-preview-hint { font-size:11px; color:#b0a99a; }
+
+/* ════════════════════════════
+   薪 資 單 本 體
+════════════════════════════ */
+#ps-payslip {
+    width:560px; background:white; border-radius:10px;
+    overflow:hidden; box-shadow:0 8px 36px rgba(30,37,51,0.2);
+    font-family:'Microsoft JhengHei','PingFang TC','Noto Sans TC',sans-serif;
+}
+
+/* Header */
+.sl-header {
+    background:#1e2533; padding:20px 24px 14px;
+    display:flex; flex-direction:column; align-items:center;
+}
+.sl-logo {
+    width:300px; height:auto; object-fit:contain; display:block;
+    filter:
+        drop-shadow(0 0 6px rgba(255,255,255,1))
+        drop-shadow(0 0 22px rgba(255,220,150,1))
+        drop-shadow(0 0 55px rgba(201,169,110,0.9))
+        drop-shadow(0 0 100px rgba(201,169,110,0.5));
+    margin-bottom:10px;
+}
+.sl-co-zh { font-size:13px; font-weight:700; color:#fff; letter-spacing:1px; margin-bottom:3px; }
+.sl-co-en { font-size:9px; color:rgba(255,255,255,0.45); letter-spacing:2px; margin-bottom:10px; }
+.sl-header-bottom { display:flex; justify-content:space-between; align-items:center; width:100%; }
+.sl-title  { font-size:18px; font-weight:900; color:#c9a96e; letter-spacing:4px; }
+.sl-period { font-size:10px; color:rgba(255,255,255,0.5); text-align:right; line-height:1.6; }
+
+/* 員工帶 */
+.sl-employee {
+    background:#f8f7f4; padding:12px 24px;
+    display:flex; justify-content:space-between; align-items:center;
+    border-bottom:2px solid #e8e4dc;
+}
+.sl-job  { font-size:13px; font-weight:600; color:#c9a96e; margin-bottom:3px; }
+.sl-name { font-size:22px; font-weight:800; color:#1e2533; }
+.sl-paydate { font-size:11px; color:#b5afa6; text-align:right; white-space:pre-line; line-height:1.5; }
+
+/* Body */
+.sl-body { padding:15px 24px 4px; }
+.sl-sec-title {
+    font-size:20px; font-weight:800; color:#c9a96e;
+    letter-spacing:2px; margin-bottom:8px;
+    display:flex; align-items:center; gap:6px;
+}
+.sl-sec-title::before {
+    content:''; display:inline-block;
+    width:3px; height:16px; border-radius:2px; background:#c9a96e;
+}
+.sl-row { display:flex; justify-content:space-between; padding:5px 0; font-size:14px; }
+.sl-row-name { color:#4b5563; }
+.sl-row-amt  { color:#1e2533; font-weight:600; }
+.sl-row-amt.neg { color:#ef4444; }
+.sl-row-total {
+    border-top:1px dashed rgba(30,37,51,0.12);
+    margin-top:3px; padding-top:5px; font-weight:600;
+}
+.sl-subtotal {
+    display:flex; justify-content:space-between;
+    font-size:12px; color:#6b7280; font-weight:600;
+    padding:8px 0; margin:4px 0 12px;
+    border-top:1px solid #e8e4dc; border-bottom:1px solid #e8e4dc;
+}
+.sl-no-deduct { font-size:12px; color:#9ca3af; padding:8px 0 16px; text-align:center; }
+
+/* 實發 */
+.sl-net-block {
+    background:linear-gradient(135deg,#1e2533 0%,#2c3649 100%);
+    padding:20px 24px; text-align:center;
+}
+.sl-net-label  { font-size:12px; color:rgba(255,255,255,0.5); margin-bottom:6px; }
+.sl-net-amount {
+    font-size:26px; font-weight:800; color:#c9a96e; letter-spacing:1px;
+    font-variant-numeric:tabular-nums; font-feature-settings:"tnum";
+}
+
+/* 提撥 */
+.sl-contrib {
+    margin:0 24px 14px; padding:9px 16px;
+    background:rgba(201,169,110,0.07);
+    border:1px dashed rgba(201,169,110,0.3); border-radius:7px;
+    display:flex; justify-content:space-between; align-items:center;
+}
+.sl-contrib-label { font-size:11px; color:#9ca3af; }
+.sl-contrib-right { text-align:right; }
+.sl-contrib-amt   { font-size:13px; color:#c9a96e; font-weight:700; }
+.sl-contrib-note  { font-size:9px; color:#c9a96e; opacity:0.6; margin-top:1px; }
+
+/* 備註 */
+.sl-remark { margin:0 24px 14px; padding:10px 14px; background:#f8f7f4; border-radius:7px; }
+.sl-remark-title { font-size:9px; font-weight:700; color:#c9a96e; letter-spacing:2px; margin-bottom:6px; }
+.sl-remark-body  { font-size:12px; color:#4b5563; line-height:1.6; white-space:pre-wrap; }
+
+/* Footer */
+.sl-footer {
+    background:#1e2533; padding:14px 24px;
+    display:flex; justify-content:space-between; align-items:center;
+}
+.sl-seal {
+    width:44px; height:44px; border-radius:50%; border:2px solid #c9a96e;
+    display:flex; align-items:center; justify-content:center;
+    font-size:13px; font-weight:800; color:#c9a96e; letter-spacing:1px;
+}
+.sl-footer-note { font-size:9px; color:rgba(255,255,255,0.3); text-align:right; line-height:1.6; }
+</style>
