@@ -184,20 +184,24 @@
     </div>
 
     <!-- Sticky tab bar -->
-    <div class="flex border-b border-gray-100 bg-white overflow-x-auto sticky top-0 z-10">
-      <button v-for="tab in availableTabs" :key="tab.key"
-        @click="selectedTab = tab.key"
-        class="flex-shrink-0 text-[11px] px-4 py-2.5 font-medium border-b-2 transition-colors whitespace-nowrap flex items-center gap-1.5"
-        :class="selectedTab === tab.key
-          ? 'border-[#c9a96e] text-[#c9a96e] bg-amber-50/30'
-          : 'border-transparent text-gray-400 hover:text-gray-600 hover:bg-gray-50'">
-        {{ tab.label }}
-        <span v-if="tab.key === 'tasks' && openTaskCount > 0"
-          class="text-[9px] min-w-[16px] h-4 px-1 rounded-full text-white leading-4 text-center font-bold"
-          style="background:#c9a96e">
-          {{ openTaskCount }}
-        </span>
-      </button>
+    <div class="relative sticky top-0 z-10 bg-white">
+      <div class="flex border-b border-gray-100 overflow-x-auto" style="scrollbar-width:none">
+        <button v-for="tab in availableTabs" :key="tab.key"
+          @click="selectedTab = tab.key"
+          class="flex-shrink-0 text-[11px] px-4 py-2.5 font-medium border-b-2 transition-colors whitespace-nowrap flex items-center gap-1.5"
+          :class="selectedTab === tab.key
+            ? 'border-[#c9a96e] text-[#c9a96e] bg-amber-50/30'
+            : 'border-transparent text-gray-400 hover:text-gray-600 hover:bg-gray-50'">
+          {{ tab.label }}
+          <span v-if="tab.key === 'tasks' && openTaskCount > 0"
+            class="text-[9px] min-w-[16px] h-4 px-1 rounded-full text-white leading-4 text-center font-bold"
+            style="background:#c9a96e">
+            {{ openTaskCount }}
+          </span>
+        </button>
+      </div>
+      <div class="absolute right-0 top-0 bottom-0 w-10 pointer-events-none"
+        style="background:linear-gradient(to right, transparent, white)"></div>
     </div>
 
     <CaseProgressNotes

@@ -33,11 +33,15 @@
     <!-- 總計 -->
     <div class="bg-white rounded-2xl shadow-sm px-4 py-3 border-t-4" style="border-top-color:#c9a96e">
       <div class="text-[11px] text-gray-400 mb-1">總零用金</div>
-      <div class="text-xl font-bold" :class="totalBalance < 10000 ? 'text-red-500' : 'text-gray-800'">
-        ${{ totalBalance.toLocaleString() }}
+      <div class="flex items-baseline gap-1.5 mb-2">
+        <span class="text-xl font-bold" :class="totalBalance < 10000 ? 'text-red-500' : 'text-gray-800'">
+          ${{ totalBalance.toLocaleString() }}
+        </span>
+        <span class="text-xs text-gray-400">/ ${{ totalBudget.toLocaleString() }}</span>
       </div>
-      <div class="text-[10px] mt-1.5" :class="totalBalance < 10000 ? 'text-red-400' : 'text-gray-400'">
-        {{ totalBalance < 10000 ? '⚠ 低於補款門檻' : '正常' }}
+      <div class="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+        <div class="h-full rounded-full transition-all"
+          :style="`width:${Math.min(100, Math.max(0, totalBalance / totalBudget * 100))}%;background:${totalBalance < 10000 ? '#ef4444' : '#c9a96e'}`"></div>
       </div>
     </div>
   </div>
@@ -51,4 +55,5 @@ const bunBalance = computed(() => store.bunBalance)
 const laiBalance = computed(() => store.laiBalance)
 const totalBalance = computed(() => store.totalBalance)
 const settings = computed(() => store.settings)
+const totalBudget = computed(() => settings.value.totalBudget || (settings.value.bunBudget || 30000) + (settings.value.laiBudget || 10000) + 10000)
 </script>

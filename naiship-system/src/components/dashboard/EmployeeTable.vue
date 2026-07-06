@@ -27,6 +27,7 @@
             <th class="text-center px-2 py-2 text-gray-500 font-semibold min-w-[80px]">{{ perfMonthLabel }}加班</th>
             <th class="text-center px-2 py-2 text-gray-500 font-semibold min-w-[90px]">{{ perfMonthLabel }}油資</th>
             <th class="text-center px-2 py-2 text-gray-500 font-semibold min-w-[90px]">{{ perfMonthLabel }}出勤</th>
+            <th class="text-center px-2 py-2 text-gray-500 font-semibold min-w-[70px]">補休餘額</th>
             <th class="text-center px-2 py-2 text-gray-500 font-semibold min-w-[60px]">未成案</th>
             <th v-for="m in months" :key="m" class="text-center px-2 py-2 text-gray-500 font-semibold min-w-[70px]">
               {{ String(m).padStart(2, '0') }}
@@ -66,6 +67,12 @@
                 </span>
               </template>
             </td>
+            <td class="text-center px-2 py-2.5">
+              <template v-if="compensatoryHours(emp.name) > 0">
+                <div class="text-blue-600 font-medium">{{ compensatoryHours(emp.name) }} h</div>
+              </template>
+              <span v-else class="text-gray-300">—</span>
+            </td>
             <td class="text-center px-2 py-2.5 text-gray-500">{{ emp.lostCount }}</td>
             <td v-for="m in months" :key="m" class="text-center px-2 py-2.5">
               <template v-if="emp.monthly[m]?.count">
@@ -89,11 +96,13 @@ import { ref, computed, onMounted } from 'vue'
 import { useCasesStore } from '@/stores/cases'
 import { useWorkLogsStore } from '@/stores/workLogs'
 import { useCalendarEventsStore } from '@/stores/calendarEvents'
+import { useUsersStore } from '@/stores/users'
 
 const props = defineProps({ year: Number })
 const casesStore = useCasesStore()
 const logsStore = useWorkLogsStore()
 const eventsStore = useCalendarEventsStore()
+const usersStore = useUsersStore()
 const selectedRegion = ref('')
 const months = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
 const monthlyKm = ref({})
@@ -160,6 +169,11 @@ async function refreshData() {
     refreshing.value = true
     await loadAll()
     refreshing.value = false
+}
+
+function compensatoryHours(name) {
+    const user = usersStore.users.find(u => u.name === name)
+    return (user?.compensatoryHours || 0) + (user?.compensatoryHolidayHours || 0)
 }
 
 function fuelAmount(km) {

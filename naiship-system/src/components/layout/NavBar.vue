@@ -4,7 +4,7 @@
       <div class="w-7 h-7 rounded flex items-center justify-center font-bold text-xs" style="background:#c9a96e;color:#1e2533">奈</div>
       <span class="hidden sm:inline font-semibold text-sm tracking-wide">奈拾設計 管理系統</span>
     </div>
-    <div class="flex gap-0.5 sm:gap-1 min-w-0">
+    <div class="flex gap-0.5 sm:gap-1 overflow-x-auto flex-shrink min-w-0" style="scrollbar-width:none;-webkit-overflow-scrolling:touch">
       <router-link v-for="item in navItems" :key="item.to" :to="item.to"
         class="px-2 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm text-gray-400 hover:text-white transition-colors relative whitespace-nowrap border-b-2 border-transparent"
         active-class="text-white"

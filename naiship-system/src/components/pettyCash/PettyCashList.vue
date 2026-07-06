@@ -34,7 +34,7 @@
       <!-- 摘要列 -->
       <div class="flex items-center gap-2 sm:gap-3 px-4 py-3 cursor-pointer select-none"
         @click="expanded[entry.id] = !expanded[entry.id]">
-        <span class="text-[11px] text-gray-400 w-16 flex-shrink-0">{{ entry.date }}</span>
+        <span class="text-[11px] text-gray-400 w-10 flex-shrink-0">{{ shortDate(entry.date) }}</span>
         <span class="text-[11px] font-semibold text-white px-2 py-0.5 rounded-full flex-shrink-0"
           :style="`background:${payerColor(entry.payerName)}`">{{ entry.payerName }}</span>
         <span class="text-[11px] px-2 py-0.5 rounded-full flex-shrink-0"
@@ -81,6 +81,24 @@
       </div>
     </div>
 
+    <!-- 篩選小計 -->
+    <div v-if="filtered.length > 0"
+      class="flex items-center justify-between px-4 py-2.5 rounded-xl mt-1 text-xs"
+      style="background:#f8f7f4;border:1px solid #eeebe4">
+      <span class="text-gray-400">{{ filterMonth }} 小計</span>
+      <div class="flex items-center gap-4">
+        <span v-if="filteredStats.expense > 0" class="text-red-500 font-semibold">
+          支出 ${{ filteredStats.expense.toLocaleString() }}
+        </span>
+        <span v-if="filteredStats.topup > 0" class="text-green-600 font-semibold">
+          補款 ${{ filteredStats.topup.toLocaleString() }}
+        </span>
+        <span class="font-bold" :class="filteredStats.net >= 0 ? 'text-gray-700' : 'text-red-600'">
+          淨 {{ filteredStats.net >= 0 ? '+' : '' }}${{ filteredStats.net.toLocaleString() }}
+        </span>
+      </div>
+    </div>
+
     <!-- 圖片預覽 -->
     <div v-if="previewUrl" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
       @click="previewUrl = null">
@@ -108,6 +126,8 @@ const previewUrl = ref(null)
 const today = new Date()
 const filterMonth = ref(`${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`)
 
+defineExpose({ filterMonth })
+
 const monthOptions = computed(() => {
     const months = new Set()
     store.entries.forEach(e => { if (e.date) months.add(e.date.slice(0, 7)) })
@@ -123,8 +143,20 @@ const filtered = computed(() => {
     if (filterPayer.value) list = list.filter(e => e.payerName === filterPayer.value)
     if (filterMonth.value) list = list.filter(e => e.date?.startsWith(filterMonth.value))
     if (filterType.value) list = list.filter(e => e.type === filterType.value)
-    return list
+    return list.sort((a, b) => (b.date || '').localeCompare(a.date || ''))
 })
+
+const filteredStats = computed(() => {
+    const expense = filtered.value.filter(e => e.type === 'expense').reduce((s, e) => s + (e.amount || 0), 0)
+    const topup = filtered.value.filter(e => e.type === 'topup').reduce((s, e) => s + (e.amount || 0), 0)
+    return { expense, topup, net: topup - expense }
+})
+
+function shortDate(dateStr) {
+    if (!dateStr) return ''
+    const [, m, d] = dateStr.split('-')
+    return `${parseInt(m)}/${parseInt(d)}`
+}
 
 function canEdit(entry) {
     if (auth.isAdmin) return true

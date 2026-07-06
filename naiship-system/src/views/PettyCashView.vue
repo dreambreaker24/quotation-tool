@@ -22,7 +22,7 @@
     </div>
 
     <PettyCashOverview />
-    <PettyCashList @edit="openEdit" />
+    <PettyCashList ref="listRef" @edit="openEdit" />
 
     <PettyCashForm v-if="showForm" :entry="editingEntry" @close="closeForm" />
     <PettyCashSettlement v-if="showSettlement" @close="showSettlement = false" />
@@ -42,6 +42,7 @@ const auth = useAuthStore()
 const store = usePettyCashStore()
 const { exportPettyCash } = useExport()
 
+const listRef = ref(null)
 const showForm = ref(false)
 const showSettlement = ref(false)
 const editingEntry = ref(null)
@@ -53,7 +54,7 @@ function openEdit(entry) { editingEntry.value = entry; showForm.value = true }
 function closeForm() { showForm.value = false; editingEntry.value = null }
 
 function doExport() {
-    const ym = new Date().toISOString().slice(0, 7)
+    const ym = listRef.value?.filterMonth || new Date().toISOString().slice(0, 7)
     exportPettyCash(store.entries, ym)
 }
 
