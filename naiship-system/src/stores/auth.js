@@ -9,6 +9,7 @@ export const useAuthStore = defineStore('auth', () => {
   const role = ref(null)
   const companyId = ref(null)
   const name = ref(null)
+  const authReady = ref(false)
 
   const isAdmin = computed(() => role.value === 'admin')
   const isManager = computed(() => role.value === 'manager' || role.value === 'admin')
@@ -54,6 +55,7 @@ export const useAuthStore = defineStore('auth', () => {
       user.value = u
       if (u) await fetchUserProfile(u.uid, u.email)
       else { role.value = null; companyId.value = null; name.value = null }
+      authReady.value = true
       resolveReady()
     })
     getRedirectResult(auth).catch(() => {})
@@ -72,5 +74,5 @@ export const useAuthStore = defineStore('auth', () => {
     await signOut(auth)
   }
 
-  return { user, role, companyId, name, isAdmin, isManager, canViewRegion, readyPromise, init, loginWithGoogle, logout }
+  return { user, role, companyId, name, authReady, isAdmin, isManager, canViewRegion, readyPromise, init, loginWithGoogle, logout }
 })

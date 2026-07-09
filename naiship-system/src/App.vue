@@ -2,6 +2,9 @@
   <template v-if="route.meta.public">
     <router-view />
   </template>
+  <template v-else-if="!authStore.authReady">
+    <AppShellSkeleton />
+  </template>
   <template v-else>
     <NavBar />
     <div class="flex pt-14 min-h-screen" style="background:#f5f4f1">
@@ -25,6 +28,7 @@
 import { watch } from 'vue'
 import { useRoute } from 'vue-router'
 import NavBar from '@/components/layout/NavBar.vue'
+import AppShellSkeleton from '@/components/layout/AppShellSkeleton.vue'
 import { useToast } from '@/composables/useToast'
 import { useAuthStore } from '@/stores/auth'
 import { useVendorsStore } from '@/stores/vendors'
