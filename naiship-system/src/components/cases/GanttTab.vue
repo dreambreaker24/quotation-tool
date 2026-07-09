@@ -158,12 +158,15 @@
   </div>
 
   <!-- Collapse toggle：收合右側詳情面板，把寬度讓給甘特圖，減少橫向捲動距離 -->
-  <button v-if="selectedCaseId" @click="detailCollapsed = !detailCollapsed"
-    class="hidden lg:flex items-center justify-center flex-shrink-0 w-4 rounded-full hover:bg-amber-50 transition-colors"
-    style="align-self:stretch"
-    :title="detailCollapsed ? '展開案件詳情' : '收合案件詳情，讓甘特圖有更多空間'">
-    <span class="text-xs" style="color:#c9a96e">{{ detailCollapsed ? '‹' : '›' }}</span>
-  </button>
+  <div v-if="selectedCaseId"
+    class="hidden lg:flex items-center justify-center flex-shrink-0 w-6 rounded-lg transition-colors"
+    style="align-self:stretch;background:#eeebe4">
+    <button @click="detailCollapsed = !detailCollapsed"
+      class="w-6 h-11 rounded-lg flex items-center justify-center bg-white border border-gray-300 shadow-sm hover:shadow-md hover:border-gray-400 transition-shadow"
+      :title="detailCollapsed ? '展開案件詳情' : '收合案件詳情，讓甘特圖有更多空間'">
+      <span class="text-sm font-bold" style="color:#c9a96e">{{ detailCollapsed ? '‹' : '›' }}</span>
+    </button>
+  </div>
 
   <!-- Case detail panel -->
   <div v-if="selectedCaseId" ref="caseDetailRef"
