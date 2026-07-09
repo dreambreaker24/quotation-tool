@@ -14,8 +14,10 @@ vi.mock('firebase/firestore', () => ({
   onSnapshot: vi.fn((q, cb) => { cb({ docs: [] }); return () => {} }),
   addDoc: vi.fn(() => Promise.resolve({ id: 'new-id' })),
   updateDoc: vi.fn(() => Promise.resolve()),
+  getDocs: vi.fn(() => Promise.resolve({ docs: [] })),
   doc: vi.fn(),
-  serverTimestamp: vi.fn(() => 'ts')
+  serverTimestamp: vi.fn(() => 'ts'),
+  Timestamp: { fromDate: vi.fn(d => d) },
 }))
 
 describe('EmployeeTable', () => {

@@ -16,7 +16,7 @@ export const useAuthStore = defineStore('auth', () => {
   let resolveReady
   const readyPromise = new Promise(resolve => { resolveReady = resolve })
 
-  function canViewRegion() { return true }
+  function canViewRegion(targetCompanyId) { return isManager.value || companyId.value === targetCompanyId }
 
   async function fetchUserProfile(uid, email) {
     try {
