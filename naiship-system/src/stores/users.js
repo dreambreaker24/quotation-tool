@@ -81,9 +81,14 @@ export const useUsersStore = defineStore('users', () => {
         return snap.exists() ? snap.data() : null
     }
 
+    async function getUser(uid) {
+        const snap = await getDoc(doc(db, 'users', uid))
+        return snap.exists() ? { id: snap.id, ...snap.data() } : null
+    }
+
     function cleanup() {
         if (unsubscribe) { unsubscribe(); unsubscribe = null }
     }
 
-    return { users, subscribe, updateUser, adjustCompensatoryHours, adjustCompensatoryHolidayHours, adjustAnnualLeaveHours, ensureMonthClosed, getClosingBalance, cleanup }
+    return { users, subscribe, updateUser, adjustCompensatoryHours, adjustCompensatoryHolidayHours, adjustAnnualLeaveHours, ensureMonthClosed, getClosingBalance, getUser, cleanup }
 })
