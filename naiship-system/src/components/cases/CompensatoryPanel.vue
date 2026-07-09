@@ -6,7 +6,12 @@
     </div>
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
       <div v-for="name in TRACKED" :key="name" class="bg-white rounded-xl px-3 py-3 shadow-sm border border-gray-100 border-t-4" style="border-top-color:#c9a96e">
-        <div class="text-[11px] text-gray-400 mb-2">{{ name }}</div>
+        <div class="flex items-center gap-1.5 mb-2">
+          <span class="text-[11px] text-gray-400">{{ name }}</span>
+          <span v-if="lastMonthTotal(name) !== null" class="text-[10px] text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded-full">
+            上月結餘 {{ lastMonthTotal(name) }}h
+          </span>
+        </div>
 
         <!-- 平日補休 -->
         <div class="flex items-center justify-between mb-1">
@@ -75,12 +80,13 @@
   </div>
 </template>
 <script setup>
-import { ref } from 'vue'
-import { useUsersStore } from '@/stores/users'
+import { ref, watch } from 'vue'
+import { useUsersStore, prevMonthStr } from '@/stores/users'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
 
 const TRACKED = ['蚌', 'Ramy', '昆霖', '賴賴']
+const COMP_FIELDS = ['compensatoryHours', 'compensatoryHolidayHours']
 
 const usersStore = useUsersStore()
 const authStore = useAuthStore()
@@ -90,12 +96,33 @@ const editingName = ref(null)
 const editingField = ref(null)
 const editingLabel = ref('')
 const editHours = ref(0)
+const lastMonthBalances = ref({})
 
 function getHours(name, field) {
     const user = usersStore.users.find(u => u.name === name)
     const val = user?.[field] ?? 0
     return field === 'compensatoryHours' ? +val.toFixed(1) : val
 }
+
+function lastMonthTotal(name) {
+    const b = lastMonthBalances.value[name]
+    if (!b) return null
+    return +(b.weekdayHours + b.holidayHours).toFixed(1)
+}
+
+async function refreshLastMonthBalances() {
+    const month = prevMonthStr(new Date())
+    for (const name of TRACKED) {
+        const user = usersStore.users.find(u => u.name === name)
+        if (!user) continue
+        await usersStore.ensureMonthClosed(user.id)
+        lastMonthBalances.value[name] = await usersStore.getClosingBalance(user.id, month)
+    }
+}
+
+watch(() => usersStore.users.length, (len) => {
+    if (len > 0) refreshLastMonthBalances()
+}, { immediate: true })
 
 function openEdit(name, field, label) {
     editingName.value = name
@@ -108,6 +135,7 @@ async function saveEdit() {
     const user = usersStore.users.find(u => u.name === editingName.value)
     if (!user) { toast('找不到此員工', 'error'); return }
     try {
+        if (COMP_FIELDS.includes(editingField.value)) await usersStore.ensureMonthClosed(user.id)
         await usersStore.updateUser(user.id, { [editingField.value]: editHours.value })
         toast(`${editingLabel.value}時數已更新`)
         editingName.value = null
@@ -121,6 +149,7 @@ async function confirmReset(name, field, label) {
     const user = usersStore.users.find(u => u.name === name)
     if (!user) { toast('找不到此員工', 'error'); return }
     try {
+        if (COMP_FIELDS.includes(field)) await usersStore.ensureMonthClosed(user.id)
         await usersStore.updateUser(user.id, { [field]: 0 })
         toast(`${name} ${label}時數已歸零`)
     } catch {
