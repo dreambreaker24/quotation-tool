@@ -12,6 +12,10 @@ service cloud.firestore {
       allow create: if isAdmin();
       allow update: if isAdmin() || isManager() || (isSignedIn() && request.auth.uid == userId);
       allow delete: if isAdmin() || (isSignedIn() && (request.auth.uid == userId || resource.data.email == request.auth.token.email));
+      match /compClosingBalances/{month} {
+        allow read: if isSignedIn();
+        allow write: if isAdmin() || isManager() || (isSignedIn() && request.auth.uid == userId);
+      }
     }
     match /companies/{companyId} {
       allow read: if isSignedIn();
