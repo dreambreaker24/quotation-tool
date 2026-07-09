@@ -69,7 +69,7 @@
             </td>
             <td class="text-center px-2 py-2.5">
               <template v-if="compensatoryHours(emp.name) > 0">
-                <div class="text-blue-600 font-medium">{{ compensatoryHours(emp.name) }} h</div>
+                <div class="text-blue-600 font-medium">{{ compensatoryHours(emp.name).toFixed(1) }} h</div>
               </template>
               <span v-else class="text-gray-300">—</span>
             </td>

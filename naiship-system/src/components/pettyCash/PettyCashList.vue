@@ -35,9 +35,9 @@
       <div class="flex items-center gap-2 sm:gap-3 px-4 py-3 cursor-pointer select-none"
         @click="expanded[entry.id] = !expanded[entry.id]">
         <span class="text-[11px] text-gray-400 w-10 flex-shrink-0">{{ shortDate(entry.date) }}</span>
-        <span class="text-[11px] font-semibold text-white px-2 py-0.5 rounded-full flex-shrink-0"
+        <span class="text-[11px] font-semibold text-white px-2 py-0.5 rounded-full flex-shrink-0 inline-flex items-center justify-center min-w-[3rem]"
           :style="`background:${payerColor(entry.payerName)}`">{{ entry.payerName }}</span>
-        <span class="text-[11px] px-2 py-0.5 rounded-full flex-shrink-0"
+        <span class="text-[11px] px-2 py-0.5 rounded-full flex-shrink-0 inline-flex items-center justify-center min-w-[2.5rem]"
           :class="TYPE_STYLES[entry.type]">{{ TYPE_LABELS[entry.type] }}</span>
         <span class="text-xs text-gray-500 truncate flex-1 min-w-0">{{ entry.description }}</span>
         <span class="text-sm font-bold flex-shrink-0"

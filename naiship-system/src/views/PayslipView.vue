@@ -131,11 +131,17 @@
             <span class="ps-leave-unit">天</span>
             <span class="ps-leave-result">{{ personalDeductPreview }}</span>
           </div>
+          <div v-if="ytdTotal && auth.isAdmin" class="ps-leave-ytd" :class="{ 'ps-leave-ytd-over': ytdTotal.personalDays > 14 }">
+            本年累計 {{ ytdTotal.personalDays }} / 14 天<span v-if="ytdTotal.personalDays > 14"> ⚠ 超出上限</span>
+          </div>
           <div class="ps-leave-row">
             <span>病假（半薪扣）</span>
             <input type="number" v-model.number="form.sickDays" min="0" step="0.5" @input="calcLeave" placeholder="0">
             <span class="ps-leave-unit">天</span>
             <span class="ps-leave-result">{{ sickDeductPreview }}</span>
+          </div>
+          <div v-if="ytdTotal && auth.isAdmin" class="ps-leave-ytd" :class="{ 'ps-leave-ytd-over': ytdTotal.sickDays > 30 }">
+            本年累計 {{ ytdTotal.sickDays }} / 30 天<span v-if="ytdTotal.sickDays > 30"> ⚠ 超出上限</span>
           </div>
           <div class="ps-leave-row">
             <span>颱風假（全薪扣）</span>
@@ -144,6 +150,9 @@
             <span class="ps-leave-result">{{ typhoonDeductPreview }}</span>
           </div>
           <div class="ps-leave-total">{{ leaveTotalText }}</div>
+          <button v-if="auth.isAdmin && form.empName && hasLeave" @click="recordLeave" :disabled="recording" class="ps-record-btn">
+            {{ recording ? '儲存中…' : '📋 記錄請假' }}
+          </button>
         </div>
 
         <div class="ps-field">
@@ -165,6 +174,14 @@
         <textarea v-model="form.remark" @input="compute" placeholder="例：含業績獎金，請妥善保存" class="ps-textarea"></textarea>
       </div>
 
+      <!-- 下載時記錄請假 -->
+      <div v-if="auth.isAdmin && form.empName && hasLeave" class="ps-dl-record-row">
+        <label class="ps-dl-record-label">
+          <input type="checkbox" v-model="recordOnDownload" class="ps-dl-record-check">
+          下載時同時記錄請假（{{ leavePreviewText }}）
+        </label>
+      </div>
+
       <!-- 按鈕 -->
       <div class="ps-btn-row">
         <button class="ps-btn-primary" :disabled="downloading" @click="downloadJpg">
@@ -173,6 +190,68 @@
         <button class="ps-btn-ghost" @click="resetForm">清空</button>
       </div>
       <div class="ps-btn-note">下載格式：1/3 A4 橫向（1169 × 2480px）</div>
+
+      <!-- 年度請假記錄 -->
+      <div v-if="auth.isAdmin" class="ps-section">
+        <div class="ps-section-label">年度請假記錄</div>
+        <div class="ps-row2" style="margin-bottom:10px">
+          <div class="ps-field">
+            <label>員工</label>
+            <select v-model="histEmp" @change="loadHistory">
+              <option value="">選擇員工</option>
+              <option v-for="e in EMPLOYEES" :key="e.name" :value="e.name">{{ e.name }}</option>
+            </select>
+          </div>
+          <div class="ps-field">
+            <label>年度</label>
+            <div style="display:flex;gap:6px;align-items:center">
+              <select v-model="histYear" @change="loadHistory" style="flex:1">
+                <option v-for="y in histYearOptions" :key="y" :value="y">{{ y }}</option>
+              </select>
+              <button @click="loadHistory" :disabled="!histEmp || histLoading" class="ps-hist-refresh">↻</button>
+            </div>
+          </div>
+        </div>
+        <template v-if="histEmp && histRecord !== null">
+          <template v-if="sortedHistRecords.length">
+            <div v-if="histSummary.personalDays > 0" class="ps-hist-bar-row">
+              <span class="ps-hist-label">事假</span>
+              <div class="ps-hist-track">
+                <div class="ps-hist-fill" :style="`width:${Math.min(histSummary.personalDays/14*100,100)}%;background:#f59e0b`"></div>
+              </div>
+              <span class="ps-hist-count" :class="{ 'ps-hist-over': histSummary.personalDays > 14 }">{{ histSummary.personalDays }} / 14 天</span>
+            </div>
+            <div v-if="histSummary.sickDays > 0" class="ps-hist-bar-row">
+              <span class="ps-hist-label">病假</span>
+              <div class="ps-hist-track">
+                <div class="ps-hist-fill" :style="`width:${Math.min(histSummary.sickDays/30*100,100)}%;background:#3b82f6`"></div>
+              </div>
+              <span class="ps-hist-count" :class="{ 'ps-hist-over': histSummary.sickDays > 30 }">{{ histSummary.sickDays }} / 30 天</span>
+            </div>
+            <div v-if="histSummary.typhoonDays > 0" class="ps-hist-bar-row">
+              <span class="ps-hist-label">颱風假</span>
+              <div class="ps-hist-track">
+                <div class="ps-hist-fill" :style="`width:100%;background:#8b5cf6`"></div>
+              </div>
+              <span class="ps-hist-count">{{ histSummary.typhoonDays }} 天</span>
+            </div>
+            <table class="ps-hist-table">
+              <thead><tr><th>月份</th><th>事假</th><th>病假</th><th>颱風假</th><th></th></tr></thead>
+              <tbody>
+                <tr v-for="r in sortedHistRecords" :key="r.month">
+                  <td>{{ r.month }}</td>
+                  <td>{{ r.personalDays || '—' }}</td>
+                  <td>{{ r.sickDays || '—' }}</td>
+                  <td>{{ r.typhoonDays || '—' }}</td>
+                  <td><button @click="deleteHistRecord(r.month)" class="ps-hist-del">刪除</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </template>
+          <div v-else class="ps-hist-empty">{{ histYear }} 年無請假記錄</div>
+        </template>
+        <div v-else-if="histLoading" class="ps-hist-empty">載入中…</div>
+      </div>
     </div>
 
     <!-- 右側預覽 -->
@@ -321,12 +400,25 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import html2canvas from 'html2canvas'
+import { useLeaveRecordsStore } from '@/stores/leaveRecords'
+import { useAuthStore } from '@/stores/auth'
+import { useToast } from '@/composables/useToast'
 
 const slipEl = ref(null)
 const downloading = ref(false)
 const autoIns = ref(false)
+const auth = useAuthStore()
+const leaveStore = useLeaveRecordsStore()
+const { toast } = useToast()
+const ytdRecord = ref(null)
+const ytdLoading = ref(false)
+const recording = ref(false)
+const histEmp = ref('')
+const histYear = ref(new Date().getFullYear())
+const histRecord = ref(null)
+const histLoading = ref(false)
 
 /* ── 員工清單 ── */
 const EMPLOYEES = [
@@ -474,6 +566,97 @@ const leaveTotalText = computed(() => {
 
 function calcLeave() { compute() }
 
+/* ── 年度累積請假 ── */
+const currentYear = computed(() => {
+    const [y] = (form.value.payMonth || '').split('-')
+    return y ? parseInt(y) : new Date().getFullYear()
+})
+
+const ytdSummaryExcludingMonth = computed(() => {
+    if (!ytdRecord.value || !form.value.empName) return null
+    const month = form.value.payMonth
+    const recs = (ytdRecord.value.records ?? []).filter(r => r.month !== month)
+    return {
+        sickDays: recs.reduce((s, r) => s + (r.sickDays || 0), 0),
+        personalDays: recs.reduce((s, r) => s + (r.personalDays || 0), 0),
+        typhoonDays: recs.reduce((s, r) => s + (r.typhoonDays || 0), 0),
+    }
+})
+
+const ytdTotal = computed(() => {
+    if (!ytdSummaryExcludingMonth.value) return null
+    return {
+        sickDays: ytdSummaryExcludingMonth.value.sickDays + (form.value.sickDays || 0),
+        personalDays: ytdSummaryExcludingMonth.value.personalDays + (form.value.personalDays || 0),
+        typhoonDays: ytdSummaryExcludingMonth.value.typhoonDays + (form.value.typhoonDays || 0),
+    }
+})
+
+const hasLeave = computed(() =>
+    (form.value.personalDays || 0) > 0 || (form.value.sickDays || 0) > 0 || (form.value.typhoonDays || 0) > 0
+)
+
+const recordOnDownload = ref(true)
+
+const leavePreviewText = computed(() => {
+    const parts = []
+    if ((form.value.personalDays || 0) > 0) parts.push(`事假 ${form.value.personalDays} 天`)
+    if ((form.value.sickDays || 0) > 0) parts.push(`病假 ${form.value.sickDays} 天`)
+    if ((form.value.typhoonDays || 0) > 0) parts.push(`颱風假 ${form.value.typhoonDays} 天`)
+    return parts.join('、')
+})
+
+async function fetchYtd() {
+    if (!form.value.empName) { ytdRecord.value = null; return }
+    ytdLoading.value = true
+    ytdRecord.value = await leaveStore.fetchRecord(currentYear.value, form.value.empName)
+    ytdLoading.value = false
+}
+
+watch(() => [form.value.empName, currentYear.value], fetchYtd, { immediate: true })
+
+async function recordLeave() {
+    if (!form.value.empName || !hasLeave.value) return
+    recording.value = true
+    try {
+        await leaveStore.saveRecord(
+            currentYear.value,
+            form.value.empName,
+            form.value.payMonth,
+            { sickDays: form.value.sickDays || 0, personalDays: form.value.personalDays || 0, typhoonDays: form.value.typhoonDays || 0 },
+            auth.name
+        )
+        await fetchYtd()
+        if (histEmp.value === form.value.empName && histYear.value === currentYear.value) {
+            await loadHistory()
+        }
+        toast('請假記錄已儲存')
+    } catch {
+        toast('儲存失敗', 'error')
+    }
+    recording.value = false
+}
+
+const histYearOptions = computed(() => { const y = new Date().getFullYear(); return [y, y - 1, y - 2] })
+const histSummary = computed(() => leaveStore.summarize(histRecord.value))
+const sortedHistRecords = computed(() =>
+    [...(histRecord.value?.records ?? [])].sort((a, b) => a.month.localeCompare(b.month))
+)
+
+async function loadHistory() {
+    if (!histEmp.value) { histRecord.value = null; return }
+    histLoading.value = true
+    histRecord.value = await leaveStore.fetchRecord(histYear.value, histEmp.value)
+    histLoading.value = false
+}
+
+async function deleteHistRecord(month) {
+    if (!confirm(`確定刪除 ${month} 的請假記錄？`)) return
+    await leaveStore.deleteMonthRecord(histYear.value, histEmp.value, month)
+    await loadHistory()
+    toast('已刪除')
+}
+
 /* ── 合計 ── */
 const totalAdd = computed(() =>
     (form.value.base || 0) + (form.value.otWeekday || 0) + (form.value.otHoliday || 0)
@@ -507,6 +690,7 @@ function compute() {
 async function downloadJpg() {
     if (!slipEl.value) return
     downloading.value = true
+    let fileSaved = false
     try {
         const outW = 1169, outH = 2480
         const renderScale = outW / slipEl.value.offsetWidth
@@ -593,6 +777,7 @@ async function downloadJpg() {
                 const writable = await handle.createWritable()
                 await writable.write(blob)
                 await writable.close()
+                fileSaved = true
             } catch (err) {
                 if (err.name !== 'AbortError') throw err
             }
@@ -601,9 +786,13 @@ async function downloadJpg() {
             const a = document.createElement('a')
             a.download = filename; a.href = url; a.click()
             URL.revokeObjectURL(url)
+            fileSaved = true
         }
     } catch (e) {
         alert('生成失敗：' + e.message)
+    }
+    if (fileSaved && recordOnDownload.value && hasLeave.value && auth.isAdmin && form.value.empName) {
+        await recordLeave()
     }
     downloading.value = false
 }
@@ -651,6 +840,34 @@ async function downloadJpg() {
 .ps-ot-row input:focus { border-color:#c9a96e; outline:none; }
 
 /* ── 請假試算 ── */
+.ps-leave-ytd { font-size:10px; color:#9ca3af; padding:0 0 5px 96px; margin-top:-3px; }
+.ps-leave-ytd-over { color:#ef4444; font-weight:600; }
+.ps-record-btn {
+    display:block; width:100%; margin-top:8px;
+    background:linear-gradient(135deg,#c9a96e,#b8955a); color:#fff;
+    border:none; border-radius:8px; padding:7px 0; font-size:11px; font-weight:600;
+    cursor:pointer; letter-spacing:0.5px;
+}
+.ps-record-btn:disabled { opacity:0.5; cursor:not-allowed; }
+.ps-hist-bar-row { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+.ps-hist-label { font-size:10px; color:#6b7280; width:36px; flex-shrink:0; }
+.ps-hist-track { flex:1; height:6px; background:#f3f4f6; border-radius:3px; overflow:hidden; }
+.ps-hist-fill { height:100%; border-radius:3px; transition:width 0.3s; }
+.ps-hist-count { font-size:10px; color:#374151; width:52px; text-align:right; flex-shrink:0; }
+.ps-hist-over { color:#ef4444; font-weight:700; }
+.ps-hist-table { width:100%; font-size:11px; border-collapse:collapse; margin-top:10px; }
+.ps-hist-table th { text-align:center; color:#9ca3af; padding:4px 6px; border-bottom:1px solid #ebe9e3; font-weight:600; }
+.ps-hist-table td { text-align:center; color:#374151; padding:5px 6px; border-bottom:1px solid #f3f4f6; }
+.ps-hist-table td:first-child { text-align:left; color:#6b7280; }
+.ps-hist-del { font-size:10px; color:#ef4444; background:none; border:1px solid #fecaca; border-radius:4px; padding:2px 6px; cursor:pointer; }
+.ps-hist-del:hover { background:#fef2f2; }
+.ps-hist-empty { font-size:11px; color:#9ca3af; text-align:center; padding:16px 0; }
+.ps-dl-record-row { padding:8px 20px 0; }
+.ps-dl-record-label { display:flex; align-items:center; gap:7px; font-size:11px; color:#6b7280; cursor:pointer; }
+.ps-dl-record-check { width:14px; height:14px; accent-color:#c9a96e; cursor:pointer; flex-shrink:0; }
+.ps-hist-refresh { font-size:13px; color:#9ca3af; background:none; border:1px solid #e5e7eb; border-radius:6px; padding:3px 8px; cursor:pointer; flex-shrink:0; }
+.ps-hist-refresh:hover:not(:disabled) { border-color:#c9a96e; color:#c9a96e; }
+.ps-hist-refresh:disabled { opacity:0.4; cursor:not-allowed; }
 .ps-leave-block {
     background:#f8f7f4; border:1px solid #eeebe4; border-radius:7px;
     padding:10px 12px; margin-bottom:8px;

@@ -105,5 +105,8 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow write: if isAdmin();
     }
+    match /leaveRecords/{docId} {
+      allow read, write: if isAdmin();
+    }
   }
 }
