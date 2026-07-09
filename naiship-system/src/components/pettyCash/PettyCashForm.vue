@@ -74,9 +74,9 @@
           <label class="text-xs text-gray-500 mb-1 block">關聯案件（選填）</label>
           <select v-model="caseSelect"
             class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-gray-300">
-            <option value="">（不指定）</option>
             <option value="naiship">奈拾設計</option>
-            <option v-for="c in casesStore.cases" :key="c.id" :value="c.id">{{ c.name }}</option>
+            <option value="boyan">柏延</option>
+            <option v-for="c in activeCaseOptions" :key="c.id" :value="c.id">{{ c.name }}</option>
             <option value="manual">手動輸入</option>
           </select>
           <input v-if="caseSelect === 'manual'" v-model="form.linkedCaseName"
@@ -198,8 +198,8 @@ const form = ref({
     amount: 0,
     description: '',
     category: '材料費',
-    linkedCase: '',
-    linkedCaseName: '',
+    linkedCase: 'naiship',
+    linkedCaseName: '奈拾設計',
     receiptType: 'none',
     receiptImages: [],
     workerName: '',
@@ -210,7 +210,9 @@ const form = ref({
 })
 
 const categorySelect = ref('材料費')
-const caseSelect = ref('')
+const caseSelect = ref('naiship')
+const ACTIVE_CASE_STATUSES = ['drafting', 'construction', 'pending_settlement', 'aftercare']
+const activeCaseOptions = computed(() => casesStore.cases.filter(c => ACTIVE_CASE_STATUSES.includes(c.status)))
 
 watch(() => props.entry, (e) => {
     if (!e) return
@@ -219,6 +221,8 @@ watch(() => props.entry, (e) => {
     categorySelect.value = CATEGORIES.includes(e.category) ? e.category : '其他'
     if (e.linkedCase === 'naiship') {
         caseSelect.value = 'naiship'
+    } else if (e.linkedCase === 'boyan') {
+        caseSelect.value = 'boyan'
     } else if (e.linkedCase) {
         const found = casesStore.cases.find(c => c.id === e.linkedCase)
         caseSelect.value = found ? e.linkedCase : 'manual'
@@ -230,10 +234,10 @@ watch(categorySelect, v => {
 })
 
 watch(caseSelect, v => {
-    if (v === '') {
-        form.value.linkedCase = ''; form.value.linkedCaseName = ''
-    } else if (v === 'naiship') {
+    if (v === 'naiship') {
         form.value.linkedCase = 'naiship'; form.value.linkedCaseName = '奈拾設計'
+    } else if (v === 'boyan') {
+        form.value.linkedCase = 'boyan'; form.value.linkedCaseName = '柏延'
     } else if (v === 'manual') {
         form.value.linkedCase = ''
     } else {
