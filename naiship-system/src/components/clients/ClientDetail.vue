@@ -13,17 +13,17 @@
 
       <!-- 檢視模式 -->
       <div v-if="!editing" class="grid grid-cols-2 gap-4 text-sm">
-        <div><span class="text-gray-400 text-xs block mb-0.5">電話</span><p class="text-gray-700">{{ client.phone || '—' }}</p></div>
-        <div><span class="text-gray-400 text-xs block mb-0.5">Email</span><p class="text-gray-700">{{ client.email || '—' }}</p></div>
-        <div><span class="text-gray-400 text-xs block mb-0.5">Line ID</span><p class="text-gray-700">{{ client.lineId || '—' }}</p></div>
-        <div><span class="text-gray-400 text-xs block mb-0.5">地址</span><p class="text-gray-700">{{ client.address || '—' }}</p></div>
-        <div><span class="text-gray-400 text-xs block mb-0.5">來源</span><p class="text-gray-700">{{ client.source || '—' }}</p></div>
-        <div><span class="text-gray-400 text-xs block mb-0.5">預算</span><p class="text-gray-700">{{ client.budget ? `$${client.budget.toLocaleString()}` : '—' }}</p></div>
-        <div><span class="text-gray-400 text-xs block mb-0.5">坪數</span><p class="text-gray-700">{{ client.area ? `${client.area} 坪` : '—' }}</p></div>
+        <div><span class="text-gray-400 text-xs block mb-0.5">電話</span><p :class="client.phone ? 'text-gray-700' : 'text-gray-300 italic'">{{ client.phone || '尚未填寫' }}</p></div>
+        <div><span class="text-gray-400 text-xs block mb-0.5">Email</span><p :class="client.email ? 'text-gray-700' : 'text-gray-300 italic'">{{ client.email || '尚未填寫' }}</p></div>
+        <div><span class="text-gray-400 text-xs block mb-0.5">Line ID</span><p :class="client.lineId ? 'text-gray-700' : 'text-gray-300 italic'">{{ client.lineId || '尚未填寫' }}</p></div>
+        <div><span class="text-gray-400 text-xs block mb-0.5">地址</span><p :class="client.address ? 'text-gray-700' : 'text-gray-300 italic'">{{ client.address || '尚未填寫' }}</p></div>
+        <div><span class="text-gray-400 text-xs block mb-0.5">來源</span><p :class="client.source ? 'text-gray-700' : 'text-gray-300 italic'">{{ client.source || '尚未填寫' }}</p></div>
+        <div><span class="text-gray-400 text-xs block mb-0.5">預算</span><p :class="client.budget ? 'text-gray-700' : 'text-gray-300 italic'">{{ client.budget ? `$${client.budget.toLocaleString()}` : '尚未填寫' }}</p></div>
+        <div><span class="text-gray-400 text-xs block mb-0.5">坪數</span><p :class="client.area ? 'text-gray-700' : 'text-gray-300 italic'">{{ client.area ? `${client.area} 坪` : '尚未填寫' }}</p></div>
         <div>
           <span class="text-gray-400 text-xs block mb-0.5">下次跟進</span>
           <div class="flex items-center gap-2">
-            <p class="text-gray-700">{{ client.followUpDate || '—' }}</p>
+            <p :class="client.followUpDate ? 'text-gray-700' : 'text-gray-300 italic'">{{ client.followUpDate || '尚未填寫' }}</p>
             <button v-if="client.followUpDate" @click="addToCalendar" :disabled="addingToCalendar"
               class="text-[10px] border border-purple-200 rounded px-1.5 py-0.5 text-purple-600 hover:bg-purple-50 disabled:opacity-50">
               {{ addingToCalendar ? '…' : '＋行事曆' }}
@@ -51,15 +51,15 @@
                 :style="`background:${CASE_STATUS_COLORS[c.status] ?? '#3b82f6'}`">{{ caseStatusLabel(c.status) }}</span>
             </div>
           </div>
-          <p v-else class="text-gray-400">—</p>
+          <p v-else class="text-gray-300 italic">尚未連結案件</p>
         </div>
         <div v-if="client.status === 'lost'" class="col-span-2">
           <span class="text-gray-400 text-xs block mb-0.5">流失原因</span>
-          <p class="text-gray-700">{{ client.lostReason || '—' }}</p>
+          <p :class="client.lostReason ? 'text-gray-700' : 'text-gray-300 italic'">{{ client.lostReason || '尚未填寫' }}</p>
         </div>
         <div class="col-span-2">
           <span class="text-gray-400 text-xs block mb-0.5">備注</span>
-          <p class="text-gray-700 text-sm whitespace-pre-wrap">{{ client.memo || '—' }}</p>
+          <p :class="client.memo ? 'text-gray-700' : 'text-gray-300 italic'" class="text-sm whitespace-pre-wrap">{{ client.memo || '尚未填寫' }}</p>
         </div>
       </div>
 
