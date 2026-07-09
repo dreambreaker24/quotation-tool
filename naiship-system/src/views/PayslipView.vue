@@ -33,7 +33,12 @@
         <div class="ps-row2">
           <div class="ps-field">
             <label>員工姓名</label>
-            <input type="text" v-model="form.empName" @input="compute">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span v-if="form.empName"
+                style="width:24px;height:24px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700"
+                :style="`background:${memberColor(form.empName)}`">{{ form.empName[0] }}</span>
+              <input type="text" v-model="form.empName" @input="compute" style="flex:1">
+            </div>
           </div>
           <div class="ps-field">
             <label>職稱</label>
@@ -405,6 +410,7 @@ import html2canvas from 'html2canvas'
 import { useLeaveRecordsStore } from '@/stores/leaveRecords'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
+import { memberColor } from '@/utils/memberColor'
 
 const slipEl = ref(null)
 const downloading = ref(false)

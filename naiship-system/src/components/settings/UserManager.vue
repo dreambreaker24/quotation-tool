@@ -55,7 +55,7 @@
           <td class="px-4 py-2.5">
             <div class="flex items-center gap-2">
               <span class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
-                :style="`background:${empColor(u.name)}`">{{ u.name?.[0] ?? '?' }}</span>
+                :style="`background:${memberColor(u.name)}`">{{ u.name?.[0] ?? '?' }}</span>
               <span class="font-medium text-gray-800">{{ u.name }}</span>
             </div>
           </td>
@@ -90,6 +90,7 @@
 import { ref, onMounted } from 'vue'
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/firebase'
+import { memberColor } from '@/utils/memberColor'
 
 const users = ref([])
 const showForm = ref(false)
@@ -115,15 +116,6 @@ function roleLabel(r) { return roleMap[r] ?? r }
 function roleClass(r) { return roleClassMap[r] ?? '' }
 function regionLabel(c) { return regionMap[c] ?? c }
 
-const MEMBER_COLORS = { '柏': '#c9a96e', '其宏': '#1f2937', '蚌': '#ef4444' }
-function empColor(name) {
-    if (!name) return '#9ca3af'
-    if (MEMBER_COLORS[name]) return MEMBER_COLORS[name]
-    let hash = 0
-    for (let i = 0; i < name.length; i++) hash += name.charCodeAt(i)
-    const fallback = ['#a855f7', '#3b82f6', '#22c55e', '#f59e0b', '#14b8a6', '#f97316']
-    return fallback[hash % fallback.length]
-}
 
 async function loadUsers() {
     const snap = await getDocs(collection(db, 'users'))
