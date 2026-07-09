@@ -70,15 +70,25 @@
         </div>
 
         <!-- 關聯案件 -->
-        <div>
+        <div style="position:relative">
           <label class="text-xs text-gray-500 mb-1 block">關聯案件（選填）</label>
-          <select v-model="caseSelect"
+          <input v-model="caseSearchText" type="text" placeholder="搜尋案件名稱，或選下方固定選項"
+            @focus="showCaseDropdown = true"
+            @blur="setTimeout(() => showCaseDropdown = false, 150)"
             class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-gray-300">
-            <option value="naiship">奈拾設計</option>
-            <option value="boyan">柏延</option>
-            <option v-for="c in activeCaseOptions" :key="c.id" :value="c.id">{{ c.name }}</option>
-            <option value="manual">手動輸入</option>
-          </select>
+          <div v-if="showCaseDropdown"
+            class="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-56 overflow-y-auto">
+            <div @mousedown.prevent="selectFixedOption('naiship', '奈拾設計')"
+              class="px-3 py-2 text-sm hover:bg-gray-50 cursor-pointer border-b border-gray-50">奈拾設計</div>
+            <div @mousedown.prevent="selectFixedOption('boyan', '柏延')"
+              class="px-3 py-2 text-sm hover:bg-gray-50 cursor-pointer border-b border-gray-50">柏延</div>
+            <div v-for="c in filteredCaseOptions" :key="c.id"
+              @mousedown.prevent="selectCase(c.id, c.name)"
+              class="px-3 py-2 text-sm hover:bg-gray-50 cursor-pointer">{{ c.name }}</div>
+            <div v-if="!filteredCaseOptions.length" class="px-3 py-2 text-xs text-gray-400">沒有符合的案件</div>
+            <div @mousedown.prevent="selectFixedOption('manual', '手動輸入')"
+              class="px-3 py-2 text-sm hover:bg-gray-50 cursor-pointer border-t border-gray-100 text-gray-500">手動輸入</div>
+          </div>
           <input v-if="caseSelect === 'manual'" v-model="form.linkedCaseName"
             type="text" placeholder="輸入案件名稱"
             class="mt-2 w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-gray-300">
@@ -211,8 +221,29 @@ const form = ref({
 
 const categorySelect = ref('材料費')
 const caseSelect = ref('naiship')
+const caseSearchText = ref('奈拾設計')
 const ACTIVE_CASE_STATUSES = ['drafting', 'construction', 'pending_settlement', 'aftercare']
 const activeCaseOptions = computed(() => casesStore.cases.filter(c => ACTIVE_CASE_STATUSES.includes(c.status)))
+
+const showCaseDropdown = ref(false)
+
+const filteredCaseOptions = computed(() => {
+    const q = caseSearchText.value.trim()
+    if (!q) return activeCaseOptions.value
+    return activeCaseOptions.value.filter(c => c.name.includes(q))
+})
+
+function selectCase(id, name) {
+    caseSelect.value = id
+    caseSearchText.value = name
+    showCaseDropdown.value = false
+}
+
+function selectFixedOption(value, label) {
+    caseSelect.value = value
+    caseSearchText.value = label
+    showCaseDropdown.value = false
+}
 
 watch(() => props.entry, (e) => {
     if (!e) return
@@ -221,11 +252,14 @@ watch(() => props.entry, (e) => {
     categorySelect.value = CATEGORIES.includes(e.category) ? e.category : '其他'
     if (e.linkedCase === 'naiship') {
         caseSelect.value = 'naiship'
+        caseSearchText.value = '奈拾設計'
     } else if (e.linkedCase === 'boyan') {
         caseSelect.value = 'boyan'
+        caseSearchText.value = '柏延'
     } else if (e.linkedCase) {
         const found = casesStore.cases.find(c => c.id === e.linkedCase)
         caseSelect.value = found ? e.linkedCase : 'manual'
+        caseSearchText.value = found ? found.name : '手動輸入'
     }
 }, { immediate: true })
 
