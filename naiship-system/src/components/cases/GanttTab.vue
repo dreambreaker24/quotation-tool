@@ -1,6 +1,6 @@
 <template>
   <div class="lg:flex lg:items-start lg:gap-4">
-  <div class="lg:flex-1 lg:min-w-0">
+  <div :class="panelMode === 'detailFull' ? 'lg:hidden' : 'lg:flex-1 lg:min-w-0'">
   <div class="bg-white rounded-2xl shadow-md overflow-hidden">
     <!-- 狀態篩選 chips -->
     <div class="px-4 py-2 border-b border-gray-100 flex items-center gap-1.5 flex-wrap">
@@ -157,21 +157,28 @@
   </div>
   </div>
 
-  <!-- Collapse toggle：收合右側詳情面板，把寬度讓給甘特圖，減少橫向捲動距離 -->
+  <!-- Collapse toggle：左右兩顆按鈕，各自負責讓其中一側全展開 -->
   <div v-if="selectedCaseId"
-    class="hidden lg:flex items-center justify-center flex-shrink-0 w-6 rounded-lg transition-colors"
+    class="hidden lg:flex lg:flex-col items-center justify-center gap-1.5 flex-shrink-0 w-6 rounded-lg transition-colors"
     style="align-self:stretch;background:#eeebe4">
-    <button @click="detailCollapsed = !detailCollapsed"
-      class="w-6 h-11 rounded-lg flex items-center justify-center bg-white border border-gray-300 shadow-sm hover:shadow-md hover:border-gray-400 transition-shadow"
-      :title="detailCollapsed ? '展開案件詳情' : '收合案件詳情，讓甘特圖有更多空間'">
-      <span class="text-sm font-bold" style="color:#c9a96e">{{ detailCollapsed ? '‹' : '›' }}</span>
+    <button @click="panelMode = panelMode === 'ganttFull' ? 'both' : 'ganttFull'"
+      class="w-6 h-9 rounded-lg flex items-center justify-center bg-white border shadow-sm hover:shadow-md transition-shadow"
+      :class="panelMode === 'ganttFull' ? 'border-amber-400' : 'border-gray-300 hover:border-gray-400'"
+      :title="panelMode === 'ganttFull' ? '恢復左右並排' : '甘特圖全展開'">
+      <span class="text-sm font-bold" style="color:#c9a96e">{{ panelMode === 'ganttFull' ? '›' : '«' }}</span>
+    </button>
+    <button @click="panelMode = panelMode === 'detailFull' ? 'both' : 'detailFull'"
+      class="w-6 h-9 rounded-lg flex items-center justify-center bg-white border shadow-sm hover:shadow-md transition-shadow"
+      :class="panelMode === 'detailFull' ? 'border-amber-400' : 'border-gray-300 hover:border-gray-400'"
+      :title="panelMode === 'detailFull' ? '恢復左右並排' : '案件詳情全展開'">
+      <span class="text-sm font-bold" style="color:#c9a96e">{{ panelMode === 'detailFull' ? '‹' : '»' }}</span>
     </button>
   </div>
 
   <!-- Case detail panel -->
   <div v-if="selectedCaseId" ref="caseDetailRef"
     class="mt-3 lg:mt-0 lg:sticky lg:top-0 lg:max-h-[calc(100vh-150px)] lg:overflow-y-auto bg-white rounded-2xl shadow-md"
-    :class="detailCollapsed ? 'lg:w-0 lg:opacity-0 lg:pointer-events-none lg:overflow-hidden' : 'lg:w-[640px] lg:flex-shrink-0'">
+    :class="panelMode === 'ganttFull' ? 'lg:w-0 lg:opacity-0 lg:pointer-events-none lg:overflow-hidden' : panelMode === 'detailFull' ? 'lg:flex-1' : 'lg:w-[640px] lg:flex-shrink-0'">
 
     <!-- Action bar -->
     <div class="px-4 pt-3 pb-2 border-b border-amber-100 bg-amber-50/40 rounded-t-2xl">
@@ -283,7 +290,7 @@ const expandedCaseName = ref('')
 const selectedCaseId = ref(null)
 const selectedCaseName = ref('')
 const selectedCaseCompanyId = ref('')
-const detailCollapsed = ref(false)
+const panelMode = ref('both') // 'both' | 'ganttFull' | 'detailFull'
 const editingCaseId = ref(null)
 const selectedTab = ref('worktype')
 const todayDate = new Date().getDate()
