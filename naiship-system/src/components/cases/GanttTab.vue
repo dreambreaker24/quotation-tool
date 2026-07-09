@@ -157,8 +157,18 @@
   </div>
   </div>
 
+  <!-- Collapse toggle：收合右側詳情面板，把寬度讓給甘特圖，減少橫向捲動距離 -->
+  <button v-if="selectedCaseId" @click="detailCollapsed = !detailCollapsed"
+    class="hidden lg:flex items-center justify-center flex-shrink-0 w-4 rounded-full hover:bg-amber-50 transition-colors"
+    style="align-self:stretch"
+    :title="detailCollapsed ? '展開案件詳情' : '收合案件詳情，讓甘特圖有更多空間'">
+    <span class="text-xs" style="color:#c9a96e">{{ detailCollapsed ? '‹' : '›' }}</span>
+  </button>
+
   <!-- Case detail panel -->
-  <div v-if="selectedCaseId" ref="caseDetailRef" class="mt-3 lg:mt-0 lg:w-[640px] lg:flex-shrink-0 lg:sticky lg:top-0 lg:max-h-[calc(100vh-150px)] lg:overflow-y-auto bg-white rounded-2xl shadow-md">
+  <div v-if="selectedCaseId" ref="caseDetailRef"
+    class="mt-3 lg:mt-0 lg:sticky lg:top-0 lg:max-h-[calc(100vh-150px)] lg:overflow-y-auto bg-white rounded-2xl shadow-md"
+    :class="detailCollapsed ? 'lg:w-0 lg:opacity-0 lg:pointer-events-none lg:overflow-hidden' : 'lg:w-[640px] lg:flex-shrink-0'">
 
     <!-- Action bar -->
     <div class="px-4 pt-3 pb-2 border-b border-amber-100 bg-amber-50/40 rounded-t-2xl">
@@ -270,6 +280,7 @@ const expandedCaseName = ref('')
 const selectedCaseId = ref(null)
 const selectedCaseName = ref('')
 const selectedCaseCompanyId = ref('')
+const detailCollapsed = ref(false)
 const editingCaseId = ref(null)
 const selectedTab = ref('worktype')
 const todayDate = new Date().getDate()
