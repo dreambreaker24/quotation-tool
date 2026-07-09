@@ -1,4 +1,6 @@
 <template>
+  <div class="lg:flex lg:items-start lg:gap-4">
+  <div class="lg:flex-1 lg:min-w-0">
   <div class="bg-white rounded-2xl shadow-md overflow-hidden">
     <!-- 狀態篩選 chips -->
     <div class="px-4 py-2 border-b border-gray-100 flex items-center gap-1.5 flex-wrap">
@@ -153,9 +155,10 @@
       </div>
     </div>
   </div>
+  </div>
 
   <!-- Case detail panel -->
-  <div v-if="selectedCaseId" ref="caseDetailRef" class="mt-3 bg-white rounded-2xl shadow-md">
+  <div v-if="selectedCaseId" ref="caseDetailRef" class="mt-3 lg:mt-0 lg:w-[640px] lg:flex-shrink-0 lg:sticky lg:top-0 lg:max-h-[calc(100vh-150px)] lg:overflow-y-auto bg-white rounded-2xl shadow-md">
 
     <!-- Action bar -->
     <div class="px-4 pt-3 pb-2 border-b border-amber-100 bg-amber-50/40 rounded-t-2xl">
@@ -216,6 +219,7 @@
     <PhotoUpload v-if="selectedTab === 'photo'" :case-id="selectedCaseId" :case-name="selectedCaseName" :company-id="selectedCaseCompanyId" />
     <CaseTasks v-if="selectedTab === 'tasks'" :case-id="selectedCaseId" :case-name="selectedCaseName" :company-id="selectedCaseCompanyId" />
     <CaseReview v-if="selectedTab === 'review'" :key="`review-${selectedCaseId}`" :case-id="selectedCaseId" :case-name="selectedCaseName" :company-id="selectedCaseCompanyId" />
+  </div>
   </div>
 
   <!-- Case edit modal -->
