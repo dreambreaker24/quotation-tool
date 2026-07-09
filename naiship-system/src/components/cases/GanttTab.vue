@@ -157,21 +157,22 @@
   </div>
   </div>
 
-  <!-- Collapse toggle：左右兩顆按鈕，各自負責讓其中一側全展開 -->
+  <!-- Collapse toggle：左右兩顆按鈕，各自負責讓其中一側全展開。
+       箭頭方向照直覺對應：往左的箭頭＝右側（案件詳情）要展開，往右的箭頭＝左側（甘特圖）要展開 -->
   <div v-if="selectedCaseId"
-    class="hidden lg:flex lg:flex-col items-center justify-center gap-1.5 flex-shrink-0 w-6 rounded-lg transition-colors"
+    class="hidden lg:flex lg:flex-col items-center justify-start gap-1.5 flex-shrink-0 w-6 rounded-lg transition-colors pt-16"
     style="align-self:stretch;background:#eeebe4">
     <button @click="panelMode = panelMode === 'ganttFull' ? 'both' : 'ganttFull'"
       class="w-6 h-9 rounded-lg flex items-center justify-center bg-white border shadow-sm hover:shadow-md transition-shadow"
       :class="panelMode === 'ganttFull' ? 'border-amber-400' : 'border-gray-300 hover:border-gray-400'"
       :title="panelMode === 'ganttFull' ? '恢復左右並排' : '甘特圖全展開'">
-      <span class="text-sm font-bold" style="color:#c9a96e">{{ panelMode === 'ganttFull' ? '›' : '«' }}</span>
+      <span class="text-sm font-bold" style="color:#c9a96e">»</span>
     </button>
     <button @click="panelMode = panelMode === 'detailFull' ? 'both' : 'detailFull'"
       class="w-6 h-9 rounded-lg flex items-center justify-center bg-white border shadow-sm hover:shadow-md transition-shadow"
       :class="panelMode === 'detailFull' ? 'border-amber-400' : 'border-gray-300 hover:border-gray-400'"
       :title="panelMode === 'detailFull' ? '恢復左右並排' : '案件詳情全展開'">
-      <span class="text-sm font-bold" style="color:#c9a96e">{{ panelMode === 'detailFull' ? '‹' : '»' }}</span>
+      <span class="text-sm font-bold" style="color:#c9a96e">«</span>
     </button>
   </div>
 
