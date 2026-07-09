@@ -2,7 +2,7 @@
   <div class="bg-white rounded-2xl shadow-md p-6">
     <div class="flex items-center justify-between mb-5">
       <h2 class="text-sm font-semibold text-gray-700 pl-3 border-l-2" style="border-left-color:#c9a96e">帳號管理</h2>
-      <button @click="showForm = !showForm" class="text-xs text-white px-3 py-1.5 rounded-lg" style="background:#1e2533">+ 新增帳號</button>
+      <button @click="showForm = !showForm" class="text-xs px-3 py-1.5 rounded-lg font-medium" style="background:#c9a96e;color:#1e2533">+ 新增帳號</button>
     </div>
 
     <!-- Add account form -->

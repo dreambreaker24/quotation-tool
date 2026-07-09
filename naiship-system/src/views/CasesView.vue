@@ -13,7 +13,7 @@
       </button>
       <div class="ml-auto flex items-center gap-2 py-2">
         <button @click="exportCases(casesStore.cases)" class="text-xs border border-gray-200 rounded-lg px-3 py-1.5 text-gray-500 hover:border-gray-400">匯出 Excel</button>
-        <button @click="showAddCase = true" class="text-xs text-white px-3 py-1.5 rounded-lg" style="background:#1e2533">+ 新增案件</button>
+        <button @click="showAddCase = true" class="text-xs px-3 py-1.5 rounded-lg font-medium" style="background:#c9a96e;color:#1e2533">+ 新增案件</button>
         <select v-model="selectedMonth" class="text-xs border border-gray-200 rounded-lg px-3 py-1.5 bg-white">
           <option v-for="m in monthOptions" :key="m.value" :value="m.value">{{ m.label }}</option>
         </select>

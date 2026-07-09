@@ -26,7 +26,7 @@
         <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-orange-400"></span>場勘/施工</div>
         <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-blue-400"></span>員工請假</div>
         <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded" style="background:#a855f7"></span>客戶跟進</div>
-        <button @click="showAddEvent = true" class="text-xs text-white px-3 py-1.5 rounded-lg" style="background:#1e2533">+ 新增</button>
+        <button @click="showAddEvent = true" class="text-xs border border-gray-200 rounded-lg px-3 py-1.5 text-gray-500 hover:border-gray-400">+ 新增</button>
       </div>
     </div>
 
