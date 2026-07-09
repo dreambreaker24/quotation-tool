@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { collection, query, where, orderBy, onSnapshot, addDoc, updateDoc, getDocs, doc, serverTimestamp, Timestamp, arrayUnion, increment } from 'firebase/firestore'
 import { db } from '@/firebase'
+import { useUsersStore } from '@/stores/users'
 
 export const useWorkLogsStore = defineStore('workLogs', () => {
     const logs = ref([])
@@ -83,6 +84,10 @@ export const useWorkLogsStore = defineStore('workLogs', () => {
             i === itemIndex ? { ...item, approved: isApproved } : item
         )
         const allDecided = updatedItems.every(i => i.approved != null)
+        // 只在首次核准時累加補休時數，動手加之前先確保上個月的餘額已經結算凍結
+        if (log.userId && isApproved && prevItem?.approved == null) {
+            await useUsersStore().ensureMonthClosed(log.userId)
+        }
         const ops = [
             updateDoc(doc(db, 'workLogs', log.id), {
                 overtimeItems: updatedItems,
@@ -91,7 +96,6 @@ export const useWorkLogsStore = defineStore('workLogs', () => {
                 overtimeApprovedAt: serverTimestamp(),
             })
         ]
-        // 只在首次核准時累加補休時數，依類型寫入對應欄位
         if (log.userId && isApproved && prevItem?.approved == null) {
             const field = prevItem.type === '休息日' ? 'compensatoryHolidayHours' : 'compensatoryHours'
             ops.push(updateDoc(doc(db, 'users', log.userId), {
