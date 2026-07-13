@@ -272,12 +272,11 @@
           <select v-model="selectedCategory" @change="onCategoryChange" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
             <option value="">— 請選擇工種 —</option>
             <option v-for="cat in WORK_CATEGORIES" :key="cat" :value="cat">{{ cat }}</option>
-            <option value="__custom__">自訂…</option>
           </select>
-        </div>
-        <div v-if="selectedCategory === '__custom__'">
-          <label class="text-xs text-gray-500 mb-1 block">自訂名稱 *</label>
-          <input v-model="form.name" type="text" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1" placeholder="輸入工種名稱">
+          <div v-if="isLegacyCustomName" class="mt-1.5 text-[11px] text-amber-600 bg-amber-50 rounded-lg px-2.5 py-1.5">
+            舊資料：{{ form.name }}（不在標準清單內）
+            <button type="button" @click="clearLegacyCustomName" class="ml-1 underline hover:text-amber-800">改選標準分類</button>
+          </div>
         </div>
         <div>
           <label class="text-xs text-gray-500 mb-1 block">負責廠商</label>
@@ -304,7 +303,7 @@
             </div>
           </div>
           <p v-if="regionVendors.length === 0" class="text-[11px] text-gray-400 mt-1">
-            {{ selectedCategory && selectedCategory !== '__custom__' ? `尚無「${selectedCategory}」廠商，請至設定新增` : '尚無廠商，請至設定 › 廠商管理新增' }}
+            {{ selectedCategory ? `尚無「${selectedCategory}」廠商，請至設定新增` : '尚無廠商，請至設定 › 廠商管理新增' }}
           </p>
         </div>
         <div class="grid grid-cols-2 gap-3">
@@ -567,6 +566,7 @@
 import { ref, computed, reactive, onMounted, onUnmounted } from 'vue'
 import { WORK_CATEGORIES } from '@/constants/workCategories'
 import { WT_COLORS } from '@/constants/workTypeColors'
+import { isLegacyCategoryName } from '@/utils/workTypeCategory'
 import { useVendorsStore } from '@/stores/vendors'
 import { useCasesStore } from '@/stores/cases'
 import { useAuthStore } from '@/stores/auth'
@@ -838,9 +838,11 @@ const formVendorCostTotal = computed(() =>
 
 const selectedCategory = ref('')
 function onCategoryChange() {
-    const val = selectedCategory.value
-    if (val && val !== '__custom__') form.value.name = val
-    else if (val === '__custom__') form.value.name = ''
+    if (selectedCategory.value) form.value.name = selectedCategory.value
+}
+const isLegacyCustomName = computed(() => isLegacyCategoryName(selectedCategory.value, form.value.name, WORK_CATEGORIES))
+function clearLegacyCustomName() {
+    form.value.name = ''
 }
 
 const vendorSearch = ref('')
@@ -1011,7 +1013,7 @@ const remainingVendorAmount = computed(() => {
 
 const regionVendors = computed(() => {
     const vendors = vendorsStore.vendors.filter(v => !v.companyId || v.companyId === caseData.value?.companyId)
-    if (!selectedCategory.value || selectedCategory.value === '__custom__') return vendors
+    if (!selectedCategory.value) return vendors
     const standardCategories = WORK_CATEGORIES.filter(c => c !== '其他')
     if (selectedCategory.value === '其他') return vendors.filter(v => !standardCategories.includes(v.specialty))
     return vendors.filter(v => v.specialty === selectedCategory.value)
@@ -1045,7 +1047,7 @@ function openAdd() {
 function openEdit(idx) {
     editingIdx.value = idx
     const wt = workTypes.value[idx]
-    selectedCategory.value = WORK_CATEGORIES.includes(wt.name) ? wt.name : (wt.name ? '__custom__' : '')
+    selectedCategory.value = WORK_CATEGORIES.includes(wt.name) ? wt.name : ''
     vendorSearch.value = wt.vendorName || ''
     form.value = {
         name: wt.name,
