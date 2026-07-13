@@ -526,6 +526,7 @@
 <script setup>
 import { ref, computed, reactive, onMounted, onUnmounted } from 'vue'
 import { WORK_CATEGORIES } from '@/constants/workCategories'
+import { WT_COLORS } from '@/constants/workTypeColors'
 import { useVendorsStore } from '@/stores/vendors'
 import { useCasesStore } from '@/stores/cases'
 import { useAuthStore } from '@/stores/auth'
@@ -761,8 +762,6 @@ async function deleteWtConstructPhoto(wtId, item) {
         wtConstructPhotos[wtId] = wtConstructPhotos[wtId].filter(p => p !== item)
     }
 }
-
-const WT_COLORS = ['#3b82f6', '#f59e0b', '#22c55e', '#ef4444', '#a855f7', '#ec4899', '#14b8a6', '#f97316']
 
 function sumItems(items, free) {
     if (free) return 0
