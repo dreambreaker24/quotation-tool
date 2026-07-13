@@ -126,6 +126,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useUsersStore } from '@/stores/users'
 import { useNotificationsStore } from '@/stores/notifications'
 import { useToast } from '@/composables/useToast'
+import { isMissingSignedAmountForConstruction } from '@/utils/caseStatusRules'
 
 const props = defineProps({ caseId: String })
 const emit = defineEmits(['close'])
@@ -206,6 +207,10 @@ function formatTs(ts) {
 
 async function save() {
     if (!form.value.name || saving.value) return
+    if (isMissingSignedAmountForConstruction(form.value.status, originalStatus.value, form.value.signedAmount)) {
+        toast('請先填寫簽約金額才能切換為施工中', 'error')
+        return
+    }
     saving.value = true
     try {
         const assignees = form.value.assignees.filter(a => a.trim())
