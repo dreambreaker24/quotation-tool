@@ -3,6 +3,7 @@ import { setActivePinia, createPinia } from 'pinia'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { useWorkLogsStore } from '@/stores/workLogs'
 import { useUsersStore } from '@/stores/users'
+import { getDocs } from 'firebase/firestore'
 
 vi.mock('@/firebase', () => ({ db: {} }))
 vi.mock('firebase/firestore', () => ({
@@ -23,6 +24,10 @@ vi.mock('firebase/firestore', () => ({
   runTransaction: vi.fn(async (db, cb) => cb({ get: vi.fn(() => Promise.resolve({ data: () => ({ compClosedMonth: '2099-01' }) })), set: vi.fn(), update: vi.fn() })),
 }))
 
+function fakeLog(overtimeItems) {
+  return { data: () => ({ userName: 'test', date: { toDate: () => new Date('2026-07-05') }, overtimeItems }) }
+}
+
 describe('useWorkLogsStore.approveOvertimeItem', () => {
   beforeEach(() => setActivePinia(createPinia()))
 
@@ -42,5 +47,49 @@ describe('useWorkLogsStore.approveOvertimeItem', () => {
     const log = { id: 'log1', userId: 'u1', overtimeItems: [{ hours: 2, type: '平日', approved: null }] }
     await workLogsStore.approveOvertimeItem(log, 0, false, '柏')
     expect(spy).not.toHaveBeenCalled()
+  })
+})
+
+describe('fetchApprovedOvertimeDetail', () => {
+  beforeEach(() => setActivePinia(createPinia()))
+
+  it('returns only approved weekday items when type is weekday', async () => {
+    getDocs.mockResolvedValue({
+      docs: [
+        fakeLog([
+          { type: '平日', hours: 3, reason: '趕工', approved: true },
+          { type: '平日', hours: 2, reason: '未審', approved: null },
+          { type: '休息日', hours: 4, reason: '假日支援', approved: true },
+        ]),
+      ],
+    })
+    const store = useWorkLogsStore()
+    const result = await store.fetchApprovedOvertimeDetail('u1', 'weekday')
+    expect(result).toHaveLength(1)
+    expect(result[0]).toMatchObject({ hours: 3, reason: '趕工' })
+  })
+
+  it('returns only approved holiday items when type is holiday', async () => {
+    getDocs.mockResolvedValue({
+      docs: [
+        fakeLog([
+          { type: '平日', hours: 3, reason: '趕工', approved: true },
+          { type: '休息日', hours: 4, reason: '假日支援', approved: true },
+        ]),
+      ],
+    })
+    const store = useWorkLogsStore()
+    const result = await store.fetchApprovedOvertimeDetail('u1', 'holiday')
+    expect(result).toHaveLength(1)
+    expect(result[0]).toMatchObject({ hours: 4, reason: '假日支援' })
+  })
+
+  it('returns an empty array when nothing is approved', async () => {
+    getDocs.mockResolvedValue({
+      docs: [fakeLog([{ type: '平日', hours: 3, reason: '趕工', approved: false }])],
+    })
+    const store = useWorkLogsStore()
+    const result = await store.fetchApprovedOvertimeDetail('u1', 'weekday')
+    expect(result).toEqual([])
   })
 })

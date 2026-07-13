@@ -172,6 +172,34 @@ export const useWorkLogsStore = defineStore('workLogs', () => {
         return result
     }
 
+    async function fetchApprovedOvertimeDetail(userId, type) {
+        const now = new Date()
+        const y = now.getFullYear()
+        const m = now.getMonth()
+        const start = Timestamp.fromDate(new Date(y, m, 1))
+        const end = Timestamp.fromDate(new Date(y, m + 1, 0, 23, 59, 59, 999))
+        const q = query(
+            collection(db, 'workLogs'),
+            where('userId', '==', userId),
+            where('date', '>=', start),
+            where('date', '<=', end),
+        )
+        const snap = await getDocs(q)
+        const entries = []
+        snap.docs.forEach(d => {
+            const data = d.data()
+            const date = data.date?.toDate?.() ?? null
+            ;(data.overtimeItems || []).forEach(item => {
+                if (item.approved !== true) return
+                const isHoliday = item.type === '休息日'
+                if (type === 'holiday' && !isHoliday) return
+                if (type === 'weekday' && isHoliday) return
+                entries.push({ date, hours: item.hours || 0, reason: item.reason || '' })
+            })
+        })
+        return entries.sort((a, b) => (a.date ?? 0) - (b.date ?? 0))
+    }
+
     function cleanup() { if (unsubscribe) { unsubscribe(); unsubscribe = null } }
 
     return {
@@ -179,7 +207,7 @@ export const useWorkLogsStore = defineStore('workLogs', () => {
         subscribe, subscribePending, cleanupPending,
         addLog, updateLog, addReply,
         approveFuel, approveOvertimeItem,
-        fetchMonthlyKm, fetchMonthlyOvertimeHours, fetchMonthlyAttendance,
+        fetchMonthlyKm, fetchMonthlyOvertimeHours, fetchMonthlyAttendance, fetchApprovedOvertimeDetail,
         unsubscribe: cleanup
     }
 })
