@@ -76,6 +76,25 @@ describe('useBidRequestsStore actions', () => {
         expect(data.bids[0].id).toMatch(/^bid_/)
     })
 
+    it('appendQuotePhotoId appends a photo id to the matching bid quotePhotoIds', async () => {
+        const store = useBidRequestsStore()
+        store.bidRequests = [{ id: 'br1', category: '水電', bids: [{ id: 'bid1', quotePhotoIds: ['p0'] }] }]
+        await store.appendQuotePhotoId('case1', 'br1', 'bid1', 'p1')
+        expect(updateDoc).toHaveBeenCalledTimes(1)
+        const [, data] = updateDoc.mock.calls[0]
+        expect(data.bids[0].quotePhotoIds).toEqual(['p0', 'p1'])
+    })
+
+    it('removeQuotePhotoId deletes the photo doc and filters the id out of quotePhotoIds', async () => {
+        const store = useBidRequestsStore()
+        store.bidRequests = [{ id: 'br1', category: '水電', bids: [{ id: 'bid1', quotePhotoIds: ['p0', 'p1'] }] }]
+        await store.removeQuotePhotoId('case1', 'br1', 'bid1', 'p1')
+        expect(deleteDoc).toHaveBeenCalledTimes(1)
+        expect(updateDoc).toHaveBeenCalledTimes(1)
+        const [, data] = updateDoc.mock.calls[0]
+        expect(data.bids[0].quotePhotoIds).toEqual(['p0'])
+    })
+
     it('markConverted writes status, winningBidId and convertedWorkTypeId', async () => {
         const store = useBidRequestsStore()
         await store.markConverted('case1', 'br1', 'bid1', 'wt1')

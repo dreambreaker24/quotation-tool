@@ -64,7 +64,7 @@ export const useBidRequestsStore = defineStore('bidRequests', () => {
     async function appendQuotePhotoId(caseId, bidRequestId, bidEntryId, photoId) {
         const br = bidRequests.value.find(b => b.id === bidRequestId)
         if (!br) return
-        const updatedBids = br.bids.map(b =>
+        const updatedBids = (br.bids || []).map(b =>
             b.id === bidEntryId ? { ...b, quotePhotoIds: [...(b.quotePhotoIds || []), photoId] } : b
         )
         await updateDoc(doc(db, 'cases', caseId, 'bidRequests', bidRequestId), { bids: updatedBids })
@@ -74,7 +74,7 @@ export const useBidRequestsStore = defineStore('bidRequests', () => {
         await deleteDoc(doc(db, 'cases', caseId, 'photos', photoId))
         const br = bidRequests.value.find(b => b.id === bidRequestId)
         if (!br) return
-        const updatedBids = br.bids.map(b =>
+        const updatedBids = (br.bids || []).map(b =>
             b.id === bidEntryId ? { ...b, quotePhotoIds: (b.quotePhotoIds || []).filter(id => id !== photoId) } : b
         )
         await updateDoc(doc(db, 'cases', caseId, 'bidRequests', bidRequestId), { bids: updatedBids })
