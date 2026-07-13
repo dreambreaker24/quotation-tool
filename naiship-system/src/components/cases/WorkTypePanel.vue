@@ -241,6 +241,18 @@
             <div v-else class="text-[10px] text-gray-300">尚未上傳</div>
           </template>
         </div>
+
+        <div v-if="wt.locations?.length" class="mt-2 pt-2 border-t border-gray-100">
+          <div class="text-[10px] text-gray-400 font-medium mb-1">施作位置</div>
+          <div class="flex flex-col gap-1">
+            <div v-for="loc in wt.locations" :key="loc.id" class="text-[11px] text-gray-600 flex items-center gap-2">
+              <span class="font-medium">{{ loc.label }}</span>
+              <span v-if="loc.startDate" class="text-gray-400">
+                {{ loc.startDate }}<template v-if="loc.endDate"> ～ {{ loc.endDate }}</template>
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -346,6 +358,34 @@
             <div v-if="formVendorCostTotal > 0" class="text-right text-xs font-semibold mt-0.5 text-red-500">
               合計 ${{ formVendorCostTotal.toLocaleString() }}
             </div>
+          </div>
+        </div>
+        <div>
+          <label class="text-xs text-gray-500 font-medium mb-1 block">施作位置（選填）</label>
+          <div class="flex flex-col gap-1.5">
+            <div v-for="(loc, i) in form.locations" :key="loc.id"
+              class="border border-gray-100 rounded-lg p-2 bg-gray-50/60">
+              <div class="flex gap-1.5 mb-1.5">
+                <input v-model="loc.label" type="text" placeholder="位置（例：浴室）"
+                  class="flex-1 text-xs border border-gray-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 bg-white">
+                <button type="button" @click="removeLocation(i)"
+                  class="text-[10px] text-red-400 hover:text-red-600 px-1 flex-shrink-0">✕</button>
+              </div>
+              <div class="grid grid-cols-2 gap-1.5 mb-1.5">
+                <input :value="loc.startDate" type="date"
+                  @input="loc.startDate = $event.target.value"
+                  class="text-xs border border-gray-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 bg-white">
+                <input :value="loc.endDate" type="date"
+                  @input="loc.endDate = $event.target.value"
+                  class="text-xs border border-gray-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 bg-white">
+              </div>
+              <input v-model="loc.note" type="text" placeholder="備註"
+                class="w-full text-xs border border-gray-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 bg-white">
+            </div>
+            <button type="button" @click="addLocation"
+              class="text-[11px] border border-dashed border-gray-200 rounded-lg py-1.5 text-gray-400 hover:border-gray-400 hover:text-gray-600 transition-colors w-full">
+              + 新增施作位置
+            </button>
           </div>
         </div>
         <div class="border border-gray-100 rounded-xl p-3 bg-gray-50/50 flex flex-col gap-2">
@@ -574,7 +614,7 @@ const form = ref({
     name: '', vendorId: '', startDate: '', endDate: '',
     hasQuote: false, hasSchedule: false,
     vendorCostItems: [], vendorCostFree: false,
-    costIncludesTax: false,
+    costIncludesTax: false, locations: [],
 })
 
 const showVendorPayForm = ref(false)
@@ -785,6 +825,12 @@ function addVendorCostItem() {
 function removeVendorCostItem(i) {
     form.value.vendorCostItems.splice(i, 1)
 }
+function addLocation() {
+    form.value.locations.push({ id: `loc_${Date.now()}`, label: '', startDate: '', endDate: '', note: '' })
+}
+function removeLocation(i) {
+    form.value.locations.splice(i, 1)
+}
 
 const formVendorCostTotal = computed(() =>
     form.value.vendorCostItems.reduce((s, i) => s + (i.amount || 0), 0)
@@ -991,7 +1037,7 @@ function openAdd() {
         name: '', vendorId: '', startDate: '', endDate: '',
         hasQuote: false, hasSchedule: false,
         vendorCostItems: [], vendorCostFree: false,
-        costIncludesTax: false,
+        costIncludesTax: false, locations: [],
     }
     showForm.value = true
 }
@@ -1011,6 +1057,7 @@ function openEdit(idx) {
         vendorCostItems: normalizeItems(wt.vendorCostItems, wt.vendorCost, 'vc'),
         vendorCostFree: wt.vendorCostFree || false,
         costIncludesTax: wt.costIncludesTax || false,
+        locations: (wt.locations || []).map(l => ({ ...l })),
     }
     showForm.value = true
 }
@@ -1043,6 +1090,7 @@ async function submitForm() {
             vendorPayments: existing?.vendorPayments ?? [],
             done: existing?.done ?? false,
             invoiceReceived: existing?.invoiceReceived ?? false,
+            locations: form.value.locations.filter(l => l.label),
         }
         const updated = [...workTypes.value]
         if (editingIdx.value !== null) {
