@@ -8,7 +8,6 @@ export function useExport() {
             '狀態': c.status,
             '負責人': c.assigneeName,
             '施工地址': c.address || '',
-            '預估金額': c.estimatedAmount || 0,
             '簽約金額': c.signedAmount || 0,
             '開始日期': c.startDate?.toDate?.()?.toLocaleDateString('zh-TW') ?? '',
             '結束日期': c.endDate?.toDate?.()?.toLocaleDateString('zh-TW') ?? '',
