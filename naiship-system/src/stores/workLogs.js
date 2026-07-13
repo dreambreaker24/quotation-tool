@@ -189,8 +189,12 @@ export const useWorkLogsStore = defineStore('workLogs', () => {
         snap.docs.forEach(d => {
             const data = d.data()
             const date = data.date?.toDate?.() ?? null
-            ;(data.overtimeItems || []).forEach(item => {
-                if (item.approved !== true) return
+            const items = data.overtimeItems || []
+            const hasPerItem = items.some(i => 'approved' in i)
+            items.forEach(item => {
+                // 舊格式：無 per-item approved 欄位，整批以 overtimeApproved 判定
+                const isApproved = hasPerItem ? item.approved === true : !!data.overtimeApproved
+                if (!isApproved) return
                 const isHoliday = item.type === '休息日'
                 if (type === 'holiday' && !isHoliday) return
                 if (type === 'weekday' && isHoliday) return

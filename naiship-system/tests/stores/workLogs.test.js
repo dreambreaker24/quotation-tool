@@ -92,4 +92,23 @@ describe('fetchApprovedOvertimeDetail', () => {
     const result = await store.fetchApprovedOvertimeDetail('u1', 'weekday')
     expect(result).toEqual([])
   })
+
+  it('includes legacy-format items with no per-item approved field when overtimeApproved is true', async () => {
+    getDocs.mockResolvedValue({
+      docs: [
+        {
+          data: () => ({
+            userName: 'test',
+            date: { toDate: () => new Date('2026-07-05') },
+            overtimeApproved: true,
+            overtimeItems: [{ type: '平日', hours: 5, reason: '舊格式加班' }],
+          }),
+        },
+      ],
+    })
+    const store = useWorkLogsStore()
+    const result = await store.fetchApprovedOvertimeDetail('u1', 'weekday')
+    expect(result).toHaveLength(1)
+    expect(result[0]).toMatchObject({ hours: 5, reason: '舊格式加班' })
+  })
 })
