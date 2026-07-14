@@ -40,11 +40,12 @@
               class="ml-auto text-[10px] border border-dashed border-gray-200 rounded px-2 py-0.5 text-gray-400 hover:border-gray-400 hover:text-gray-600 transition-colors">
               + 報價單
             </button>
-            <div v-if="quotePhotos[bid.id]?.length" class="flex gap-1 w-full">
-              <div v-for="item in quotePhotos[bid.id]" :key="item.id" class="relative group">
+            <div v-if="quotePhotos[bid.id]?.length" class="flex gap-1.5 w-full flex-wrap">
+              <div v-for="item in quotePhotos[bid.id]" :key="item.id" class="relative group flex flex-col items-center gap-0.5">
                 <a v-if="item.isPdf" :href="item.pdfUrl" target="_blank"
                   class="w-8 h-8 rounded bg-red-100 flex items-center justify-center text-[8px] text-red-600 font-bold">PDF</a>
                 <img v-else :src="item.url" class="w-8 h-8 rounded object-cover">
+                <span class="text-[7px] text-gray-400 leading-tight whitespace-nowrap">{{ formatTime(item.createdAt) }} · {{ uploaderName(item.uploadedBy) }}</span>
                 <button v-if="br.status !== 'converted'" @click="deleteQuotePhoto(br.id, bid.id, item)"
                   class="absolute -top-1 -right-1 w-3 h-3 bg-gray-600 text-white rounded-full text-[7px] leading-none hidden group-hover:flex items-center justify-center hover:bg-red-500">✕</button>
               </div>
@@ -159,6 +160,7 @@ import { useBidRequestsStore, buildWinningWorkType } from '@/stores/bidRequests'
 import { useVendorsStore } from '@/stores/vendors'
 import { useCasesStore } from '@/stores/cases'
 import { useAuthStore } from '@/stores/auth'
+import { useUsersStore } from '@/stores/users'
 import { useToast } from '@/composables/useToast'
 import { uploadPhoto, validateUploadFile } from '@/composables/useStorage'
 import { addDoc, collection, getDocs, orderBy, query, serverTimestamp } from 'firebase/firestore'
@@ -169,6 +171,7 @@ const bidRequestsStore = useBidRequestsStore()
 const vendorsStore = useVendorsStore()
 const casesStore = useCasesStore()
 const authStore = useAuthStore()
+const usersStore = useUsersStore()
 const { toast } = useToast()
 
 const caseData = computed(() => casesStore.cases.find(c => c.id === props.caseId))
@@ -240,6 +243,16 @@ function hideVendorDropdown() {
     setTimeout(() => { showVendorDropdown.value = false }, 150)
 }
 
+function formatTime(ts) {
+    if (!ts) return ''
+    const d = ts.toDate?.() ?? new Date(ts)
+    return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
+function uploaderName(uid) {
+    return usersStore.users.find(u => u.id === uid)?.name ?? '未知'
+}
+
 async function submitBid(br) {
     if (!bidForm.value.vendorId || savingBid.value) return
     savingBid.value = true
@@ -283,15 +296,16 @@ async function handleQuoteFiles(e) {
             const url = await uploadPhoto(file, 'bid_quote')
             const isPdf = file.name.toLowerCase().endsWith('.pdf')
             const pdfUrl = isPdf && !url.toLowerCase().endsWith('.pdf') ? url + '.pdf' : url
+            const uploadedBy = authStore.user?.uid ?? 'unknown'
             const docRef = await addDoc(collection(db, 'cases', props.caseId, 'photos'), {
                 type: 'bid_quote', bidRequestId, bidEntryId,
                 url, isPdf,
-                uploadedBy: authStore.user?.uid ?? 'unknown',
+                uploadedBy,
                 createdAt: serverTimestamp(),
             })
             await bidRequestsStore.appendQuotePhotoId(props.caseId, bidRequestId, bidEntryId, docRef.id)
             if (!quotePhotos[bidEntryId]) quotePhotos[bidEntryId] = []
-            quotePhotos[bidEntryId].push({ id: docRef.id, url, isPdf, pdfUrl })
+            quotePhotos[bidEntryId].push({ id: docRef.id, url, isPdf, pdfUrl, createdAt: { toDate: () => new Date() }, uploadedBy })
         } catch {
             toast('上傳失敗，請重試', 'error')
         }
@@ -337,12 +351,12 @@ onMounted(async () => {
     const q = query(collection(db, 'cases', props.caseId, 'photos'), orderBy('createdAt'))
     const snap = await getDocs(q)
     snap.docs.forEach(d => {
-        const { type, url, isPdf, bidEntryId } = d.data()
+        const { type, url, isPdf, bidEntryId, createdAt, uploadedBy } = d.data()
         if (type !== 'bid_quote' || !bidEntryId) return
         const resolvedIsPdf = isPdf ?? url.toLowerCase().endsWith('.pdf')
         const pdfUrl = resolvedIsPdf && !url.toLowerCase().endsWith('.pdf') ? url + '.pdf' : url
         if (!quotePhotos[bidEntryId]) quotePhotos[bidEntryId] = []
-        quotePhotos[bidEntryId].push({ id: d.id, url, isPdf: resolvedIsPdf, pdfUrl })
+        quotePhotos[bidEntryId].push({ id: d.id, url, isPdf: resolvedIsPdf, pdfUrl, createdAt, uploadedBy })
     })
 })
 
