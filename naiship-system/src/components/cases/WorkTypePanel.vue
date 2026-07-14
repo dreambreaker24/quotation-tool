@@ -149,7 +149,7 @@
               <img v-else :src="item.url"
                 class="w-14 h-14 rounded object-cover cursor-pointer hover:opacity-80"
                 @click="openVendorPreview(wt.id, idx)">
-              <span class="text-[8px] text-gray-400 leading-tight">{{ formatTime(item.createdAt) }}</span>
+              <span class="text-[8px] text-gray-400 leading-tight">{{ formatTime(item.createdAt) }} · {{ uploaderName(item.uploadedBy) }}</span>
               <button @click="deleteVendorPhoto(wt.id, item)"
                 class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-gray-600 text-white rounded-full text-[8px] leading-none hidden group-hover:flex items-center justify-center hover:bg-red-500 z-10">✕</button>
             </div>
@@ -209,7 +209,7 @@
                     <img v-else :src="item.url"
                       class="w-14 h-14 rounded object-cover cursor-pointer hover:opacity-80"
                       @click="openWtConstructPreview(wt.id, item)">
-                    <span class="text-[8px] text-gray-400 leading-tight">{{ formatTime(item.createdAt) }}</span>
+                    <span class="text-[8px] text-gray-400 leading-tight">{{ formatTime(item.createdAt) }} · {{ uploaderName(item.uploadedBy) }}</span>
                     <button @click="deleteWtConstructPhoto(wt.id, item)"
                       class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-gray-600 text-white rounded-full text-[8px] leading-none hidden group-hover:flex items-center justify-center hover:bg-red-500 z-10">✕</button>
                   </div>
@@ -226,7 +226,7 @@
                   <img v-else :src="item.url"
                     class="w-14 h-14 rounded object-cover cursor-pointer hover:opacity-80"
                     @click="openWtConstructPreview(wt.id, item)">
-                  <span class="text-[8px] text-gray-400 leading-tight">{{ formatTime(item.createdAt) }}</span>
+                  <span class="text-[8px] text-gray-400 leading-tight">{{ formatTime(item.createdAt) }} · {{ uploaderName(item.uploadedBy) }}</span>
                   <button @click="deleteWtConstructPhoto(wt.id, item)"
                     class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-gray-600 text-white rounded-full text-[8px] leading-none hidden group-hover:flex items-center justify-center hover:bg-red-500 z-10">✕</button>
                 </div>
@@ -245,7 +245,7 @@
                 <img v-else :src="item.url"
                   class="w-14 h-14 rounded object-cover cursor-pointer hover:opacity-80"
                   @click="openWtConstructPreview(wt.id, item)">
-                <span class="text-[8px] text-gray-400 leading-tight">{{ formatTime(item.createdAt) }}</span>
+                <span class="text-[8px] text-gray-400 leading-tight">{{ formatTime(item.createdAt) }} · {{ uploaderName(item.uploadedBy) }}</span>
                 <button @click="deleteWtConstructPhoto(wt.id, item)"
                   class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-gray-600 text-white rounded-full text-[8px] leading-none hidden group-hover:flex items-center justify-center hover:bg-red-500 z-10">✕</button>
               </div>
@@ -572,6 +572,7 @@ import { useCasesStore } from '@/stores/cases'
 import { useAuthStore } from '@/stores/auth'
 import { useNotificationsStore } from '@/stores/notifications'
 import { usePaymentRemindersStore } from '@/stores/paymentReminders'
+import { useUsersStore } from '@/stores/users'
 import { useToast } from '@/composables/useToast'
 import { uploadPhoto, validateUploadFile } from '@/composables/useStorage'
 import { addDoc, collection, getDocs, orderBy, query, serverTimestamp, deleteDoc, doc } from 'firebase/firestore'
@@ -605,6 +606,7 @@ const casesStore = useCasesStore()
 const authStore = useAuthStore()
 const notifStore = useNotificationsStore()
 const remindersStore = usePaymentRemindersStore()
+const usersStore = useUsersStore()
 const { toast } = useToast()
 
 const showForm = ref(false)
@@ -779,15 +781,16 @@ async function handleWtConstructFiles(e) {
             const url = await uploadPhoto(file, 'wt_construction')
             const isPdf = file.name.toLowerCase().endsWith('.pdf')
             const pdfUrl = isPdf && !url.toLowerCase().endsWith('.pdf') ? url + '.pdf' : url
+            const uploadedBy = authStore.user?.uid ?? 'unknown'
             const docRef = await addDoc(collection(db, 'cases', props.caseId, 'photos'), {
                 type: 'wt_construction', workTypeId: wtId,
                 folderId: folderId ?? null,
                 url, isPdf,
-                uploadedBy: authStore.user?.uid ?? 'unknown',
+                uploadedBy,
                 createdAt: serverTimestamp(),
             })
             if (!wtConstructPhotos[wtId]) wtConstructPhotos[wtId] = []
-            wtConstructPhotos[wtId].push({ id: docRef.id, url, isPdf, pdfUrl, folderId: folderId ?? null, createdAt: { toDate: () => new Date() } })
+            wtConstructPhotos[wtId].push({ id: docRef.id, url, isPdf, pdfUrl, folderId: folderId ?? null, createdAt: { toDate: () => new Date() }, uploadedBy })
         } catch {
             toast('上傳失敗，請重試', 'error')
         }
@@ -872,6 +875,10 @@ function formatTime(ts) {
     return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
+function uploaderName(uid) {
+    return usersStore.users.find(u => u.id === uid)?.name ?? '未知'
+}
+
 function isWorkTypeOverdue(wt) {
     if (!wt.endDate || wt.done) return false
     const caseStatus = caseData.value?.status
@@ -954,15 +961,15 @@ onMounted(async () => {
     const q = query(collection(db, 'cases', props.caseId, 'photos'), orderBy('createdAt'))
     const snap = await getDocs(q)
     snap.docs.forEach(d => {
-        const { type, url, isPdf, workTypeId, folderId, createdAt } = d.data()
+        const { type, url, isPdf, workTypeId, folderId, createdAt, uploadedBy } = d.data()
         const resolvedIsPdf = isPdf ?? url.toLowerCase().endsWith('.pdf')
         const pdfUrl = resolvedIsPdf && !url.toLowerCase().endsWith('.pdf') ? url + '.pdf' : url
         if (type === 'vendor_quote' && workTypeId) {
             if (!vendorPhotos[workTypeId]) vendorPhotos[workTypeId] = []
-            vendorPhotos[workTypeId].push({ id: d.id, url, isPdf: resolvedIsPdf, pdfUrl, createdAt })
+            vendorPhotos[workTypeId].push({ id: d.id, url, isPdf: resolvedIsPdf, pdfUrl, createdAt, uploadedBy })
         } else if (type === 'wt_construction' && workTypeId) {
             if (!wtConstructPhotos[workTypeId]) wtConstructPhotos[workTypeId] = []
-            wtConstructPhotos[workTypeId].push({ id: d.id, url, isPdf: resolvedIsPdf, pdfUrl, folderId: folderId ?? null, createdAt })
+            wtConstructPhotos[workTypeId].push({ id: d.id, url, isPdf: resolvedIsPdf, pdfUrl, folderId: folderId ?? null, createdAt, uploadedBy })
         }
     })
 })
@@ -982,15 +989,16 @@ async function handleVendorFiles(e) {
             const url = await uploadPhoto(file, 'vendor_quote')
             const isPdf = file.name.toLowerCase().endsWith('.pdf')
             const pdfUrl = isPdf && !url.toLowerCase().endsWith('.pdf') ? url + '.pdf' : url
+            const uploadedBy = authStore.user?.uid ?? 'unknown'
             const docRef = await addDoc(collection(db, 'cases', props.caseId, 'photos'), {
                 type: 'vendor_quote',
                 workTypeId: activeWtId.value,
                 url, isPdf,
-                uploadedBy: authStore.user?.uid ?? 'unknown',
+                uploadedBy,
                 createdAt: serverTimestamp()
             })
             if (!vendorPhotos[activeWtId.value]) vendorPhotos[activeWtId.value] = []
-            vendorPhotos[activeWtId.value].push({ id: docRef.id, url, isPdf, pdfUrl, createdAt: { toDate: () => new Date() } })
+            vendorPhotos[activeWtId.value].push({ id: docRef.id, url, isPdf, pdfUrl, createdAt: { toDate: () => new Date() }, uploadedBy })
         } catch {
             toast('上傳失敗，請重試', 'error')
         }
