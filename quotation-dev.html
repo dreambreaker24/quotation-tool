@@ -1861,8 +1861,9 @@
     const _delHtml = (_canDelete && !_editMode)
       ? `<button onclick="event.stopPropagation();deleteSingleQuote('${_safeDocId}','${_safeContractNo}','${_safeLabel}')" style="flex-shrink:0; margin-left:6px; padding:2px 7px; background:#fee2e2; color:#ef4444; border:1px solid #fca5a5; border-radius:3px; cursor:pointer; font-size:11px; font-family:inherit;" title="刪除">🗑️</button>`
       : '';
+    const _safeOverrideId = escHtml(overrideId || '');
     const _ungroupHtml = (overrideId && !_editMode)
-      ? `<button onclick="event.stopPropagation();removeFromGroup('${_safeDocId}','${overrideId}')" style="flex-shrink:0; margin-left:4px; padding:2px 7px; background:#f3f4f6; color:#6b7280; border:1px solid #d1d5db; border-radius:3px; cursor:pointer; font-size:11px; font-family:inherit;" title="移出資料夾">📤</button>`
+      ? `<button onclick="event.stopPropagation();removeFromGroup('${_safeDocId}','${_safeOverrideId}')" style="flex-shrink:0; margin-left:4px; padding:2px 7px; background:#f3f4f6; color:#6b7280; border:1px solid #d1d5db; border-radius:3px; cursor:pointer; font-size:11px; font-family:inherit;" title="移出資料夾">📤</button>`
       : '';
     div.innerHTML = `
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:4px;">
@@ -1880,7 +1881,7 @@
       div.style.animation = '_hl-flash 1.5s ease-out';
       _highlightDocId = null;
     }
-    div.draggable = true;
+    div.draggable = !_editMode;
     div.addEventListener('dragstart', e => { _dragHistoryDocId = _qDocId; e.dataTransfer.effectAllowed = 'move'; div.style.opacity = '0.5'; });
     div.addEventListener('dragend', () => { _dragHistoryDocId = null; div.style.opacity = ''; });
     div.addEventListener('dragover', e => { e.preventDefault(); div.style.outline = '2px dashed #4f46e5'; });
@@ -2103,7 +2104,21 @@
       if (!groupsMap.has(root)) groupsMap.set(root, []);
       groupsMap.get(root).push(q);
     });
-    return { groups: Array.from(groupsMap.values()), overrideIdByDocId };
+    const groups = Array.from(groupsMap.values());
+    // 為每組算出穩定的識別 key，優先用共同的 sourceId/contractNo（版本增減都不會變），
+    // 其次用品項+客戶+地址三欄，最後才退回用成員 docId 組合（僅發生在純手動合併不相關案件時）
+    groups.forEach(group => {
+      const clusterKeys = new Set(group.map(q => (q.sourceId || q.contractNo || '').trim()).filter(Boolean));
+      if (clusterKeys.size === 1) {
+        group._stableKey = 'src:' + Array.from(clusterKeys)[0];
+      } else {
+        const q0 = group[0];
+        const p = (q0.project || '').trim(), c = (q0.clientName || '').trim(), a = (q0.address || '').trim();
+        const triple = (p || c || a) ? (p + '|||' + c + '|||' + a) : null;
+        group._stableKey = triple ? 'triple:' + triple : 'ids:' + group.map(q => q._docId || q.contractNo).sort().join('||');
+      }
+    });
+    return { groups, overrideIdByDocId };
   }
 
   function renderHistoryList() {
@@ -2136,7 +2151,7 @@
       if (needFolder) {
         const p = (group[0].project || '').trim();
         const c = (group[0].clientName || '').trim();
-        const folderKey = group.map(q => _id(q)).sort().join('||');
+        const folderKey = group._stableKey;
         const isExpanded = _expandedFolders.has(folderKey);
         const label = [p, c].filter(Boolean).join(' · ') || '未命名案件';
         const hdr = document.createElement('div');
@@ -2166,29 +2181,36 @@
           group.forEach((q, i) => _renderHistoryItem(q, container, i > 0, color, overrideIdByDocId[_id(q)]));
         }
       } else {
-        _renderHistoryItem(group[0], container, false, null, overrideIdByDocId[repDocId]);
+        // 單筆不成資料夾時不顯示移出資料夾按鈕，即使它曾被列在某個 override 裡
+        _renderHistoryItem(group[0], container, false, null, undefined);
       }
     });
   }
 
   async function mergeIntoGroup(draggedDocId, targetDocId) {
     if (draggedDocId === targetDocId) return;
+    if (!auth.currentUser) { alert('尚未登入，無法合併資料夾。'); return; }
     const draggedQ = liveQuotes.find(q => (q._docId || q.contractNo) === draggedDocId);
     const targetQ = liveQuotes.find(q => (q._docId || q.contractNo) === targetDocId);
     if (!draggedQ || !targetQ) return;
     const draggedLabel = [draggedQ.contractNo, draggedQ.project].filter(Boolean).join(' · ');
     const targetLabel = [targetQ.contractNo, targetQ.project].filter(Boolean).join(' · ');
     if (!confirm(`確定要把「${draggedLabel}」併入「${targetLabel}」的資料夾嗎？\n\n這不會更動任何一筆報價單的內容，只會調整清單分組方式。`)) return;
-    const existing = _caseGroupOverrides.find(ov =>
+    // 拖曳的兩筆可能各自已經屬於不同的 override，要全部收攏合併，不能只更新找到的第一份
+    const relevantOverrides = _caseGroupOverrides.filter(ov =>
       (ov.docIds || []).includes(draggedDocId) || (ov.docIds || []).includes(targetDocId)
     );
     try {
-      if (existing) {
-        const merged = Array.from(new Set([...(existing.docIds || []), draggedDocId, targetDocId]));
-        await db.collection('caseGroupOverrides').doc(existing._id).update({ docIds: merged });
+      const mergedIds = Array.from(new Set([
+        draggedDocId, targetDocId,
+        ...relevantOverrides.flatMap(ov => ov.docIds || [])
+      ]));
+      if (relevantOverrides.length > 0) {
+        await db.collection('caseGroupOverrides').doc(relevantOverrides[0]._id).update({ docIds: mergedIds });
+        await Promise.all(relevantOverrides.slice(1).map(ov => db.collection('caseGroupOverrides').doc(ov._id).delete()));
       } else {
         await db.collection('caseGroupOverrides').add({
-          docIds: [draggedDocId, targetDocId],
+          docIds: mergedIds,
           createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
       }
@@ -2201,14 +2223,30 @@
 
   async function removeFromGroup(docId, overrideId) {
     if (!confirm('確定要把這筆移出資料夾嗎？')) return;
+    if (!auth.currentUser) { alert('尚未登入，無法移出資料夾。'); return; }
     const ov = _caseGroupOverrides.find(o => o._id === overrideId);
     if (!ov) return;
     const remaining = (ov.docIds || []).filter(id => id !== docId);
+    // 移出前檢查：如果這筆報價單跟留下的成員還符合自動歸類規則（sourceId 或三欄逐字相符），
+    // 移出手動分組後下一次渲染還是會被自動併回去，先提醒使用者避免誤以為按鈕沒作用
+    const thisQ = liveQuotes.find(q => (q._docId || q.contractNo) === docId);
+    const thisKey = thisQ ? (thisQ.sourceId || thisQ.contractNo || '').trim() : '';
+    const stillAutoGrouped = !!thisQ && remaining.some(id => {
+      const otherQ = liveQuotes.find(q => (q._docId || q.contractNo) === id);
+      if (!otherQ) return false;
+      const sameSource = thisKey && thisKey === (otherQ.sourceId || otherQ.contractNo || '').trim();
+      const sameTriple = thisQ.project && thisQ.clientName && thisQ.address &&
+        thisQ.project === otherQ.project && thisQ.clientName === otherQ.clientName && thisQ.address === otherQ.address;
+      return sameSource || sameTriple;
+    });
     try {
       if (remaining.length < 2) {
         await db.collection('caseGroupOverrides').doc(overrideId).delete();
       } else {
         await db.collection('caseGroupOverrides').doc(overrideId).update({ docIds: remaining });
+      }
+      if (stillAutoGrouped) {
+        alert('這筆報價單跟資料夾裡其他報價單的合約編號或品項/客戶/地址仍然相符，系統會自動把它們歸類在一起，移出手動分組不會改變顯示結果。');
       }
     } catch (e) {
       alert('移出失敗：' + (e.message || String(e)));
@@ -2315,6 +2353,33 @@
 
   function _isValidContractNo(val) {
     return /^(NS|PO)-\d{4}-\d{3}$/.test(val);
+  }
+
+  // 寫入前檢查目標 docId 是否已存在，存在就跳確認；並用 transaction 在真正寫入當下
+  // 再檢查一次，避免兩人幾乎同時操作、都通過前面檢查時，後寫入的靜默覆蓋前一筆
+  async function _safeSetQuotation(docId, data, meta) {
+    const docRef = db.collection('quotations').doc(docId);
+    const existingCheck = await docRef.get();
+    if (existingCheck.exists) {
+      const ed = existingCheck.data();
+      const lastBy = _resolveUserName(ed.updatedBy || ed.createdBy || '未知');
+      if (!confirm(`合約編號「${docId}」已有存檔（最後修改：${lastBy}），確定要覆蓋嗎？`)) {
+        return { ok: false, reason: 'cancelled' };
+      }
+    }
+    try {
+      await db.runTransaction(async tx => {
+        const snap = await tx.get(docRef);
+        if (snap.exists && !existingCheck.exists) {
+          throw { __RACE__: true };
+        }
+        tx.set(docRef, { ...data, ...meta });
+      });
+    } catch (e) {
+      if (e && e.__RACE__) return { ok: false, reason: 'race' };
+      throw e;
+    }
+    return { ok: true };
   }
 
   function validateContractNoInput() {
@@ -2462,20 +2527,16 @@
       data.contractNo = baseContractNo;
       data.sourceId = baseContractNo;
       data.versionLabel = newVersionLabel;
-      const existingCheck = await db.collection('quotations').doc(newDocId).get();
-      if (existingCheck.exists) {
-        const ed = existingCheck.data();
-        const lastBy = _resolveUserName(ed.updatedBy || ed.createdBy || '未知');
-        if (!confirm(`合約編號「${newDocId}」已有存檔（最後修改：${lastBy}），確定要覆蓋嗎？`)) {
-          hint.textContent = '';
-          return;
-        }
-      }
       const userName = await _getDisplayName(user);
       const now = firebase.firestore.FieldValue.serverTimestamp();
-      await db.collection('quotations').doc(newDocId).set({
-        ...data, createdBy: userName, createdAt: now, updatedBy: userName, updatedAt: now
-      });
+      const writeResult = await _safeSetQuotation(newDocId, data, { createdBy: userName, createdAt: now, updatedBy: userName, updatedAt: now });
+      if (!writeResult.ok) {
+        if (writeResult.reason === 'race') {
+          alert(`合約編號「${newDocId}」剛被其他人搶先儲存，請重新整理清單後再試一次。`);
+        }
+        hint.textContent = '';
+        return;
+      }
       document.getElementById('in-version-label').value = newVersionLabel;
       document.getElementById('in-source-id').value = baseContractNo;
       _currentContractNo = baseContractNo;
@@ -2521,20 +2582,16 @@
       data.contractNo = newId;
       data.sourceId = '';
       data.versionLabel = '';
-      const existingCheck = await db.collection('quotations').doc(newId).get();
-      if (existingCheck.exists) {
-        const ed = existingCheck.data();
-        const lastBy = _resolveUserName(ed.updatedBy || ed.createdBy || '未知');
-        if (!confirm(`合約編號「${newId}」已有存檔（最後修改：${lastBy}），確定要覆蓋嗎？`)) {
-          hint.textContent = '';
-          return;
-        }
-      }
       const userName = await _getDisplayName(user);
       const now = firebase.firestore.FieldValue.serverTimestamp();
-      await db.collection('quotations').doc(newId).set({
-        ...data, createdBy: userName, createdAt: now, updatedBy: userName, updatedAt: now
-      });
+      const writeResult = await _safeSetQuotation(newId, data, { createdBy: userName, createdAt: now, updatedBy: userName, updatedAt: now });
+      if (!writeResult.ok) {
+        if (writeResult.reason === 'race') {
+          alert(`合約編號「${newId}」剛被其他人搶先儲存，請重新整理清單後再試一次。`);
+        }
+        hint.textContent = '';
+        return;
+      }
       document.getElementById('in-contract-no').value = newId;
       document.getElementById('in-contract-no').dispatchEvent(new Event('input'));
       document.getElementById('in-version-label').value = '';
