@@ -204,6 +204,25 @@ export const useWorkLogsStore = defineStore('workLogs', () => {
         return entries.sort((a, b) => (a.date ?? 0) - (b.date ?? 0))
     }
 
+    async function findLogForUserDate(userId, date) {
+        const start = new Date(date); start.setHours(0, 0, 0, 0)
+        const end = new Date(date); end.setHours(23, 59, 59, 999)
+        const q = query(
+            collection(db, 'workLogs'),
+            where('userId', '==', userId),
+            where('date', '>=', Timestamp.fromDate(start)),
+            where('date', '<=', Timestamp.fromDate(end)),
+        )
+        const snap = await getDocs(q)
+        if (snap.empty) return null
+        const d = snap.docs[0]
+        return { id: d.id, ...d.data() }
+    }
+
+    async function createProxyLog(userId, userName, companyId, date) {
+        return addLog({ userId, userName, companyId, date: Timestamp.fromDate(date) })
+    }
+
     function cleanup() { if (unsubscribe) { unsubscribe(); unsubscribe = null } }
 
     return {
@@ -212,6 +231,7 @@ export const useWorkLogsStore = defineStore('workLogs', () => {
         addLog, updateLog, addReply,
         approveFuel, approveOvertimeItem,
         fetchMonthlyKm, fetchMonthlyOvertimeHours, fetchMonthlyAttendance, fetchApprovedOvertimeDetail,
+        findLogForUserDate, createProxyLog,
         unsubscribe: cleanup
     }
 })

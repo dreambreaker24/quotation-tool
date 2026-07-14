@@ -41,6 +41,10 @@
             class="text-sm text-white px-4 py-2 rounded-lg w-full lg:w-auto min-h-[40px] font-semibold" style="background:#1e2533">
             + 填寫今日日誌
           </button>
+          <button v-if="authStore.isManager" @click="openProxyPicker"
+            class="text-sm text-gray-500 border border-gray-200 px-4 py-2 rounded-lg w-full lg:w-auto min-h-[40px] font-semibold hover:border-gray-400">
+            + 幫同事補加班/油資
+          </button>
         </div>
       </div>
 
@@ -96,10 +100,42 @@
     @close="showLogForm = false; editingLog = null"
     @submitted="showLogForm = false; editingLog = null"
   />
+
+  <!-- 主管代發：選同事與日期 -->
+  <div v-if="showProxyPicker" class="fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.4)">
+    <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm mx-4 border-t-4" style="border-top-color:#c9a96e">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-sm font-bold text-gray-800">幫同事補加班/油資申請</h3>
+        <button @click="showProxyPicker = false" class="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
+      </div>
+      <div class="flex flex-col gap-3">
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">同事 *</label>
+          <select v-model="proxyForm.userId" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
+            <option value="">— 選擇同事 —</option>
+            <option v-for="u in usersStore.users.filter(u => u.companyId === region)" :key="u.id" :value="u.id">{{ u.name }}</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">日期 *</label>
+          <input v-model="proxyForm.date" type="date" :max="todayStr"
+            class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1">
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 mt-5">
+        <button @click="showProxyPicker = false" class="text-sm text-gray-400 px-4 py-2">取消</button>
+        <button @click="submitProxyPicker" :disabled="proxySubmitting || !proxyForm.userId || !proxyForm.date"
+          class="text-sm text-white px-5 py-2 rounded-xl disabled:opacity-60" style="background:#1e2533">
+          {{ proxySubmitting ? '處理中…' : '下一步' }}
+        </button>
+      </div>
+    </div>
+  </div>
 </template>
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import * as XLSX from 'xlsx'
+import { Timestamp } from 'firebase/firestore'
 import { useWorkLogsStore } from '@/stores/workLogs'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
@@ -124,6 +160,41 @@ const showLogForm = ref(false)
 const editingLog = ref(null)
 const selectedDate = ref(new Date())
 const viewMode = ref('day')
+
+const showProxyPicker = ref(false)
+const proxyForm = ref({ userId: '', date: '' })
+const proxySubmitting = ref(false)
+
+const todayStr = computed(() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+})
+
+function openProxyPicker() {
+    proxyForm.value = { userId: '', date: todayStr.value }
+    showProxyPicker.value = true
+}
+
+async function submitProxyPicker() {
+    if (!proxyForm.value.userId || !proxyForm.value.date || proxySubmitting.value) return
+    proxySubmitting.value = true
+    try {
+        const targetUser = usersStore.users.find(u => u.id === proxyForm.value.userId)
+        const dateObj = new Date(`${proxyForm.value.date}T00:00:00`)
+        let log = await logsStore.findLogForUserDate(proxyForm.value.userId, dateObj)
+        if (!log) {
+            const docRef = await logsStore.createProxyLog(proxyForm.value.userId, targetUser?.name ?? '', props.region, dateObj)
+            log = { id: docRef.id, userId: proxyForm.value.userId, userName: targetUser?.name ?? '', companyId: props.region, date: Timestamp.fromDate(dateObj) }
+        }
+        showProxyPicker.value = false
+        editingLog.value = log
+        showLogForm.value = true
+    } catch {
+        toast('補建日誌失敗，請重試', 'error')
+    } finally {
+        proxySubmitting.value = false
+    }
+}
 
 function handlePreview({ urls, index }) {
     previewList.value = urls

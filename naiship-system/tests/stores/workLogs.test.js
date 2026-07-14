@@ -112,3 +112,33 @@ describe('fetchApprovedOvertimeDetail', () => {
     expect(result[0]).toMatchObject({ hours: 5, reason: '舊格式加班' })
   })
 })
+
+describe('findLogForUserDate / createProxyLog', () => {
+    beforeEach(() => setActivePinia(createPinia()))
+
+    it('findLogForUserDate returns null when no log exists for that user/date', async () => {
+        getDocs.mockResolvedValue({ empty: true, docs: [] })
+        const store = useWorkLogsStore()
+        const result = await store.findLogForUserDate('u1', new Date('2026-07-10'))
+        expect(result).toBeNull()
+    })
+
+    it('findLogForUserDate returns the existing log when found', async () => {
+        getDocs.mockResolvedValue({
+            empty: false,
+            docs: [{ id: 'log1', data: () => ({ userId: 'u1', date: { toDate: () => new Date('2026-07-10') } }) }],
+        })
+        const store = useWorkLogsStore()
+        const result = await store.findLogForUserDate('u1', new Date('2026-07-10'))
+        expect(result).toMatchObject({ id: 'log1', userId: 'u1' })
+    })
+
+    it('createProxyLog creates a minimal log document for the target user', async () => {
+        const { addDoc } = await import('firebase/firestore')
+        const store = useWorkLogsStore()
+        await store.createProxyLog('u2', '昆霖', 'south', new Date('2026-07-10'))
+        expect(addDoc).toHaveBeenCalledTimes(1)
+        const [, data] = addDoc.mock.calls[0]
+        expect(data).toMatchObject({ userId: 'u2', userName: '昆霖', companyId: 'south' })
+    })
+})
