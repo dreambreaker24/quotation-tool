@@ -2444,6 +2444,15 @@
       data.contractNo = baseContractNo;
       data.sourceId = baseContractNo;
       data.versionLabel = newVersionLabel;
+      const existingCheck = await db.collection('quotations').doc(newDocId).get();
+      if (existingCheck.exists) {
+        const ed = existingCheck.data();
+        const lastBy = _resolveUserName(ed.updatedBy || ed.createdBy || '未知');
+        if (!confirm(`合約編號「${newDocId}」已有存檔（最後修改：${lastBy}），確定要覆蓋嗎？`)) {
+          hint.textContent = '';
+          return;
+        }
+      }
       const userName = await _getDisplayName(user);
       const now = firebase.firestore.FieldValue.serverTimestamp();
       await db.collection('quotations').doc(newDocId).set({
@@ -2493,6 +2502,15 @@
       data.contractNo = newId;
       data.sourceId = '';
       data.versionLabel = '';
+      const existingCheck = await db.collection('quotations').doc(newId).get();
+      if (existingCheck.exists) {
+        const ed = existingCheck.data();
+        const lastBy = _resolveUserName(ed.updatedBy || ed.createdBy || '未知');
+        if (!confirm(`合約編號「${newId}」已有存檔（最後修改：${lastBy}），確定要覆蓋嗎？`)) {
+          hint.textContent = '';
+          return;
+        }
+      }
       const userName = await _getDisplayName(user);
       const now = firebase.firestore.FieldValue.serverTimestamp();
       await db.collection('quotations').doc(newId).set({
