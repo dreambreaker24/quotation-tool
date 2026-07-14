@@ -1353,17 +1353,33 @@ async function submitLog() {
         ? myCases.value
             .filter(c => logEntries.value[c.id]?.trim())
             .map(c => ({ caseId: c.id, caseName: c.name, content: logEntries.value[c.id].trim() }))
-        : []
+        : null
     const other = props.canEditContent
         ? otherItems.value.filter(i => i.content.trim()).map(i => ({ content: i.content.trim() }))
-        : []
+        : null
     const hasFuel = props.canEditOvertimeFuel && fuelItems.value.some(f => f.reason.trim())
-    if (!props.editingLog && caseEntries.length === 0 && other.length === 0 && !hasFuel) return
+    if (!props.editingLog && (caseEntries?.length ?? 0) === 0 && (other?.length ?? 0) === 0 && !hasFuel) return
     if (submitting.value) return
     submitting.value = true
 ```
 
-（新建日誌時 `props.canEditContent`／`props.canEditOvertimeFuel` 從 `WorkJournalTab.vue` 傳進來的預設值都是 `true`，這段邏輯行為不變；只有編輯一筆「一般內容鎖住」的舊日誌時，`caseEntries`/`other` 才會強制變成空陣列——但因為 `updateData` 組法本身在「值為空陣列」跟「原本就沒有內容」時存的結果一樣，不會誤刪原有內容，只是不會再讓使用者在這個畫面改到它。）
+再往下找 `updateData` 物件（在 `if (props.editingLog) { ... }` 分支裡）：
+
+```js
+        const updateData = {
+            ...(caseEntries.length > 0 ? { caseEntries } : { caseEntries: [] }),
+            ...(other.length > 0 ? { otherItems: other } : { otherItems: [] }),
+```
+
+改成：
+
+```js
+        const updateData = {
+            ...(caseEntries !== null && (caseEntries.length > 0 ? { caseEntries } : { caseEntries: [] })),
+            ...(other !== null && (other.length > 0 ? { otherItems: other } : { otherItems: [] })),
+```
+
+（**這一步很關鍵，不能省略**：`caseEntries`/`other` 鎖住時改成 `null` 而不是空陣列，`updateData` 也要跟著判斷 `!== null` 才決定要不要送出這個欄位——這樣「一般內容鎖住」時存檔會完全省略 `caseEntries`/`otherItems` 這兩個 key，Firestore 端維持原值不動；如果只改前面 Step 4 的 `caseEntries`/`other` 計算方式、沒有跟著改這裡的 `updateData` 判斷式，鎖住內容後存檔會把 `caseEntries`/`otherItems` 覆寫成空陣列，等於把員工原本寫的日誌內容整個清空——這是一個真的會發生資料遺失的 bug，寫這份 plan 時第一版就漏了這一步，執行時務必要改到。新建日誌時 `props.canEditContent` 從 `WorkJournalTab.vue` 傳進來的預設值是 `true`，`caseEntries`/`other` 不會是 `null`，這段改動不影響新建日誌的行為。）
 
 - [ ] **Step 5: 執行 build 確認沒有語法錯誤**
 
