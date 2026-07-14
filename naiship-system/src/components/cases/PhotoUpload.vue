@@ -76,7 +76,7 @@
                     <img v-else :src="item.url"
                       class="w-20 h-20 rounded-xl object-cover cursor-pointer hover:opacity-90 shadow-sm hover:shadow-md transition-all"
                       @click="openPreview(type.key, item)">
-                    <span class="text-[9px] text-gray-400 leading-tight">{{ formatTime(item.createdAt) }}</span>
+                    <span class="text-[9px] text-gray-400 leading-tight">{{ formatTime(item.createdAt) }} · {{ uploaderName(item.uploadedBy) }}</span>
                     <button @click="deletePhoto(type.key, item)"
                       class="absolute -top-1 -right-1 w-4 h-4 bg-gray-500 text-white rounded-full text-[9px] leading-none hidden group-hover:flex items-center justify-center hover:bg-red-500 z-10 shadow">✕</button>
                   </div>
@@ -103,7 +103,7 @@
                     <img v-else :src="item.url"
                       class="w-20 h-20 rounded-xl object-cover cursor-pointer hover:opacity-90 shadow-sm hover:shadow-md transition-all"
                       @click="openPreview(type.key, item)">
-                    <span class="text-[9px] text-gray-400 leading-tight">{{ formatTime(item.createdAt) }}</span>
+                    <span class="text-[9px] text-gray-400 leading-tight">{{ formatTime(item.createdAt) }} · {{ uploaderName(item.uploadedBy) }}</span>
                     <button @click="deletePhoto(type.key, item)"
                       class="absolute -top-1 -right-1 w-4 h-4 bg-gray-500 text-white rounded-full text-[9px] leading-none hidden group-hover:flex items-center justify-center hover:bg-red-500 z-10 shadow">✕</button>
                   </div>
@@ -124,7 +124,7 @@
                   <img v-else :src="item.url"
                     class="w-20 h-20 rounded-xl object-cover cursor-pointer hover:opacity-90 shadow-sm hover:shadow-md transition-all"
                     @click="openPreview(type.key, item)">
-                  <span class="text-[9px] text-gray-400 leading-tight">{{ formatTime(item.createdAt) }}</span>
+                  <span class="text-[9px] text-gray-400 leading-tight">{{ formatTime(item.createdAt) }} · {{ uploaderName(item.uploadedBy) }}</span>
                   <button @click="deletePhoto(type.key, item)"
                     class="absolute -top-1 -right-1 w-4 h-4 bg-gray-500 text-white rounded-full text-[9px] leading-none hidden group-hover:flex items-center justify-center hover:bg-red-500 z-10 shadow">✕</button>
                 </div>
@@ -224,12 +224,14 @@ import { useAuthStore } from '@/stores/auth'
 import { useNotificationsStore } from '@/stores/notifications'
 import { useCasesStore } from '@/stores/cases'
 import { useNavStore } from '@/stores/nav'
+import { useUsersStore } from '@/stores/users'
 
 const props = defineProps({ caseId: String, caseName: String, companyId: { type: String, default: '' } })
 const navStore = useNavStore()
 const authStore = useAuthStore()
 const notifStore = useNotificationsStore()
 const casesStore = useCasesStore()
+const usersStore = useUsersStore()
 
 const photoTypes = [
     { key: 'survey',     label: '場勘',     icon: '📷' },
@@ -294,6 +296,10 @@ function formatTime(ts) {
     return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
+function uploaderName(uid) {
+    return usersStore.users.find(u => u.id === uid)?.name ?? '未知'
+}
+
 function toggle(key) { expanded[key] = !expanded[key] }
 
 function toggleFolder(folderId) {
@@ -330,12 +336,12 @@ onMounted(async () => {
     const q = query(collection(db, 'cases', props.caseId, 'photos'), orderBy('createdAt'))
     const snap = await getDocs(q)
     snap.docs.forEach(d => {
-        const { type, url, isPdf, folderId, createdAt } = d.data()
+        const { type, url, isPdf, folderId, createdAt, uploadedBy } = d.data()
         const resolvedType = type === 'construction' ? 'survey' : type
         if (photos[resolvedType] !== undefined) {
             const resolvedIsPdf = isPdf ?? url.toLowerCase().endsWith('.pdf')
             const pdfUrl = resolvedIsPdf && !url.toLowerCase().endsWith('.pdf') ? url + '.pdf' : url
-            photos[resolvedType].push({ id: d.id, url, isPdf: resolvedIsPdf, pdfUrl, folderId: folderId ?? null, createdAt })
+            photos[resolvedType].push({ id: d.id, url, isPdf: resolvedIsPdf, pdfUrl, folderId: folderId ?? null, createdAt, uploadedBy })
         }
     })
     const jumpType = navStore.pendingPhotoType
@@ -448,9 +454,9 @@ async function uploadFiles(files, typeKey, folderId) {
             }
             if (props.caseId) {
                 const docRef = await addDoc(collection(db, 'cases', props.caseId, 'photos'), docData)
-                photos[typeKey].push({ id: docRef.id, url, isPdf, pdfUrl, folderId: folderId ?? null, createdAt: { toDate: () => new Date() } })
+                photos[typeKey].push({ id: docRef.id, url, isPdf, pdfUrl, folderId: folderId ?? null, createdAt: { toDate: () => new Date() }, uploadedBy: docData.uploadedBy })
             } else {
-                photos[typeKey].push({ id: null, url, isPdf, pdfUrl, folderId: folderId ?? null, createdAt: { toDate: () => new Date() } })
+                photos[typeKey].push({ id: null, url, isPdf, pdfUrl, folderId: folderId ?? null, createdAt: { toDate: () => new Date() }, uploadedBy: docData.uploadedBy })
             }
             expanded[typeKey] = true
             uploaded++
