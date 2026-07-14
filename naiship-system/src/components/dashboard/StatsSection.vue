@@ -6,8 +6,6 @@
         <StatCard label="進件總數" :value="String(stats.totalCount)" />
         <StatCard label="洽談案件" :value="String(stats.negotiatingCount)" />
         <StatCard label="簽約案件" :value="String(stats.signedCount)" />
-        <StatCard label="進件金額" :value="formatAmount(stats.totalAmount)" />
-        <StatCard label="洽談金額" :value="formatAmount(stats.negotiatingAmount)" />
         <StatCard label="簽約金額" :value="formatAmount(stats.signedAmount)" />
       </div>
     </div>
@@ -38,8 +36,6 @@ const stats = computed(() => {
         totalCount: all.length,
         negotiatingCount: all.filter(c => c.status === 'negotiating').length,
         signedCount: all.filter(c => ['construction', 'pending_settlement', 'aftercare', 'completed'].includes(c.status)).length,
-        totalAmount: all.reduce((s, c) => s + (c.estimatedAmount || 0), 0),
-        negotiatingAmount: all.filter(c => c.status === 'negotiating').reduce((s, c) => s + (c.estimatedAmount || 0), 0),
         signedAmount: all.filter(c => c.signedAmount).reduce((s, c) => s + (c.signedAmount || 0), 0)
     }
 })

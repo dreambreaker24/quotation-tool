@@ -56,7 +56,7 @@
         </div>
         <div class="flex items-center gap-2">
           <span v-if="log.fuelApproved" class="text-[10px] text-green-600 font-semibold">✓ 已確認</span>
-          <button v-else-if="isManager" @click="$emit('approve-fuel', log.id)"
+          <button v-else-if="canApprove" @click="$emit('approve-fuel', log.id)"
             class="text-[11px] text-white px-2.5 py-1 rounded-lg" style="background:#22c55e">✓ 確認油資</button>
           <span v-else class="text-[10px] text-amber-500 font-semibold">待主管確認</span>
         </div>
@@ -113,7 +113,7 @@
               class="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-semibold">✓ 同意</span>
             <span v-else-if="ot.approved === false"
               class="text-[10px] px-2 py-0.5 rounded-full bg-red-100 text-red-600 font-semibold">✕ 不同意</span>
-            <div v-else-if="isManager" class="flex gap-1">
+            <div v-else-if="canApprove" class="flex gap-1">
               <button @click="$emit('approve-overtime-item', log, i, true)"
                 class="text-[11px] text-white px-2 py-0.5 rounded-lg" style="background:#22c55e">✓ 同意</button>
               <button @click="$emit('approve-overtime-item', log, i, false)"
@@ -175,6 +175,7 @@ import { ref, computed } from 'vue'
 import { useCasesStore } from '@/stores/cases'
 import { useUsersStore } from '@/stores/users'
 import { CASE_STATUS_COLORS } from '@/constants/caseStatus'
+import { canApproveOvertimeFuel } from '@/utils/workJournalDeadline'
 
 const casesStore = useCasesStore()
 const usersStore = useUsersStore()
@@ -183,6 +184,7 @@ const props = defineProps({
     log: Object,
     canEdit: Boolean,
     isManager: Boolean,
+    isAdmin: Boolean,
 })
 const emit = defineEmits(['edit', 'approve-fuel', 'approve-overtime-item', 'reply', 'preview'])
 
@@ -197,6 +199,7 @@ const allOvertimeDecided = computed(() =>
 const pendingOvertimeCount = computed(() =>
     props.log.overtimeItems?.filter(i => i.approved == null).length ?? 0
 )
+const canApprove = computed(() => canApproveOvertimeFuel(props.log.date, props.isAdmin, props.isManager))
 
 const showReply = ref(false)
 const replyContent = ref('')

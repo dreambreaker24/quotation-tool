@@ -41,6 +41,14 @@
       ]
     },
     {
+      "collectionGroup": "workLogs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "date", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "calendarEvents",
       "queryScope": "COLLECTION",
       "fields": [

@@ -235,6 +235,7 @@
       :case-name="selectedCaseName"
       :company-id="selectedCaseCompanyId"
     />
+    <BidRequestPanel v-if="selectedTab === 'bidding'" :key="`bid-${selectedCaseId}`" :case-id="selectedCaseId" :case-name="selectedCaseName" />
     <WorkTypePanel v-if="selectedTab === 'worktype'" :key="`wt-${selectedCaseId}`" :case-id="selectedCaseId" :case-name="selectedCaseName" :company-id="selectedCaseCompanyId" />
     <PaymentMilestones v-if="selectedTab === 'payment'" :case-id="selectedCaseId" :case-name="selectedCaseName" :company-id="selectedCaseCompanyId" />
     <PhotoUpload v-if="selectedTab === 'photo'" :case-id="selectedCaseId" :case-name="selectedCaseName" :company-id="selectedCaseCompanyId" />
@@ -259,6 +260,7 @@ import PhotoUpload from './PhotoUpload.vue'
 import CaseTasks from './CaseTasks.vue'
 import CaseReview from './CaseReview.vue'
 import CaseProgressNotes from './CaseProgressNotes.vue'
+import BidRequestPanel from './BidRequestPanel.vue'
 import WorkTypePanel from './WorkTypePanel.vue'
 import PaymentMilestones from './PaymentMilestones.vue'
 import CaseEditModal from './CaseEditModal.vue'
@@ -437,6 +439,7 @@ const selectedCaseStatus = computed(() =>
 const caseDetailRef = ref(null)
 
 const CASE_TABS = [
+    { key: 'bidding',  label: '廠商比價' },
     { key: 'worktype', label: '工程安排' },
     { key: 'photo',    label: '檔案管理' },
     { key: 'tasks',    label: '交辦事項' },

@@ -116,6 +116,35 @@
         </div>
         </div>
 
+        <div v-if="wt.done && wtVendorCostTotal(wt) > 0 && !wt.vendorCostFree" class="mt-2 pt-2 border-t border-gray-100 flex items-center gap-2">
+          <span class="text-[10px] text-gray-400 font-medium">開立對象</span>
+          <button @click="setInvoiceTarget(idx, 'naiship')"
+            class="text-[10px] px-2 py-0.5 rounded-full font-medium transition-colors"
+            :class="wt.invoiceTarget === 'naiship' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'">
+            奈拾
+          </button>
+          <button @click="setInvoiceTarget(idx, 'boyan')"
+            class="text-[10px] px-2 py-0.5 rounded-full font-medium transition-colors"
+            :class="wt.invoiceTarget === 'boyan' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'">
+            柏延
+          </button>
+          <span v-if="!wt.invoiceTarget" class="text-[9px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 font-semibold">
+            未選開立對象
+          </span>
+        </div>
+
+        <div v-if="wt.locations?.length" class="mt-2 pt-2 border-t border-gray-100">
+          <div class="text-[10px] text-gray-400 font-medium mb-1">施作位置</div>
+          <div class="flex flex-col gap-1">
+            <div v-for="loc in wt.locations" :key="loc.id" class="text-[11px] text-gray-600 flex items-center gap-2">
+              <span class="font-medium">{{ loc.label }}</span>
+              <span v-if="loc.startDate" class="text-gray-400">
+                {{ loc.startDate }}<template v-if="loc.endDate"> ～ {{ loc.endDate }}</template>
+              </span>
+            </div>
+          </div>
+        </div>
+
         <!-- Vendor quotes section -->
         <div class="mt-2 pt-2 border-t border-gray-100">
           <div class="flex items-center gap-2 mb-1.5">
@@ -137,7 +166,7 @@
               <img v-else :src="item.url"
                 class="w-14 h-14 rounded object-cover cursor-pointer hover:opacity-80"
                 @click="openVendorPreview(wt.id, idx)">
-              <span class="text-[8px] text-gray-400 leading-tight">{{ formatTime(item.createdAt) }}</span>
+              <span class="text-[8px] text-gray-400 leading-tight">{{ formatTime(item.createdAt) }} · {{ uploaderName(item.uploadedBy) }}</span>
               <button @click="deleteVendorPhoto(wt.id, item)"
                 class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-gray-600 text-white rounded-full text-[8px] leading-none hidden group-hover:flex items-center justify-center hover:bg-red-500 z-10">✕</button>
             </div>
@@ -197,7 +226,7 @@
                     <img v-else :src="item.url"
                       class="w-14 h-14 rounded object-cover cursor-pointer hover:opacity-80"
                       @click="openWtConstructPreview(wt.id, item)">
-                    <span class="text-[8px] text-gray-400 leading-tight">{{ formatTime(item.createdAt) }}</span>
+                    <span class="text-[8px] text-gray-400 leading-tight">{{ formatTime(item.createdAt) }} · {{ uploaderName(item.uploadedBy) }}</span>
                     <button @click="deleteWtConstructPhoto(wt.id, item)"
                       class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-gray-600 text-white rounded-full text-[8px] leading-none hidden group-hover:flex items-center justify-center hover:bg-red-500 z-10">✕</button>
                   </div>
@@ -214,7 +243,7 @@
                   <img v-else :src="item.url"
                     class="w-14 h-14 rounded object-cover cursor-pointer hover:opacity-80"
                     @click="openWtConstructPreview(wt.id, item)">
-                  <span class="text-[8px] text-gray-400 leading-tight">{{ formatTime(item.createdAt) }}</span>
+                  <span class="text-[8px] text-gray-400 leading-tight">{{ formatTime(item.createdAt) }} · {{ uploaderName(item.uploadedBy) }}</span>
                   <button @click="deleteWtConstructPhoto(wt.id, item)"
                     class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-gray-600 text-white rounded-full text-[8px] leading-none hidden group-hover:flex items-center justify-center hover:bg-red-500 z-10">✕</button>
                 </div>
@@ -233,7 +262,7 @@
                 <img v-else :src="item.url"
                   class="w-14 h-14 rounded object-cover cursor-pointer hover:opacity-80"
                   @click="openWtConstructPreview(wt.id, item)">
-                <span class="text-[8px] text-gray-400 leading-tight">{{ formatTime(item.createdAt) }}</span>
+                <span class="text-[8px] text-gray-400 leading-tight">{{ formatTime(item.createdAt) }} · {{ uploaderName(item.uploadedBy) }}</span>
                 <button @click="deleteWtConstructPhoto(wt.id, item)"
                   class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-gray-600 text-white rounded-full text-[8px] leading-none hidden group-hover:flex items-center justify-center hover:bg-red-500 z-10">✕</button>
               </div>
@@ -260,12 +289,11 @@
           <select v-model="selectedCategory" @change="onCategoryChange" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
             <option value="">— 請選擇工種 —</option>
             <option v-for="cat in WORK_CATEGORIES" :key="cat" :value="cat">{{ cat }}</option>
-            <option value="__custom__">自訂…</option>
           </select>
-        </div>
-        <div v-if="selectedCategory === '__custom__'">
-          <label class="text-xs text-gray-500 mb-1 block">自訂名稱 *</label>
-          <input v-model="form.name" type="text" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1" placeholder="輸入工種名稱">
+          <div v-if="isLegacyCustomName" class="mt-1.5 text-[11px] text-amber-600 bg-amber-50 rounded-lg px-2.5 py-1.5">
+            舊資料：{{ form.name }}（不在標準清單內）
+            <button type="button" @click="clearLegacyCustomName" class="ml-1 underline hover:text-amber-800">改選標準分類</button>
+          </div>
         </div>
         <div>
           <label class="text-xs text-gray-500 mb-1 block">負責廠商</label>
@@ -292,7 +320,7 @@
             </div>
           </div>
           <p v-if="regionVendors.length === 0" class="text-[11px] text-gray-400 mt-1">
-            {{ selectedCategory && selectedCategory !== '__custom__' ? `尚無「${selectedCategory}」廠商，請至設定新增` : '尚無廠商，請至設定 › 廠商管理新增' }}
+            {{ selectedCategory ? `尚無「${selectedCategory}」廠商，請至設定新增` : '尚無廠商，請至設定 › 廠商管理新增' }}
           </p>
         </div>
         <div class="grid grid-cols-2 gap-3">
@@ -346,6 +374,34 @@
             <div v-if="formVendorCostTotal > 0" class="text-right text-xs font-semibold mt-0.5 text-red-500">
               合計 ${{ formVendorCostTotal.toLocaleString() }}
             </div>
+          </div>
+        </div>
+        <div>
+          <label class="text-xs text-gray-500 font-medium mb-1 block">施作位置（選填）</label>
+          <div class="flex flex-col gap-1.5">
+            <div v-for="(loc, i) in form.locations" :key="loc.id"
+              class="border border-gray-100 rounded-lg p-2 bg-gray-50/60">
+              <div class="flex gap-1.5 mb-1.5">
+                <input v-model="loc.label" type="text" placeholder="位置（例：浴室）"
+                  class="flex-1 text-xs border border-gray-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 bg-white">
+                <button type="button" @click="removeLocation(i)"
+                  class="text-[10px] text-red-400 hover:text-red-600 px-1 flex-shrink-0">✕</button>
+              </div>
+              <div class="grid grid-cols-2 gap-1.5 mb-1.5">
+                <input :value="loc.startDate" type="date"
+                  @input="loc.startDate = $event.target.value"
+                  class="text-xs border border-gray-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 bg-white">
+                <input :value="loc.endDate" type="date"
+                  @input="loc.endDate = $event.target.value"
+                  class="text-xs border border-gray-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 bg-white">
+              </div>
+              <input v-model="loc.note" type="text" placeholder="備註"
+                class="w-full text-xs border border-gray-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 bg-white">
+            </div>
+            <button type="button" @click="addLocation"
+              class="text-[11px] border border-dashed border-gray-200 rounded-lg py-1.5 text-gray-400 hover:border-gray-400 hover:text-gray-600 transition-colors w-full">
+              + 新增施作位置
+            </button>
           </div>
         </div>
         <div class="border border-gray-100 rounded-xl p-3 bg-gray-50/50 flex flex-col gap-2">
@@ -526,11 +582,14 @@
 <script setup>
 import { ref, computed, reactive, onMounted, onUnmounted } from 'vue'
 import { WORK_CATEGORIES } from '@/constants/workCategories'
+import { WT_COLORS } from '@/constants/workTypeColors'
+import { isLegacyCategoryName } from '@/utils/workTypeCategory'
 import { useVendorsStore } from '@/stores/vendors'
 import { useCasesStore } from '@/stores/cases'
 import { useAuthStore } from '@/stores/auth'
 import { useNotificationsStore } from '@/stores/notifications'
 import { usePaymentRemindersStore } from '@/stores/paymentReminders'
+import { useUsersStore } from '@/stores/users'
 import { useToast } from '@/composables/useToast'
 import { uploadPhoto, validateUploadFile } from '@/composables/useStorage'
 import { addDoc, collection, getDocs, orderBy, query, serverTimestamp, deleteDoc, doc } from 'firebase/firestore'
@@ -564,6 +623,7 @@ const casesStore = useCasesStore()
 const authStore = useAuthStore()
 const notifStore = useNotificationsStore()
 const remindersStore = usePaymentRemindersStore()
+const usersStore = useUsersStore()
 const { toast } = useToast()
 
 const showForm = ref(false)
@@ -573,7 +633,7 @@ const form = ref({
     name: '', vendorId: '', startDate: '', endDate: '',
     hasQuote: false, hasSchedule: false,
     vendorCostItems: [], vendorCostFree: false,
-    costIncludesTax: false,
+    costIncludesTax: false, locations: [],
 })
 
 const showVendorPayForm = ref(false)
@@ -738,15 +798,16 @@ async function handleWtConstructFiles(e) {
             const url = await uploadPhoto(file, 'wt_construction')
             const isPdf = file.name.toLowerCase().endsWith('.pdf')
             const pdfUrl = isPdf && !url.toLowerCase().endsWith('.pdf') ? url + '.pdf' : url
+            const uploadedBy = authStore.user?.uid ?? 'unknown'
             const docRef = await addDoc(collection(db, 'cases', props.caseId, 'photos'), {
                 type: 'wt_construction', workTypeId: wtId,
                 folderId: folderId ?? null,
                 url, isPdf,
-                uploadedBy: authStore.user?.uid ?? 'unknown',
+                uploadedBy,
                 createdAt: serverTimestamp(),
             })
             if (!wtConstructPhotos[wtId]) wtConstructPhotos[wtId] = []
-            wtConstructPhotos[wtId].push({ id: docRef.id, url, isPdf, pdfUrl, folderId: folderId ?? null, createdAt: { toDate: () => new Date() } })
+            wtConstructPhotos[wtId].push({ id: docRef.id, url, isPdf, pdfUrl, folderId: folderId ?? null, createdAt: { toDate: () => new Date() }, uploadedBy })
         } catch {
             toast('上傳失敗，請重試', 'error')
         }
@@ -761,8 +822,6 @@ async function deleteWtConstructPhoto(wtId, item) {
         wtConstructPhotos[wtId] = wtConstructPhotos[wtId].filter(p => p !== item)
     }
 }
-
-const WT_COLORS = ['#3b82f6', '#f59e0b', '#22c55e', '#ef4444', '#a855f7', '#ec4899', '#14b8a6', '#f97316']
 
 function sumItems(items, free) {
     if (free) return 0
@@ -786,6 +845,12 @@ function addVendorCostItem() {
 function removeVendorCostItem(i) {
     form.value.vendorCostItems.splice(i, 1)
 }
+function addLocation() {
+    form.value.locations.push({ id: `loc_${Date.now()}`, label: '', startDate: '', endDate: '', note: '' })
+}
+function removeLocation(i) {
+    form.value.locations.splice(i, 1)
+}
 
 const formVendorCostTotal = computed(() =>
     form.value.vendorCostItems.reduce((s, i) => s + (i.amount || 0), 0)
@@ -793,9 +858,11 @@ const formVendorCostTotal = computed(() =>
 
 const selectedCategory = ref('')
 function onCategoryChange() {
-    const val = selectedCategory.value
-    if (val && val !== '__custom__') form.value.name = val
-    else if (val === '__custom__') form.value.name = ''
+    if (selectedCategory.value) form.value.name = selectedCategory.value
+}
+const isLegacyCustomName = computed(() => isLegacyCategoryName(selectedCategory.value, form.value.name, WORK_CATEGORIES))
+function clearLegacyCustomName() {
+    form.value.name = ''
 }
 
 const vendorSearch = ref('')
@@ -823,6 +890,10 @@ function formatTime(ts) {
     if (!ts) return ''
     const d = ts.toDate?.() ?? new Date(ts)
     return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
+function uploaderName(uid) {
+    return usersStore.users.find(u => u.id === uid)?.name ?? '未知'
 }
 
 function isWorkTypeOverdue(wt) {
@@ -907,15 +978,15 @@ onMounted(async () => {
     const q = query(collection(db, 'cases', props.caseId, 'photos'), orderBy('createdAt'))
     const snap = await getDocs(q)
     snap.docs.forEach(d => {
-        const { type, url, isPdf, workTypeId, folderId, createdAt } = d.data()
+        const { type, url, isPdf, workTypeId, folderId, createdAt, uploadedBy } = d.data()
         const resolvedIsPdf = isPdf ?? url.toLowerCase().endsWith('.pdf')
         const pdfUrl = resolvedIsPdf && !url.toLowerCase().endsWith('.pdf') ? url + '.pdf' : url
         if (type === 'vendor_quote' && workTypeId) {
             if (!vendorPhotos[workTypeId]) vendorPhotos[workTypeId] = []
-            vendorPhotos[workTypeId].push({ id: d.id, url, isPdf: resolvedIsPdf, pdfUrl, createdAt })
+            vendorPhotos[workTypeId].push({ id: d.id, url, isPdf: resolvedIsPdf, pdfUrl, createdAt, uploadedBy })
         } else if (type === 'wt_construction' && workTypeId) {
             if (!wtConstructPhotos[workTypeId]) wtConstructPhotos[workTypeId] = []
-            wtConstructPhotos[workTypeId].push({ id: d.id, url, isPdf: resolvedIsPdf, pdfUrl, folderId: folderId ?? null, createdAt })
+            wtConstructPhotos[workTypeId].push({ id: d.id, url, isPdf: resolvedIsPdf, pdfUrl, folderId: folderId ?? null, createdAt, uploadedBy })
         }
     })
 })
@@ -935,15 +1006,16 @@ async function handleVendorFiles(e) {
             const url = await uploadPhoto(file, 'vendor_quote')
             const isPdf = file.name.toLowerCase().endsWith('.pdf')
             const pdfUrl = isPdf && !url.toLowerCase().endsWith('.pdf') ? url + '.pdf' : url
+            const uploadedBy = authStore.user?.uid ?? 'unknown'
             const docRef = await addDoc(collection(db, 'cases', props.caseId, 'photos'), {
                 type: 'vendor_quote',
                 workTypeId: activeWtId.value,
                 url, isPdf,
-                uploadedBy: authStore.user?.uid ?? 'unknown',
+                uploadedBy,
                 createdAt: serverTimestamp()
             })
             if (!vendorPhotos[activeWtId.value]) vendorPhotos[activeWtId.value] = []
-            vendorPhotos[activeWtId.value].push({ id: docRef.id, url, isPdf, pdfUrl, createdAt: { toDate: () => new Date() } })
+            vendorPhotos[activeWtId.value].push({ id: docRef.id, url, isPdf, pdfUrl, createdAt: { toDate: () => new Date() }, uploadedBy })
         } catch {
             toast('上傳失敗，請重試', 'error')
         }
@@ -966,7 +1038,7 @@ const remainingVendorAmount = computed(() => {
 
 const regionVendors = computed(() => {
     const vendors = vendorsStore.vendors.filter(v => !v.companyId || v.companyId === caseData.value?.companyId)
-    if (!selectedCategory.value || selectedCategory.value === '__custom__') return vendors
+    if (!selectedCategory.value) return vendors
     const standardCategories = WORK_CATEGORIES.filter(c => c !== '其他')
     if (selectedCategory.value === '其他') return vendors.filter(v => !standardCategories.includes(v.specialty))
     return vendors.filter(v => v.specialty === selectedCategory.value)
@@ -992,7 +1064,7 @@ function openAdd() {
         name: '', vendorId: '', startDate: '', endDate: '',
         hasQuote: false, hasSchedule: false,
         vendorCostItems: [], vendorCostFree: false,
-        costIncludesTax: false,
+        costIncludesTax: false, locations: [],
     }
     showForm.value = true
 }
@@ -1000,7 +1072,7 @@ function openAdd() {
 function openEdit(idx) {
     editingIdx.value = idx
     const wt = workTypes.value[idx]
-    selectedCategory.value = WORK_CATEGORIES.includes(wt.name) ? wt.name : (wt.name ? '__custom__' : '')
+    selectedCategory.value = WORK_CATEGORIES.includes(wt.name) ? wt.name : ''
     vendorSearch.value = wt.vendorName || ''
     form.value = {
         name: wt.name,
@@ -1012,6 +1084,7 @@ function openEdit(idx) {
         vendorCostItems: normalizeItems(wt.vendorCostItems, wt.vendorCost, 'vc'),
         vendorCostFree: wt.vendorCostFree || false,
         costIncludesTax: wt.costIncludesTax || false,
+        locations: (wt.locations || []).map(l => ({ ...l })),
     }
     showForm.value = true
 }
@@ -1061,6 +1134,8 @@ async function submitForm() {
         vendorPayments: existing?.vendorPayments ?? [],
         done: existing?.done ?? false,
         invoiceReceived: existing?.invoiceReceived ?? false,
+        invoiceTarget: existing?.invoiceTarget ?? null,
+        locations: form.value.locations.filter(l => l.label),
     }
 
     let vendorChange = null
@@ -1160,6 +1235,17 @@ async function toggleInvoice(idx) {
     updated[idx] = { ...wt, invoiceReceived: !wt.invoiceReceived }
     await casesStore.updateCase(props.caseId, { workTypes: updated })
     toast(wt.invoiceReceived ? '已取消發票確認' : '發票已確認')
+}
+
+const INVOICE_TARGET_LABELS = { naiship: '奈拾', boyan: '柏延' }
+
+async function setInvoiceTarget(idx, target) {
+    const wt = workTypes.value[idx]
+    const nextTarget = wt.invoiceTarget === target ? null : target
+    const updated = [...workTypes.value]
+    updated[idx] = { ...wt, invoiceTarget: nextTarget }
+    await casesStore.updateCase(props.caseId, { workTypes: updated })
+    toast(nextTarget ? `發票開立對象已設為${INVOICE_TARGET_LABELS[nextTarget]}` : '已取消開立對象')
 }
 
 async function addVendorPayment() {

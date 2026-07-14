@@ -62,15 +62,9 @@
           </div>
         </div>
 
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="text-xs text-gray-500 mb-1 block">預估金額</label>
-            <input v-model.number="form.estimatedAmount" type="number" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1" placeholder="0">
-          </div>
-          <div>
-            <label class="text-xs text-gray-500 mb-1 block">簽約金額</label>
-            <input v-model.number="form.signedAmount" type="number" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1" placeholder="0">
-          </div>
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">簽約金額</label>
+          <input v-model.number="form.signedAmount" type="number" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1" placeholder="0">
         </div>
 
         <div class="grid grid-cols-2 gap-3">
@@ -132,6 +126,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useUsersStore } from '@/stores/users'
 import { useNotificationsStore } from '@/stores/notifications'
 import { useToast } from '@/composables/useToast'
+import { isMissingSignedAmountForConstruction } from '@/utils/caseStatusRules'
 
 const props = defineProps({ caseId: String })
 const emit = defineEmits(['close'])
@@ -175,7 +170,6 @@ const form = ref({
     companyId: 'south',
     status: 'negotiating',
     assignees: [''],
-    estimatedAmount: 0,
     signedAmount: 0,
     startDate: '',
     endDate: '',
@@ -195,7 +189,6 @@ watch(caseData, (c) => {
         companyId: c.companyId ?? 'south',
         status: c.status ?? 'negotiating',
         assignees: c.assignees?.length ? [...c.assignees] : (c.assigneeName ? c.assigneeName.split('、') : ['']),
-        estimatedAmount: c.estimatedAmount ?? 0,
         signedAmount: c.signedAmount ?? 0,
         startDate: tsToDate(c.startDate),
         endDate: tsToDate(c.endDate),
@@ -214,6 +207,10 @@ function formatTs(ts) {
 
 async function save() {
     if (!form.value.name || saving.value) return
+    if (isMissingSignedAmountForConstruction(form.value.status, originalStatus.value, form.value.signedAmount)) {
+        toast('請先填寫簽約金額才能切換為施工中', 'error')
+        return
+    }
     saving.value = true
     try {
         const assignees = form.value.assignees.filter(a => a.trim())
@@ -224,7 +221,6 @@ async function save() {
             status: form.value.status,
             assignees,
             assigneeName: assignees.join('、'),
-            estimatedAmount: form.value.estimatedAmount || 0,
             signedAmount: form.value.signedAmount || 0,
             startDate: form.value.startDate ? Timestamp.fromDate(new Date(form.value.startDate)) : null,
             endDate: form.value.endDate ? Timestamp.fromDate(new Date(form.value.endDate)) : null,

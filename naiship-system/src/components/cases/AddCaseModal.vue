@@ -55,15 +55,9 @@
               class="text-xs text-left px-1" style="color:#c9a96e">+ 新增負責人</button>
           </div>
         </div>
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="text-xs text-gray-500 mb-1 block">預估金額</label>
-            <input v-model.number="caseForm.estimatedAmount" type="number" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1" placeholder="0">
-          </div>
-          <div>
-            <label class="text-xs text-gray-500 mb-1 block">簽約金額</label>
-            <input v-model.number="caseForm.signedAmount" type="number" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1" placeholder="0">
-          </div>
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">簽約金額</label>
+          <input v-model.number="caseForm.signedAmount" type="number" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1" placeholder="0">
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
@@ -122,7 +116,7 @@ const blankCase = () => ({
     name: '', address: '',
     companyId: authStore.isManager ? (props.region ?? 'south') : (authStore.companyId || 'south'),
     assignees: [''], status: 'negotiating',
-    estimatedAmount: 0, signedAmount: 0, startDate: '', endDate: '', signedDate: '',
+    signedAmount: 0, startDate: '', endDate: '', signedDate: '',
     deadline: '', linkedClientId: ''
 })
 const caseForm = ref(blankCase())
@@ -154,7 +148,6 @@ async function submitCase() {
         address: caseForm.value.address || '',
         companyId: caseForm.value.companyId,
         status: caseForm.value.status,
-        estimatedAmount: caseForm.value.estimatedAmount || 0,
         signedAmount: caseForm.value.signedAmount || 0,
         assignees,
         assigneeName: assignees.join('、'),
