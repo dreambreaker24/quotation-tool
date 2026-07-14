@@ -1814,8 +1814,22 @@
   var _checkedDocIds = new Set();
   var _expandedFolders = new Set();
   var _DELETE_WHITELIST = ['dreambreaker24@hotmail.com', 'daydream543@hotmail.com.tw'];
+  var _caseGroupOverrides = [];
+  var _dragHistoryDocId = null;
+  var unsubscribeOverridesListener = null;
 
-  function _renderHistoryItem(q, container, isChild, folderColor) {
+  function startOverridesListener() {
+    if (unsubscribeOverridesListener) unsubscribeOverridesListener();
+    unsubscribeOverridesListener = db.collection('caseGroupOverrides').onSnapshot(
+      snapshot => {
+        _caseGroupOverrides = snapshot.docs.map(doc => ({ ...doc.data(), _id: doc.id }));
+        renderHistoryList();
+      },
+      err => { console.error('分組覆蓋監聽失敗:', err); }
+    );
+  }
+
+  function _renderHistoryItem(q, container, isChild, folderColor, overrideId) {
     const div = document.createElement('div');
     div.className = 'history-item';
     div.dataset.contractNo = q.contractNo;
@@ -1847,6 +1861,9 @@
     const _delHtml = (_canDelete && !_editMode)
       ? `<button onclick="event.stopPropagation();deleteSingleQuote('${_safeDocId}','${_safeContractNo}','${_safeLabel}')" style="flex-shrink:0; margin-left:6px; padding:2px 7px; background:#fee2e2; color:#ef4444; border:1px solid #fca5a5; border-radius:3px; cursor:pointer; font-size:11px; font-family:inherit;" title="刪除">🗑️</button>`
       : '';
+    const _ungroupHtml = (overrideId && !_editMode)
+      ? `<button onclick="event.stopPropagation();removeFromGroup('${_safeDocId}','${overrideId}')" style="flex-shrink:0; margin-left:4px; padding:2px 7px; background:#f3f4f6; color:#6b7280; border:1px solid #d1d5db; border-radius:3px; cursor:pointer; font-size:11px; font-family:inherit;" title="移出資料夾">📤</button>`
+      : '';
     div.innerHTML = `
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:4px;">
         <div style="display:flex; align-items:flex-start; flex:1; min-width:0;">
@@ -1856,13 +1873,22 @@
             <div style="font-size:11px; color:#aaa;">最後修改：${escHtml(_resolveUserName(q.updatedBy || q.createdBy))} · ${timeAgo(q.updatedAt)}</div>
           </div>
         </div>
-        ${_delHtml}
+        ${_ungroupHtml}${_delHtml}
       </div>
     `;
     if (_highlightDocId && _qDocId === _highlightDocId) {
       div.style.animation = '_hl-flash 1.5s ease-out';
       _highlightDocId = null;
     }
+    div.draggable = true;
+    div.addEventListener('dragstart', e => { _dragHistoryDocId = _qDocId; e.dataTransfer.effectAllowed = 'move'; div.style.opacity = '0.5'; });
+    div.addEventListener('dragend', () => { _dragHistoryDocId = null; div.style.opacity = ''; });
+    div.addEventListener('dragover', e => { e.preventDefault(); div.style.outline = '2px dashed #4f46e5'; });
+    div.addEventListener('dragleave', () => { div.style.outline = ''; });
+    div.addEventListener('drop', e => {
+      e.preventDefault(); div.style.outline = '';
+      if (_dragHistoryDocId && _dragHistoryDocId !== _qDocId) mergeIntoGroup(_dragHistoryDocId, _qDocId);
+    });
     container.appendChild(div);
   }
 
@@ -2087,7 +2113,7 @@
       return;
     }
     const _id = q => q._docId || q.contractNo;
-    const { groups, overrideIdByDocId } = _computeCaseGroups(quotes, []);
+    const { groups, overrideIdByDocId } = _computeCaseGroups(quotes, _caseGroupOverrides);
 
     // 每組內按合約號升序
     groups.forEach(g => g.sort((a, b) => (a.contractNo || '') < (b.contractNo || '') ? -1 : 1));
@@ -2126,6 +2152,12 @@
           else _expandedFolders.add(folderKey);
           renderHistoryList();
         };
+        hdr.addEventListener('dragover', e => { e.preventDefault(); hdr.style.outline = '2px dashed ' + color.text; });
+        hdr.addEventListener('dragleave', () => { hdr.style.outline = ''; });
+        hdr.addEventListener('drop', e => {
+          e.preventDefault(); hdr.style.outline = '';
+          if (_dragHistoryDocId && !group.some(q => _id(q) === _dragHistoryDocId)) mergeIntoGroup(_dragHistoryDocId, repDocId);
+        });
         container.appendChild(hdr);
 
         if (isExpanded) {
@@ -2135,6 +2167,50 @@
         _renderHistoryItem(group[0], container, false, null, overrideIdByDocId[repDocId]);
       }
     });
+  }
+
+  async function mergeIntoGroup(draggedDocId, targetDocId) {
+    if (draggedDocId === targetDocId) return;
+    const draggedQ = liveQuotes.find(q => (q._docId || q.contractNo) === draggedDocId);
+    const targetQ = liveQuotes.find(q => (q._docId || q.contractNo) === targetDocId);
+    if (!draggedQ || !targetQ) return;
+    const draggedLabel = [draggedQ.contractNo, draggedQ.project].filter(Boolean).join(' · ');
+    const targetLabel = [targetQ.contractNo, targetQ.project].filter(Boolean).join(' · ');
+    if (!confirm(`確定要把「${draggedLabel}」併入「${targetLabel}」的資料夾嗎？\n\n這不會更動任何一筆報價單的內容，只會調整清單分組方式。`)) return;
+    const existing = _caseGroupOverrides.find(ov =>
+      (ov.docIds || []).includes(draggedDocId) || (ov.docIds || []).includes(targetDocId)
+    );
+    try {
+      if (existing) {
+        const merged = Array.from(new Set([...(existing.docIds || []), draggedDocId, targetDocId]));
+        await db.collection('caseGroupOverrides').doc(existing._id).update({ docIds: merged });
+      } else {
+        await db.collection('caseGroupOverrides').add({
+          docIds: [draggedDocId, targetDocId],
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      }
+      const hint = document.getElementById('save-hint');
+      if (hint) { hint.style.color = '#3a3'; hint.textContent = '已合併資料夾'; setTimeout(() => { hint.textContent = ''; }, 3000); }
+    } catch (e) {
+      alert('合併失敗：' + (e.message || String(e)));
+    }
+  }
+
+  async function removeFromGroup(docId, overrideId) {
+    if (!confirm('確定要把這筆移出資料夾嗎？')) return;
+    const ov = _caseGroupOverrides.find(o => o._id === overrideId);
+    if (!ov) return;
+    const remaining = (ov.docIds || []).filter(id => id !== docId);
+    try {
+      if (remaining.length < 2) {
+        await db.collection('caseGroupOverrides').doc(overrideId).delete();
+      } else {
+        await db.collection('caseGroupOverrides').doc(overrideId).update({ docIds: remaining });
+      }
+    } catch (e) {
+      alert('移出失敗：' + (e.message || String(e)));
+    }
   }
 
   function sanitize(v) {
@@ -3532,6 +3608,7 @@
       if (!document.getElementById('in-contract-terms').value) document.getElementById('in-contract-terms').value = DEFAULT_CONTRACT_TERMS;
       renderAll();
       startRealtimeListener();
+      startOverridesListener();
     } else {
       document.getElementById('login-overlay').style.display = 'none';
       document.getElementById('user-status-bar').style.display = 'flex';
