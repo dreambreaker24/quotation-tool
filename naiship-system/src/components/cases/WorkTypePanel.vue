@@ -116,6 +116,23 @@
         </div>
         </div>
 
+        <div v-if="wt.done && wtVendorCostTotal(wt) > 0 && !wt.vendorCostFree" class="mt-2 pt-2 border-t border-gray-100 flex items-center gap-2">
+          <span class="text-[10px] text-gray-400 font-medium">開立對象</span>
+          <button @click="setInvoiceTarget(idx, 'naiship')"
+            class="text-[10px] px-2 py-0.5 rounded-full font-medium transition-colors"
+            :class="wt.invoiceTarget === 'naiship' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'">
+            奈拾
+          </button>
+          <button @click="setInvoiceTarget(idx, 'boyan')"
+            class="text-[10px] px-2 py-0.5 rounded-full font-medium transition-colors"
+            :class="wt.invoiceTarget === 'boyan' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'">
+            柏延
+          </button>
+          <span v-if="!wt.invoiceTarget" class="text-[9px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 font-semibold">
+            未選開立對象
+          </span>
+        </div>
+
         <div v-if="wt.locations?.length" class="mt-2 pt-2 border-t border-gray-100">
           <div class="text-[10px] text-gray-400 font-medium mb-1">施作位置</div>
           <div class="flex flex-col gap-1">
