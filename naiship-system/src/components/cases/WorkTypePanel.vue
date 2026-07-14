@@ -1070,30 +1070,59 @@ function openVendorPay(idx) {
     showVendorPayForm.value = true
 }
 
+function buildVendorChangeLines(existing, entry) {
+    const fallbackToday = new Date().toISOString().slice(0, 10)
+    const oldDue = calcVendorDueDate(existing.endDate || fallbackToday)
+    const newDue = calcVendorDueDate(entry.endDate || fallbackToday)
+    const oldAmount = wtVendorCostTotal(existing)
+    const newAmount = wtVendorCostTotal(entry)
+    const lines = []
+    if ((existing.endDate || '') !== (entry.endDate || '')) {
+        lines.push(`完工日期：${existing.endDate ? formatDateChinese(existing.endDate) : '未設'} → ${entry.endDate ? formatDateChinese(entry.endDate) : '未設'}`)
+    }
+    if (oldDue !== newDue) {
+        lines.push(`付款到期日：${formatDateChinese(oldDue)} → ${formatDateChinese(newDue)}`)
+    }
+    if (oldAmount !== newAmount) {
+        lines.push(`廠商金額：$${oldAmount.toLocaleString()} → $${newAmount.toLocaleString()}`)
+    }
+    return { lines, dueDate: newDue, amount: newAmount }
+}
+
 async function submitForm() {
     if (!form.value.name || saving.value) return
+    const vendor = vendorsStore.vendors.find(v => v.id === form.value.vendorId)
+    const existing = editingIdx.value !== null ? workTypes.value[editingIdx.value] : null
+    const entry = {
+        id: existing ? existing.id : `wt_${Date.now()}`,
+        name: form.value.name,
+        vendorId: form.value.vendorId || '',
+        vendorName: vendor?.name ?? '',
+        startDate: form.value.startDate || '',
+        endDate: form.value.endDate || '',
+        hasQuote: form.value.hasQuote || false,
+        hasSchedule: form.value.hasSchedule || false,
+        vendorCostItems: form.value.vendorCostFree ? [] : form.value.vendorCostItems.filter(i => i.description || i.amount > 0),
+        vendorCostFree: form.value.vendorCostFree || false,
+        costIncludesTax: form.value.costIncludesTax || false,
+        color: existing ? existing.color : WT_COLORS[workTypes.value.length % WT_COLORS.length],
+        vendorPayments: existing?.vendorPayments ?? [],
+        done: existing?.done ?? false,
+        invoiceReceived: existing?.invoiceReceived ?? false,
+        locations: form.value.locations.filter(l => l.label),
+    }
+
+    let vendorChange = null
+    if (existing?.done) {
+        vendorChange = buildVendorChangeLines(existing, entry)
+        if (vendorChange.lines.length > 0) {
+            const confirmed = confirm(`確定要儲存這些變動嗎？\n\n${vendorChange.lines.join('\n')}\n\n此變動會同步更新首頁付款清單（若該筆款項已標記付款完成，金額將維持原紀錄不變）`)
+            if (!confirmed) return
+        }
+    }
+
     saving.value = true
     try {
-        const vendor = vendorsStore.vendors.find(v => v.id === form.value.vendorId)
-        const existing = editingIdx.value !== null ? workTypes.value[editingIdx.value] : null
-        const entry = {
-            id: existing ? existing.id : `wt_${Date.now()}`,
-            name: form.value.name,
-            vendorId: form.value.vendorId || '',
-            vendorName: vendor?.name ?? '',
-            startDate: form.value.startDate || '',
-            endDate: form.value.endDate || '',
-            hasQuote: form.value.hasQuote || false,
-            hasSchedule: form.value.hasSchedule || false,
-            vendorCostItems: form.value.vendorCostFree ? [] : form.value.vendorCostItems.filter(i => i.description || i.amount > 0),
-            vendorCostFree: form.value.vendorCostFree || false,
-            costIncludesTax: form.value.costIncludesTax || false,
-            color: existing ? existing.color : WT_COLORS[workTypes.value.length % WT_COLORS.length],
-            vendorPayments: existing?.vendorPayments ?? [],
-            done: existing?.done ?? false,
-            invoiceReceived: existing?.invoiceReceived ?? false,
-            locations: form.value.locations.filter(l => l.label),
-        }
         const updated = [...workTypes.value]
         if (editingIdx.value !== null) {
             updated[editingIdx.value] = entry
@@ -1101,6 +1130,26 @@ async function submitForm() {
             updated.push(entry)
         }
         await casesStore.updateCase(props.caseId, { workTypes: updated })
+        if (existing?.done && vendorChange?.lines?.length > 0) {
+            try {
+                await remindersStore.addAutoReminder(`auto_vendor_${entry.id}`, {
+                    source: 'auto',
+                    type: 'vendor',
+                    dueDate: vendorChange.dueDate,
+                    caseId: props.caseId,
+                    caseName: props.caseName,
+                    companyId: caseData.value?.companyId ?? '',
+                    workTypeId: entry.id,
+                    workTypeName: entry.name,
+                    vendorName: entry.vendorName || '',
+                    amount: vendorChange.amount,
+                    createdBy: authStore.user?.uid ?? '',
+                    createdByName: authStore.name ?? '',
+                })
+            } catch {
+                toast('工種已儲存，但同步首頁付款清單失敗，請手動確認', 'error')
+            }
+        }
         notifStore.notifyAll(authStore.name ?? '', `更新了「${props.caseName}」的工種安排`, props.caseId, props.caseName, caseData.value?.companyId ?? '', '', 'worktype')
         showForm.value = false
     } catch {

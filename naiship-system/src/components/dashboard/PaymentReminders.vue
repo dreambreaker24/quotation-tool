@@ -48,9 +48,9 @@
                       <div class="flex-1 min-w-0">
                         <div class="flex items-center flex-wrap gap-1 text-[11px]">
                           <span class="font-semibold text-gray-700">{{ r.workTypeName }}</span>
-                          <template v-if="r.vendorName">
+                          <template v-if="getVendorName(r)">
                             <span class="text-gray-300">·</span>
-                            <span class="text-gray-400">{{ r.vendorName }}</span>
+                            <span class="text-gray-400">{{ getVendorName(r) }}</span>
                           </template>
                           <button v-else @click="jumpToCase(r)"
                             class="text-red-600 bg-red-50 border border-red-200 rounded px-1 py-0.5 text-[10px] hover:bg-red-100 transition-colors font-medium">
@@ -134,6 +134,12 @@ const doneFeedback = ref({})
 function getInvoiceReceived(r) {
     const c = casesStore.cases.find(c => c.id === r.caseId)
     return c?.workTypes?.find(wt => wt.id === r.workTypeId)?.invoiceReceived ?? false
+}
+
+function getVendorName(r) {
+    const c = casesStore.cases.find(c => c.id === r.caseId)
+    const wt = c?.workTypes?.find(wt => wt.id === r.workTypeId)
+    return wt?.vendorName || r.vendorName || ''
 }
 
 function todayStr() {
