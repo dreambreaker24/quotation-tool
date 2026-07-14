@@ -11,7 +11,8 @@
     "server": "node server.js",
     "dev:all": "concurrently \"npm run dev\" \"npm run server\"",
     "seed": "node scripts/seed.js",
-    "deploy": "npm run build && firebase deploy --only hosting --project quotation-system-ddc5c"
+    "deploy": "npm run build && firebase deploy --only hosting --project quotation-system-ddc5c",
+    "deploy:rules": "firebase deploy --only firestore:rules,firestore:indexes --project quotation-system-ddc5c"
   },
   "dependencies": {
     "cors": "^2.8.6",
