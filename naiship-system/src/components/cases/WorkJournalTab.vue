@@ -48,8 +48,9 @@
         v-for="log in displayedLogs"
         :key="log.id"
         :log="log"
-        :can-edit="canEditLog(log)"
+        :can-edit="canEditContentFor(log) || canEditOvertimeFuelFor(log)"
         :is-manager="authStore.isManager"
+        :is-admin="authStore.isAdmin"
         @edit="openEditForm"
         @approve-fuel="approveFuel"
         @approve-overtime-item="approveOvertimeItem"
@@ -90,6 +91,8 @@
     :show="showLogForm"
     :editing-log="editingLog"
     :region="region"
+    :can-edit-content="editingLog ? canEditContentFor(editingLog) : true"
+    :can-edit-overtime-fuel="editingLog ? canEditOvertimeFuelFor(editingLog) : true"
     @close="showLogForm = false; editingLog = null"
     @submitted="showLogForm = false; editingLog = null"
   />
@@ -102,6 +105,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
 import { useNotificationsStore } from '@/stores/notifications'
 import { useUsersStore } from '@/stores/users'
+import { canEditGeneralContent, canSelfEditOvertimeFuel } from '@/utils/workJournalDeadline'
 import WorkJournalEmployeeList from './WorkJournalEmployeeList.vue'
 import WorkJournalLogCard from './WorkJournalLogCard.vue'
 import WorkJournalLogForm from './WorkJournalLogForm.vue'
@@ -153,16 +157,13 @@ function openEditForm(log) {
     showLogForm.value = true
 }
 
-function isTodayDate(ts) {
-    if (!ts) return false
-    const d = ts.toDate?.() ?? new Date(ts)
-    const now = new Date()
-    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate()
+function canEditContentFor(log) {
+    return canEditGeneralContent(log.date)
 }
 
-function canEditLog(log) {
+function canEditOvertimeFuelFor(log) {
     if (authStore.isManager) return true
-    return log.userId === authStore.user?.uid && isTodayDate(log.date)
+    return log.userId === authStore.user?.uid && canSelfEditOvertimeFuel(log.date)
 }
 
 async function approveFuel(logId) {
