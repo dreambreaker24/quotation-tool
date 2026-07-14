@@ -116,6 +116,18 @@
         </div>
         </div>
 
+        <div v-if="wt.locations?.length" class="mt-2 pt-2 border-t border-gray-100">
+          <div class="text-[10px] text-gray-400 font-medium mb-1">施作位置</div>
+          <div class="flex flex-col gap-1">
+            <div v-for="loc in wt.locations" :key="loc.id" class="text-[11px] text-gray-600 flex items-center gap-2">
+              <span class="font-medium">{{ loc.label }}</span>
+              <span v-if="loc.startDate" class="text-gray-400">
+                {{ loc.startDate }}<template v-if="loc.endDate"> ～ {{ loc.endDate }}</template>
+              </span>
+            </div>
+          </div>
+        </div>
+
         <!-- Vendor quotes section -->
         <div class="mt-2 pt-2 border-t border-gray-100">
           <div class="flex items-center gap-2 mb-1.5">
@@ -240,18 +252,6 @@
             </div>
             <div v-else class="text-[10px] text-gray-300">尚未上傳</div>
           </template>
-        </div>
-
-        <div v-if="wt.locations?.length" class="mt-2 pt-2 border-t border-gray-100">
-          <div class="text-[10px] text-gray-400 font-medium mb-1">施作位置</div>
-          <div class="flex flex-col gap-1">
-            <div v-for="loc in wt.locations" :key="loc.id" class="text-[11px] text-gray-600 flex items-center gap-2">
-              <span class="font-medium">{{ loc.label }}</span>
-              <span v-if="loc.startDate" class="text-gray-400">
-                {{ loc.startDate }}<template v-if="loc.endDate"> ～ {{ loc.endDate }}</template>
-              </span>
-            </div>
-          </div>
         </div>
       </div>
     </div>
