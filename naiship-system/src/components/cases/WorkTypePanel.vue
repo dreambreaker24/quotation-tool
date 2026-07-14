@@ -1117,6 +1117,7 @@ async function submitForm() {
         vendorPayments: existing?.vendorPayments ?? [],
         done: existing?.done ?? false,
         invoiceReceived: existing?.invoiceReceived ?? false,
+        invoiceTarget: existing?.invoiceTarget ?? null,
         locations: form.value.locations.filter(l => l.label),
     }
 
@@ -1217,6 +1218,17 @@ async function toggleInvoice(idx) {
     updated[idx] = { ...wt, invoiceReceived: !wt.invoiceReceived }
     await casesStore.updateCase(props.caseId, { workTypes: updated })
     toast(wt.invoiceReceived ? '已取消發票確認' : '發票已確認')
+}
+
+const INVOICE_TARGET_LABELS = { naiship: '奈拾', boyan: '柏延' }
+
+async function setInvoiceTarget(idx, target) {
+    const wt = workTypes.value[idx]
+    const nextTarget = wt.invoiceTarget === target ? null : target
+    const updated = [...workTypes.value]
+    updated[idx] = { ...wt, invoiceTarget: nextTarget }
+    await casesStore.updateCase(props.caseId, { workTypes: updated })
+    toast(nextTarget ? `發票開立對象已設為${INVOICE_TARGET_LABELS[nextTarget]}` : '已取消開立對象')
 }
 
 async function addVendorPayment() {
