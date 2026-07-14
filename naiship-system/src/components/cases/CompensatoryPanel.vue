@@ -87,16 +87,17 @@
   <div v-if="detailName" class="fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.4)">
     <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm mx-4 border-t-4" style="border-top-color:#c9a96e">
       <div class="flex items-center justify-between mb-4">
-        <h3 class="text-sm font-bold text-gray-800">{{ detailLabel }}明細 — {{ detailName }}（本月）</h3>
+        <h3 class="text-sm font-bold text-gray-800">{{ detailLabel }}明細 — {{ detailName }}（本期未結算）</h3>
         <button @click="detailName = null" class="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
       </div>
       <div v-if="detailLoading" class="text-xs text-gray-400 text-center py-4">載入中…</div>
-      <div v-else-if="detailEntries.length === 0" class="text-xs text-gray-400 text-center py-4">本月尚無已核准的加班記錄</div>
+      <div v-else-if="detailEntries.length === 0" class="text-xs text-gray-400 text-center py-4">尚無已核准的加班記錄或人工調整</div>
       <div v-else class="flex flex-col gap-1.5 max-h-72 overflow-y-auto">
-        <div v-for="(e, i) in detailEntries" :key="i" class="flex items-center justify-between text-xs border border-gray-100 rounded-lg px-3 py-2 bg-gray-50">
-          <span class="text-gray-600">{{ formatDetailDate(e.date) }}</span>
-          <span class="font-semibold text-gray-800">{{ e.hours }} 小時</span>
-          <span class="text-gray-400 truncate ml-2 flex-1 text-right">{{ e.reason }}</span>
+        <div v-for="(e, i) in detailEntries" :key="i" class="flex items-center gap-3 justify-between text-xs border rounded-lg px-3 py-2"
+          :class="e.manual ? 'border-amber-100 bg-amber-50' : 'border-gray-100 bg-gray-50'">
+          <span class="text-gray-600 whitespace-nowrap">{{ formatDetailDate(e.date) }}</span>
+          <span class="font-semibold text-gray-800 whitespace-nowrap">{{ e.hours }} 小時</span>
+          <span class="text-gray-400 truncate flex-1 text-right">{{ e.reason }}</span>
         </div>
       </div>
       <div class="flex justify-end mt-4">
@@ -172,7 +173,19 @@ async function openDetail(name, type, label) {
     detailLoading.value = true
     try {
         const user = usersStore.users.find(u => u.name === name)
-        if (user) detailEntries.value = await logsStore.fetchApprovedOvertimeDetail(user.id, type)
+        if (user) {
+            let periodStart = null
+            if (user.compClosedMonth) {
+                const closing = await usersStore.getClosingBalance(user.id, user.compClosedMonth)
+                periodStart = closing?.closedAt?.toDate?.() ?? null
+            }
+            const field = type === 'holiday' ? 'compensatoryHolidayHours' : 'compensatoryHours'
+            const [overtimeEntries, adjustments] = await Promise.all([
+                logsStore.fetchApprovedOvertimeDetail(user.id, type, periodStart),
+                usersStore.fetchCompAdjustments(user.id, field, periodStart),
+            ])
+            detailEntries.value = [...overtimeEntries, ...adjustments].sort((a, b) => (a.date ?? 0) - (b.date ?? 0))
+        }
     } finally {
         detailLoading.value = false
     }
@@ -187,8 +200,13 @@ async function saveEdit() {
     const user = usersStore.users.find(u => u.name === editingName.value)
     if (!user) { toast('找不到此員工', 'error'); return }
     try {
-        if (COMP_FIELDS.includes(editingField.value)) await usersStore.ensureMonthClosed(user.id)
-        await usersStore.updateUser(user.id, { [editingField.value]: editHours.value })
+        if (COMP_FIELDS.includes(editingField.value)) {
+            await usersStore.ensureMonthClosed(user.id)
+            const prevValue = getHours(editingName.value, editingField.value)
+            await usersStore.adjustCompensatoryField(user.id, editingField.value, editHours.value, prevValue, authStore.name)
+        } else {
+            await usersStore.updateUser(user.id, { [editingField.value]: editHours.value })
+        }
         toast(`${editingLabel.value}時數已更新`)
         editingName.value = null
     } catch {
@@ -201,8 +219,13 @@ async function confirmReset(name, field, label) {
     const user = usersStore.users.find(u => u.name === name)
     if (!user) { toast('找不到此員工', 'error'); return }
     try {
-        if (COMP_FIELDS.includes(field)) await usersStore.ensureMonthClosed(user.id)
-        await usersStore.updateUser(user.id, { [field]: 0 })
+        if (COMP_FIELDS.includes(field)) {
+            await usersStore.ensureMonthClosed(user.id)
+            const prevValue = getHours(name, field)
+            await usersStore.adjustCompensatoryField(user.id, field, 0, prevValue, authStore.name)
+        } else {
+            await usersStore.updateUser(user.id, { [field]: 0 })
+        }
         toast(`${name} ${label}時數已歸零`)
     } catch {
         toast('歸零失敗，請重試', 'error')

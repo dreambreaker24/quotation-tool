@@ -81,7 +81,7 @@ export const useWorkLogsStore = defineStore('workLogs', () => {
         const prevItems = log.overtimeItems ?? []
         const prevItem = prevItems[itemIndex]
         const updatedItems = prevItems.map((item, i) =>
-            i === itemIndex ? { ...item, approved: isApproved } : item
+            i === itemIndex ? { ...item, approved: isApproved, approvedAt: Timestamp.now() } : item
         )
         const allDecided = updatedItems.every(i => i.approved != null)
         // 只在首次核准時累加補休時數，動手加之前先確保上個月的餘額已經結算凍結
@@ -172,23 +172,18 @@ export const useWorkLogsStore = defineStore('workLogs', () => {
         return result
     }
 
-    async function fetchApprovedOvertimeDetail(userId, type) {
-        const now = new Date()
-        const y = now.getFullYear()
-        const m = now.getMonth()
-        const start = Timestamp.fromDate(new Date(y, m, 1))
-        const end = Timestamp.fromDate(new Date(y, m + 1, 0, 23, 59, 59, 999))
-        const q = query(
-            collection(db, 'workLogs'),
-            where('userId', '==', userId),
-            where('date', '>=', start),
-            where('date', '<=', end),
-        )
+    // periodStart：上次補休結算的時間點（見 usersStore.getClosingBalance）。餘額欄位是「核准當下」累加的，
+    // 跟加班當天的日期（workLog.date）無關，所以這裡改成用 userId 撈全部日誌，再用「核准時間」比對
+    // periodStart 篩選，才會跟即時餘額對得起來；不再用 workLog.date 限定本月，避免補登/延遲核准的舊日誌
+    // 被漏掉。periodStart 為 null（從未結算過）時不設下限，全部列出。
+    async function fetchApprovedOvertimeDetail(userId, type, periodStart = null) {
+        const q = query(collection(db, 'workLogs'), where('userId', '==', userId))
         const snap = await getDocs(q)
         const entries = []
         snap.docs.forEach(d => {
             const data = d.data()
             const date = data.date?.toDate?.() ?? null
+            const docApprovedAt = data.overtimeApprovedAt?.toDate?.() ?? null
             const items = data.overtimeItems || []
             const hasPerItem = items.some(i => 'approved' in i)
             items.forEach(item => {
@@ -198,6 +193,8 @@ export const useWorkLogsStore = defineStore('workLogs', () => {
                 const isHoliday = item.type === '休息日'
                 if (type === 'holiday' && !isHoliday) return
                 if (type === 'weekday' && isHoliday) return
+                const approvedAt = item.approvedAt?.toDate?.() ?? docApprovedAt
+                if (periodStart && approvedAt && approvedAt < periodStart) return
                 entries.push({ date, hours: item.hours || 0, reason: item.reason || '' })
             })
         })

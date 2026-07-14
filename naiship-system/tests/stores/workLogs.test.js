@@ -18,7 +18,7 @@ vi.mock('firebase/firestore', () => ({
   getDoc: vi.fn(),
   doc: vi.fn((...args) => args.join('/')),
   serverTimestamp: vi.fn(() => 'ts'),
-  Timestamp: { fromDate: vi.fn(d => d) },
+  Timestamp: { fromDate: vi.fn(d => d), now: vi.fn(() => ({ toDate: () => new Date() })) },
   arrayUnion: vi.fn(v => v),
   increment: vi.fn(n => ({ __increment: n })),
   runTransaction: vi.fn(async (db, cb) => cb({ get: vi.fn(() => Promise.resolve({ data: () => ({ compClosedMonth: '2099-01' }) })), set: vi.fn(), update: vi.fn() })),

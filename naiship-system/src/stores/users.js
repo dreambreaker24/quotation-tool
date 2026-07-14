@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { collection, query, orderBy, onSnapshot, updateDoc, getDoc, doc, increment, runTransaction, serverTimestamp } from 'firebase/firestore'
+import { collection, query, where, orderBy, onSnapshot, updateDoc, getDoc, getDocs, addDoc, doc, increment, runTransaction, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/firebase'
 
 // 用 sv-SE locale 取得 'YYYY-MM-DD' 格式字串、強制鎖定 Asia/Taipei 時區，
@@ -81,6 +81,37 @@ export const useUsersStore = defineStore('users', () => {
         return snap.exists() ? snap.data() : null
     }
 
+    // 手動調整補休/休息日補休時數（「調整」「歸零」按鈕）：這條路徑不經過加班核准流程，
+    // 沒有對應的 workLog 可查，所以額外寫一筆 compAdjustments 記錄，讓明細清單能追溯到這筆異動。
+    async function adjustCompensatoryField(uid, field, newValue, prevValue, adjustedBy) {
+        const delta = newValue - prevValue
+        await updateDoc(doc(db, 'users', uid), { [field]: newValue })
+        if (delta !== 0) {
+            await addDoc(collection(db, 'users', uid, 'compAdjustments'), {
+                field, delta, prevValue, newValue,
+                adjustedBy: adjustedBy || '',
+                adjustedAt: serverTimestamp(),
+            })
+        }
+    }
+
+    async function fetchCompAdjustments(uid, field, periodStart) {
+        const q = query(collection(db, 'users', uid, 'compAdjustments'), where('field', '==', field))
+        const snap = await getDocs(q)
+        return snap.docs
+            .map(d => d.data())
+            .filter(a => {
+                const at = a.adjustedAt?.toDate?.() ?? null
+                return !periodStart || !at || at >= periodStart
+            })
+            .map(a => ({
+                date: a.adjustedAt?.toDate?.() ?? null,
+                hours: a.delta,
+                reason: `人工調整${a.adjustedBy ? `（${a.adjustedBy}）` : ''}`,
+                manual: true,
+            }))
+    }
+
     async function getUser(uid) {
         const snap = await getDoc(doc(db, 'users', uid))
         return snap.exists() ? { id: snap.id, ...snap.data() } : null
@@ -90,5 +121,5 @@ export const useUsersStore = defineStore('users', () => {
         if (unsubscribe) { unsubscribe(); unsubscribe = null }
     }
 
-    return { users, subscribe, updateUser, adjustCompensatoryHours, adjustCompensatoryHolidayHours, adjustAnnualLeaveHours, ensureMonthClosed, getClosingBalance, getUser, cleanup }
+    return { users, subscribe, updateUser, adjustCompensatoryHours, adjustCompensatoryHolidayHours, adjustAnnualLeaveHours, ensureMonthClosed, getClosingBalance, adjustCompensatoryField, fetchCompAdjustments, getUser, cleanup }
 })
