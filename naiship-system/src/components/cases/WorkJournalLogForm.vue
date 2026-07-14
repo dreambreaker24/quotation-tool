@@ -220,7 +220,7 @@ const REGION_LABELS = { south: '奈拾南區', north: '奈拾北區', central: '
 const regionLabel = computed(() => REGION_LABELS[props.region] ?? props.region)
 
 const todayLabel = computed(() => {
-    const d = new Date()
+    const d = props.editingLog?.date?.toDate?.() ?? new Date()
     return `${d.getFullYear()} 年 ${d.getMonth() + 1} 月 ${d.getDate()} 日`
 })
 
