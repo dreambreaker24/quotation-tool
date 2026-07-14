@@ -287,12 +287,12 @@ async function submitLog() {
         ? myCases.value
             .filter(c => logEntries.value[c.id]?.trim())
             .map(c => ({ caseId: c.id, caseName: c.name, content: logEntries.value[c.id].trim() }))
-        : []
+        : null
     const other = props.canEditContent
         ? otherItems.value.filter(i => i.content.trim()).map(i => ({ content: i.content.trim() }))
-        : []
+        : null
     const hasFuel = props.canEditOvertimeFuel && fuelItems.value.some(f => f.reason.trim())
-    if (!props.editingLog && caseEntries.length === 0 && other.length === 0 && !hasFuel) return
+    if (!props.editingLog && (caseEntries?.length ?? 0) === 0 && (other?.length ?? 0) === 0 && !hasFuel) return
     if (submitting.value) return
     submitting.value = true
 
@@ -319,8 +319,8 @@ async function submitLog() {
 
     if (props.editingLog) {
         const updateData = {
-            ...(caseEntries.length > 0 ? { caseEntries } : { caseEntries: [] }),
-            ...(other.length > 0 ? { otherItems: other } : { otherItems: [] }),
+            ...(caseEntries !== null && (caseEntries.length > 0 ? { caseEntries } : { caseEntries: [] })),
+            ...(other !== null && (other.length > 0 ? { otherItems: other } : { otherItems: [] })),
             ...(!props.editingLog.fuelApproved && {
                 fuelExpenses: fuelData ?? [],
                 ...(fuelData ? { fuelApproved: false } : {}),
