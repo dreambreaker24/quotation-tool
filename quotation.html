@@ -1814,8 +1814,22 @@
   var _checkedDocIds = new Set();
   var _expandedFolders = new Set();
   var _DELETE_WHITELIST = ['dreambreaker24@hotmail.com', 'daydream543@hotmail.com.tw'];
+  var _caseGroupOverrides = [];
+  var _dragHistoryDocId = null;
+  var unsubscribeOverridesListener = null;
 
-  function _renderHistoryItem(q, container, isChild, folderColor) {
+  function startOverridesListener() {
+    if (unsubscribeOverridesListener) unsubscribeOverridesListener();
+    unsubscribeOverridesListener = db.collection('caseGroupOverrides').onSnapshot(
+      snapshot => {
+        _caseGroupOverrides = snapshot.docs.map(doc => ({ ...doc.data(), _id: doc.id }));
+        renderHistoryList();
+      },
+      err => { console.error('分組覆蓋監聽失敗:', err); }
+    );
+  }
+
+  function _renderHistoryItem(q, container, isChild, folderColor, overrideId) {
     const div = document.createElement('div');
     div.className = 'history-item';
     div.dataset.contractNo = q.contractNo;
@@ -1847,6 +1861,9 @@
     const _delHtml = (_canDelete && !_editMode)
       ? `<button onclick="event.stopPropagation();deleteSingleQuote('${_safeDocId}','${_safeContractNo}','${_safeLabel}')" style="flex-shrink:0; margin-left:6px; padding:2px 7px; background:#fee2e2; color:#ef4444; border:1px solid #fca5a5; border-radius:3px; cursor:pointer; font-size:11px; font-family:inherit;" title="刪除">🗑️</button>`
       : '';
+    const _ungroupHtml = (overrideId && !_editMode)
+      ? `<button onclick="event.stopPropagation();removeFromGroup('${_safeDocId}','${overrideId}')" style="flex-shrink:0; margin-left:4px; padding:2px 7px; background:#f3f4f6; color:#6b7280; border:1px solid #d1d5db; border-radius:3px; cursor:pointer; font-size:11px; font-family:inherit;" title="移出資料夾">📤</button>`
+      : '';
     div.innerHTML = `
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:4px;">
         <div style="display:flex; align-items:flex-start; flex:1; min-width:0;">
@@ -1856,13 +1873,22 @@
             <div style="font-size:11px; color:#aaa;">最後修改：${escHtml(_resolveUserName(q.updatedBy || q.createdBy))} · ${timeAgo(q.updatedAt)}</div>
           </div>
         </div>
-        ${_delHtml}
+        ${_ungroupHtml}${_delHtml}
       </div>
     `;
     if (_highlightDocId && _qDocId === _highlightDocId) {
       div.style.animation = '_hl-flash 1.5s ease-out';
       _highlightDocId = null;
     }
+    div.draggable = true;
+    div.addEventListener('dragstart', e => { _dragHistoryDocId = _qDocId; e.dataTransfer.effectAllowed = 'move'; div.style.opacity = '0.5'; });
+    div.addEventListener('dragend', () => { _dragHistoryDocId = null; div.style.opacity = ''; });
+    div.addEventListener('dragover', e => { e.preventDefault(); div.style.outline = '2px dashed #4f46e5'; });
+    div.addEventListener('dragleave', () => { div.style.outline = ''; });
+    div.addEventListener('drop', e => {
+      e.preventDefault(); div.style.outline = '';
+      if (_dragHistoryDocId && _dragHistoryDocId !== _qDocId) mergeIntoGroup(_dragHistoryDocId, _qDocId);
+    });
     container.appendChild(div);
   }
 
@@ -1901,6 +1927,7 @@
     if (_input.trim() !== contractNo) { alert('合約編號不符，取消刪除。'); return; }
     try {
       await db.collection('quotations').doc(docId).delete();
+      _logActivity('delete', docId, contractNo, {});
       if (_currentDocId === docId) { _currentDocId = ''; _currentContractNo = ''; }
       liveQuotes = liveQuotes.filter(q => (q._docId || q.contractNo) !== docId);
       renderHistoryList();
@@ -1927,6 +1954,7 @@
     if (_input.trim() !== '刪除') { alert('輸入不符，取消刪除。'); return; }
     try {
       await Promise.all(ids.map(id => db.collection('quotations').doc(id).delete()));
+      await Promise.all(ids.map((id, i) => _logActivity('batchDelete', id, labels[i], {})));
       if (ids.includes(_currentDocId)) { _currentDocId = ''; _currentContractNo = ''; }
       liveQuotes = liveQuotes.filter(q => !ids.includes(q._docId || q.contractNo));
       _editMode = false;
@@ -2022,6 +2050,62 @@
     { bg:'#f0f9ff', border:'#7dd3fc', text:'#0c4a6e' },
   ];
 
+  function _unionFind(n) {
+    const parent = Array.from({length:n}, (_,i)=>i);
+    function find(x){ while(parent[x]!==x){ parent[x]=parent[parent[x]]; x=parent[x]; } return x; }
+    function union(a,b){ const ra=find(a), rb=find(b); if(ra!==rb) parent[ra]=rb; }
+    return { find, union };
+  }
+
+  function _computeCaseGroups(quotes, overridesList) {
+    const n = quotes.length;
+    const idxById = new Map(quotes.map((q,i) => [q._docId || q.contractNo, i]));
+    const uf = _unionFind(n);
+
+    // 1) sourceId 相同視為同一組（不要求母案文件存在）
+    const byClusterKey = new Map();
+    quotes.forEach((q, i) => {
+      const key = (q.sourceId || q.contractNo || '').trim();
+      if (!key) return;
+      if (!byClusterKey.has(key)) byClusterKey.set(key, []);
+      byClusterKey.get(key).push(i);
+    });
+    byClusterKey.forEach(indices => { for (let k = 1; k < indices.length; k++) uf.union(indices[0], indices[k]); });
+
+    // 2) 品項＋客戶＋地址三欄逐字相符（原本的自動歸類，套用在每個 clusterKey 群組的代表文件上）
+    const tripleOf = i => {
+      const q = quotes[i];
+      const p = (q.project || '').trim(), c = (q.clientName || '').trim(), a = (q.address || '').trim();
+      return (p || c || a) ? (p + '|||' + c + '|||' + a) : null;
+    };
+    const reps = Array.from(byClusterKey.values()).map(indices => indices[0]);
+    for (let a = 0; a < reps.length; a++) {
+      for (let b = a + 1; b < reps.length; b++) {
+        const ta = tripleOf(reps[a]), tb = tripleOf(reps[b]);
+        if (ta && tb && ta === tb) uf.union(reps[a], reps[b]);
+      }
+    }
+
+    // 3) 使用者手動合併（caseGroupOverrides，優先權最高）
+    (overridesList || []).forEach(ov => {
+      const indices = (ov.docIds || []).map(id => idxById.get(id)).filter(i => i !== undefined);
+      for (let k = 1; k < indices.length; k++) uf.union(indices[0], indices[k]);
+    });
+
+    // 收攏成群組，並記錄每筆文件所屬的 override id（供「移出資料夾」按鈕使用）
+    const overrideIdByDocId = {};
+    (overridesList || []).forEach(ov => {
+      (ov.docIds || []).forEach(id => { overrideIdByDocId[id] = ov._id; });
+    });
+    const groupsMap = new Map();
+    quotes.forEach((q, i) => {
+      const root = uf.find(i);
+      if (!groupsMap.has(root)) groupsMap.set(root, []);
+      groupsMap.get(root).push(q);
+    });
+    return { groups: Array.from(groupsMap.values()), overrideIdByDocId };
+  }
+
   function renderHistoryList() {
     const container = document.getElementById('history-list');
     container.innerHTML = '';
@@ -2031,45 +2115,28 @@
       return;
     }
     const _id = q => q._docId || q.contractNo;
-    const _caseKey = q => {
-      const p = (q.project || '').trim(), c = (q.clientName || '').trim(), a = (q.address || '').trim();
-      return (p || c || a) ? (p + '|||' + c + '|||' + a) : null;
-    };
-    // sourceId 連結 map
-    const childMap = {};
-    quotes.forEach(q => {
-      if (q.sourceId) {
-        if (!childMap[q.sourceId]) childMap[q.sourceId] = [];
-        childMap[q.sourceId].push(q);
-      }
-    });
-    // 無 sourceId 的文件按 project+clientName+address 分組
-    const caseGroups = {};
-    quotes.filter(q => !q.sourceId).forEach(q => {
-      const key = _caseKey(q) || _id(q);
-      if (!caseGroups[key]) caseGroups[key] = [];
-      caseGroups[key].push(q);
-    });
+    const { groups, overrideIdByDocId } = _computeCaseGroups(quotes, _caseGroupOverrides);
+
     // 每組內按合約號升序
-    Object.values(caseGroups).forEach(g => g.sort((a, b) => (a.contractNo || '') < (b.contractNo || '') ? -1 : 1));
+    groups.forEach(g => g.sort((a, b) => (a.contractNo || '') < (b.contractNo || '') ? -1 : 1));
     // 組間按 liveQuotes 最早出現成員排序
     const liveOrder = new Map(quotes.map((q, i) => [_id(q), i]));
-    const sortedGroups = Object.values(caseGroups).sort((ga, gb) => {
+    const sortedGroups = groups.sort((ga, gb) => {
       const minA = Math.min(...ga.map(q => liveOrder.get(_id(q)) ?? 999));
       const minB = Math.min(...gb.map(q => liveOrder.get(_id(q)) ?? 999));
       return minA - minB;
     });
-    const renderedDocIds = new Set();
+
     let colorIdx = 0;
     sortedGroups.forEach(group => {
-      const totalCount = group.reduce((n, q) => n + 1 + (childMap[q.contractNo] || []).length, 0);
-      const needFolder = totalCount > 1;
+      const needFolder = group.length > 1;
       const color = needFolder ? FOLDER_COLORS[colorIdx++ % FOLDER_COLORS.length] : null;
+      const repDocId = _id(group[0]);
 
       if (needFolder) {
         const p = (group[0].project || '').trim();
         const c = (group[0].clientName || '').trim();
-        const folderKey = group[0].project + '|||' + group[0].clientName + '|||' + group[0].address;
+        const folderKey = group.map(q => _id(q)).sort().join('||');
         const isExpanded = _expandedFolders.has(folderKey);
         const label = [p, c].filter(Boolean).join(' · ') || '未命名案件';
         const hdr = document.createElement('div');
@@ -2079,7 +2146,7 @@
             <span style="margin-right:4px;">${isExpanded ? '📂' : '📁'}</span>${escHtml(label)}
           </span>
           <div style="display:flex; align-items:center; gap:6px;">
-            <span style="font-size:11px; background:${color.border}; color:${color.text}; border-radius:10px; padding:1px 7px;">${totalCount} 筆</span>
+            <span style="font-size:11px; background:${color.border}; color:${color.text}; border-radius:10px; padding:1px 7px;">${group.length} 筆</span>
             <span style="font-size:12px; color:${color.text};">${isExpanded ? '▲' : '▼'}</span>
           </div>`;
         hdr.onclick = () => {
@@ -2087,47 +2154,65 @@
           else _expandedFolders.add(folderKey);
           renderHistoryList();
         };
+        hdr.addEventListener('dragover', e => { e.preventDefault(); hdr.style.outline = '2px dashed ' + color.text; });
+        hdr.addEventListener('dragleave', () => { hdr.style.outline = ''; });
+        hdr.addEventListener('drop', e => {
+          e.preventDefault(); hdr.style.outline = '';
+          if (_dragHistoryDocId && !group.some(q => _id(q) === _dragHistoryDocId)) mergeIntoGroup(_dragHistoryDocId, repDocId);
+        });
         container.appendChild(hdr);
 
         if (isExpanded) {
-          const _renderWithChildren = (q, isChild) => {
-            if (renderedDocIds.has(_id(q))) return;
-            _renderHistoryItem(q, container, isChild || needFolder, color);
-            renderedDocIds.add(_id(q));
-            (childMap[q.contractNo] || []).forEach(child => {
-              if (!renderedDocIds.has(_id(child))) {
-                _renderHistoryItem(child, container, true, color);
-                renderedDocIds.add(_id(child));
-              }
-            });
-          };
-          group.forEach((q, i) => _renderWithChildren(q, i > 0));
-        } else {
-          // 折疊時標記為已處理，避免被孤兒邏輯重複渲染
-          group.forEach(q => {
-            renderedDocIds.add(_id(q));
-            (childMap[q.contractNo] || []).forEach(child => renderedDocIds.add(_id(child)));
-          });
+          group.forEach((q, i) => _renderHistoryItem(q, container, i > 0, color, overrideIdByDocId[_id(q)]));
         }
       } else {
-        // 單筆直接顯示
-        group.forEach(q => {
-          if (renderedDocIds.has(_id(q))) return;
-          _renderHistoryItem(q, container, false, null);
-          renderedDocIds.add(_id(q));
-          (childMap[q.contractNo] || []).forEach(child => {
-            if (!renderedDocIds.has(_id(child))) {
-              _renderHistoryItem(child, container, true, null);
-              renderedDocIds.add(_id(child));
-            }
-          });
-        });
+        _renderHistoryItem(group[0], container, false, null, overrideIdByDocId[repDocId]);
       }
     });
-    // 孤兒
-    quotes.forEach(q => {
-      if (!renderedDocIds.has(_id(q))) _renderHistoryItem(q, container, false, null);
-    });
+  }
+
+  async function mergeIntoGroup(draggedDocId, targetDocId) {
+    if (draggedDocId === targetDocId) return;
+    const draggedQ = liveQuotes.find(q => (q._docId || q.contractNo) === draggedDocId);
+    const targetQ = liveQuotes.find(q => (q._docId || q.contractNo) === targetDocId);
+    if (!draggedQ || !targetQ) return;
+    const draggedLabel = [draggedQ.contractNo, draggedQ.project].filter(Boolean).join(' · ');
+    const targetLabel = [targetQ.contractNo, targetQ.project].filter(Boolean).join(' · ');
+    if (!confirm(`確定要把「${draggedLabel}」併入「${targetLabel}」的資料夾嗎？\n\n這不會更動任何一筆報價單的內容，只會調整清單分組方式。`)) return;
+    const existing = _caseGroupOverrides.find(ov =>
+      (ov.docIds || []).includes(draggedDocId) || (ov.docIds || []).includes(targetDocId)
+    );
+    try {
+      if (existing) {
+        const merged = Array.from(new Set([...(existing.docIds || []), draggedDocId, targetDocId]));
+        await db.collection('caseGroupOverrides').doc(existing._id).update({ docIds: merged });
+      } else {
+        await db.collection('caseGroupOverrides').add({
+          docIds: [draggedDocId, targetDocId],
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      }
+      const hint = document.getElementById('save-hint');
+      if (hint) { hint.style.color = '#3a3'; hint.textContent = '已合併資料夾'; setTimeout(() => { hint.textContent = ''; }, 3000); }
+    } catch (e) {
+      alert('合併失敗：' + (e.message || String(e)));
+    }
+  }
+
+  async function removeFromGroup(docId, overrideId) {
+    if (!confirm('確定要把這筆移出資料夾嗎？')) return;
+    const ov = _caseGroupOverrides.find(o => o._id === overrideId);
+    if (!ov) return;
+    const remaining = (ov.docIds || []).filter(id => id !== docId);
+    try {
+      if (remaining.length < 2) {
+        await db.collection('caseGroupOverrides').doc(overrideId).delete();
+      } else {
+        await db.collection('caseGroupOverrides').doc(overrideId).update({ docIds: remaining });
+      }
+    } catch (e) {
+      alert('移出失敗：' + (e.message || String(e)));
+    }
   }
 
   function sanitize(v) {
@@ -2213,6 +2298,21 @@
     return user.displayName || user.email || '未知用戶';
   }
 
+  async function _logActivity(action, docId, contractNo, extra) {
+    try {
+      const user = auth.currentUser;
+      const userName = user ? await _getDisplayName(user) : '未知';
+      await db.collection('activityLog').add({
+        action, docId: docId || '', contractNo: contractNo || '',
+        userName, userEmail: user ? (user.email || '') : '',
+        at: firebase.firestore.FieldValue.serverTimestamp(),
+        ...(extra || {})
+      });
+    } catch (e) {
+      console.error('活動紀錄寫入失敗:', e);
+    }
+  }
+
   function _isValidContractNo(val) {
     return /^(NS|PO)-\d{4}-\d{3}$/.test(val);
   }
@@ -2287,6 +2387,7 @@
       _currentDocId = docId;
       hint.style.color = '#3a3';
       hint.textContent = `已儲存：${contractNo}`;
+      _logActivity('save', docId, contractNo, {});
     } catch (e) {
       hint.style.color = '#e53935';
       const msg = e.code === 'permission-denied' ? '權限不足，請重新登入後再試'
@@ -2351,6 +2452,15 @@
       data.contractNo = baseContractNo;
       data.sourceId = baseContractNo;
       data.versionLabel = newVersionLabel;
+      const existingCheck = await db.collection('quotations').doc(newDocId).get();
+      if (existingCheck.exists) {
+        const ed = existingCheck.data();
+        const lastBy = _resolveUserName(ed.updatedBy || ed.createdBy || '未知');
+        if (!confirm(`合約編號「${newDocId}」已有存檔（最後修改：${lastBy}），確定要覆蓋嗎？`)) {
+          hint.textContent = '';
+          return;
+        }
+      }
       const userName = await _getDisplayName(user);
       const now = firebase.firestore.FieldValue.serverTimestamp();
       await db.collection('quotations').doc(newDocId).set({
@@ -2363,6 +2473,7 @@
       _highlightDocId = newDocId;
       hint.style.color = '#3a3';
       hint.textContent = '已另存為：' + baseContractNo + '（' + newVersionLabel + '）';
+      _logActivity('saveAsNewVersion', newDocId, baseContractNo, { versionLabel: newVersionLabel, sourceId: baseContractNo });
     } catch(e) {
       hint.style.color = '#e53935';
       hint.textContent = '另存失敗：' + (e.message || e.code || String(e));
@@ -2400,6 +2511,15 @@
       data.contractNo = newId;
       data.sourceId = '';
       data.versionLabel = '';
+      const existingCheck = await db.collection('quotations').doc(newId).get();
+      if (existingCheck.exists) {
+        const ed = existingCheck.data();
+        const lastBy = _resolveUserName(ed.updatedBy || ed.createdBy || '未知');
+        if (!confirm(`合約編號「${newId}」已有存檔（最後修改：${lastBy}），確定要覆蓋嗎？`)) {
+          hint.textContent = '';
+          return;
+        }
+      }
       const userName = await _getDisplayName(user);
       const now = firebase.firestore.FieldValue.serverTimestamp();
       await db.collection('quotations').doc(newId).set({
@@ -2414,6 +2534,7 @@
       _highlightDocId = newId;
       hint.style.color = '#3a3';
       hint.textContent = '已另存新報價：' + newId;
+      _logActivity('saveAsNewQuote', newId, newId, {});
     } catch(e) {
       hint.style.color = '#e53935';
       hint.textContent = '另存失敗：' + (e.message || e.code || String(e));
@@ -3515,6 +3636,7 @@
       if (!document.getElementById('in-contract-terms').value) document.getElementById('in-contract-terms').value = DEFAULT_CONTRACT_TERMS;
       renderAll();
       startRealtimeListener();
+      startOverridesListener();
     } else {
       document.getElementById('login-overlay').style.display = 'flex';
       document.getElementById('user-status-bar').style.display = 'none';

@@ -9,7 +9,10 @@
  */
 
 const fs = require('fs');
-let out = fs.readFileSync('C:/AI助理 Claude/quotation-dev.html', 'utf-8');
+const path = require('path');
+const DEV_PATH = path.join(__dirname, 'quotation-dev.html');
+const PROD_PATH = path.join(__dirname, 'quotation.html');
+let out = fs.readFileSync(DEV_PATH, 'utf-8');
 
 // ── A. 移除 [DEV] 標題 ──
 out = out.replace(
@@ -103,5 +106,5 @@ if (!ok) {
   process.exit(1);
 }
 
-fs.writeFileSync('C:/AI助理 Claude/quotation.html', out, 'utf-8');
+fs.writeFileSync(PROD_PATH, out, 'utf-8');
 console.log('\n✓ quotation.html 寫入完成，行數：' + out.split('\n').length);
