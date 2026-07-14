@@ -13,7 +13,7 @@
       </div>
 
       <!-- 負責案件 -->
-      <div v-if="myCases.length > 0" class="mb-4">
+      <div v-if="canEditContent && myCases.length > 0" class="mb-4">
         <div class="text-xs font-semibold text-gray-600 mb-2">負責案件回報</div>
         <div v-for="c in myCases" :key="c.id" class="border border-gray-100 rounded-xl p-3 mb-2">
           <span class="px-2 py-0.5 rounded-full text-[10px] bg-blue-100 text-blue-700 mb-2 inline-block">{{ c.name }}</span>
@@ -24,7 +24,7 @@
       </div>
 
       <!-- 其他工作項目 -->
-      <div class="mb-4">
+      <div v-if="canEditContent" class="mb-4">
         <div class="flex items-center justify-between mb-2">
           <div class="text-xs font-semibold text-gray-600">其他工作項目</div>
           <button @click="addOtherItem" class="text-xs" style="color:#c9a96e">+ 新增</button>
@@ -42,15 +42,15 @@
       <div class="border border-amber-200 rounded-xl p-4 bg-amber-50/50">
         <div class="flex items-center justify-between mb-3">
           <div class="text-xs font-semibold text-amber-700">申請油資（選填）</div>
-          <button v-if="!isAfterDeadline || editingLog" @click="addFuelItem" class="text-xs" style="color:#c9a96e">+ 新增</button>
+          <button v-if="canEditOvertimeFuel" @click="addFuelItem" class="text-xs" style="color:#c9a96e">+ 新增</button>
         </div>
         <div v-if="editingLog?.fuelApproved" class="text-xs text-green-600 bg-green-50 rounded-lg px-3 py-2 mb-2">
           ✓ 油資已核准，無法修改
         </div>
-        <div v-else-if="isAfterDeadline && !editingLog" class="text-xs text-center text-red-500 py-2 bg-red-50 rounded-lg">
-          油資申請已截止（截止至後天 19:00）
+        <div v-else-if="!canEditOvertimeFuel" class="text-xs text-center text-red-500 py-2 bg-red-50 rounded-lg">
+          油資申請已超過補請期限（事發日 2 天內），請聯絡主管協助補提出
         </div>
-        <template v-if="!editingLog?.fuelApproved && (!isAfterDeadline || editingLog)">
+        <template v-if="!editingLog?.fuelApproved && canEditOvertimeFuel">
           <div v-if="fuelItems.length === 0" class="text-xs text-gray-400 py-1">無油資申請（可點右上新增）</div>
           <div v-for="(item, idx) in fuelItems" :key="idx"
             class="border border-amber-200 rounded-xl p-3 mb-2 last:mb-0 bg-white">
@@ -92,7 +92,7 @@
       <div class="border border-purple-200 rounded-xl p-4 bg-purple-50/50 mt-3">
         <div class="flex items-center justify-between mb-3">
           <div class="text-xs font-semibold text-purple-700">申請加班（選填）</div>
-          <button v-if="!editingLog?.overtimeApproved && (!isAfterDeadline || editingLog)" @click="addOvertimeItem" class="text-xs" style="color:#c9a96e">+ 新增</button>
+          <button v-if="!editingLog?.overtimeApproved && canEditOvertimeFuel" @click="addOvertimeItem" class="text-xs" style="color:#c9a96e">+ 新增</button>
         </div>
         <!-- 已審核項目（唯讀顯示） -->
         <div v-for="(ot, i) in decidedOvertimeItems" :key="'decided-'+i"
@@ -112,8 +112,8 @@
         <div v-if="editingLog?.overtimeApproved" class="text-xs text-green-600 bg-green-50 rounded-lg px-3 py-2 mb-2">
           ✓ 加班已全部審核完畢
         </div>
-        <div v-else-if="isAfterDeadline && !editingLog" class="text-xs text-center text-red-500 py-2 bg-red-50 rounded-lg">
-          加班申請已截止（截止至後天 19:00）
+        <div v-else-if="!canEditOvertimeFuel" class="text-xs text-center text-red-500 py-2 bg-red-50 rounded-lg">
+          加班申請已超過補請期限（事發日 2 天內），請聯絡主管協助補提出
         </div>
         <div v-else-if="overtimeItems.length === 0 && decidedOvertimeItems.length === 0" class="text-xs text-gray-400 py-1">無加班申請（可點右上新增）</div>
         <div v-for="(item, idx) in overtimeItems" :key="idx"
@@ -148,7 +148,7 @@
       </div>
 
       <!-- 附件 -->
-      <div class="border border-gray-200 rounded-xl p-4 bg-gray-50/50 mt-3">
+      <div v-if="canEditContent" class="border border-gray-200 rounded-xl p-4 bg-gray-50/50 mt-3">
         <div class="flex items-center justify-between mb-2">
           <div class="text-xs font-semibold text-gray-600">附件（選填）</div>
           <button @click="logAttachInput.click()" class="text-xs" style="color:#c9a96e">+ 選擇檔案</button>
@@ -191,7 +191,11 @@ import { useNotificationsStore } from '@/stores/notifications'
 import { uploadPhoto } from '@/composables/useStorage'
 import { useToast } from '@/composables/useToast'
 
-const props = defineProps({ show: Boolean, editingLog: Object, region: String })
+const props = defineProps({
+    show: Boolean, editingLog: Object, region: String,
+    canEditContent: { type: Boolean, default: true },
+    canEditOvertimeFuel: { type: Boolean, default: true },
+})
 const emit = defineEmits(['close', 'submitted'])
 
 const logsStore = useWorkLogsStore()
@@ -229,15 +233,6 @@ const myCases = computed(() =>
          (authStore.name && c.assignees?.includes(authStore.name)))
     )
 )
-
-const isAfterDeadline = computed(() => {
-    const now = new Date()
-    const logDate = props.editingLog?.date?.toDate?.() ?? new Date()
-    const deadline = new Date(logDate)
-    deadline.setDate(deadline.getDate() + 2)
-    deadline.setHours(19, 0, 0, 0)
-    return now >= deadline
-})
 
 watch(() => props.show, (val) => {
     if (!val) return
@@ -288,12 +283,15 @@ function handleLogAttachFiles(e) {
 }
 
 async function submitLog() {
-    const caseEntries = myCases.value
-        .filter(c => logEntries.value[c.id]?.trim())
-        .map(c => ({ caseId: c.id, caseName: c.name, content: logEntries.value[c.id].trim() }))
-    const other = otherItems.value.filter(i => i.content.trim()).map(i => ({ content: i.content.trim() }))
-    const canAddFuel = !isAfterDeadline.value || !!props.editingLog
-    const hasFuel = canAddFuel && fuelItems.value.some(f => f.reason.trim())
+    const caseEntries = props.canEditContent
+        ? myCases.value
+            .filter(c => logEntries.value[c.id]?.trim())
+            .map(c => ({ caseId: c.id, caseName: c.name, content: logEntries.value[c.id].trim() }))
+        : []
+    const other = props.canEditContent
+        ? otherItems.value.filter(i => i.content.trim()).map(i => ({ content: i.content.trim() }))
+        : []
+    const hasFuel = props.canEditOvertimeFuel && fuelItems.value.some(f => f.reason.trim())
     if (!props.editingLog && caseEntries.length === 0 && other.length === 0 && !hasFuel) return
     if (submitting.value) return
     submitting.value = true
