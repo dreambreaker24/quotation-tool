@@ -158,7 +158,8 @@ function openEditForm(log) {
 }
 
 function canEditContentFor(log) {
-    return canEditGeneralContent(log.date)
+    if (!canEditGeneralContent(log.date)) return false
+    return authStore.isManager || log.userId === authStore.user?.uid
 }
 
 function canEditOvertimeFuelFor(log) {
