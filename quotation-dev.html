@@ -1927,6 +1927,7 @@
     if (_input.trim() !== contractNo) { alert('合約編號不符，取消刪除。'); return; }
     try {
       await db.collection('quotations').doc(docId).delete();
+      _logActivity('delete', docId, contractNo, {});
       if (_currentDocId === docId) { _currentDocId = ''; _currentContractNo = ''; }
       liveQuotes = liveQuotes.filter(q => (q._docId || q.contractNo) !== docId);
       renderHistoryList();
@@ -1953,6 +1954,7 @@
     if (_input.trim() !== '刪除') { alert('輸入不符，取消刪除。'); return; }
     try {
       await Promise.all(ids.map(id => db.collection('quotations').doc(id).delete()));
+      await Promise.all(ids.map((id, i) => _logActivity('batchDelete', id, labels[i], {})));
       if (ids.includes(_currentDocId)) { _currentDocId = ''; _currentContractNo = ''; }
       liveQuotes = liveQuotes.filter(q => !ids.includes(q._docId || q.contractNo));
       _editMode = false;
@@ -2296,6 +2298,21 @@
     return user.displayName || user.email || '未知用戶';
   }
 
+  async function _logActivity(action, docId, contractNo, extra) {
+    try {
+      const user = auth.currentUser;
+      const userName = user ? await _getDisplayName(user) : '未知';
+      await db.collection('activityLog').add({
+        action, docId: docId || '', contractNo: contractNo || '',
+        userName, userEmail: user ? (user.email || '') : '',
+        at: firebase.firestore.FieldValue.serverTimestamp(),
+        ...(extra || {})
+      });
+    } catch (e) {
+      console.error('活動紀錄寫入失敗:', e);
+    }
+  }
+
   function _isValidContractNo(val) {
     return /^(NS|PO)-\d{4}-\d{3}$/.test(val);
   }
@@ -2379,6 +2396,7 @@
       _currentDocId = docId;
       hint.style.color = '#3a3';
       hint.textContent = `已儲存：${contractNo}`;
+      _logActivity('save', docId, contractNo, {});
     } catch (e) {
       if (e && e.__DEV__) { hint.style.color = '#3a3'; hint.textContent = e.msg; setTimeout(function(){ hint.textContent = ''; }, 3000); return; }
       hint.style.color = '#e53935';
@@ -2465,6 +2483,7 @@
       _highlightDocId = newDocId;
       hint.style.color = '#3a3';
       hint.textContent = '已另存為：' + baseContractNo + '（' + newVersionLabel + '）';
+      _logActivity('saveAsNewVersion', newDocId, baseContractNo, { versionLabel: newVersionLabel, sourceId: baseContractNo });
     } catch(e) {
       hint.style.color = '#e53935';
       hint.textContent = '另存失敗：' + (e.message || e.code || String(e));
@@ -2525,6 +2544,7 @@
       _highlightDocId = newId;
       hint.style.color = '#3a3';
       hint.textContent = '已另存新報價：' + newId;
+      _logActivity('saveAsNewQuote', newId, newId, {});
     } catch(e) {
       hint.style.color = '#e53935';
       hint.textContent = '另存失敗：' + (e.message || e.code || String(e));
