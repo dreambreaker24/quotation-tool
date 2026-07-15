@@ -159,8 +159,8 @@
             <span class="ps-leave-result">{{ typhoonDeductPreview }}</span>
           </div>
           <div class="ps-leave-total">{{ leaveTotalText }}</div>
-          <button v-if="auth.isAdmin && form.empName && hasLeave" @click="recordLeave" :disabled="recording" class="ps-record-btn">
-            {{ recording ? '儲存中…' : '📋 記錄請假' }}
+          <button v-if="auth.isAdmin && form.empName && hasLeave" @click="openConfirmRecord" class="ps-record-btn">
+            📋 確認並記錄請假
           </button>
         </div>
 
@@ -405,6 +405,30 @@
 
       </div>
     </div>
+
+    <!-- 確認記錄請假彈窗 -->
+    <div v-if="showConfirmRecord" class="fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.4)">
+      <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm mx-4 border-t-4" style="border-top-color:#c9a96e">
+        <h3 class="text-sm font-bold text-gray-800 mb-4">確認請假記錄 — {{ form.empName }}（{{ form.payMonth }}）</h3>
+        <div class="text-xs text-gray-600 space-y-1 mb-4">
+          <div>事假：{{ form.personalDays }} 天</div>
+          <div>病假：{{ form.sickDays }} 天</div>
+          <div>颱風假：{{ form.typhoonDays }} 天</div>
+        </div>
+        <div v-if="otSnapshotMonth !== form.payMonth" class="text-[11px] text-amber-600 bg-amber-50 rounded-lg px-3 py-2 mb-3">
+          ⚠ 這個月的加班尚未結算（月結機制要等到下個月才會產生快照），加班費可能不完整
+        </div>
+        <div v-if="alreadyRecordedThisMonth" class="text-[11px] text-red-500 bg-red-50 rounded-lg px-3 py-2 mb-3">
+          ⚠ 這個月已經記錄過，確認會覆蓋原本的記錄
+        </div>
+        <div class="flex justify-end gap-2">
+          <button @click="showConfirmRecord = false" class="text-sm text-gray-400 px-4 py-2">取消</button>
+          <button @click="confirmRecordLeave" :disabled="recording" class="text-sm text-white px-5 py-2 rounded-xl" style="background:#1e2533">
+            {{ recording ? '儲存中…' : '確認記錄' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -439,6 +463,8 @@ const histLoading = ref(false)
 const bridgeLoading = ref(false)
 const pendingLeaveEntries = ref([])
 const otSnapshotMonth = ref(null)
+const showConfirmRecord = ref(false)
+const alreadyRecordedThisMonth = ref(false)
 
 onMounted(() => {
     usersStore.subscribe()
@@ -705,6 +731,18 @@ async function recordLeave() {
         toast('儲存失敗', 'error')
     }
     recording.value = false
+}
+
+async function openConfirmRecord() {
+    if (!form.value.empName || !hasLeave.value) { toast('沒有請假資料可以記錄', 'error'); return }
+    const existing = await leaveStore.fetchRecord(currentYear.value, form.value.empName)
+    alreadyRecordedThisMonth.value = (existing.records ?? []).some(r => r.month === form.value.payMonth)
+    showConfirmRecord.value = true
+}
+
+async function confirmRecordLeave() {
+    await recordLeave()
+    showConfirmRecord.value = false
 }
 
 const histYearOptions = computed(() => { const y = new Date().getFullYear(); return [y, y - 1, y - 2] })
