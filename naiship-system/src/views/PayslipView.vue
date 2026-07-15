@@ -427,7 +427,6 @@ const histEmp = ref('')
 const histYear = ref(new Date().getFullYear())
 const histRecord = ref(null)
 const histLoading = ref(false)
-const selectedUid = ref('')
 
 onMounted(() => {
     usersStore.subscribe()
@@ -436,21 +435,15 @@ onMounted(() => {
 })
 
 function selectEmployee(uid) {
-    if (!uid) { selectedUid.value = ''; return }
+    if (!uid) return
     const u = usersStore.users.find(u => u.id === uid)
     if (!u) return
-    selectedUid.value = u.id
     form.value.empName = u.name
     form.value.empJob  = u.job || ''
     form.value.base    = u.salary || 0
     autoIns.value = true
     onBaseChange()
 }
-
-watch(() => form.value.empName, (name) => {
-    const stillMatches = usersStore.users.find(u => u.id === selectedUid.value)?.name === name
-    if (!stillMatches) selectedUid.value = ''
-})
 
 /* ── 表單狀態 ── */
 const INIT_FORM = () => ({
