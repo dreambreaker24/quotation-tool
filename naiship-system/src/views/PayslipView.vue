@@ -598,6 +598,8 @@ function buildAutoRemark(entries, otWeekdayHrs, otHolidayHrs) {
 
 async function fetchPayrollData() {
     if (!form.value.empName || !form.value.payMonth) { toast('請先選擇員工', 'error'); return }
+    const targetName = form.value.empName
+    const targetMonth = form.value.payMonth
     const [y, m] = form.value.payMonth.split('-').map(Number)
     const monthIdx = m - 1
     bridgeLoading.value = true
@@ -610,6 +612,7 @@ async function fetchPayrollData() {
             workLogsStore.fetchMonthlyKm(y, monthIdx),
             calendarEventsStore.fetchMonthlyLeaveDetail(y, monthIdx, form.value.empName),
         ])
+        if (form.value.empName !== targetName || form.value.payMonth !== targetMonth) return
         otSnapshotMonth.value = closing ? form.value.payMonth : null
         form.value.otWeekdayHours = closing?.weekdayHours || 0
         form.value.otHolidayHours = closing?.holidayHours || 0
