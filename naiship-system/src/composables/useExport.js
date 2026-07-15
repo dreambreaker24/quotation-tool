@@ -1,4 +1,5 @@
 import * as XLSX from 'xlsx'
+import { formatCaseAddress } from '@/utils/caseAddress'
 
 export function useExport() {
     function exportCases(cases) {
@@ -7,7 +8,7 @@ export function useExport() {
             '分區': { south: '南區', north: '北區', central: '中區' }[c.companyId] ?? c.companyId,
             '狀態': c.status,
             '負責人': c.assigneeName,
-            '施工地址': c.address || '',
+            '施工地址': formatCaseAddress(c),
             '簽約金額': c.signedAmount || 0,
             '開始日期': c.startDate?.toDate?.()?.toLocaleDateString('zh-TW') ?? '',
             '結束日期': c.endDate?.toDate?.()?.toLocaleDateString('zh-TW') ?? '',
