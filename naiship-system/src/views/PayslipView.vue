@@ -15,8 +15,8 @@
           <label>選擇員工</label>
           <select @change="selectEmployee($event.target.value)">
             <option value="">── 選擇員工 ──</option>
-            <option v-for="e in EMPLOYEES" :key="e.name" :value="e.name">
-              {{ e.name }} — {{ e.job }}
+            <option v-for="u in usersStore.users" :key="u.id" :value="u.id">
+              {{ u.name }} — {{ u.job || '未設定職稱' }}
             </option>
           </select>
         </div>
@@ -204,7 +204,7 @@
             <label>員工</label>
             <select v-model="histEmp" @change="loadHistory">
               <option value="">選擇員工</option>
-              <option v-for="e in EMPLOYEES" :key="e.name" :value="e.name">{{ e.name }}</option>
+              <option v-for="u in usersStore.users" :key="u.id" :value="u.name">{{ u.name }}</option>
             </select>
           </div>
           <div class="ps-field">
@@ -409,6 +409,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import html2canvas from 'html2canvas'
 import { useLeaveRecordsStore } from '@/stores/leaveRecords'
 import { useAuthStore } from '@/stores/auth'
+import { useUsersStore } from '@/stores/users'
 import { useToast } from '@/composables/useToast'
 import { memberColor } from '@/utils/memberColor'
 
@@ -417,6 +418,7 @@ const downloading = ref(false)
 const autoIns = ref(false)
 const auth = useAuthStore()
 const leaveStore = useLeaveRecordsStore()
+const usersStore = useUsersStore()
 const { toast } = useToast()
 const ytdRecord = ref(null)
 const ytdLoading = ref(false)
@@ -425,32 +427,30 @@ const histEmp = ref('')
 const histYear = ref(new Date().getFullYear())
 const histRecord = ref(null)
 const histLoading = ref(false)
-
-/* ── 員工清單 ── */
-const EMPLOYEES = [
-    { name: '陳柏兆', job: '執行總監',     salary: 65000 },
-    { name: '柯其宏', job: '營運總監',     salary: 65000 },
-    { name: '蕭雅丰', job: '設計總監',     salary: 50000 },
-    { name: '郭瑞怡', job: '設計師',       salary: 37000 },
-    { name: '謝昆霖', job: '工程管理師',   salary: 37000 },
-    { name: '賴芃諭', job: '品牌視覺企劃', salary: 42000 },
-]
+const selectedUid = ref('')
 
 onMounted(() => {
+    usersStore.subscribe()
     loadForm()
     compute()
 })
 
-function selectEmployee(name) {
-    if (!name) return
-    const e = EMPLOYEES.find(e => e.name === name)
-    if (!e) return
-    form.value.empName = e.name
-    form.value.empJob  = e.job
-    form.value.base    = e.salary
+function selectEmployee(uid) {
+    if (!uid) { selectedUid.value = ''; return }
+    const u = usersStore.users.find(u => u.id === uid)
+    if (!u) return
+    selectedUid.value = u.id
+    form.value.empName = u.name
+    form.value.empJob  = u.job || ''
+    form.value.base    = u.salary || 0
     autoIns.value = true
     onBaseChange()
 }
+
+watch(() => form.value.empName, (name) => {
+    const stillMatches = usersStore.users.find(u => u.id === selectedUid.value)?.name === name
+    if (!stillMatches) selectedUid.value = ''
+})
 
 /* ── 表單狀態 ── */
 const INIT_FORM = () => ({
