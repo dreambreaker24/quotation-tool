@@ -463,6 +463,8 @@ watch(() => props.jumpEventDate, (dateStr) => {
 }, { immediate: true })
 const showAddEvent = ref(false)
 const showAllRegions = ref(false)
+const showDayDetail = ref(false)
+const dayDetailDate = ref('')
 const ALL_REGIONS = ['south', 'north', 'central']
 
 const eventTypes = [
@@ -700,31 +702,31 @@ const counts = computed(() =>
   Object.fromEntries(statuses.map(s => [s.key, casesStore.statusCount(s.key, props.region)]))
 )
 
+function eventsForDate(date) {
+  const cellTime = date.getTime()
+  return eventsStore.events.filter(e => {
+    const startTs = e.date?.toDate?.() ?? new Date(e.date)
+    const start = new Date(startTs.getFullYear(), startTs.getMonth(), startTs.getDate()).getTime()
+    if (!e.endDate) return cellTime === start
+    const endTs = e.endDate?.toDate?.() ?? new Date(e.endDate)
+    const end = new Date(endTs.getFullYear(), endTs.getMonth(), endTs.getDate()).getTime()
+    return cellTime >= start && cellTime <= end
+  }).sort((a, b) => {
+    const aTime = a.startTime || ''
+    const bTime = b.startTime || ''
+    if (aTime !== bTime) return aTime.localeCompare(bTime)
+    const aCreated = a.createdAt?.toMillis?.() ?? 0
+    const bCreated = b.createdAt?.toMillis?.() ?? 0
+    return aCreated - bCreated
+  })
+}
+
 const calendarCells = computed(() => {
   const cells = []
   const first = new Date(currentYear.value, currentMonth.value, 1)
   const startOffset = (first.getDay() + 6) % 7
   const daysInMonth = new Date(currentYear.value, currentMonth.value + 1, 0).getDate()
   const prevMonthDays = new Date(currentYear.value, currentMonth.value, 0).getDate()
-
-  function eventsForDate(date) {
-    const cellTime = date.getTime()
-    return eventsStore.events.filter(e => {
-      const startTs = e.date?.toDate?.() ?? new Date(e.date)
-      const start = new Date(startTs.getFullYear(), startTs.getMonth(), startTs.getDate()).getTime()
-      if (!e.endDate) return cellTime === start
-      const endTs = e.endDate?.toDate?.() ?? new Date(e.endDate)
-      const end = new Date(endTs.getFullYear(), endTs.getMonth(), endTs.getDate()).getTime()
-      return cellTime >= start && cellTime <= end
-    }).sort((a, b) => {
-      const aTime = a.startTime || ''
-      const bTime = b.startTime || ''
-      if (aTime !== bTime) return aTime.localeCompare(bTime)
-      const aCreated = a.createdAt?.toMillis?.() ?? 0
-      const bCreated = b.createdAt?.toMillis?.() ?? 0
-      return aCreated - bCreated
-    })
-  }
 
   function toDateStr(date) {
     return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`
@@ -767,6 +769,39 @@ function openAddOnDate(dateStr) {
     eventForm.value = { ...blankEvent(), date: dateStr }
     showAddEvent.value = true
 }
+
+const WEEKDAYS_FULL = ['日', '一', '二', '三', '四', '五', '六']
+
+function openDayDetail(dateStr) {
+    dayDetailDate.value = dateStr
+    showDayDetail.value = true
+}
+
+function openEventFromDayDetail(event) {
+    showDayDetail.value = false
+    openEditEvent(event)
+}
+
+function addEventFromDayDetail() {
+    const dateStr = dayDetailDate.value
+    showDayDetail.value = false
+    openAddOnDate(dateStr)
+}
+
+const dayDetailEvents = computed(() => {
+    if (!dayDetailDate.value) return []
+    const [y, m, d] = dayDetailDate.value.split('-').map(Number)
+    return eventsForDate(new Date(y, m - 1, d))
+})
+
+const dayDetailLabel = computed(() => {
+    if (!dayDetailDate.value) return ''
+    const [y, m, d] = dayDetailDate.value.split('-').map(Number)
+    const date = new Date(y, m - 1, d)
+    return `${y}年${m}月${d}日（週${WEEKDAYS_FULL[date.getDay()]}）`
+})
+
+const dayDetailHoliday = computed(() => TAIWAN_HOLIDAY_NAMES[dayDetailDate.value] ?? null)
 
 async function submitEvent() {
   if (!eventForm.value.date) return
