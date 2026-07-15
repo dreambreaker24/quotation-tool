@@ -314,7 +314,7 @@
                 @mousedown.prevent="selectVendor(v)"
                 class="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition-colors"
                 :class="form.vendorId === v.id ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'">
-                {{ v.name }}<span class="text-gray-400 text-xs ml-1">{{ v.specialty }}</span>
+                {{ v.name }}<span class="text-gray-400 text-xs ml-1">{{ getVendorSpecialties(v).join('、') }}</span>
               </button>
               <div v-if="filteredVendorList.length === 0" class="px-3 py-2 text-sm text-gray-300">找不到符合廠商</div>
             </div>
@@ -584,6 +584,7 @@ import { ref, computed, reactive, onMounted, onUnmounted } from 'vue'
 import { WORK_CATEGORIES } from '@/constants/workCategories'
 import { WT_COLORS } from '@/constants/workTypeColors'
 import { isLegacyCategoryName } from '@/utils/workTypeCategory'
+import { getVendorSpecialties, filterVendorsByCategory } from '@/utils/vendorSpecialty'
 import { useVendorsStore } from '@/stores/vendors'
 import { useCasesStore } from '@/stores/cases'
 import { useAuthStore } from '@/stores/auth'
@@ -1038,10 +1039,7 @@ const remainingVendorAmount = computed(() => {
 
 const regionVendors = computed(() => {
     const vendors = vendorsStore.vendors.filter(v => !v.companyId || v.companyId === caseData.value?.companyId)
-    if (!selectedCategory.value) return vendors
-    const standardCategories = WORK_CATEGORIES.filter(c => c !== '其他')
-    if (selectedCategory.value === '其他') return vendors.filter(v => !standardCategories.includes(v.specialty))
-    return vendors.filter(v => v.specialty === selectedCategory.value)
+    return filterVendorsByCategory(vendors, selectedCategory.value, WORK_CATEGORIES)
 })
 function totalVendorPaid(wt) {
     return (wt.vendorPayments || []).reduce((sum, vp) => sum + (vp.amount || 0), 0)
