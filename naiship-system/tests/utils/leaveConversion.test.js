@@ -11,7 +11,7 @@ describe('hoursToDays', () => {
   })
   it('rounds remainder > 4 hours up to full day', () => {
     expect(hoursToDays(5)).toBe(1)
-    expect(hoursToDays(13)).toBe(1.5)
+    expect(hoursToDays(13)).toBe(2)
   })
   it('handles zero', () => {
     expect(hoursToDays(0)).toBe(0)
