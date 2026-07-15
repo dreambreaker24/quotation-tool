@@ -241,7 +241,6 @@ async function submitBid(br) {
     savingBid.value = true
     try {
         await bidRequestsStore.addBid(props.caseId, br.id, {
-            vendorId: '',
             vendorName: bidForm.value.vendorName.trim(),
             quoteAmount: bidForm.value.quoteAmount || 0,
             includesTax: bidForm.value.includesTax || false,
