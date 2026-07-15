@@ -10,9 +10,19 @@
           <label class="text-xs text-gray-500 mb-1 block">案件名稱 *</label>
           <input v-model="caseForm.name" type="text" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1" placeholder="例：台南東區翻新">
         </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs text-gray-500 mb-1 block">城市</label>
+            <input v-model="caseForm.addressCity" type="text" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1" placeholder="例：台南市">
+          </div>
+          <div>
+            <label class="text-xs text-gray-500 mb-1 block">區或鄉</label>
+            <input v-model="caseForm.addressDistrict" type="text" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1" placeholder="例：東區">
+          </div>
+        </div>
         <div>
-          <label class="text-xs text-gray-500 mb-1 block">施工地址</label>
-          <input v-model="caseForm.address" type="text" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1" placeholder="例：台南市東區某路1號">
+          <label class="text-xs text-gray-500 mb-1 block">街道門牌號</label>
+          <input v-model="caseForm.addressStreet" type="text" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1" placeholder="例：大同路二段123號">
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
@@ -113,7 +123,7 @@ const submitting = ref(false)
 const activeUsers = computed(() => usersStore.users.filter(u => !u.disabled))
 
 const blankCase = () => ({
-    name: '', address: '',
+    name: '', addressCity: '', addressDistrict: '', addressStreet: '',
     companyId: authStore.isManager ? (props.region ?? 'south') : (authStore.companyId || 'south'),
     assignees: [''], status: 'negotiating',
     signedAmount: 0, startDate: '', endDate: '', signedDate: '',
@@ -145,7 +155,9 @@ async function submitCase() {
     const assignees = caseForm.value.assignees.filter(a => a.trim())
     const data = {
         name: caseForm.value.name,
-        address: caseForm.value.address || '',
+        addressCity: caseForm.value.addressCity || '',
+        addressDistrict: caseForm.value.addressDistrict || '',
+        addressStreet: caseForm.value.addressStreet || '',
         companyId: caseForm.value.companyId,
         status: caseForm.value.status,
         signedAmount: caseForm.value.signedAmount || 0,
