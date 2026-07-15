@@ -22,7 +22,7 @@
           <div class="flex items-center gap-3 text-xs">
             <div class="flex-1 min-w-0">
               <span class="font-medium text-gray-800">{{ v.name }}</span>
-              <span v-if="v.specialty" class="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500">{{ v.specialty }}</span>
+              <span v-if="getVendorSpecialties(v).length" class="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500">{{ getVendorSpecialties(v).join('、') }}</span>
             </div>
             <div class="hidden sm:flex items-center gap-1 text-gray-500 flex-shrink-0">
               <span v-if="v.contact">{{ v.contact }}</span>
@@ -84,10 +84,10 @@
                   <button v-if="authStore.isManager" @click="confirmDelete(v)" class="text-red-400 hover:text-red-600">刪除</button>
                 </div>
               </div>
-              <div v-if="v.taxId || v.abilities || (cat.label === '其他' && v.specialty)" class="flex items-center gap-2 text-[10px] text-gray-400">
+              <div v-if="v.taxId || v.abilities || (cat.label === '其他' && getVendorSpecialties(v).length)" class="flex items-center gap-2 text-[10px] text-gray-400">
                 <span v-if="v.taxId">統編 {{ v.taxId }}</span>
-                <span v-if="v.taxId && (v.abilities || (cat.label === '其他' && v.specialty))" class="text-gray-200">|</span>
-                <span v-if="v.abilities || (cat.label === '其他' && v.specialty)" class="truncate">{{ v.abilities || v.specialty }}</span>
+                <span v-if="v.taxId && (v.abilities || (cat.label === '其他' && getVendorSpecialties(v).length))" class="text-gray-200">|</span>
+                <span v-if="v.abilities || (cat.label === '其他' && getVendorSpecialties(v).length)" class="truncate">{{ v.abilities || getVendorSpecialties(v).join('、') }}</span>
               </div>
             </div>
           </div>
@@ -214,15 +214,15 @@ const standardCategories = VENDOR_CATEGORIES.filter(c => c !== '其他')
 const allCategories = computed(() => {
     const result = standardCategories.map(label => ({
         label,
-        list: vendorsStore.vendors.filter(v => v.specialty === label),
+        list: vendorsStore.vendors.filter(v => getVendorSpecialties(v).includes(label)),
     }))
-    const others = vendorsStore.vendors.filter(v => !standardCategories.includes(v.specialty))
+    const others = vendorsStore.vendors.filter(v => !getVendorSpecialties(v).some(s => standardCategories.includes(s)))
     if (others.length > 0) result.push({ label: '其他', list: others })
     return result
 })
 
 const hasUncategorized = computed(() =>
-    vendorsStore.vendors.some(v => !standardCategories.includes(v.specialty))
+    vendorsStore.vendors.some(v => !getVendorSpecialties(v).some(s => standardCategories.includes(s)))
 )
 
 const searchKeyword = ref('')
@@ -230,7 +230,7 @@ const filteredVendors = computed(() => {
     const kw = searchKeyword.value.trim()
     if (!kw) return vendorsStore.vendors
     return vendorsStore.vendors.filter(v =>
-        (v.name || '').includes(kw) || (v.specialty || '').includes(kw)
+        (v.name || '').includes(kw) || getVendorSpecialties(v).some(s => s.includes(kw))
     )
 })
 
