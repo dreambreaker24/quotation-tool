@@ -7,6 +7,7 @@ import { WT_COLORS } from '@/constants/workTypeColors'
 export function buildWinningWorkType(bidRequest, winningBidId, existingWorkTypesCount, finalVendor, finalWorkCategory) {
     const winner = (bidRequest.bids || []).find(b => b.id === winningBidId)
     if (!winner) throw new Error('winning bid not found')
+    if (!finalVendor?.vendorId) throw new Error('finalVendor with vendorId is required')
     const resolvedCategory = finalWorkCategory || ''
     return {
         id: `wt_${Date.now()}`,

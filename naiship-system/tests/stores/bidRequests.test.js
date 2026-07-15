@@ -61,6 +61,11 @@ describe('buildWinningWorkType', () => {
         expect(() => buildWinningWorkType(bidRequest, 'missing', 0, finalVendor, '水電')).toThrow()
     })
 
+    it('throws when finalVendor is missing or has no vendorId', () => {
+        expect(() => buildWinningWorkType(bidRequest, 'bid1', 0, undefined, '水電')).toThrow()
+        expect(() => buildWinningWorkType(bidRequest, 'bid1', 0, {}, '水電')).toThrow()
+    })
+
     it('uses the bid request item name and marks customName when no work category is chosen', () => {
         const sofaRequest = {
             id: 'br2', category: '沙發', bids: [
