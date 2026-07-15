@@ -104,17 +104,20 @@
         <button @click="showForm = false" class="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
       </div>
       <div class="flex flex-col gap-3">
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="text-xs text-gray-500 mb-1 block">廠商名稱 *</label>
-            <input v-model="form.name" type="text" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1" placeholder="例：振宏水電行">
-          </div>
-          <div>
-            <label class="text-xs text-gray-500 mb-1 block">工種分類 *</label>
-            <select v-model="form.specialty" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
-              <option value="">— 請選擇 —</option>
-              <option v-for="cat in VENDOR_CATEGORIES" :key="cat" :value="cat">{{ cat }}</option>
-            </select>
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">廠商名稱 *</label>
+          <input v-model="form.name" type="text" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1" placeholder="例：振宏水電行">
+        </div>
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">工種分類 *（可複選）</label>
+          <div class="flex flex-wrap gap-1.5">
+            <button v-for="cat in VENDOR_CATEGORIES" :key="cat" type="button"
+              @click="toggleSpecialty(cat)"
+              class="text-xs px-2.5 py-1 rounded-full border transition-colors"
+              :class="form.specialties.includes(cat) ? 'text-white border-transparent' : 'text-gray-500 border-gray-200 hover:border-gray-400'"
+              :style="form.specialties.includes(cat) ? 'background:#c9a96e' : ''">
+              {{ cat }}
+            </button>
           </div>
         </div>
         <div>
@@ -194,6 +197,7 @@ import { WORK_CATEGORIES as VENDOR_CATEGORIES } from '@/constants/workCategories
 import { useVendorsStore } from '@/stores/vendors'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
+import { getVendorSpecialties } from '@/utils/vendorSpecialty'
 
 const vendorsStore = useVendorsStore()
 const authStore = useAuthStore()
@@ -233,7 +237,7 @@ const filteredVendors = computed(() => {
 const showForm = ref(false)
 const submitting = ref(false)
 const editingId = ref(null)
-const blankForm = () => ({ name: '', specialty: '', abilities: '', contact: '', phone: '', taxId: '', lineId: '', formSubmitted: false, formDate: '', companyId: '', rating: 0, notes: '' })
+const blankForm = () => ({ name: '', specialties: [], abilities: '', contact: '', phone: '', taxId: '', lineId: '', formSubmitted: false, formDate: '', companyId: '', rating: 0, notes: '' })
 const form = ref(blankForm())
 
 function openAdd() {
@@ -242,10 +246,16 @@ function openAdd() {
     showForm.value = true
 }
 
+function toggleSpecialty(cat) {
+    const idx = form.value.specialties.indexOf(cat)
+    if (idx >= 0) form.value.specialties.splice(idx, 1)
+    else form.value.specialties.push(cat)
+}
+
 function openEdit(v) {
     editingId.value = v.id
     form.value = {
-        name: v.name, specialty: v.specialty,
+        name: v.name, specialties: getVendorSpecialties(v),
         abilities: v.abilities || '',
         contact: v.contact || '', phone: v.phone || '',
         taxId: v.taxId || '', lineId: v.lineId || '',
@@ -258,7 +268,7 @@ function openEdit(v) {
 }
 
 async function submitForm() {
-    if (!form.value.name || !form.value.specialty || submitting.value) return
+    if (!form.value.name || form.value.specialties.length === 0 || submitting.value) return
     submitting.value = true
     try {
         const data = { ...form.value }
