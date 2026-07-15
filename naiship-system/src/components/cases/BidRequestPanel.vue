@@ -160,6 +160,7 @@
 <script setup>
 import { ref, computed, reactive, onMounted, onUnmounted } from 'vue'
 import { WORK_CATEGORIES } from '@/constants/workCategories'
+import { filterVendorsByCategory } from '@/utils/vendorSpecialty'
 import { useBidRequestsStore, buildWinningWorkType } from '@/stores/bidRequests'
 import { useVendorsStore } from '@/stores/vendors'
 import { useCasesStore } from '@/stores/cases'
@@ -231,10 +232,7 @@ function openAddBid(br) {
 
 function filteredVendorList(category) {
     const vendors = vendorsStore.vendors.filter(v => !v.companyId || v.companyId === caseData.value?.companyId)
-    const standardCategories = WORK_CATEGORIES.filter(c => c !== '其他')
-    const byCategory = category === '其他'
-        ? vendors.filter(v => !standardCategories.includes(v.specialty))
-        : vendors.filter(v => v.specialty === category)
+    const byCategory = filterVendorsByCategory(vendors, category, WORK_CATEGORIES)
     const kw = vendorSearch.value.trim()
     if (!kw) return byCategory
     return byCategory.filter(v => v.name.includes(kw))
