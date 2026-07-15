@@ -254,8 +254,9 @@
   </div>
 </template>
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useCaseTasksStore } from '@/stores/caseTasks'
+import { getWeekStart } from '@/utils/replyWeeks'
 import { useAuthStore } from '@/stores/auth'
 import { useUsersStore } from '@/stores/users'
 import { useNotificationsStore } from '@/stores/notifications'
@@ -313,6 +314,36 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
 const clientTasks = computed(() => tasksStore.tasks.filter(t => t.type === 'client'))
 const managerTasks = computed(() => tasksStore.tasks.filter(t => t.type === 'manager'))
 const replyTasks = computed(() => tasksStore.tasks.filter(t => t.type === 'reply'))
+
+const expandedWeeks = reactive({})
+function toggleWeek(weekStart) {
+    expandedWeeks[weekStart] = !expandedWeeks[weekStart]
+}
+
+function weekLabel(weekStart) {
+    const [y, m, d] = weekStart.split('-').map(Number)
+    const start = new Date(y, m - 1, d)
+    const end = new Date(y, m - 1, d + 6)
+    return `${start.getMonth() + 1}/${start.getDate()} – ${end.getMonth() + 1}/${end.getDate()}`
+}
+
+const groupedReplies = computed(() => {
+    const currentWeekStart = getWeekStart(new Date())
+    const groups = new Map()
+    groups.set(currentWeekStart, [])
+    for (const t of replyTasks.value) {
+        const key = getWeekStart(t.createdAt)
+        if (!groups.has(key)) groups.set(key, [])
+        groups.get(key).push(t)
+    }
+    return [...groups.keys()]
+        .sort((a, b) => b.localeCompare(a))
+        .map(weekStart => ({
+            weekStart,
+            isCurrent: weekStart === currentWeekStart,
+            items: groups.get(weekStart),
+        }))
+})
 
 const EMAIL_COLORS = {
     'dreambreaker24@gmail.com': '#c9a96e',
