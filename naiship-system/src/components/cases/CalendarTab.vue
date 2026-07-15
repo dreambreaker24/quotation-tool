@@ -59,7 +59,7 @@
           cell.currentMonth && 'cursor-pointer hover:bg-gray-50/50 transition-colors',
           cell.dateStr === highlightDate && cell.currentMonth ? 'ring-2 ring-inset ring-amber-400' : ''
         ]"
-        @click="cell.currentMonth && openAddOnDate(cell.dateStr)">
+        @click="cell.currentMonth && openDayDetail(cell.dateStr)">
         <span v-if="cell.isToday"
           class="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold text-white"
           style="background:#c9a96e">
@@ -78,12 +78,15 @@
           class="text-[9px] text-rose-400 font-medium truncate leading-none mt-0.5">
           {{ cell.holidayName }}
         </div>
-        <div v-for="event in cell.events" :key="event.id"
+        <div v-for="event in cell.events.slice(0, 2)" :key="event.id"
           @click.stop="openEditEvent(event)"
           class="mt-1 text-[10px] rounded px-1.5 py-0.5 truncate text-white cursor-pointer hover:opacity-80 transition-opacity"
           :class="event.type === 'leave' ? 'bg-blue-400' : event.type === 'note' ? 'bg-red-400' : ''"
           :style="event.type === 'milestone' ? 'background:#fb923c' : event.type === 'followup' ? 'background:#a855f7' : ''">
           {{ event.startTime ? `${event.startTime}${event.endTime ? '-' + event.endTime : ''} ` : '' }}{{ event.label }}
+        </div>
+        <div v-if="cell.events.length > 2" class="mt-1 text-[9px] text-gray-400 truncate">
+          還有 {{ cell.events.length - 2 }} 則
         </div>
       </div>
     </div>
@@ -368,6 +371,32 @@
           <button @click="saveEditEvent" class="text-sm text-white px-5 py-2 rounded-xl" style="background:#1e2533">儲存</button>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- 當天詳情 Modal -->
+  <div v-if="showDayDetail" class="fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.4)">
+    <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm mx-4 border-t-4 max-h-[80vh] flex flex-col" style="border-top-color:#c9a96e">
+      <div class="flex items-center justify-between mb-1">
+        <h3 class="text-base font-bold text-gray-800">{{ dayDetailLabel }}</h3>
+        <button @click="showDayDetail = false" class="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
+      </div>
+      <div v-if="dayDetailHoliday" class="text-xs text-rose-400 font-medium mb-3">{{ dayDetailHoliday }}</div>
+      <div v-else class="mb-3"></div>
+      <div class="flex flex-col gap-2 overflow-y-auto flex-1">
+        <div v-for="event in dayDetailEvents" :key="event.id"
+          @click="openEventFromDayDetail(event)"
+          class="flex items-center gap-2 rounded-lg px-3 py-2 border border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors">
+          <span class="w-2.5 h-2.5 rounded-full flex-shrink-0"
+            :class="event.type === 'leave' ? 'bg-blue-400' : event.type === 'note' ? 'bg-red-400' : ''"
+            :style="event.type === 'milestone' ? 'background:#fb923c' : event.type === 'followup' ? 'background:#a855f7' : ''"></span>
+          <span class="text-xs text-gray-700 flex-1 min-w-0 truncate">
+            {{ event.startTime ? `${event.startTime}${event.endTime ? '-' + event.endTime : ''} ` : '' }}{{ event.label }}
+          </span>
+        </div>
+        <div v-if="dayDetailEvents.length === 0" class="text-xs text-gray-300 py-4 text-center">尚無安排</div>
+      </div>
+      <button @click="addEventFromDayDetail" class="text-sm text-white px-5 py-2 rounded-xl mt-4" style="background:#1e2533">+ 新增事件</button>
     </div>
   </div>
 </template>
