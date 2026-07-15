@@ -29,7 +29,7 @@
           <div v-for="bid in br.bids" :key="bid.id"
             class="border rounded-lg p-2 bg-white flex items-center flex-wrap gap-2"
             :class="br.winningBidId === bid.id ? 'border-green-300' : 'border-gray-100'">
-            <span class="text-xs font-medium text-gray-700 flex-shrink-0">{{ bid.vendorName }}</span>
+            <span class="text-xs font-medium text-gray-700 flex-shrink-0">{{ bid.vendorName || '（未填廠商）' }}</span>
             <span class="text-xs text-gray-600">${{ (bid.quoteAmount || 0).toLocaleString() }}</span>
             <span class="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
               :class="bid.includesTax ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'">
@@ -61,21 +61,8 @@
           </button>
 
           <div v-else class="border border-gray-100 rounded-lg p-2.5 bg-white flex flex-col gap-2 mt-1.5">
-            <div class="relative">
-              <input v-model="vendorSearch" @focus="showVendorDropdown = true" @blur="hideVendorDropdown"
-                type="text" placeholder="搜尋廠商名稱…"
-                class="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1">
-              <div v-if="showVendorDropdown"
-                class="absolute z-20 w-full bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-40 overflow-y-auto">
-                <button v-for="v in filteredVendorList(br.category)" :key="v.id" type="button"
-                  @mousedown.prevent="selectVendor(v)"
-                  class="w-full text-left px-2.5 py-1.5 text-xs hover:bg-gray-50 transition-colors"
-                  :class="bidForm.vendorId === v.id ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'">
-                  {{ v.name }}
-                </button>
-                <div v-if="filteredVendorList(br.category).length === 0" class="px-2.5 py-1.5 text-xs text-gray-300">找不到符合廠商</div>
-              </div>
-            </div>
+            <input v-model="bidForm.vendorName" type="text" placeholder="廠商名稱（選填）"
+              class="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1">
             <div class="flex gap-2">
               <input v-model.number="bidForm.quoteAmount" type="number" min="0" placeholder="報價金額"
                 class="flex-1 text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1">
@@ -87,7 +74,7 @@
               class="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1">
             <div class="flex justify-end gap-2">
               <button @click="addingBidFor = null" class="text-xs text-gray-400 px-3 py-1.5">取消</button>
-              <button @click="submitBid(br)" :disabled="savingBid || !bidForm.vendorId"
+              <button @click="submitBid(br)" :disabled="savingBid || !bidForm.quoteAmount"
                 class="text-xs text-white px-3 py-1.5 rounded-lg disabled:opacity-60" style="background:#1e2533">
                 {{ savingBid ? '儲存中…' : '新增報價' }}
               </button>
@@ -218,14 +205,13 @@ async function confirmDeleteBidRequest(id) {
 
 const addingBidFor = ref(null)
 const savingBid = ref(false)
-const bidForm = ref({ vendorId: '', vendorName: '', quoteAmount: 0, includesTax: false, note: '' })
+const bidForm = ref({ vendorName: '', quoteAmount: 0, includesTax: false, note: '' })
 const vendorSearch = ref('')
 const showVendorDropdown = ref(false)
 
 function openAddBid(br) {
     addingBidFor.value = br.id
-    bidForm.value = { vendorId: '', vendorName: '', quoteAmount: 0, includesTax: false, note: '' }
-    vendorSearch.value = ''
+    bidForm.value = { vendorName: '', quoteAmount: 0, includesTax: false, note: '' }
 }
 
 function filteredVendorList(category) {
@@ -234,13 +220,6 @@ function filteredVendorList(category) {
     const kw = vendorSearch.value.trim()
     if (!kw) return byCategory
     return byCategory.filter(v => v.name.includes(kw))
-}
-
-function selectVendor(vendor) {
-    bidForm.value.vendorId = vendor.id
-    bidForm.value.vendorName = vendor.name
-    vendorSearch.value = vendor.name
-    showVendorDropdown.value = false
 }
 
 function hideVendorDropdown() {
@@ -258,12 +237,12 @@ function uploaderName(uid) {
 }
 
 async function submitBid(br) {
-    if (!bidForm.value.vendorId || savingBid.value) return
+    if (!bidForm.value.quoteAmount || savingBid.value) return
     savingBid.value = true
     try {
         await bidRequestsStore.addBid(props.caseId, br.id, {
-            vendorId: bidForm.value.vendorId,
-            vendorName: bidForm.value.vendorName,
+            vendorId: '',
+            vendorName: bidForm.value.vendorName.trim(),
             quoteAmount: bidForm.value.quoteAmount || 0,
             includesTax: bidForm.value.includesTax || false,
             note: bidForm.value.note || '',
