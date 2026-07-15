@@ -57,8 +57,8 @@
 
         <div>
           <label class="text-xs text-gray-500 mb-1 block">關聯客戶（選填）</label>
-          <select v-model="form.linkedClientId"
-            class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
+          <select v-model="form.linkedClientId" :disabled="!authStore.isManager"
+            class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1 disabled:bg-gray-50 disabled:text-gray-500">
             <option value="">— 不關聯客戶 —</option>
             <option v-for="c in clientsForRegion" :key="c.id" :value="c.id">{{ c.name }}{{ c.phone ? ` · ${c.phone}` : '' }}</option>
           </select>
@@ -139,7 +139,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { CASE_STATUS_LABELS } from '@/constants/caseStatus'
-import { Timestamp, arrayUnion, arrayRemove } from 'firebase/firestore'
+import { Timestamp, arrayUnion, arrayRemove, writeBatch, doc, serverTimestamp } from 'firebase/firestore'
 import { useCasesStore } from '@/stores/cases'
 import { useAuthStore } from '@/stores/auth'
 import { useUsersStore } from '@/stores/users'
@@ -147,6 +147,7 @@ import { useClientsStore } from '@/stores/clients'
 import { useNotificationsStore } from '@/stores/notifications'
 import { useToast } from '@/composables/useToast'
 import { isMissingSignedAmountForConstruction } from '@/utils/caseStatusRules'
+import { db } from '@/firebase'
 
 const props = defineProps({ caseId: String })
 const emit = defineEmits(['close'])
@@ -278,25 +279,28 @@ async function save() {
             ]
         }
 
-        await casesStore.updateCase(props.caseId, data)
-
         const newLinkedClientId = form.value.linkedClientId || ''
+        const batch = writeBatch(db)
+        batch.update(doc(db, 'cases', props.caseId), { ...data, updatedAt: serverTimestamp() })
+
         if (originalLinkedClientId.value !== newLinkedClientId) {
             if (originalLinkedClientId.value) {
                 const oldClient = clientsStore.clients.find(cl => cl.id === originalLinkedClientId.value)
-                await clientsStore.updateClient(originalLinkedClientId.value, {
+                batch.update(doc(db, 'clients', originalLinkedClientId.value), {
                     linkedCaseIds: arrayRemove(props.caseId),
                     ...(oldClient?.linkedCaseId === props.caseId ? { linkedCaseId: null } : {}),
                 })
             }
             if (newLinkedClientId) {
                 const newClient = clientsStore.clients.find(cl => cl.id === newLinkedClientId)
-                await clientsStore.updateClient(newLinkedClientId, {
+                batch.update(doc(db, 'clients', newLinkedClientId), {
                     linkedCaseIds: arrayUnion(props.caseId),
-                    ...(!newClient?.linkedCaseId ? { linkedCaseId: props.caseId } : {}),
+                    ...(newClient && !newClient.linkedCaseId ? { linkedCaseId: props.caseId } : {}),
                 })
             }
         }
+
+        await batch.commit()
 
         toast('案件已儲存')
         notifStore.notifyAll(authStore.name ?? '', `更新了「${caseData.value?.name ?? ''}」`, props.caseId, caseData.value?.name ?? '', form.value.companyId)
