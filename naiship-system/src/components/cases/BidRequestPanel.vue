@@ -91,11 +91,40 @@
             <div v-else class="border border-amber-200 rounded-lg p-2.5 bg-amber-50/50 mt-1.5 flex flex-col gap-2">
               <label v-for="bid in br.bids" :key="bid.id" class="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
                 <input type="radio" :value="bid.id" v-model="selectedWinnerId" class="accent-amber-600">
-                {{ bid.vendorName }} — ${{ (bid.quoteAmount || 0).toLocaleString() }}{{ bid.includesTax ? '（含稅）' : '（未稅）' }}
+                {{ bid.vendorName || '（未填廠商）' }} — ${{ (bid.quoteAmount || 0).toLocaleString() }}{{ bid.includesTax ? '（含稅）' : '（未稅）' }}
               </label>
+
+              <template v-if="selectedWinnerId && !selectedWinnerHasVendor">
+                <div class="border-t border-amber-200 pt-2 mt-1 flex flex-col gap-2">
+                  <div class="relative">
+                    <label class="text-[11px] text-gray-500 mb-1 block">請選擇正式廠商 *</label>
+                    <input v-model="vendorSearch" @focus="showVendorDropdown = true" @blur="hideVendorDropdown"
+                      type="text" placeholder="搜尋廠商名稱…"
+                      class="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1">
+                    <div v-if="showVendorDropdown"
+                      class="absolute z-20 w-full bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-40 overflow-y-auto">
+                      <button v-for="v in filteredVendorList(br.workCategory)" :key="v.id" type="button"
+                        @mousedown.prevent="selectVendor(v)"
+                        class="w-full text-left px-2.5 py-1.5 text-xs hover:bg-gray-50 transition-colors"
+                        :class="winnerVendorId === v.id ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'">
+                        {{ v.name }}
+                      </button>
+                      <div v-if="filteredVendorList(br.workCategory).length === 0" class="px-2.5 py-1.5 text-xs text-gray-300">找不到符合廠商</div>
+                    </div>
+                  </div>
+                  <div>
+                    <label class="text-[11px] text-gray-500 mb-1 block">工種（選填）</label>
+                    <select v-model="winnerWorkCategory" class="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-1">
+                      <option value="">— 未分類 —</option>
+                      <option v-for="cat in WORK_CATEGORIES" :key="cat" :value="cat">{{ cat }}</option>
+                    </select>
+                  </div>
+                </div>
+              </template>
+
               <div class="flex justify-end gap-2 mt-1">
                 <button @click="confirmingBidRequestId = null" class="text-xs text-gray-400 px-3 py-1.5">取消</button>
-                <button @click="confirmWinner(br)" :disabled="!selectedWinnerId || confirming"
+                <button @click="confirmWinner(br)" :disabled="!canConfirmWinner || confirming"
                   class="text-xs text-white px-3 py-1.5 rounded-lg disabled:opacity-60" style="background:#1e2533">
                   {{ confirming ? '確認中…' : '確認並轉為正式工種' }}
                 </button>
@@ -302,24 +331,53 @@ async function deleteQuotePhoto(bidRequestId, bidEntryId, item) {
 const confirmingBidRequestId = ref(null)
 const selectedWinnerId = ref('')
 const confirming = ref(false)
+const winnerVendorId = ref('')
+const winnerVendorName = ref('')
+const winnerWorkCategory = ref('')
+
+const selectedWinnerBid = computed(() => {
+    const br = bidRequests.value.find(b => b.id === confirmingBidRequestId.value)
+    return br?.bids.find(b => b.id === selectedWinnerId.value)
+})
+const selectedWinnerHasVendor = computed(() => !!selectedWinnerBid.value?.vendorId)
+const canConfirmWinner = computed(() =>
+    !!selectedWinnerId.value && (selectedWinnerHasVendor.value || !!winnerVendorId.value)
+)
 
 function openConfirmWinner(br) {
     confirmingBidRequestId.value = br.id
     selectedWinnerId.value = ''
+    winnerVendorId.value = ''
+    winnerVendorName.value = ''
+    vendorSearch.value = ''
+    winnerWorkCategory.value = br.workCategory || ''
+}
+
+function selectVendor(vendor) {
+    winnerVendorId.value = vendor.id
+    winnerVendorName.value = vendor.name
+    vendorSearch.value = vendor.name
+    showVendorDropdown.value = false
 }
 
 async function confirmWinner(br) {
-    if (!selectedWinnerId.value || confirming.value) return
+    if (!canConfirmWinner.value || confirming.value) return
     confirming.value = true
     try {
-        const newWorkType = buildWinningWorkType(br, selectedWinnerId.value, workTypes.value.length)
+        const winnerBid = br.bids.find(b => b.id === selectedWinnerId.value)
+        const finalVendor = winnerBid.vendorId
+            ? { vendorId: winnerBid.vendorId, vendorName: winnerBid.vendorName }
+            : { vendorId: winnerVendorId.value, vendorName: winnerVendorName.value }
+        const newWorkType = buildWinningWorkType(br, selectedWinnerId.value, workTypes.value.length, finalVendor, winnerWorkCategory.value)
         await casesStore.updateCase(props.caseId, { workTypes: [...workTypes.value, newWorkType] })
         await bidRequestsStore.markConverted(props.caseId, br.id, selectedWinnerId.value, newWorkType.id)
-        const winner = br.bids.find(b => b.id === selectedWinnerId.value)
-        await bidRequestsStore.repointQuotePhotos(props.caseId, winner?.quotePhotoIds, newWorkType.id)
+        await bidRequestsStore.repointQuotePhotos(props.caseId, winnerBid?.quotePhotoIds, newWorkType.id)
         confirmingBidRequestId.value = null
         selectedWinnerId.value = ''
-        toast(`已確認贏家，正式工種「${br.category}」已建立`)
+        winnerVendorId.value = ''
+        winnerVendorName.value = ''
+        winnerWorkCategory.value = ''
+        toast(`已確認贏家，正式工種「${newWorkType.name}」已建立`)
     } catch {
         toast('確認失敗，請重試', 'error')
     } finally {
