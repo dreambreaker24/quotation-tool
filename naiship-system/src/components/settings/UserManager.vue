@@ -32,6 +32,14 @@
             <option value="central">奈拾中區</option>
           </select>
         </div>
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">職稱（薪資單用）</label>
+          <input v-model="form.job" type="text" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1">
+        </div>
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">底薪（薪資單用）</label>
+          <input v-model.number="form.salary" type="number" min="0" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1">
+        </div>
       </div>
       <div class="flex justify-end gap-2 mt-3">
         <button @click="showForm = false" class="text-xs text-gray-400 px-3 py-1">取消</button>
@@ -47,6 +55,8 @@
           <th class="text-left px-4 py-2.5 text-gray-600 font-semibold text-xs">Email</th>
           <th class="text-left px-4 py-2.5 text-gray-600 font-semibold text-xs">角色</th>
           <th class="text-left px-4 py-2.5 text-gray-600 font-semibold text-xs">分區</th>
+          <th class="text-left px-4 py-2.5 text-gray-600 font-semibold text-xs">職稱</th>
+          <th class="text-left px-4 py-2.5 text-gray-600 font-semibold text-xs">底薪</th>
           <th class="px-4 py-2.5"></th>
         </tr>
       </thead>
@@ -64,6 +74,8 @@
             <span class="text-xs px-2 py-0.5 rounded-full" :class="roleClass(u.role)" :style="roleStyle(u.role)">{{ roleLabel(u.role) }}</span>
           </td>
           <td class="px-4 py-2.5 text-gray-500 text-xs">{{ regionLabel(u.companyId) }}</td>
+          <td class="px-4 py-2.5 text-gray-500 text-xs">{{ u.job || '—' }}</td>
+          <td class="px-4 py-2.5 text-gray-500 text-xs">{{ u.salary ? u.salary.toLocaleString() : '—' }}</td>
           <td class="px-4 py-2.5 text-right flex items-center justify-end gap-3">
             <template v-if="renamingId === u.id">
               <input v-model="renameValue" type="text"
@@ -74,16 +86,38 @@
             </template>
             <template v-else>
               <button @click="startRename(u)" class="text-xs text-gray-400 hover:text-gray-600">改名</button>
+              <button @click="openSalaryEdit(u)" class="text-xs text-gray-400 hover:text-gray-600">薪資設定</button>
               <button @click="removeUser(u.id)" class="text-xs text-gray-400 hover:text-gray-600">停用</button>
               <button @click="deleteUser(u.id)" class="text-xs text-red-400 hover:text-red-600">刪除</button>
             </template>
           </td>
         </tr>
         <tr v-if="users.length === 0">
-          <td colspan="5" class="px-4 py-6 text-center text-gray-400 text-xs">尚無帳號資料</td>
+          <td colspan="7" class="px-4 py-6 text-center text-gray-400 text-xs">尚無帳號資料</td>
         </tr>
       </tbody>
     </table>
+
+    <div v-if="editingSalaryId" class="fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.4)">
+      <div class="bg-white rounded-2xl shadow-xl p-6 w-72 mx-4 border-t-4" style="border-top-color:#c9a96e">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-sm font-bold text-gray-800">薪資設定</h3>
+          <button @click="editingSalaryId = null" class="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
+        </div>
+        <div class="mb-3">
+          <label class="text-xs text-gray-500 mb-1 block">職稱</label>
+          <input v-model="salaryForm.job" type="text" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1">
+        </div>
+        <div class="mb-4">
+          <label class="text-xs text-gray-500 mb-1 block">底薪</label>
+          <input v-model.number="salaryForm.salary" type="number" min="0" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1">
+        </div>
+        <div class="flex justify-end gap-2">
+          <button @click="editingSalaryId = null" class="text-sm text-gray-400 px-4 py-2">取消</button>
+          <button @click="saveSalary" class="text-sm text-white px-5 py-2 rounded-xl" style="background:#1e2533">儲存</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 <script setup>
@@ -94,9 +128,11 @@ import { memberColor } from '@/utils/memberColor'
 
 const users = ref([])
 const showForm = ref(false)
-const form = ref({ name: '', email: '', role: 'employee', companyId: 'south' })
+const form = ref({ name: '', email: '', role: 'employee', companyId: 'south', job: '', salary: 0 })
 const renamingId = ref(null)
 const renameValue = ref('')
+const editingSalaryId = ref(null)
+const salaryForm = ref({ job: '', salary: 0 })
 
 const roleMap = { admin: '管理者', manager: '區域主管', employee: '員工' }
 const roleClassMap = {
@@ -125,9 +161,21 @@ async function loadUsers() {
 async function createUser() {
     if (!form.value.name || !form.value.email) return
     await addDoc(collection(db, 'users'), { ...form.value, createdAt: serverTimestamp() })
-    form.value = { name: '', email: '', role: 'employee', companyId: 'south' }
+    form.value = { name: '', email: '', role: 'employee', companyId: 'south', job: '', salary: 0 }
     showForm.value = false
     await loadUsers()
+}
+
+function openSalaryEdit(u) {
+    editingSalaryId.value = u.id
+    salaryForm.value = { job: u.job || '', salary: u.salary || 0 }
+}
+
+async function saveSalary() {
+    await updateDoc(doc(db, 'users', editingSalaryId.value), { job: salaryForm.value.job, salary: salaryForm.value.salary })
+    const target = users.value.find(u => u.id === editingSalaryId.value)
+    if (target) { target.job = salaryForm.value.job; target.salary = salaryForm.value.salary }
+    editingSalaryId.value = null
 }
 
 function startRename(u) {
