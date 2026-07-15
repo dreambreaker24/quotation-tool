@@ -27,3 +27,6 @@ dist-ssr
 .env
 uploads/
 firebase-admin-key.json
+
+# Local E2E test scaffolding (contains saved Google/Firebase auth tokens — never commit)
+tests/e2e/
