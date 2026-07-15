@@ -14,9 +14,19 @@
           <input v-model="form.name" type="text" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1" placeholder="例：台南東區翻新">
         </div>
 
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs text-gray-500 mb-1 block">城市</label>
+            <input v-model="form.addressCity" type="text" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1" placeholder="例：台南市">
+          </div>
+          <div>
+            <label class="text-xs text-gray-500 mb-1 block">區或鄉</label>
+            <input v-model="form.addressDistrict" type="text" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1" placeholder="例：東區">
+          </div>
+        </div>
         <div>
-          <label class="text-xs text-gray-500 mb-1 block">施工地址</label>
-          <input v-model="form.address" type="text" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1" placeholder="例：台南市東區某路1號">
+          <label class="text-xs text-gray-500 mb-1 block">街道門牌號</label>
+          <input v-model="form.addressStreet" type="text" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1" placeholder="例：大同路二段123號">
         </div>
 
         <div class="grid grid-cols-2 gap-3">
@@ -43,6 +53,15 @@
             <span>{{ statusLabel(h.status) }}</span>
             <span class="text-gray-400">{{ h.changedBy }} · {{ formatTs(h.changedAt) }}</span>
           </div>
+        </div>
+
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">關聯客戶（選填）</label>
+          <select v-model="form.linkedClientId"
+            class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
+            <option value="">— 不關聯客戶 —</option>
+            <option v-for="c in clientsForRegion" :key="c.id" :value="c.id">{{ c.name }}{{ c.phone ? ` · ${c.phone}` : '' }}</option>
+          </select>
         </div>
 
         <div>
@@ -120,10 +139,11 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { CASE_STATUS_LABELS } from '@/constants/caseStatus'
-import { Timestamp } from 'firebase/firestore'
+import { Timestamp, arrayUnion, arrayRemove } from 'firebase/firestore'
 import { useCasesStore } from '@/stores/cases'
 import { useAuthStore } from '@/stores/auth'
 import { useUsersStore } from '@/stores/users'
+import { useClientsStore } from '@/stores/clients'
 import { useNotificationsStore } from '@/stores/notifications'
 import { useToast } from '@/composables/useToast'
 import { isMissingSignedAmountForConstruction } from '@/utils/caseStatusRules'
@@ -134,10 +154,14 @@ const emit = defineEmits(['close'])
 const casesStore = useCasesStore()
 const authStore = useAuthStore()
 const usersStore = useUsersStore()
+const clientsStore = useClientsStore()
 const notifStore = useNotificationsStore()
 const { toast } = useToast()
 
 const activeUsers = computed(() => usersStore.users.filter(u => !u.disabled))
+const clientsForRegion = computed(() =>
+    clientsStore.clients.filter(c => c.companyId === form.value.companyId)
+)
 
 const saving = ref(false)
 const confirmDelete = ref(false)
@@ -166,7 +190,9 @@ function tsToDate(ts) {
 
 const form = ref({
     name: '',
-    address: '',
+    addressCity: '',
+    addressDistrict: '',
+    addressStreet: '',
     companyId: 'south',
     status: 'negotiating',
     assignees: [''],
@@ -175,17 +201,22 @@ const form = ref({
     endDate: '',
     signedDate: '',
     deadline: '',
+    linkedClientId: '',
 })
 
 const originalStatus = ref('')
+const originalLinkedClientId = ref('')
 
 watch(caseData, (c) => {
     if (!c) return
     confirmDelete.value = false
     originalStatus.value = c.status
+    originalLinkedClientId.value = c.linkedClientId ?? ''
     form.value = {
         name: c.name ?? '',
-        address: c.address ?? '',
+        addressCity: c.addressCity ?? '',
+        addressDistrict: c.addressDistrict ?? '',
+        addressStreet: c.addressStreet ?? '',
         companyId: c.companyId ?? 'south',
         status: c.status ?? 'negotiating',
         assignees: c.assignees?.length ? [...c.assignees] : (c.assigneeName ? c.assigneeName.split('、') : ['']),
@@ -194,6 +225,7 @@ watch(caseData, (c) => {
         endDate: tsToDate(c.endDate),
         signedDate: tsToDate(c.signedDate),
         deadline: tsToDate(c.deadline),
+        linkedClientId: c.linkedClientId ?? '',
     }
 }, { immediate: true })
 
@@ -216,7 +248,9 @@ async function save() {
         const assignees = form.value.assignees.filter(a => a.trim())
         const data = {
             name: form.value.name,
-            address: form.value.address || '',
+            addressCity: form.value.addressCity || '',
+            addressDistrict: form.value.addressDistrict || '',
+            addressStreet: form.value.addressStreet || '',
             companyId: form.value.companyId,
             status: form.value.status,
             assignees,
@@ -226,11 +260,15 @@ async function save() {
             endDate: form.value.endDate ? Timestamp.fromDate(new Date(form.value.endDate)) : null,
             signedDate: form.value.signedDate ? Timestamp.fromDate(new Date(form.value.signedDate)) : null,
             deadline: form.value.deadline ? Timestamp.fromDate(new Date(form.value.deadline)) : null,
+            linkedClientId: form.value.linkedClientId || null,
         }
         if (!data.startDate) delete data.startDate
         if (!data.endDate) delete data.endDate
         if (!data.signedDate) delete data.signedDate
         if (!data.deadline) delete data.deadline
+        // 注意：linkedClientId 不能用「空值就 delete」的寫法（跟上面幾個日期欄位不一樣）。
+        // 這裡如果 delete 掉，Firestore updateDoc 就完全不會動這個欄位，使用者選「— 不關聯客戶 —」
+        // 想清空舊關聯客戶就會沒有效果。要保留 `linkedClientId: null` 明確寫入才能真的清空。
 
         if (form.value.status !== originalStatus.value) {
             const existing = caseData.value?.statusHistory ?? []
@@ -241,6 +279,25 @@ async function save() {
         }
 
         await casesStore.updateCase(props.caseId, data)
+
+        const newLinkedClientId = form.value.linkedClientId || ''
+        if (originalLinkedClientId.value !== newLinkedClientId) {
+            if (originalLinkedClientId.value) {
+                const oldClient = clientsStore.clients.find(cl => cl.id === originalLinkedClientId.value)
+                await clientsStore.updateClient(originalLinkedClientId.value, {
+                    linkedCaseIds: arrayRemove(props.caseId),
+                    ...(oldClient?.linkedCaseId === props.caseId ? { linkedCaseId: null } : {}),
+                })
+            }
+            if (newLinkedClientId) {
+                const newClient = clientsStore.clients.find(cl => cl.id === newLinkedClientId)
+                await clientsStore.updateClient(newLinkedClientId, {
+                    linkedCaseIds: arrayUnion(props.caseId),
+                    ...(!newClient?.linkedCaseId ? { linkedCaseId: props.caseId } : {}),
+                })
+            }
+        }
+
         toast('案件已儲存')
         notifStore.notifyAll(authStore.name ?? '', `更新了「${caseData.value?.name ?? ''}」`, props.caseId, caseData.value?.name ?? '', form.value.companyId)
         emit('close')
