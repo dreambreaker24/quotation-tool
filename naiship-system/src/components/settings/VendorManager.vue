@@ -197,7 +197,7 @@ import { WORK_CATEGORIES as VENDOR_CATEGORIES } from '@/constants/workCategories
 import { useVendorsStore } from '@/stores/vendors'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
-import { getVendorSpecialties } from '@/utils/vendorSpecialty'
+import { getVendorSpecialties, filterVendorsByCategory } from '@/utils/vendorSpecialty'
 
 const vendorsStore = useVendorsStore()
 const authStore = useAuthStore()
@@ -216,13 +216,13 @@ const allCategories = computed(() => {
         label,
         list: vendorsStore.vendors.filter(v => getVendorSpecialties(v).includes(label)),
     }))
-    const others = vendorsStore.vendors.filter(v => !getVendorSpecialties(v).some(s => standardCategories.includes(s)))
+    const others = filterVendorsByCategory(vendorsStore.vendors, '其他', VENDOR_CATEGORIES)
     if (others.length > 0) result.push({ label: '其他', list: others })
     return result
 })
 
 const hasUncategorized = computed(() =>
-    vendorsStore.vendors.some(v => !getVendorSpecialties(v).some(s => standardCategories.includes(s)))
+    filterVendorsByCategory(vendorsStore.vendors, '其他', VENDOR_CATEGORIES).length > 0
 )
 
 const searchKeyword = ref('')
