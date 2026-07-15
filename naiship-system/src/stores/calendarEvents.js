@@ -62,6 +62,30 @@ export const useCalendarEventsStore = defineStore('calendarEvents', () => {
         return result
     }
 
+    async function fetchMonthlyLeaveDetail(year, month, name) {
+        const y = year ?? new Date().getFullYear()
+        const m = month != null ? month : new Date().getMonth()
+        const start = Timestamp.fromDate(new Date(y, m, 1))
+        const end = Timestamp.fromDate(new Date(y, m + 1, 0, 23, 59, 59))
+        const q = query(
+            collection(db, 'calendarEvents'),
+            where('date', '>=', start),
+            where('date', '<=', end)
+        )
+        const snap = await getDocs(q)
+        const entries = []
+        snap.docs.forEach(d => {
+            const data = d.data()
+            if (data.type !== 'leave' || data.personName !== name) return
+            entries.push({
+                date: data.date?.toDate?.() ?? null,
+                leaveType: data.leaveType || '',
+                hours: data.hours || 0,
+            })
+        })
+        return entries.sort((a, b) => (a.date ?? 0) - (b.date ?? 0))
+    }
+
     function cleanup() {
         if (unsubscribe) {
             unsubscribe()
@@ -70,5 +94,5 @@ export const useCalendarEventsStore = defineStore('calendarEvents', () => {
         events.value = []
     }
 
-    return { events, subscribe, addEvent, updateEvent, deleteEvent, fetchMonthlyLeave, cleanup }
+    return { events, subscribe, addEvent, updateEvent, deleteEvent, fetchMonthlyLeave, fetchMonthlyLeaveDetail, cleanup }
 })
