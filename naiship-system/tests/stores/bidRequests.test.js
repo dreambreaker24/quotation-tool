@@ -15,10 +15,11 @@ vi.mock('firebase/firestore', () => ({
     getDocs: vi.fn(() => Promise.resolve({ docs: [] })),
     doc: vi.fn(),
     serverTimestamp: vi.fn(() => 'ts'),
+    arrayUnion: vi.fn((item) => ({ __op: 'arrayUnion', item })),
 }))
 
 import { useBidRequestsStore, buildWinningWorkType } from '@/stores/bidRequests'
-import { updateDoc, deleteDoc, getDocs } from 'firebase/firestore'
+import { addDoc, updateDoc, deleteDoc, getDocs, arrayUnion } from 'firebase/firestore'
 
 describe('buildWinningWorkType', () => {
     const bidRequest = {
@@ -29,9 +30,10 @@ describe('buildWinningWorkType', () => {
             { id: 'bid2', vendorId: 'v2', vendorName: '志明水電', quoteAmount: 0, includesTax: false, note: '' },
         ],
     }
+    const finalVendor = { vendorId: 'v1', vendorName: '阿明水電' }
 
     it('builds a workType entry from the winning bid', () => {
-        const wt = buildWinningWorkType(bidRequest, 'bid1', 0)
+        const wt = buildWinningWorkType(bidRequest, 'bid1', 0, finalVendor, '水電')
         expect(wt.name).toBe('水電')
         expect(wt.vendorId).toBe('v1')
         expect(wt.vendorName).toBe('阿明水電')
@@ -42,20 +44,33 @@ describe('buildWinningWorkType', () => {
         ])
         expect(wt.locations).toEqual([])
         expect(wt.done).toBe(false)
+        expect(wt.customName).toBe(false)
     })
 
     it('leaves vendorCostItems empty when quoteAmount is 0', () => {
-        const wt = buildWinningWorkType(bidRequest, 'bid2', 0)
+        const wt = buildWinningWorkType(bidRequest, 'bid2', 0, finalVendor, '水電')
         expect(wt.vendorCostItems).toEqual([])
     })
 
     it('cycles color by existing work type count', () => {
-        const wt = buildWinningWorkType(bidRequest, 'bid1', 9)
+        const wt = buildWinningWorkType(bidRequest, 'bid1', 9, finalVendor, '水電')
         expect(wt.color).toBe('#f59e0b') // index 9 % 8 = 1
     })
 
     it('throws when the winning bid id does not exist', () => {
-        expect(() => buildWinningWorkType(bidRequest, 'missing', 0)).toThrow()
+        expect(() => buildWinningWorkType(bidRequest, 'missing', 0, finalVendor, '水電')).toThrow()
+    })
+
+    it('uses the bid request item name and marks customName when no work category is chosen', () => {
+        const sofaRequest = {
+            id: 'br2', category: '沙發', bids: [
+                { id: 'bid1', vendorId: '', vendorName: 'IKEA', quoteAmount: 8000, includesTax: false, note: '' },
+            ]
+        }
+        const wt = buildWinningWorkType(sofaRequest, 'bid1', 0, { vendorId: 'v9', vendorName: 'IKEA' }, '')
+        expect(wt.name).toBe('沙發')
+        expect(wt.customName).toBe(true)
+        expect(wt.vendorId).toBe('v9')
     })
 })
 
@@ -65,15 +80,24 @@ describe('useBidRequestsStore actions', () => {
         vi.clearAllMocks()
     })
 
-    it('addBid appends a new bid to the matching bidRequest', async () => {
+    it('addBidRequest writes category, workCategory and defaults', async () => {
         const store = useBidRequestsStore()
-        store.bidRequests = [{ id: 'br1', category: '水電', bids: [] }]
-        await store.addBid('case1', 'br1', { vendorId: 'v1', vendorName: '阿明水電', quoteAmount: 50000, includesTax: true, note: '' })
+        await store.addBidRequest('case1', '沙發', '', '', 'uid1')
+        expect(addDoc).toHaveBeenCalledTimes(1)
+        const [, data] = addDoc.mock.calls[0]
+        expect(data).toMatchObject({ category: '沙發', workCategory: '', note: '', status: 'open', bids: [], createdBy: 'uid1' })
+    })
+
+    it('addBid writes the new bid via arrayUnion instead of overwriting the whole array', async () => {
+        const store = useBidRequestsStore()
+        await store.addBid('case1', 'br1', { vendorId: '', vendorName: 'IKEA', quoteAmount: 8000, includesTax: false, note: '' })
+        expect(arrayUnion).toHaveBeenCalledTimes(1)
+        const newBid = arrayUnion.mock.calls[0][0]
+        expect(newBid).toMatchObject({ vendorId: '', vendorName: 'IKEA', quoteAmount: 8000 })
+        expect(newBid.id).toMatch(/^bid_/)
         expect(updateDoc).toHaveBeenCalledTimes(1)
         const [, data] = updateDoc.mock.calls[0]
-        expect(data.bids).toHaveLength(1)
-        expect(data.bids[0]).toMatchObject({ vendorId: 'v1', vendorName: '阿明水電', quoteAmount: 50000 })
-        expect(data.bids[0].id).toMatch(/^bid_/)
+        expect(data).toEqual({ bids: { __op: 'arrayUnion', item: newBid } })
     })
 
     it('appendQuotePhotoId appends a photo id to the matching bid quotePhotoIds', async () => {

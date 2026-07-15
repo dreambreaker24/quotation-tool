@@ -1,17 +1,18 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { collection, query, where, orderBy, onSnapshot, addDoc, updateDoc, deleteDoc, getDocs, doc, serverTimestamp } from 'firebase/firestore'
+import { collection, query, where, orderBy, onSnapshot, addDoc, updateDoc, deleteDoc, getDocs, doc, serverTimestamp, arrayUnion } from 'firebase/firestore'
 import { db } from '@/firebase'
 import { WT_COLORS } from '@/constants/workTypeColors'
 
-export function buildWinningWorkType(bidRequest, winningBidId, existingWorkTypesCount) {
+export function buildWinningWorkType(bidRequest, winningBidId, existingWorkTypesCount, finalVendor, finalWorkCategory) {
     const winner = (bidRequest.bids || []).find(b => b.id === winningBidId)
     if (!winner) throw new Error('winning bid not found')
+    const resolvedCategory = finalWorkCategory || ''
     return {
         id: `wt_${Date.now()}`,
-        name: bidRequest.category,
-        vendorId: winner.vendorId,
-        vendorName: winner.vendorName,
+        name: resolvedCategory || bidRequest.category,
+        vendorId: finalVendor.vendorId,
+        vendorName: finalVendor.vendorName,
         startDate: '',
         endDate: '',
         hasQuote: true,
@@ -26,6 +27,7 @@ export function buildWinningWorkType(bidRequest, winningBidId, existingWorkTypes
         done: false,
         invoiceReceived: false,
         locations: [],
+        customName: !resolvedCategory,
     }
 }
 
@@ -45,19 +47,18 @@ export const useBidRequestsStore = defineStore('bidRequests', () => {
 
     function cleanup() { if (unsubscribe) { unsubscribe(); unsubscribe = null } }
 
-    async function addBidRequest(caseId, category, note, createdBy) {
+    async function addBidRequest(caseId, category, workCategory, note, createdBy) {
         return addDoc(collection(db, 'cases', caseId, 'bidRequests'), {
-            category, note: note || '', status: 'open', bids: [],
+            category, workCategory: workCategory || '', note: note || '', status: 'open', bids: [],
             createdBy, createdAt: serverTimestamp(),
         })
     }
 
     async function addBid(caseId, bidRequestId, bidData) {
-        const br = bidRequests.value.find(b => b.id === bidRequestId)
-        if (!br) return
         const newBid = { id: `bid_${Date.now()}`, quotePhotoIds: [], submittedAt: new Date().toISOString(), ...bidData }
-        const updatedBids = [...(br.bids || []), newBid]
-        await updateDoc(doc(db, 'cases', caseId, 'bidRequests', bidRequestId), { bids: updatedBids })
+        await updateDoc(doc(db, 'cases', caseId, 'bidRequests', bidRequestId), {
+            bids: arrayUnion(newBid),
+        })
         return newBid.id
     }
 
