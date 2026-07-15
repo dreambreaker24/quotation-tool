@@ -45,6 +45,10 @@
             <input type="text" v-model="form.empJob" @input="compute" placeholder="自動帶入">
           </div>
         </div>
+        <div class="ps-field">
+          <label>全名（薪資單列印用）</label>
+          <input type="text" v-model="form.empFullName" @input="compute" placeholder="自動帶入">
+        </div>
         <button v-if="form.empName" @click="fetchPayrollData" :disabled="bridgeLoading"
           class="ps-record-btn" style="margin-top:8px">
           {{ bridgeLoading ? '帶入中…' : '📥 自動帶入加班/請假/油資' }}
@@ -276,7 +280,7 @@
         <div class="sl-employee">
           <div>
             <div class="sl-job">{{ form.empJob || '職稱' }}</div>
-            <div class="sl-name">{{ form.empName || '員工姓名' }}</div>
+            <div class="sl-name">{{ form.empFullName || form.empName || '員工姓名' }}</div>
           </div>
           <div class="sl-paydate">{{ form.payDate ? `發薪日\n${form.payDate}` : '' }}</div>
         </div>
@@ -469,6 +473,7 @@ function selectEmployee(uid) {
     const u = usersStore.users.find(u => u.id === uid)
     if (!u) return
     form.value.empName = u.name
+    form.value.empFullName = u.fullName || u.name
     form.value.empJob  = u.job || ''
     form.value.base    = u.salary || 0
     autoIns.value = true
@@ -478,7 +483,7 @@ function selectEmployee(uid) {
 /* ── 表單狀態 ── */
 const INIT_FORM = () => ({
     payMonth: new Date().toISOString().slice(0, 7),
-    payDate: '', empName: '', empJob: '', base: 0,
+    payDate: '', empName: '', empFullName: '', empJob: '', base: 0,
     otWeekdayHours: 0, otWeekday: 0,
     otHolidayHours: 0, otHoliday: 0,
     fuelKm: 0, fuel: 0, attend: 0,
