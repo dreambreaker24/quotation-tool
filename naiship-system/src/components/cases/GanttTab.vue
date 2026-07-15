@@ -75,6 +75,11 @@
                       :style="selectedCaseId === row.data.id ? 'color:#c9a96e' : 'color:#1f2937'">{{ row.data.name }}</div>
                     <span v-if="hasOverduePayments(row.data)" class="text-[9px] text-red-500 font-bold flex-shrink-0" title="有逾期未收款">$⚠</span>
                   </div>
+                  <div class="text-[9px] text-gray-400 truncate leading-none mt-0.5">
+                    <span :class="row.data.addressDistrict ? '' : 'italic opacity-60'">{{ row.data.addressDistrict || '未填寫地址' }}</span>
+                    <span class="mx-0.5">·</span>
+                    <span :class="linkedClientName(row.data) ? '' : 'italic opacity-60'">{{ linkedClientName(row.data) || '未關聯客戶' }}</span>
+                  </div>
                   <div v-if="deadlineInfo(row.data)" class="text-[9px] font-medium leading-none mt-0.5" :style="`color:${deadlineInfo(row.data).color}`">
                     ⚑ {{ deadlineInfo(row.data).label }}
                   </div>
@@ -253,6 +258,7 @@ import { CASE_STATUS_LABELS as STATUS_LABELS, CASE_STATUS_COLORS as STATUS_BAR_C
 import { useCasesStore } from '@/stores/cases'
 import { useCaseTasksStore } from '@/stores/caseTasks'
 import { useAuthStore } from '@/stores/auth'
+import { useClientsStore } from '@/stores/clients'
 import { useNotificationsStore } from '@/stores/notifications'
 import { deadlineInfo } from '@/composables/useDeadlineInfo'
 import { useToast } from '@/composables/useToast'
@@ -284,8 +290,14 @@ const emit = defineEmits(['jumped'])
 const casesStore = useCasesStore()
 const tasksStore = useCaseTasksStore()
 const authStore = useAuthStore()
+const clientsStore = useClientsStore()
 const notifStore = useNotificationsStore()
 const { toast } = useToast()
+
+function linkedClientName(c) {
+    if (!c.linkedClientId) return ''
+    return clientsStore.clients.find(cl => cl.id === c.linkedClientId)?.name ?? ''
+}
 
 const expanded = reactive({})
 const expandedCaseId = ref(null)
@@ -487,6 +499,9 @@ async function copyCase() {
         assigneeName: c.assigneeName ?? '',
         assignedTo: c.assignedTo ?? '',
         address: c.address ?? '',
+        addressCity: c.addressCity ?? '',
+        addressDistrict: c.addressDistrict ?? '',
+        addressStreet: c.addressStreet ?? '',
         estimatedAmount: 0,
         signedAmount: 0,
         workTypes,
