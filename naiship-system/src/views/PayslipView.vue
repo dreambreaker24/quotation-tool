@@ -183,14 +183,6 @@
         <textarea v-model="form.remark" @input="compute" placeholder="例：含業績獎金，請妥善保存" class="ps-textarea"></textarea>
       </div>
 
-      <!-- 下載時記錄請假 -->
-      <div v-if="auth.isAdmin && form.empName && hasLeave" class="ps-dl-record-row">
-        <label class="ps-dl-record-label">
-          <input type="checkbox" v-model="recordOnDownload" class="ps-dl-record-check">
-          下載時同時記錄請假（{{ leavePreviewText }}）
-        </label>
-      </div>
-
       <!-- 按鈕 -->
       <div class="ps-btn-row">
         <button class="ps-btn-primary" :disabled="downloading" @click="downloadJpg">
@@ -692,16 +684,6 @@ const hasLeave = computed(() =>
     (form.value.personalDays || 0) > 0 || (form.value.sickDays || 0) > 0 || (form.value.typhoonDays || 0) > 0
 )
 
-const recordOnDownload = ref(true)
-
-const leavePreviewText = computed(() => {
-    const parts = []
-    if ((form.value.personalDays || 0) > 0) parts.push(`事假 ${form.value.personalDays} 天`)
-    if ((form.value.sickDays || 0) > 0) parts.push(`病假 ${form.value.sickDays} 天`)
-    if ((form.value.typhoonDays || 0) > 0) parts.push(`颱風假 ${form.value.typhoonDays} 天`)
-    return parts.join('、')
-})
-
 async function fetchYtd() {
     if (!form.value.empName) { ytdRecord.value = null; return }
     ytdLoading.value = true
@@ -798,7 +780,6 @@ function compute() {
 async function downloadJpg() {
     if (!slipEl.value) return
     downloading.value = true
-    let fileSaved = false
     try {
         const outW = 1169, outH = 2480
         const renderScale = outW / slipEl.value.offsetWidth
@@ -885,7 +866,6 @@ async function downloadJpg() {
                 const writable = await handle.createWritable()
                 await writable.write(blob)
                 await writable.close()
-                fileSaved = true
             } catch (err) {
                 if (err.name !== 'AbortError') throw err
             }
@@ -894,13 +874,9 @@ async function downloadJpg() {
             const a = document.createElement('a')
             a.download = filename; a.href = url; a.click()
             URL.revokeObjectURL(url)
-            fileSaved = true
         }
     } catch (e) {
         alert('生成失敗：' + e.message)
-    }
-    if (fileSaved && recordOnDownload.value && hasLeave.value && auth.isAdmin && form.value.empName) {
-        await recordLeave()
     }
     downloading.value = false
 }
@@ -970,9 +946,6 @@ async function downloadJpg() {
 .ps-hist-del { font-size:10px; color:#ef4444; background:none; border:1px solid #fecaca; border-radius:4px; padding:2px 6px; cursor:pointer; }
 .ps-hist-del:hover { background:#fef2f2; }
 .ps-hist-empty { font-size:11px; color:#9ca3af; text-align:center; padding:16px 0; }
-.ps-dl-record-row { padding:8px 20px 0; }
-.ps-dl-record-label { display:flex; align-items:center; gap:7px; font-size:11px; color:#6b7280; cursor:pointer; }
-.ps-dl-record-check { width:14px; height:14px; accent-color:#c9a96e; cursor:pointer; flex-shrink:0; }
 .ps-hist-refresh { font-size:13px; color:#9ca3af; background:none; border:1px solid #e5e7eb; border-radius:6px; padding:3px 8px; cursor:pointer; flex-shrink:0; }
 .ps-hist-refresh:hover:not(:disabled) { border-color:#c9a96e; color:#c9a96e; }
 .ps-hist-refresh:disabled { opacity:0.4; cursor:not-allowed; }
