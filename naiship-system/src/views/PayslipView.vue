@@ -45,6 +45,10 @@
             <input type="text" v-model="form.empJob" @input="compute" placeholder="自動帶入">
           </div>
         </div>
+        <button v-if="form.empName" @click="fetchPayrollData" :disabled="bridgeLoading"
+          class="ps-record-btn" style="margin-top:8px">
+          {{ bridgeLoading ? '帶入中…' : '📥 自動帶入加班/請假/油資' }}
+        </button>
       </div>
 
       <!-- 應付 -->
@@ -410,8 +414,11 @@ import html2canvas from 'html2canvas'
 import { useLeaveRecordsStore } from '@/stores/leaveRecords'
 import { useAuthStore } from '@/stores/auth'
 import { useUsersStore } from '@/stores/users'
+import { useWorkLogsStore } from '@/stores/workLogs'
+import { useCalendarEventsStore } from '@/stores/calendarEvents'
 import { useToast } from '@/composables/useToast'
 import { memberColor } from '@/utils/memberColor'
+import { hoursToDays } from '@/utils/leaveConversion'
 
 const slipEl = ref(null)
 const downloading = ref(false)
@@ -419,6 +426,8 @@ const autoIns = ref(false)
 const auth = useAuthStore()
 const leaveStore = useLeaveRecordsStore()
 const usersStore = useUsersStore()
+const workLogsStore = useWorkLogsStore()
+const calendarEventsStore = useCalendarEventsStore()
 const { toast } = useToast()
 const ytdRecord = ref(null)
 const ytdLoading = ref(false)
@@ -427,6 +436,9 @@ const histEmp = ref('')
 const histYear = ref(new Date().getFullYear())
 const histRecord = ref(null)
 const histLoading = ref(false)
+const bridgeLoading = ref(false)
+const pendingLeaveEntries = ref([])
+const otSnapshotMonth = ref(null)
 
 onMounted(() => {
     usersStore.subscribe()
@@ -564,6 +576,62 @@ const leaveTotalText = computed(() => {
 })
 
 function calcLeave() { compute() }
+
+/* ── 自動帶入加班/請假/油資 ── */
+const REMARK_MARKER_START = '=== 加班/請假明細（自動產生）==='
+const REMARK_MARKER_END = '=== 明細結束 ==='
+
+function fmtMD(date) {
+    if (!date) return ''
+    return `${date.getMonth() + 1}/${date.getDate()}`
+}
+
+function buildAutoRemark(entries, otWeekdayHrs, otHolidayHrs) {
+    const lines = entries.map(e => `${fmtMD(e.date)} ${e.leaveType} ${e.hours}h`)
+    if (otWeekdayHrs > 0) lines.push(`平日補休 ${otWeekdayHrs}h 已轉入加班費`)
+    if (otHolidayHrs > 0) lines.push(`休息日補休 ${otHolidayHrs}h 已轉入加班費`)
+    const block = lines.length ? `${REMARK_MARKER_START}\n${lines.join('\n')}\n${REMARK_MARKER_END}` : ''
+    const startIdx = form.value.remark.indexOf(REMARK_MARKER_START)
+    const manualPart = startIdx === -1 ? form.value.remark : form.value.remark.slice(0, startIdx).trimEnd()
+    form.value.remark = block ? `${manualPart ? manualPart + '\n\n' : ''}${block}` : manualPart
+}
+
+async function fetchPayrollData() {
+    if (!form.value.empName || !form.value.payMonth) { toast('請先選擇員工', 'error'); return }
+    const [y, m] = form.value.payMonth.split('-').map(Number)
+    const monthIdx = m - 1
+    bridgeLoading.value = true
+    try {
+        const uid = usersStore.users.find(u => u.name === form.value.empName)?.id
+        if (!uid) { toast('找不到對應的員工帳號', 'error'); return }
+        await usersStore.ensureMonthClosed(uid)
+        const [closing, kmMap, leaveEntries] = await Promise.all([
+            usersStore.getClosingBalance(uid, form.value.payMonth),
+            workLogsStore.fetchMonthlyKm(y, monthIdx),
+            calendarEventsStore.fetchMonthlyLeaveDetail(y, monthIdx, form.value.empName),
+        ])
+        otSnapshotMonth.value = closing ? form.value.payMonth : null
+        form.value.otWeekdayHours = closing?.weekdayHours || 0
+        form.value.otHolidayHours = closing?.holidayHours || 0
+        calcOTFromHours('weekday')
+        calcOTFromHours('restday')
+        form.value.fuelKm = kmMap[form.value.empName] || 0
+        calcFuel()
+        const personalHours = leaveEntries.filter(e => ['事假', '臨請'].includes(e.leaveType)).reduce((s, e) => s + e.hours, 0)
+        const sickHours = leaveEntries.filter(e => e.leaveType === '病假').reduce((s, e) => s + e.hours, 0)
+        form.value.personalDays = hoursToDays(personalHours)
+        form.value.sickDays = hoursToDays(sickHours)
+        calcLeave()
+        pendingLeaveEntries.value = leaveEntries
+        buildAutoRemark(leaveEntries, form.value.otWeekdayHours, form.value.otHolidayHours)
+        compute()
+        toast(closing ? '已自動帶入加班/請假/油資資料' : '已帶入請假/油資，該月加班尚未結算（下個月才會有數字）')
+    } catch {
+        toast('自動帶入失敗，請重試', 'error')
+    } finally {
+        bridgeLoading.value = false
+    }
+}
 
 /* ── 年度累積請假 ── */
 const currentYear = computed(() => {
