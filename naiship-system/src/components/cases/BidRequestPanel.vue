@@ -134,7 +134,11 @@
           <select v-model="createForm.category" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
             <option value="">— 請選擇工種 —</option>
             <option v-for="cat in WORK_CATEGORIES" :key="cat" :value="cat">{{ cat }}</option>
+            <option value="__custom__">+ 自訂項目…</option>
           </select>
+          <input v-if="createForm.category === '__custom__'" v-model="createForm.customCategory" type="text"
+            class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 mt-2 focus:outline-none focus:ring-1"
+            placeholder="輸入項目名稱，例如：沙發">
         </div>
         <div>
           <label class="text-xs text-gray-500 mb-1 block">說明（選填）</label>
@@ -143,7 +147,7 @@
       </div>
       <div class="flex justify-end gap-2 mt-5">
         <button @click="showCreateForm = false" class="text-sm text-gray-400 px-4 py-2">取消</button>
-        <button @click="submitCreateForm" :disabled="savingCreate || !createForm.category"
+        <button @click="submitCreateForm" :disabled="savingCreate || !finalCreateCategory"
           class="text-sm text-white px-5 py-2 rounded-xl disabled:opacity-60" style="background:#1e2533">
           {{ savingCreate ? '儲存中…' : '建立' }}
         </button>
@@ -180,18 +184,22 @@ const bidRequests = computed(() => bidRequestsStore.bidRequests)
 
 const showCreateForm = ref(false)
 const savingCreate = ref(false)
-const createForm = ref({ category: '', note: '' })
+const createForm = ref({ category: '', customCategory: '', note: '' })
 
 function openCreateForm() {
-    createForm.value = { category: '', note: '' }
+    createForm.value = { category: '', customCategory: '', note: '' }
     showCreateForm.value = true
 }
 
+const finalCreateCategory = computed(() =>
+    createForm.value.category === '__custom__' ? createForm.value.customCategory.trim() : createForm.value.category
+)
+
 async function submitCreateForm() {
-    if (!createForm.value.category || savingCreate.value) return
+    if (!finalCreateCategory.value || savingCreate.value) return
     savingCreate.value = true
     try {
-        await bidRequestsStore.addBidRequest(props.caseId, createForm.value.category, createForm.value.note, authStore.name ?? '')
+        await bidRequestsStore.addBidRequest(props.caseId, finalCreateCategory.value, createForm.value.note, authStore.name ?? '')
         showCreateForm.value = false
     } catch {
         toast('建立失敗，請重試', 'error')
