@@ -634,7 +634,7 @@ const form = ref({
     name: '', vendorId: '', startDate: '', endDate: '',
     hasQuote: false, hasSchedule: false,
     vendorCostItems: [], vendorCostFree: false,
-    costIncludesTax: false, locations: [],
+    costIncludesTax: false, locations: [], customName: false,
 })
 
 const showVendorPayForm = ref(false)
@@ -861,7 +861,9 @@ const selectedCategory = ref('')
 function onCategoryChange() {
     if (selectedCategory.value) form.value.name = selectedCategory.value
 }
-const isLegacyCustomName = computed(() => isLegacyCategoryName(selectedCategory.value, form.value.name, WORK_CATEGORIES))
+const isLegacyCustomName = computed(() =>
+    !form.value.customName && isLegacyCategoryName(selectedCategory.value, form.value.name, WORK_CATEGORIES)
+)
 function clearLegacyCustomName() {
     form.value.name = ''
 }
@@ -1062,7 +1064,7 @@ function openAdd() {
         name: '', vendorId: '', startDate: '', endDate: '',
         hasQuote: false, hasSchedule: false,
         vendorCostItems: [], vendorCostFree: false,
-        costIncludesTax: false, locations: [],
+        costIncludesTax: false, locations: [], customName: false,
     }
     showForm.value = true
 }
@@ -1083,6 +1085,7 @@ function openEdit(idx) {
         vendorCostFree: wt.vendorCostFree || false,
         costIncludesTax: wt.costIncludesTax || false,
         locations: (wt.locations || []).map(l => ({ ...l })),
+        customName: wt.customName || false,
     }
     showForm.value = true
 }
@@ -1134,6 +1137,7 @@ async function submitForm() {
         invoiceReceived: existing?.invoiceReceived ?? false,
         invoiceTarget: existing?.invoiceTarget ?? null,
         locations: form.value.locations.filter(l => l.label),
+        customName: existing?.customName ?? false,
     }
 
     let vendorChange = null
