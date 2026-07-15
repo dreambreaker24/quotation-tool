@@ -409,6 +409,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useUsersStore } from '@/stores/users'
 import { useNotificationsStore } from '@/stores/notifications'
 import { useToast } from '@/composables/useToast'
+import { hoursToDays } from '@/utils/leaveConversion'
 import CompensatoryPanel from './CompensatoryPanel.vue'
 import { TAIWAN_HOLIDAY_NAMES } from '@/constants/holidays'
 
@@ -426,13 +427,6 @@ const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2
 
 function findUserByName(name) {
     return usersStore.users.find(u => u.name === name)
-}
-
-function hoursToDays(hours) {
-    const full = Math.floor(Math.abs(hours) / 8)
-    const rem = Math.abs(hours) % 8
-    const days = full + (rem === 0 ? 0 : rem <= 4 ? 0.5 : 1)
-    return hours >= 0 ? days : -days
 }
 
 async function applyLeaveDelta(leaveType, name, deltaHours) {
