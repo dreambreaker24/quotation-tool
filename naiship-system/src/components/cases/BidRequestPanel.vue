@@ -350,6 +350,7 @@ function openConfirmWinner(br) {
     winnerVendorId.value = ''
     winnerVendorName.value = ''
     vendorSearch.value = ''
+    showVendorDropdown.value = false
     winnerWorkCategory.value = br.workCategory || ''
 }
 
@@ -364,7 +365,7 @@ async function confirmWinner(br) {
     if (!canConfirmWinner.value || confirming.value) return
     confirming.value = true
     try {
-        const winnerBid = br.bids.find(b => b.id === selectedWinnerId.value)
+        const winnerBid = selectedWinnerBid.value
         const finalVendor = winnerBid.vendorId
             ? { vendorId: winnerBid.vendorId, vendorName: winnerBid.vendorName }
             : { vendorId: winnerVendorId.value, vendorName: winnerVendorName.value }
