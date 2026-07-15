@@ -332,7 +332,7 @@ const groupedReplies = computed(() => {
     const groups = new Map()
     groups.set(currentWeekStart, [])
     for (const t of replyTasks.value) {
-        const key = getWeekStart(t.createdAt)
+        const key = getWeekStart(t.createdAt) ?? currentWeekStart
         if (!groups.has(key)) groups.set(key, [])
         groups.get(key).push(t)
     }
