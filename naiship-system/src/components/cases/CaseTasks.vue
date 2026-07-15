@@ -149,55 +149,73 @@
           <span class="text-[11px] font-semibold text-green-600 uppercase tracking-wide">人員回覆</span>
           <button @click="openAdd('reply')" class="text-[11px] text-green-500 hover:text-green-700">+ 回覆</button>
         </div>
-        <div class="flex flex-col gap-2">
-          <div v-for="t in replyTasks" :key="t.id" class="flex items-start gap-2.5 group">
-            <span class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0 mt-0.5"
-              :style="`background:${personColor(t.createdBy)}`">
-              {{ displayName(t)?.[0] ?? '?' }}
-            </span>
-            <div class="relative bg-green-50 rounded-xl px-3 py-2 flex-1 min-w-0 text-xs text-gray-700 leading-relaxed">
-              <template v-if="editingId === t.id">
-                <textarea v-model="editContent" rows="3" class="w-full text-xs border border-green-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 resize-none bg-white mb-2"></textarea>
-                <div v-if="editExistingAttachments.length" class="flex gap-1.5 flex-wrap mb-2">
-                  <div v-for="(att, i) in editExistingAttachments" :key="att.url" class="relative">
-                    <div v-if="att.isPdf" class="w-10 h-10 rounded bg-red-100 flex items-center justify-center text-[9px] text-red-600 font-bold">PDF</div>
-                    <img v-else :src="att.url" class="w-10 h-10 rounded object-cover">
-                    <button @click="editExistingAttachments.splice(i,1)"
-                      class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-gray-600 text-white rounded-full text-[8px] leading-none flex items-center justify-center hover:bg-red-500">✕</button>
-                  </div>
-                </div>
-                <div v-if="editPendingFiles.length" class="flex gap-1.5 flex-wrap mb-2">
-                  <div v-for="(f, i) in editPendingFiles" :key="i" class="relative">
-                    <img v-if="f.preview" :src="f.preview" class="w-10 h-10 rounded object-cover">
-                    <div v-else class="w-10 h-10 rounded bg-red-100 flex items-center justify-center text-[9px] text-red-600 font-bold">PDF</div>
-                    <button @click="editPendingFiles.splice(i,1)"
-                      class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-gray-600 text-white rounded-full text-[8px] leading-none flex items-center justify-center hover:bg-red-500">✕</button>
-                  </div>
-                </div>
-                <div class="flex gap-2 justify-end items-center">
-                  <button @click="editAttachInput.click()" class="text-[10px] text-gray-400 hover:text-gray-600">📎 附件</button>
-                  <button @click="saveEdit(t.id)" class="text-[10px] text-white px-2.5 py-1 rounded-lg" style="background:#22c55e">儲存</button>
-                  <button @click="cancelEdit" class="text-[10px] text-gray-400 px-2 py-1">取消</button>
-                </div>
-              </template>
-              <template v-else>
-                <span class="break-words" v-html="linkify(t.content)"></span>
-                <div v-if="t.attachments?.length" class="flex gap-1.5 flex-wrap mt-1.5">
-                  <a v-for="att in t.attachments" :key="att.url"
-                    :href="att.isPdf ? (att.pdfUrl ?? att.url) : undefined" :target="att.isPdf ? '_blank' : undefined">
-                    <div v-if="att.isPdf" class="w-10 h-10 rounded bg-red-100 flex items-center justify-center text-[9px] text-red-600 font-bold hover:bg-red-200">PDF</div>
-                    <img v-else :src="att.url" @click.prevent="openTaskPreview(t, att.url)" class="w-10 h-10 rounded object-cover cursor-pointer hover:opacity-80">
-                  </a>
-                </div>
-                <div class="text-[10px] font-semibold mt-1" :style="`color:${personColor(t.createdBy)}`">{{ displayName(t) }} · {{ formatTime(t.createdAt) }}</div>
-                <div class="absolute top-2 right-2 hidden group-hover:flex gap-1">
-                  <button v-if="authStore.user?.uid === t.createdBy" @click="startEdit(t)" class="text-[9px] bg-white border border-gray-200 rounded px-1.5 py-0.5 text-gray-500 hover:text-gray-700">編輯</button>
-                  <button @click="remove(t.id)" class="text-[9px] bg-white border border-red-100 rounded px-1.5 py-0.5 text-red-400 hover:text-red-600">刪除</button>
-                </div>
-              </template>
+        <div class="flex flex-col gap-1">
+          <template v-for="group in groupedReplies" :key="group.weekStart">
+            <div v-if="group.isCurrent" class="flex items-center gap-2 py-1">
+              <span class="text-[11px] font-bold text-green-600">本週（{{ weekLabel(group.weekStart) }}）</span>
             </div>
-          </div>
-          <div v-if="replyTasks.length === 0" class="text-[11px] text-gray-300 py-2">尚無回覆</div>
+            <button v-else type="button" @click="toggleWeek(group.weekStart)"
+              class="flex items-center gap-2 w-full text-left py-2 border-t border-gray-100 mt-1">
+              <span class="text-gray-400 text-[9px] w-3 flex-shrink-0 transition-transform"
+                :style="expandedWeeks[group.weekStart] ? 'transform:rotate(90deg)' : ''">▶</span>
+              <span class="text-[11px] font-medium text-gray-500">{{ weekLabel(group.weekStart) }}</span>
+              <span class="text-[9px] text-gray-400 bg-gray-100 rounded-full px-1.5 py-0.5 ml-auto">{{ group.items.length }} 則</span>
+            </button>
+
+            <div class="overflow-hidden transition-[max-height] duration-200 ease-out"
+              :style="(group.isCurrent || expandedWeeks[group.weekStart]) ? 'max-height:3000px' : 'max-height:0px;padding:0px'">
+              <div class="flex flex-col gap-2" :class="group.isCurrent ? '' : 'pl-5 pb-2'">
+                <div v-for="t in group.items" :key="t.id" class="flex items-start gap-2.5 group">
+                  <span class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0 mt-0.5"
+                    :style="`background:${personColor(t.createdBy)}`">
+                    {{ displayName(t)?.[0] ?? '?' }}
+                  </span>
+                  <div class="relative bg-green-50 rounded-xl px-3 py-2 flex-1 min-w-0 text-xs text-gray-700 leading-relaxed">
+                    <template v-if="editingId === t.id">
+                      <textarea v-model="editContent" rows="3" class="w-full text-xs border border-green-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 resize-none bg-white mb-2"></textarea>
+                      <div v-if="editExistingAttachments.length" class="flex gap-1.5 flex-wrap mb-2">
+                        <div v-for="(att, i) in editExistingAttachments" :key="att.url" class="relative">
+                          <div v-if="att.isPdf" class="w-10 h-10 rounded bg-red-100 flex items-center justify-center text-[9px] text-red-600 font-bold">PDF</div>
+                          <img v-else :src="att.url" class="w-10 h-10 rounded object-cover">
+                          <button @click="editExistingAttachments.splice(i,1)"
+                            class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-gray-600 text-white rounded-full text-[8px] leading-none flex items-center justify-center hover:bg-red-500">✕</button>
+                        </div>
+                      </div>
+                      <div v-if="editPendingFiles.length" class="flex gap-1.5 flex-wrap mb-2">
+                        <div v-for="(f, i) in editPendingFiles" :key="i" class="relative">
+                          <img v-if="f.preview" :src="f.preview" class="w-10 h-10 rounded object-cover">
+                          <div v-else class="w-10 h-10 rounded bg-red-100 flex items-center justify-center text-[9px] text-red-600 font-bold">PDF</div>
+                          <button @click="editPendingFiles.splice(i,1)"
+                            class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-gray-600 text-white rounded-full text-[8px] leading-none flex items-center justify-center hover:bg-red-500">✕</button>
+                        </div>
+                      </div>
+                      <div class="flex gap-2 justify-end items-center">
+                        <button @click="editAttachInput.click()" class="text-[10px] text-gray-400 hover:text-gray-600">📎 附件</button>
+                        <button @click="saveEdit(t.id)" class="text-[10px] text-white px-2.5 py-1 rounded-lg" style="background:#22c55e">儲存</button>
+                        <button @click="cancelEdit" class="text-[10px] text-gray-400 px-2 py-1">取消</button>
+                      </div>
+                    </template>
+                    <template v-else>
+                      <span class="break-words" v-html="linkify(t.content)"></span>
+                      <div v-if="t.attachments?.length" class="flex gap-1.5 flex-wrap mt-1.5">
+                        <a v-for="att in t.attachments" :key="att.url"
+                          :href="att.isPdf ? (att.pdfUrl ?? att.url) : undefined" :target="att.isPdf ? '_blank' : undefined">
+                          <div v-if="att.isPdf" class="w-10 h-10 rounded bg-red-100 flex items-center justify-center text-[9px] text-red-600 font-bold hover:bg-red-200">PDF</div>
+                          <img v-else :src="att.url" @click.prevent="openTaskPreview(t, att.url)" class="w-10 h-10 rounded object-cover cursor-pointer hover:opacity-80">
+                        </a>
+                      </div>
+                      <div class="text-[10px] font-semibold mt-1" :style="`color:${personColor(t.createdBy)}`">{{ displayName(t) }} · {{ formatTime(t.createdAt) }}</div>
+                      <div class="absolute top-2 right-2 hidden group-hover:flex gap-1">
+                        <button v-if="authStore.user?.uid === t.createdBy" @click="startEdit(t)" class="text-[9px] bg-white border border-gray-200 rounded px-1.5 py-0.5 text-gray-500 hover:text-gray-700">編輯</button>
+                        <button @click="remove(t.id)" class="text-[9px] bg-white border border-red-100 rounded px-1.5 py-0.5 text-red-400 hover:text-red-600">刪除</button>
+                      </div>
+                    </template>
+                  </div>
+                </div>
+                <div v-if="group.isCurrent && group.items.length === 0" class="text-[11px] text-gray-300 py-2">尚無回覆</div>
+              </div>
+            </div>
+          </template>
         </div>
       </div>
     </div>
