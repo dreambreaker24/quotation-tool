@@ -13,6 +13,10 @@
           <input v-model="form.name" type="text" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1">
         </div>
         <div>
+          <label class="text-xs text-gray-500 mb-1 block">全名（薪資單用）</label>
+          <input v-model="form.fullName" type="text" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1">
+        </div>
+        <div>
           <label class="text-xs text-gray-500 mb-1 block">Google Email</label>
           <input v-model="form.email" type="email" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1">
         </div>
@@ -52,6 +56,7 @@
       <thead>
         <tr class="bg-gray-100">
           <th class="text-left px-4 py-2.5 text-gray-600 font-semibold text-xs">姓名</th>
+          <th class="text-left px-4 py-2.5 text-gray-600 font-semibold text-xs">全名</th>
           <th class="text-left px-4 py-2.5 text-gray-600 font-semibold text-xs">Email</th>
           <th class="text-left px-4 py-2.5 text-gray-600 font-semibold text-xs">角色</th>
           <th class="text-left px-4 py-2.5 text-gray-600 font-semibold text-xs">分區</th>
@@ -69,6 +74,7 @@
               <span class="font-medium text-gray-800">{{ u.name }}</span>
             </div>
           </td>
+          <td class="px-4 py-2.5 text-gray-500 text-xs">{{ u.fullName || '—' }}</td>
           <td class="px-4 py-2.5 text-gray-500 text-xs">{{ u.email }}</td>
           <td class="px-4 py-2.5">
             <span class="text-xs px-2 py-0.5 rounded-full" :class="roleClass(u.role)" :style="roleStyle(u.role)">{{ roleLabel(u.role) }}</span>
@@ -93,7 +99,7 @@
           </td>
         </tr>
         <tr v-if="users.length === 0">
-          <td colspan="7" class="px-4 py-6 text-center text-gray-400 text-xs">尚無帳號資料</td>
+          <td colspan="8" class="px-4 py-6 text-center text-gray-400 text-xs">尚無帳號資料</td>
         </tr>
       </tbody>
     </table>
@@ -103,6 +109,10 @@
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-sm font-bold text-gray-800">薪資設定</h3>
           <button @click="editingSalaryId = null" class="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
+        </div>
+        <div class="mb-3">
+          <label class="text-xs text-gray-500 mb-1 block">全名</label>
+          <input v-model="salaryForm.fullName" type="text" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1">
         </div>
         <div class="mb-3">
           <label class="text-xs text-gray-500 mb-1 block">職稱</label>
@@ -128,11 +138,11 @@ import { memberColor } from '@/utils/memberColor'
 
 const users = ref([])
 const showForm = ref(false)
-const form = ref({ name: '', email: '', role: 'employee', companyId: 'south', job: '', salary: 0 })
+const form = ref({ name: '', fullName: '', email: '', role: 'employee', companyId: 'south', job: '', salary: 0 })
 const renamingId = ref(null)
 const renameValue = ref('')
 const editingSalaryId = ref(null)
-const salaryForm = ref({ job: '', salary: 0 })
+const salaryForm = ref({ fullName: '', job: '', salary: 0 })
 
 const roleMap = { admin: '管理者', manager: '區域主管', employee: '員工' }
 const roleClassMap = {
@@ -161,20 +171,20 @@ async function loadUsers() {
 async function createUser() {
     if (!form.value.name || !form.value.email) return
     await addDoc(collection(db, 'users'), { ...form.value, createdAt: serverTimestamp() })
-    form.value = { name: '', email: '', role: 'employee', companyId: 'south', job: '', salary: 0 }
+    form.value = { name: '', fullName: '', email: '', role: 'employee', companyId: 'south', job: '', salary: 0 }
     showForm.value = false
     await loadUsers()
 }
 
 function openSalaryEdit(u) {
     editingSalaryId.value = u.id
-    salaryForm.value = { job: u.job || '', salary: u.salary || 0 }
+    salaryForm.value = { fullName: u.fullName || '', job: u.job || '', salary: u.salary || 0 }
 }
 
 async function saveSalary() {
-    await updateDoc(doc(db, 'users', editingSalaryId.value), { job: salaryForm.value.job, salary: salaryForm.value.salary })
+    await updateDoc(doc(db, 'users', editingSalaryId.value), { fullName: salaryForm.value.fullName, job: salaryForm.value.job, salary: salaryForm.value.salary })
     const target = users.value.find(u => u.id === editingSalaryId.value)
-    if (target) { target.job = salaryForm.value.job; target.salary = salaryForm.value.salary }
+    if (target) { target.fullName = salaryForm.value.fullName; target.job = salaryForm.value.job; target.salary = salaryForm.value.salary }
     editingSalaryId.value = null
 }
 
