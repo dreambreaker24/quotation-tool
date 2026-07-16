@@ -38,7 +38,10 @@ service cloud.firestore {
     match /clients/{clientId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn() && isSameRegion(request.resource.data.companyId);
-      allow update: if isManager() && isSameRegion(resource.data.companyId);
+      allow update: if isSameRegion(resource.data.companyId) && (
+        isManager() ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['linkedCaseIds', 'linkedCaseId'])
+      );
       allow delete: if isAdmin();
       match /notes/{noteId} {
         allow read: if isSignedIn();

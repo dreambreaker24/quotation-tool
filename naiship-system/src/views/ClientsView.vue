@@ -144,6 +144,8 @@ import { useClientsStore } from '@/stores/clients'
 import { useAuthStore } from '@/stores/auth'
 import { useCasesStore } from '@/stores/cases'
 import { useUsersStore } from '@/stores/users'
+import { writeBatch, doc, arrayRemove } from 'firebase/firestore'
+import { db } from '@/firebase'
 
 const activeTab = ref('clients')
 const tabs = [
@@ -205,10 +207,29 @@ function selectClient(client) {
 async function submitClient() {
     if (!clientForm.value.name || submitting.value) return
     submitting.value = true
-    await clientsStore.addClient({ ...clientForm.value, assignedTo: authStore.user?.uid ?? '' })
-    clientForm.value = blankClient()
-    showForm.value = false
-    submitting.value = false
-    toast('客戶已建立')
+    try {
+        const linkedCaseId = clientForm.value.linkedCaseId
+        const clientRef = await clientsStore.addClient({ ...clientForm.value, assignedTo: authStore.user?.uid ?? '' })
+        if (linkedCaseId) {
+            const targetCase = casesStore.cases.find(c => c.id === linkedCaseId)
+            const batch = writeBatch(db)
+            batch.update(doc(db, 'cases', linkedCaseId), { linkedClientId: clientRef.id })
+            if (targetCase?.linkedClientId && targetCase.linkedClientId !== clientRef.id) {
+                const oldClient = clientsStore.clients.find(cl => cl.id === targetCase.linkedClientId)
+                batch.update(doc(db, 'clients', targetCase.linkedClientId), {
+                    linkedCaseIds: arrayRemove(linkedCaseId),
+                    ...(oldClient?.linkedCaseId === linkedCaseId ? { linkedCaseId: null } : {}),
+                })
+            }
+            await batch.commit()
+        }
+        clientForm.value = blankClient()
+        showForm.value = false
+        toast('客戶已建立')
+    } catch {
+        toast('建立失敗，請重試', 'error')
+    } finally {
+        submitting.value = false
+    }
 }
 </script>

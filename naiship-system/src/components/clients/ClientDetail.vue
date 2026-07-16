@@ -143,6 +143,8 @@ import { useCalendarEventsStore } from '@/stores/calendarEvents'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
 import { useClientSources } from '@/composables/useClientSources'
+import { writeBatch, doc, arrayRemove } from 'firebase/firestore'
+import { db } from '@/firebase'
 
 const props = defineProps({ client: Object })
 const clientsStore = useClientsStore()
@@ -225,7 +227,32 @@ function startEdit() {
 async function saveEdit() {
   try {
     const data = { ...editForm.value, linkedCaseId: editForm.value.linkedCaseIds[0] ?? '' }
-    await clientsStore.updateClient(props.client.id, data)
+    const oldIds = getLinkedIds(props.client)
+    const newIds = editForm.value.linkedCaseIds
+    const addedIds = newIds.filter(id => !oldIds.includes(id))
+    const removedIds = oldIds.filter(id => !newIds.includes(id))
+
+    const batch = writeBatch(db)
+    batch.update(doc(db, 'clients', props.client.id), data)
+    addedIds.forEach(caseId => {
+        const targetCase = casesStore.cases.find(c => c.id === caseId)
+        batch.update(doc(db, 'cases', caseId), { linkedClientId: props.client.id })
+        if (targetCase?.linkedClientId && targetCase.linkedClientId !== props.client.id) {
+            const oldClient = clientsStore.clients.find(cl => cl.id === targetCase.linkedClientId)
+            batch.update(doc(db, 'clients', targetCase.linkedClientId), {
+                linkedCaseIds: arrayRemove(caseId),
+                ...(oldClient?.linkedCaseId === caseId ? { linkedCaseId: null } : {}),
+            })
+        }
+    })
+    removedIds.forEach(caseId => {
+        const targetCase = casesStore.cases.find(c => c.id === caseId)
+        if (targetCase?.linkedClientId === props.client.id) {
+            batch.update(doc(db, 'cases', caseId), { linkedClientId: null })
+        }
+    })
+    await batch.commit()
+
     editing.value = false
     toast('客戶資料已更新')
   } catch {
