@@ -8,6 +8,16 @@
       <button @click="openAdd" class="text-xs text-white px-3 py-1.5 rounded-lg" style="background:#1e2533">+ 新增廠商</button>
     </div>
 
+    <div v-if="missingFormVendors.length > 0" class="mb-3 rounded-xl border border-red-200 bg-red-50/60 px-3 py-2">
+      <div class="text-xs text-red-700 font-medium mb-1">⚠ {{ missingFormVendors.length }} 家廠商尚未繳交資料表</div>
+      <div class="flex flex-wrap gap-1.5">
+        <button v-for="v in missingFormVendors" :key="v.id" @click="openEdit(v)"
+          class="text-[11px] px-2 py-0.5 rounded-full bg-white border border-red-200 text-red-600 hover:bg-red-100 transition-colors">
+          {{ v.name }}
+        </button>
+      </div>
+    </div>
+
     <div class="mb-3">
       <input v-model="searchKeyword" type="text" placeholder="搜尋廠商名稱…"
         class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1">
@@ -32,6 +42,7 @@
             <div class="flex items-center gap-2 flex-shrink-0">
               <span v-if="v.rating" class="text-amber-400 text-[10px]">{{ '★'.repeat(v.rating) }}</span>
               <span v-if="v.formSubmitted" class="text-[10px] px-1.5 py-0.5 rounded-full bg-green-100 text-green-700">✓ 資料表</span>
+              <span v-else class="text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-600">未繳資料表</span>
               <button @click="openEdit(v)" class="text-gray-400 hover:text-gray-700">編輯</button>
               <button v-if="authStore.isManager" @click="confirmDelete(v)" class="text-red-400 hover:text-red-600">刪除</button>
             </div>
@@ -80,6 +91,7 @@
                 <div class="flex items-center gap-2 flex-shrink-0">
                   <span v-if="v.rating" class="text-amber-400 text-[10px]">{{ '★'.repeat(v.rating) }}</span>
                   <span v-if="v.formSubmitted" class="text-[10px] px-1.5 py-0.5 rounded-full bg-green-100 text-green-700">✓</span>
+                  <span v-else class="text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-600">未繳</span>
                   <button @click="openEdit(v)" class="text-gray-400 hover:text-gray-700">編輯</button>
                   <button v-if="authStore.isManager" @click="confirmDelete(v)" class="text-red-400 hover:text-red-600">刪除</button>
                 </div>
@@ -224,6 +236,8 @@ const allCategories = computed(() => {
 const hasUncategorized = computed(() =>
     filterVendorsByCategory(vendorsStore.vendors, '其他', VENDOR_CATEGORIES).length > 0
 )
+
+const missingFormVendors = computed(() => vendorsStore.vendors.filter(v => !v.formSubmitted))
 
 const searchKeyword = ref('')
 const filteredVendors = computed(() => {
