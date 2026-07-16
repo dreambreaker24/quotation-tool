@@ -45,10 +45,11 @@
               </button>
             </div>
             <div v-if="quotePhotos[bid.id]?.length" class="flex gap-1.5 w-full flex-wrap">
-              <div v-for="item in quotePhotos[bid.id]" :key="item.id" class="relative group flex flex-col items-center gap-0.5">
+              <div v-for="(item, idx) in quotePhotos[bid.id]" :key="item.id" class="relative group flex flex-col items-center gap-0.5">
                 <a v-if="item.isPdf" :href="item.pdfUrl" target="_blank"
                   class="w-8 h-8 rounded bg-red-100 flex items-center justify-center text-[8px] text-red-600 font-bold">PDF</a>
-                <img v-else :src="item.url" class="w-8 h-8 rounded object-cover">
+                <img v-else :src="item.url" class="w-8 h-8 rounded object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                  @click="openQuotePreview(bid.id, idx)">
                 <span class="text-[7px] text-gray-400 leading-tight whitespace-nowrap">{{ formatTime(item.createdAt) }} · {{ uploaderName(item.uploadedBy) }}</span>
                 <button v-if="br.status !== 'converted'" @click="deleteQuotePhoto(br.id, bid.id, item)"
                   class="absolute -top-1 -right-1 w-3 h-3 bg-gray-600 text-white rounded-full text-[7px] leading-none hidden group-hover:flex items-center justify-center hover:bg-red-500">✕</button>
@@ -171,6 +172,16 @@
   </div>
 
   <input ref="quoteFileInput" type="file" accept="image/jpeg,image/jpg,image/png,image/webp,.pdf" multiple class="hidden" @change="handleQuoteFiles">
+
+  <!-- quote photo lightbox -->
+  <div v-if="previewQuoteUrl" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50"
+    @click.self="previewQuoteUrl = null">
+    <button v-if="previewImgIdx > 0" @click="navigateQuotePreview(-1)"
+      class="absolute left-4 text-white text-3xl w-10 h-10 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/70 select-none z-10">‹</button>
+    <img :src="previewQuoteUrl" class="max-h-[80vh] max-w-[90vw] rounded-xl cursor-default">
+    <button v-if="previewImgIdx < (quotePhotos[previewBidEntryId]?.length ?? 0) - 1" @click="navigateQuotePreview(1)"
+      class="absolute right-4 text-white text-3xl w-10 h-10 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/70 select-none z-10">›</button>
+  </div>
 </template>
 <script setup>
 import { ref, computed, reactive, onMounted, onUnmounted } from 'vue'
@@ -318,6 +329,31 @@ const quotePhotos = reactive({})
 const quoteFileInput = ref(null)
 const activeBidRequestId = ref('')
 const activeBidEntryId = ref('')
+const previewQuoteUrl = ref(null)
+const previewBidEntryId = ref('')
+const previewImgIdx = ref(-1)
+
+function openQuotePreview(bidEntryId, idx) {
+    previewBidEntryId.value = bidEntryId
+    previewImgIdx.value = idx
+    previewQuoteUrl.value = quotePhotos[bidEntryId][idx].url
+}
+
+function navigateQuotePreview(dir) {
+    const list = quotePhotos[previewBidEntryId.value] || []
+    const next = previewImgIdx.value + dir
+    if (next >= 0 && next < list.length) {
+        previewImgIdx.value = next
+        previewQuoteUrl.value = list[next].url
+    }
+}
+
+function handleQuoteKeydown(e) {
+    if (!previewQuoteUrl.value) return
+    if (e.key === 'Escape') { previewQuoteUrl.value = null; return }
+    if (e.key === 'ArrowRight' || e.key === 'Enter') { e.preventDefault(); navigateQuotePreview(1) }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); navigateQuotePreview(-1) }
+}
 
 function triggerQuoteUpload(bidRequestId, bidEntryId) {
     activeBidRequestId.value = bidRequestId
@@ -418,6 +454,7 @@ async function confirmWinner(br) {
 
 onMounted(async () => {
     bidRequestsStore.subscribe(props.caseId)
+    window.addEventListener('keydown', handleQuoteKeydown)
     if (!props.caseId) return
     const q = query(collection(db, 'cases', props.caseId, 'photos'), orderBy('createdAt'))
     const snap = await getDocs(q)
@@ -433,5 +470,6 @@ onMounted(async () => {
 
 onUnmounted(() => {
     bidRequestsStore.cleanup()
+    window.removeEventListener('keydown', handleQuoteKeydown)
 })
 </script>
