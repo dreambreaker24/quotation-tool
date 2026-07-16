@@ -44,8 +44,22 @@ export const useCasesStore = defineStore('cases', () => {
     }
 
     async function deleteCase(id) {
-        const taskSnap = await getDocs(collection(db, 'cases', id, 'tasks'))
-        await Promise.all(taskSnap.docs.map(d => deleteDoc(d.ref)))
+        const [taskSnap, bidRequestSnap, photoSnap, progressNotesSnap, reviewsSnap, paymentRemindersSnap] = await Promise.all([
+            getDocs(collection(db, 'cases', id, 'tasks')),
+            getDocs(collection(db, 'cases', id, 'bidRequests')),
+            getDocs(collection(db, 'cases', id, 'photos')),
+            getDocs(collection(db, 'cases', id, 'progressNotes')),
+            getDocs(collection(db, 'cases', id, 'reviews')),
+            getDocs(query(collection(db, 'paymentReminders'), where('caseId', '==', id))),
+        ])
+        await Promise.all([
+            ...taskSnap.docs.map(d => deleteDoc(d.ref)),
+            ...bidRequestSnap.docs.map(d => deleteDoc(d.ref)),
+            ...photoSnap.docs.map(d => deleteDoc(d.ref)),
+            ...progressNotesSnap.docs.map(d => deleteDoc(d.ref)),
+            ...reviewsSnap.docs.map(d => deleteDoc(d.ref)),
+            ...paymentRemindersSnap.docs.map(d => deleteDoc(d.ref)),
+        ])
         await deleteDoc(doc(db, 'cases', id))
     }
 
