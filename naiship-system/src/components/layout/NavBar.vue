@@ -5,14 +5,20 @@
       <span class="hidden sm:inline font-semibold text-sm tracking-wide">奈拾設計 管理系統</span>
     </div>
     <div class="flex gap-0.5 sm:gap-1 overflow-x-auto flex-shrink min-w-0" style="scrollbar-width:none;-webkit-overflow-scrolling:touch">
-      <router-link v-for="item in navItems" :key="item.to" :to="item.to"
-        class="px-2 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm text-gray-400 hover:text-white transition-colors relative whitespace-nowrap border-b-2 border-transparent"
-        active-class="text-white"
-        :style="isActive(item.to) ? 'background:rgba(255,255,255,0.08);border-bottom-color:#c9a96e' : ''">
-        {{ item.label }}
-        <span v-if="item.to === '/clients' && hasFollowUpDue"
-          class="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500"></span>
-      </router-link>
+      <template v-for="item in navItems" :key="item.to">
+        <a v-if="item.external" :href="item.to"
+          class="px-2 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm text-gray-400 hover:text-white transition-colors relative whitespace-nowrap border-b-2 border-transparent">
+          {{ item.label }}
+        </a>
+        <router-link v-else :to="item.to"
+          class="px-2 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm text-gray-400 hover:text-white transition-colors relative whitespace-nowrap border-b-2 border-transparent"
+          active-class="text-white"
+          :style="isActive(item.to) ? 'background:rgba(255,255,255,0.08);border-bottom-color:#c9a96e' : ''">
+          {{ item.label }}
+          <span v-if="item.to === '/clients' && hasFollowUpDue"
+            class="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500"></span>
+        </router-link>
+      </template>
     </div>
     <div class="ml-auto flex items-center gap-2">
       <NotificationBell />
@@ -40,6 +46,7 @@ const hasFollowUpDue = computed(() =>
 const navItems = computed(() => [
   ...(auth.isManager ? [{ to: '/', label: '首頁總覽' }] : []),
   { to: '/cases', label: '案件管理' },
+  { to: '/quotation.html', label: '報價單', external: true },
   { to: '/clients', label: '客戶/廠商' },
   { to: '/petty-cash', label: '零用金' },
   ...(auth.isAdmin ? [{ to: '/payslip', label: '薪資單' }, { to: '/settings', label: '系統設定' }] : [])

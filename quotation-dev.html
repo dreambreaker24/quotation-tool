@@ -19,10 +19,13 @@
     #input-panel {
       width: 80%;
       min-width: 520px;
-      height: 100vh;
+      height: calc(100vh - 32px);
       overflow-y: auto;
       background: #f9fafb;
       padding: 24px;
+      margin: 16px 0 16px 16px;
+      border-radius: 10px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
       transition: width 0.25s ease, min-width 0.25s ease, padding 0.25s ease;
       flex-shrink: 0;
     }
@@ -30,6 +33,7 @@
       width: 0;
       min-width: 0;
       padding: 0;
+      margin: 0;
       overflow: hidden;
     }
 
@@ -89,11 +93,20 @@
     .field-group select,
     .field-group textarea {
       width: 100%;
-      padding: 6px 10px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
+      padding: 8px 12px;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
       font-family: "Microsoft JhengHei", sans-serif;
       font-size: 13px;
+      outline: none;
+      transition: border-color .15s, box-shadow .15s;
+    }
+
+    .field-group input:focus,
+    .field-group select:focus,
+    .field-group textarea:focus {
+      border-color: #c9a96e;
+      box-shadow: 0 0 0 1px #c9a96e;
     }
 
     .field-group textarea { resize: vertical; min-height: 60px; }
@@ -106,7 +119,7 @@
       justify-content: center;
       align-items: flex-start;
       padding: 32px;
-      background: #e0e0e0;
+      background: #f0f0f0;
     }
 
     /* A4 預覽紙張 */
@@ -766,7 +779,7 @@
     <div style="background:#fff; border-radius:10px; width:680px; max-width:95vw; max-height:85vh; display:flex; flex-direction:column; box-shadow:0 8px 32px rgba(0,0,0,0.2);">
       <div style="padding:16px 20px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center;">
         <div>
-          <span style="font-size:15px; font-weight:bold; color:#2C2C2C;">全部報價單</span>
+          <span style="font-size:15px; font-weight:bold; color:#2C2C2C;">搜尋報價單</span>
           <span id="all-quotes-count" style="font-size:12px; color:#aaa; margin-left:8px;"></span>
         </div>
         <button onclick="closeAllQuotesModal()" style="background:none; border:none; cursor:pointer; font-size:20px; color:#999; line-height:1;">✕</button>
@@ -817,84 +830,101 @@
         <span class="material-icons" style="font-size:14px;">logout</span>登出
       </button>
     </div>
-    <div class="no-print" style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:20px;">
-      <button onclick="window.print()"
-        style="display:flex; align-items:center; justify-content:center; gap:6px; padding:12px; background:#6b7280; color:#fff; border:none; border-radius:6px; cursor:pointer; font-size:14px; font-family:inherit;">
-        <span class="material-icons" style="font-size:18px;">print</span>列印
-      </button>
-      <button id="btn-save-pdf" onclick="savePDF()"
-        style="display:flex; align-items:center; justify-content:center; gap:6px; padding:12px; background:#2563eb; color:#fff; border:none; border-radius:6px; cursor:pointer; font-size:14px; font-family:inherit;">
-        <span class="material-icons" style="font-size:18px;">picture_as_pdf</span>儲存 PDF
-      </button>
-    </div>
     <!-- 公司切換 -->
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:16px;">
       <button id="btn-naiship" onclick="switchCompany('naiship')"
-        style="padding:10px; background:#c9a96e; color:#fff; border:none; border-radius:6px; cursor:pointer; font-family:inherit; font-size:13px;">奈拾設計</button>
+        style="padding:10px; background:#c9a96e; color:#1e2533; font-weight:bold; border:2px solid #1e2533; border-radius:6px; cursor:pointer; font-family:inherit; font-size:13px;">奈拾設計</button>
       <button id="btn-baiting" onclick="switchCompany('baiting')"
-        style="padding:10px; background:#e0e0e0; color:#555; border:none; border-radius:6px; cursor:pointer; font-family:inherit; font-size:13px;">柏延</button>
+        style="padding:10px; background:#f3f4f6; color:#6b7280; border:2px solid #1e2533; border-radius:6px; cursor:pointer; font-family:inherit; font-size:13px;">柏延</button>
     </div>
 
-    <!-- 新增 / 另存 / 儲存 -->
-    <div style="margin-bottom:6px;">
-      <button onclick="newQuote()"
-        style="display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; padding:8px 10px; background:#059669; color:#fff; border:none; border-radius:6px; cursor:pointer; font-family:'Microsoft JhengHei',sans-serif;">
-        <div style="display:flex; align-items:center; gap:6px; font-size:13px;"><span class="material-icons" style="font-size:18px;">add</span>新增空白報價單</div>
-        <div style="font-size:10px; opacity:0.8; margin-top:1px;">(新案件)</div>
-      </button>
-    </div>
-    <div style="margin-bottom:6px;">
-      <div style="display:flex; gap:6px; align-items:center; margin-bottom:4px;">
-        <label style="font-size:11px; color:#888; white-space:nowrap;">版本標籤</label>
-        <select id="in-version-label" onchange="syncHeader()"
-          style="flex:1; padding:4px 8px; border:1px solid #ccc; border-radius:4px; font-family:inherit; font-size:12px; background:#fff;">
-          <option value="">（自動計算）</option>
-          <option value="草稿">草稿</option>
-          <option value="v1">V1</option>
-          <option value="v2">V2</option>
-          <option value="v3">V3</option>
-          <option value="v4">V4</option>
-          <option value="v5">V5</option>
-          <option value="v6">V6</option>
-          <option value="v7">V7</option>
-          <option value="v8">V8</option>
-          <option value="v9">V9</option>
-          <option value="v10">V10</option>
-          <option value="客戶確認版">客戶確認版</option>
-        </select>
-      </div>
-    </div>
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:6px;">
-      <button id="btn-save-new-version" onclick="saveAsNewVersion()"
-        style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:8px; background:#4f46e5; color:#fff; border:none; border-radius:6px; cursor:pointer; font-family:'Microsoft JhengHei',sans-serif;">
-        <div style="display:flex; align-items:center; gap:5px; font-size:13px;"><span class="material-icons" style="font-size:16px;">content_copy</span>另存新版本</div>
-        <div style="font-size:10px; opacity:0.8; margin-top:1px;">(修改用)</div>
-      </button>
-      <button id="btn-save-new-quote" onclick="saveAsNewQuote()"
-        style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:8px; background:#d97706; color:#fff; border:none; border-radius:6px; cursor:pointer; font-family:'Microsoft JhengHei',sans-serif;">
-        <div style="display:flex; align-items:center; gap:5px; font-size:13px;"><span class="material-icons" style="font-size:16px;">add_circle_outline</span>另存新報價</div>
-        <div style="font-size:10px; opacity:0.8; margin-top:1px;">(新案件)</div>
-      </button>
-    </div>
+    <!-- 儲存 / 新增 -->
     <div style="margin-bottom:6px;">
       <button onclick="saveQuote()"
-        style="display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; padding:8px 10px; background:#2C2C2C; color:#fff; border:none; border-radius:6px; cursor:pointer; font-family:'Microsoft JhengHei',sans-serif;">
-        <div style="display:flex; align-items:center; gap:6px; font-size:13px;"><span class="material-icons" style="font-size:18px;">cloud_upload</span>儲存報價單</div>
+        style="display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; padding:10px; background:#1e2533; color:#fff; border:2px solid #c9a96e; border-radius:6px; cursor:pointer; font-family:'Microsoft JhengHei',sans-serif; font-weight:bold;">
+        <div style="display:flex; align-items:center; gap:6px; font-size:14px;"><span class="material-icons" style="font-size:18px;">cloud_upload</span>儲存報價單</div>
         <div style="font-size:10px; opacity:0.8; margin-top:1px;">(暫存雲端)</div>
       </button>
     </div>
-    <div id="save-hint" style="font-size:12px; margin-bottom:12px; min-height:16px;"></div>
+    <div style="margin-bottom:6px;">
+      <button onclick="newQuote()"
+        style="display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; padding:10px; background:#1e2533; color:#fff; border:2px solid #c9a96e; border-radius:6px; cursor:pointer; font-family:'Microsoft JhengHei',sans-serif; font-weight:bold;">
+        <div style="display:flex; align-items:center; gap:6px; font-size:14px;"><span class="material-icons" style="font-size:18px;">add</span>新增空白報價單</div>
+        <div style="font-size:10px; opacity:0.8; margin-top:1px;">(全新案件)</div>
+      </button>
+    </div>
+    <div id="save-hint" style="font-size:12px; margin-bottom:6px; min-height:16px;"></div>
+
+    <!-- 更多操作（另存新版本／另存新報價／列印／儲存 PDF，收合區） -->
+    <div class="no-print" style="margin-bottom:16px;">
+      <button id="btn-toggle-more-actions" onclick="toggleMoreActions()"
+        style="display:flex; align-items:center; justify-content:space-between; width:100%; padding:8px 10px; background:#f3f4f6; color:#555; border:1px solid #e0e0e0; border-radius:6px; cursor:pointer; font-size:12px; font-family:inherit;">
+        <span>更多操作（另存／列印／PDF）</span>
+        <span id="more-actions-caret" class="material-icons" style="font-size:16px;">expand_more</span>
+      </button>
+      <div id="more-actions-panel" style="display:none; margin-top:8px;">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:6px;">
+          <button id="btn-save-new-quote" onclick="saveAsNewQuote()"
+            style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:8px; background:#f3f4f6; color:#374151; border:1px solid #e5e7eb; border-radius:6px; cursor:pointer; font-family:'Microsoft JhengHei',sans-serif;">
+            <div style="display:flex; align-items:center; gap:5px; font-size:13px;"><span class="material-icons" style="font-size:16px;">add_circle_outline</span>另存新報價</div>
+            <div style="font-size:10px; opacity:0.7; margin-top:1px;">(全新案件)</div>
+          </button>
+          <button id="btn-save-new-version" onclick="saveAsNewVersion()"
+            style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:8px; background:#f3f4f6; color:#374151; border:1px solid #e5e7eb; border-radius:6px; cursor:pointer; font-family:'Microsoft JhengHei',sans-serif;">
+            <div style="display:flex; align-items:center; gap:5px; font-size:13px;"><span class="material-icons" style="font-size:16px;">content_copy</span>另存新版本</div>
+            <div style="font-size:10px; opacity:0.7; margin-top:1px;">(修改用)</div>
+          </button>
+        </div>
+        <div style="font-size:11px; color:#aaa; margin-bottom:8px; line-height:1.5;">另存新版本＝同一份合約改內容；另存新報價＝新客戶/新案子</div>
+        <div style="margin-bottom:10px;">
+          <div style="display:flex; gap:6px; align-items:center;">
+            <label style="font-size:11px; color:#888; white-space:nowrap;">版本標籤</label>
+            <select id="in-version-label" onchange="syncHeader()"
+              style="flex:1; padding:6px 10px; border:1px solid #e5e7eb; border-radius:8px; font-family:inherit; font-size:12px; background:#fff; outline:none;">
+              <option value="">（自動計算）</option>
+              <option value="草稿">草稿</option>
+              <option value="v1">V1</option>
+              <option value="v2">V2</option>
+              <option value="v3">V3</option>
+              <option value="v4">V4</option>
+              <option value="v5">V5</option>
+              <option value="v6">V6</option>
+              <option value="v7">V7</option>
+              <option value="v8">V8</option>
+              <option value="v9">V9</option>
+              <option value="v10">V10</option>
+              <option value="客戶確認版">客戶確認版</option>
+            </select>
+          </div>
+        </div>
+        <hr style="margin:0 0 8px 0; border-color:#eee;">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+          <button onclick="window.print()"
+            style="display:flex; align-items:center; justify-content:center; gap:6px; padding:12px; background:#f3f4f6; color:#374151; border:1px solid #e5e7eb; border-radius:6px; cursor:pointer; font-size:14px; font-family:inherit;">
+            <span class="material-icons" style="font-size:18px;">print</span>列印
+          </button>
+          <button id="btn-save-pdf" onclick="savePDF()"
+            style="display:flex; align-items:center; justify-content:center; gap:6px; padding:12px; background:#f3f4f6; color:#374151; border:1px solid #e5e7eb; border-radius:6px; cursor:pointer; font-size:14px; font-family:inherit;">
+            <span class="material-icons" style="font-size:18px;">picture_as_pdf</span>儲存 PDF
+          </button>
+        </div>
+      </div>
+    </div>
 
     <!-- 過往清單 -->
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2px;">
       <h2 style="margin:0;">過往清單</h2>
       <div style="display:flex; gap:6px;">
-        <button onclick="openAllQuotesModal()" style="padding:3px 9px; background:#eff6ff; color:#1e40af; border:1px solid #93c5fd; border-radius:4px; cursor:pointer; font-size:11px; font-family:inherit;">查詢全部</button>
+        <button onclick="openAllQuotesModal()" style="display:flex; align-items:center; gap:3px; padding:3px 9px; background:#eff6ff; color:#1e40af; border:1px solid #93c5fd; border-radius:4px; cursor:pointer; font-size:11px; font-family:inherit;"><span class="material-icons" style="font-size:13px;">search</span>搜尋合約/客戶</button>
         <button id="btn-edit-mode" onclick="toggleEditMode()" style="display:none; padding:3px 9px; background:#fee2e2; color:#ef4444; border:1px solid #fca5a5; border-radius:4px; cursor:pointer; font-size:11px; font-family:inherit;">整理模式</button>
       </div>
     </div>
+    <div style="font-size:11px; color:#aaa; margin-bottom:8px;">提示：可拖曳合併同一案件的多筆報價</div>
     <div id="batch-bar" style="display:none; background:#fef2f2; border:1px solid #fca5a5; border-radius:4px; padding:6px 10px; margin-bottom:6px; justify-content:space-between; align-items:center;">
-      <span style="font-size:12px; color:#ef4444; font-weight:bold;">整理模式中</span>
+      <div style="display:flex; flex-direction:column; gap:1px;">
+        <span style="font-size:12px; color:#ef4444; font-weight:bold;">整理模式中</span>
+        <span style="font-size:11px; color:#9ca3af;">勾選要刪除的報價單，可一次刪除多筆</span>
+      </div>
       <div style="display:flex; gap:6px; align-items:center;">
         <span id="batch-count" style="font-size:12px; color:#6b7280;">已選 0 筆</span>
         <button id="btn-batch-delete" onclick="batchDelete()" style="display:none; padding:3px 8px; background:#ef4444; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px; font-family:inherit;">刪除選取</button>
@@ -904,7 +934,7 @@
     <div style="position:relative; margin-bottom:10px;">
       <div style="display:flex; gap:6px;">
         <input type="text" id="in-search-contract" placeholder="輸入至少 2 個字即時搜尋…"
-          style="flex:1; padding:6px 10px; border:1px solid #ccc; border-radius:4px; font-family:inherit; font-size:13px;"
+          style="flex:1; padding:8px 12px; border:1px solid #e5e7eb; border-radius:8px; font-family:inherit; font-size:13px; outline:none;"
           oninput="liveSearch(this.value)"
           onkeydown="if(event.key==='Enter') pickFirstResult(); if(event.key==='Escape') clearSearch();">
         <button onclick="clearSearch()"
@@ -918,7 +948,14 @@
     <div id="history-list" style="margin-bottom:16px;"></div>
     <hr style="margin:16px 0; border-color:#eee;">
 
-    <h2>填寫欄位</h2>
+    <div style="display:flex; margin-bottom:16px; border:1px solid #e5e7eb; border-radius:6px; overflow:hidden; font-size:12px;">
+      <a href="#sec-basic" style="flex:1; text-align:center; padding:6px 4px; color:#555; text-decoration:none; border-right:1px solid #e5e7eb;">基本資料</a>
+      <a href="#sec-items" style="flex:1; text-align:center; padding:6px 4px; color:#555; text-decoration:none; border-right:1px solid #e5e7eb;">工程項目</a>
+      <a href="#sec-payment" style="flex:1; text-align:center; padding:6px 4px; color:#555; text-decoration:none; border-right:1px solid #e5e7eb;">金額付款</a>
+      <a href="#sec-terms" style="flex:1; text-align:center; padding:6px 4px; color:#555; text-decoration:none;">付款條件</a>
+    </div>
+
+    <h2 id="sec-basic">填寫欄位</h2>
     <p style="color:#aaa; font-size:12px; margin-bottom:20px;">右側即時預覽</p>
 
     <div class="field-group">
@@ -970,7 +1007,7 @@
     </div>
 
     <hr style="margin:20px 0; border-color:#eee;">
-    <h2>工程項目（大項）</h2>
+    <h2 id="sec-items">工程項目（大項）</h2>
     <div id="categories-input-list"></div>
     <div style="position:relative; margin-top:8px;">
       <div style="display:flex;">
@@ -990,7 +1027,7 @@
     </div>
 
     <hr style="margin:20px 0; border-color:#eee;">
-    <h2>金額與付款</h2>
+    <h2 id="sec-payment">金額與付款</h2>
     <div class="field-group">
       <label>工程管理費 %</label>
       <input type="number" id="in-mgmt-pct" value="6" min="0" step="0.1">
@@ -1019,7 +1056,7 @@
       <textarea id="in-notes" placeholder="例：材料以實際採購為準，如有變更另行議定。"></textarea>
     </div>
     <hr style="margin:20px 0; border-color:#eee;">
-    <h2>付款條件</h2>
+    <h2 id="sec-terms">付款條件</h2>
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px 8px;">
       <div class="field-group">
         <label>訂金 %</label>
@@ -1675,15 +1712,14 @@
   let currentCompany = 'naiship';
 
   var WM_LOGOS = { naiship: 'assets/奈拾設計LOGO2.png', baiting: 'assets/柏延LOGO.png' };
-  var WM_LOGOS = { naiship: 'assets/奈拾設計LOGO2.png', baiting: 'assets/柏延LOGO.png' };
-  var WM_LOGOS = { naiship: 'assets/奈拾設計LOGO2.png', baiting: 'assets/柏延LOGO.png' };
-  var WM_LOGOS = { naiship: 'assets/奈拾設計LOGO2.png', baiting: 'assets/柏延LOGO.png' };
-  var WM_LOGOS = { naiship: 'assets/奈拾設計LOGO2.png', baiting: 'assets/柏延LOGO.png' };
-  var WM_LOGOS = { naiship: 'assets/奈拾設計LOGO2.png', baiting: 'assets/柏延LOGO.png' };
-  var WM_LOGOS = { naiship: 'assets/奈拾設計LOGO2.png', baiting: 'assets/柏延LOGO.png' };
-  var WM_LOGOS = { naiship: 'assets/奈拾設計LOGO2.png', baiting: 'assets/柏延LOGO.png' };
-  var WM_LOGOS = { naiship: 'assets/奈拾設計LOGO2.png', baiting: 'assets/柏延LOGO.png' };
-  var WM_LOGOS = { naiship: 'assets/奈拾設計LOGO2.png', baiting: 'assets/柏延LOGO.png' };
+  function toggleMoreActions() {
+    const panel = document.getElementById('more-actions-panel');
+    const caret = document.getElementById('more-actions-caret');
+    const isOpen = panel.style.display === 'block';
+    panel.style.display = isOpen ? 'none' : 'block';
+    if (caret) caret.textContent = isOpen ? 'expand_more' : 'expand_less';
+  }
+
   function switchCompany(id) {
     currentCompany = id;
     const co = COMPANIES[id];
@@ -1694,49 +1730,15 @@
       var wel = document.getElementById(wid);
       if (wel) wel.src = WM_LOGOS[id] || co.logo;
     });
-    ['wm-page1','wm-page2'].forEach(function(wid) {
-      var wel = document.getElementById(wid);
-      if (wel) wel.src = WM_LOGOS[id] || co.logo;
-    });
-    ['wm-page1','wm-page2'].forEach(function(wid) {
-      var wel = document.getElementById(wid);
-      if (wel) wel.src = WM_LOGOS[id] || co.logo;
-    });
-    ['wm-page1','wm-page2'].forEach(function(wid) {
-      var wel = document.getElementById(wid);
-      if (wel) wel.src = WM_LOGOS[id] || co.logo;
-    });
-    ['wm-page1','wm-page2'].forEach(function(wid) {
-      var wel = document.getElementById(wid);
-      if (wel) wel.src = WM_LOGOS[id] || co.logo;
-    });
-    ['wm-page1','wm-page2'].forEach(function(wid) {
-      var wel = document.getElementById(wid);
-      if (wel) wel.src = WM_LOGOS[id] || co.logo;
-    });
     document.getElementById('prev2-logo').style.height = co.logo2Height || '60px';
-    ['wm-page1','wm-page2'].forEach(function(wid) {
-      var wel = document.getElementById(wid);
-      if (wel) wel.src = WM_LOGOS[id] || co.logo;
-    });
-    ['wm-page1','wm-page2'].forEach(function(wid) {
-      var wel = document.getElementById(wid);
-      if (wel) wel.src = WM_LOGOS[id] || co.logo;
-    });
-    ['wm-page1','wm-page2'].forEach(function(wid) {
-      var wel = document.getElementById(wid);
-      if (wel) wel.src = WM_LOGOS[id] || co.logo;
-    });
-    ['wm-page1','wm-page2'].forEach(function(wid) {
-      var wel = document.getElementById(wid);
-      if (wel) wel.src = WM_LOGOS[id] || co.logo;
-    });
     document.getElementById('prev-stamp').src = co.stamp;
     document.getElementById('prev-company-name').textContent = co.name;
-    document.getElementById('btn-naiship').style.background = id === 'naiship' ? '#c9a96e' : '#e0e0e0';
-    document.getElementById('btn-naiship').style.color = id === 'naiship' ? '#fff' : '#555';
-    document.getElementById('btn-baiting').style.background = id === 'baiting' ? '#c9a96e' : '#e0e0e0';
-    document.getElementById('btn-baiting').style.color = id === 'baiting' ? '#fff' : '#555';
+    document.getElementById('btn-naiship').style.background = id === 'naiship' ? '#c9a96e' : '#f3f4f6';
+    document.getElementById('btn-naiship').style.color = id === 'naiship' ? '#1e2533' : '#6b7280';
+    document.getElementById('btn-naiship').style.fontWeight = id === 'naiship' ? 'bold' : 'normal';
+    document.getElementById('btn-baiting').style.background = id === 'baiting' ? '#c9a96e' : '#f3f4f6';
+    document.getElementById('btn-baiting').style.color = id === 'baiting' ? '#1e2533' : '#6b7280';
+    document.getElementById('btn-baiting').style.fontWeight = id === 'baiting' ? 'bold' : 'normal';
     document.getElementById('in-company-email').value = co.email;
     document.getElementById('in-company-web').value = co.web;
     syncHeader();
@@ -2479,6 +2481,7 @@
   }
 
   async function saveAsNewVersion() {
+    if (!confirm('確定要另存新版本嗎？\n這會在同一份合約下新增一個版本，不會覆蓋原本的版本。')) return;
     const btn = document.getElementById('btn-save-new-version');
     if (btn.disabled) return;
     btn.disabled = true;
@@ -2556,6 +2559,7 @@
   }
 
   async function saveAsNewQuote() {
+    if (!confirm('確定要另存新報價嗎？\n這會建立一筆全新的合約編號，適用於新客戶或新案子。')) return;
     const btn = document.getElementById('btn-save-new-quote');
     if (btn.disabled) return;
     btn.disabled = true;

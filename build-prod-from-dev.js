@@ -108,3 +108,15 @@ if (!ok) {
 
 fs.writeFileSync(PROD_PATH, out, 'utf-8');
 console.log('\n✓ quotation.html 寫入完成，行數：' + out.split('\n').length);
+
+// ── 同步進 naiship-system/public（導覽列整合方案 C：同網域靜態掛載） ──
+const NAISHIP_PUBLIC = path.join(__dirname, 'naiship-system', 'public');
+if (fs.existsSync(NAISHIP_PUBLIC)) {
+  fs.copyFileSync(PROD_PATH, path.join(NAISHIP_PUBLIC, 'quotation.html'));
+  const NAISHIP_ASSETS = path.join(NAISHIP_PUBLIC, 'assets');
+  if (!fs.existsSync(NAISHIP_ASSETS)) fs.mkdirSync(NAISHIP_ASSETS, { recursive: true });
+  ['奈拾設計LOGO2.png', '奈拾公司章.png', '柏延LOGO.png', '柏延公司章.png'].forEach(f => {
+    fs.copyFileSync(path.join(__dirname, 'assets', f), path.join(NAISHIP_ASSETS, f));
+  });
+  console.log('✓ 已同步進 naiship-system/public/（quotation.html + assets）');
+}
