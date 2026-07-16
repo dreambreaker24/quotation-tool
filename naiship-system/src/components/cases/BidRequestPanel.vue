@@ -36,10 +36,14 @@
               {{ bid.includesTax ? '含稅' : '未稅' }}
             </span>
             <span v-if="br.winningBidId === bid.id" class="text-[10px] px-1.5 py-0.5 rounded-full bg-green-500 text-white font-medium">贏家</span>
-            <button v-if="br.status !== 'converted'" @click="triggerQuoteUpload(br.id, bid.id)"
-              class="ml-auto text-[10px] border border-dashed border-gray-200 rounded px-2 py-0.5 text-gray-400 hover:border-gray-400 hover:text-gray-600 transition-colors">
-              + 報價單
-            </button>
+            <div v-if="br.status !== 'converted'" class="ml-auto flex items-center gap-2">
+              <button @click="openEditBid(br, bid)" class="text-[10px] text-gray-400 hover:text-gray-600">編輯</button>
+              <button @click="confirmDeleteBid(br, bid)" class="text-[10px] text-red-400 hover:text-red-600">刪除</button>
+              <button @click="triggerQuoteUpload(br.id, bid.id)"
+                class="text-[10px] border border-dashed border-gray-200 rounded px-2 py-0.5 text-gray-400 hover:border-gray-400 hover:text-gray-600 transition-colors">
+                + 報價單
+              </button>
+            </div>
             <div v-if="quotePhotos[bid.id]?.length" class="flex gap-1.5 w-full flex-wrap">
               <div v-for="item in quotePhotos[bid.id]" :key="item.id" class="relative group flex flex-col items-center gap-0.5">
                 <a v-if="item.isPdf" :href="item.pdfUrl" target="_blank"
@@ -73,10 +77,10 @@
             <input v-model="bidForm.note" type="text" placeholder="備註（選填）"
               class="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1">
             <div class="flex justify-end gap-2">
-              <button @click="addingBidFor = null" class="text-xs text-gray-400 px-3 py-1.5">取消</button>
+              <button @click="addingBidFor = null; editingBidId = null" class="text-xs text-gray-400 px-3 py-1.5">取消</button>
               <button @click="submitBid(br)" :disabled="savingBid || !bidForm.quoteAmount"
                 class="text-xs text-white px-3 py-1.5 rounded-lg disabled:opacity-60" style="background:#1e2533">
-                {{ savingBid ? '儲存中…' : '新增報價' }}
+                {{ savingBid ? '儲存中…' : (editingBidId ? '儲存修改' : '新增報價') }}
               </button>
             </div>
           </div>
@@ -103,13 +107,13 @@
                       class="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1">
                     <div v-if="showVendorDropdown"
                       class="absolute z-20 w-full bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-40 overflow-y-auto">
-                      <button v-for="v in filteredVendorList(br.workCategory)" :key="v.id" type="button"
+                      <button v-for="v in filteredVendorList(winnerWorkCategory)" :key="v.id" type="button"
                         @mousedown.prevent="selectVendor(v)"
                         class="w-full text-left px-2.5 py-1.5 text-xs hover:bg-gray-50 transition-colors"
                         :class="winnerVendorId === v.id ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'">
                         {{ v.name }}
                       </button>
-                      <div v-if="filteredVendorList(br.workCategory).length === 0" class="px-2.5 py-1.5 text-xs text-gray-300">找不到符合廠商</div>
+                      <div v-if="filteredVendorList(winnerWorkCategory).length === 0" class="px-2.5 py-1.5 text-xs text-gray-300">找不到符合廠商</div>
                     </div>
                   </div>
                   <div>
@@ -150,13 +154,6 @@
           <input v-model="createForm.category" type="text"
             class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1"
             placeholder="例如：沙發、清運拆除">
-        </div>
-        <div>
-          <label class="text-xs text-gray-500 mb-1 block">工種（選填）</label>
-          <select v-model="createForm.workCategory" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
-            <option value="">— 未分類 —</option>
-            <option v-for="cat in WORK_CATEGORIES" :key="cat" :value="cat">{{ cat }}</option>
-          </select>
         </div>
         <div>
           <label class="text-xs text-gray-500 mb-1 block">說明（選填）</label>
@@ -203,10 +200,10 @@ const bidRequests = computed(() => bidRequestsStore.bidRequests)
 
 const showCreateForm = ref(false)
 const savingCreate = ref(false)
-const createForm = ref({ category: '', workCategory: '', note: '' })
+const createForm = ref({ category: '', note: '' })
 
 function openCreateForm() {
-    createForm.value = { category: '', workCategory: '', note: '' }
+    createForm.value = { category: '', note: '' }
     showCreateForm.value = true
 }
 
@@ -214,7 +211,7 @@ async function submitCreateForm() {
     if (!createForm.value.category.trim() || savingCreate.value) return
     savingCreate.value = true
     try {
-        await bidRequestsStore.addBidRequest(props.caseId, createForm.value.category.trim(), createForm.value.workCategory, createForm.value.note, authStore.name ?? '')
+        await bidRequestsStore.addBidRequest(props.caseId, createForm.value.category.trim(), '', createForm.value.note, authStore.name ?? '')
         showCreateForm.value = false
     } catch {
         toast('建立失敗，請重試', 'error')
@@ -233,6 +230,7 @@ async function confirmDeleteBidRequest(id) {
 }
 
 const addingBidFor = ref(null)
+const editingBidId = ref(null)
 const savingBid = ref(false)
 const bidForm = ref({ vendorName: '', quoteAmount: 0, includesTax: false, note: '' })
 const vendorSearch = ref('')
@@ -240,7 +238,19 @@ const showVendorDropdown = ref(false)
 
 function openAddBid(br) {
     addingBidFor.value = br.id
+    editingBidId.value = null
     bidForm.value = { vendorName: '', quoteAmount: 0, includesTax: false, note: '' }
+}
+
+function openEditBid(br, bid) {
+    addingBidFor.value = br.id
+    editingBidId.value = bid.id
+    bidForm.value = {
+        vendorName: bid.vendorName || '',
+        quoteAmount: bid.quoteAmount || 0,
+        includesTax: bid.includesTax || false,
+        note: bid.note || '',
+    }
 }
 
 function filteredVendorList(category) {
@@ -269,18 +279,38 @@ async function submitBid(br) {
     if (!bidForm.value.quoteAmount || savingBid.value) return
     savingBid.value = true
     try {
-        await bidRequestsStore.addBid(props.caseId, br.id, {
-            vendorName: bidForm.value.vendorName.trim(),
-            quoteAmount: bidForm.value.quoteAmount || 0,
-            includesTax: bidForm.value.includesTax || false,
-            note: bidForm.value.note || '',
-            submittedBy: authStore.user?.uid ?? '',
-        })
+        if (editingBidId.value) {
+            await bidRequestsStore.updateBid(props.caseId, br.id, editingBidId.value, {
+                vendorName: bidForm.value.vendorName.trim(),
+                quoteAmount: bidForm.value.quoteAmount || 0,
+                includesTax: bidForm.value.includesTax || false,
+                note: bidForm.value.note || '',
+            })
+        } else {
+            await bidRequestsStore.addBid(props.caseId, br.id, {
+                vendorName: bidForm.value.vendorName.trim(),
+                quoteAmount: bidForm.value.quoteAmount || 0,
+                includesTax: bidForm.value.includesTax || false,
+                note: bidForm.value.note || '',
+                submittedBy: authStore.user?.uid ?? '',
+            })
+        }
         addingBidFor.value = null
+        editingBidId.value = null
     } catch {
-        toast('新增報價失敗，請重試', 'error')
+        toast(editingBidId.value ? '更新報價失敗，請重試' : '新增報價失敗，請重試', 'error')
     } finally {
         savingBid.value = false
+    }
+}
+
+async function confirmDeleteBid(br, bid) {
+    if (!confirm('確定刪除此廠商報價？已上傳的報價單將一併刪除。')) return
+    try {
+        await bidRequestsStore.removeBid(props.caseId, br.id, bid.id)
+        delete quotePhotos[bid.id]
+    } catch {
+        toast('刪除失敗，請重試', 'error')
     }
 }
 

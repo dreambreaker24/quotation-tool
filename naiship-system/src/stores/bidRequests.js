@@ -82,6 +82,26 @@ export const useBidRequestsStore = defineStore('bidRequests', () => {
         await updateDoc(doc(db, 'cases', caseId, 'bidRequests', bidRequestId), { bids: updatedBids })
     }
 
+    async function updateBid(caseId, bidRequestId, bidEntryId, updatedData) {
+        const br = bidRequests.value.find(b => b.id === bidRequestId)
+        if (!br) return
+        const updatedBids = (br.bids || []).map(b => b.id === bidEntryId ? { ...b, ...updatedData } : b)
+        await updateDoc(doc(db, 'cases', caseId, 'bidRequests', bidRequestId), { bids: updatedBids })
+    }
+
+    async function removeBid(caseId, bidRequestId, bidEntryId) {
+        const photoSnap = await getDocs(query(
+            collection(db, 'cases', caseId, 'photos'),
+            where('bidRequestId', '==', bidRequestId),
+            where('bidEntryId', '==', bidEntryId),
+        ))
+        await Promise.all(photoSnap.docs.map(d => deleteDoc(d.ref)))
+        const br = bidRequests.value.find(b => b.id === bidRequestId)
+        if (!br) return
+        const updatedBids = (br.bids || []).filter(b => b.id !== bidEntryId)
+        await updateDoc(doc(db, 'cases', caseId, 'bidRequests', bidRequestId), { bids: updatedBids })
+    }
+
     async function markConverted(caseId, bidRequestId, winningBidId, convertedWorkTypeId) {
         return updateDoc(doc(db, 'cases', caseId, 'bidRequests', bidRequestId), {
             status: 'converted', winningBidId, convertedWorkTypeId,
@@ -102,7 +122,7 @@ export const useBidRequestsStore = defineStore('bidRequests', () => {
 
     return {
         bidRequests, subscribe, cleanup,
-        addBidRequest, addBid, appendQuotePhotoId, removeQuotePhotoId,
+        addBidRequest, addBid, updateBid, removeBid, appendQuotePhotoId, removeQuotePhotoId,
         markConverted, repointQuotePhotos, deleteBidRequest,
     }
 })
