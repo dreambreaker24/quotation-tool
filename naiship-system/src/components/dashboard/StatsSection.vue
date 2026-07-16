@@ -26,12 +26,14 @@ function formatAmount(n) {
     return `$${n}`
 }
 
+const yearFilteredCases = computed(() => casesStore.cases.filter(c => {
+    if (!props.year) return true
+    const d = c.createdAt?.toDate?.()
+    return !d || d.getFullYear() === props.year
+}))
+
 const stats = computed(() => {
-    const all = casesStore.cases.filter(c => {
-        if (!props.year) return true
-        const d = c.createdAt?.toDate?.()
-        return !d || d.getFullYear() === props.year
-    })
+    const all = yearFilteredCases.value
     return {
         totalCount: all.length,
         negotiatingCount: all.filter(c => c.status === 'negotiating').length,
@@ -40,9 +42,15 @@ const stats = computed(() => {
     }
 })
 
-const pieData = computed(() => [
-    { name: '進行中', value: casesStore.statusCount('construction', null), color: '#c9a96e' },
-    { name: '洽談中', value: casesStore.statusCount('negotiating', null), color: '#5b9bd5' },
-    { name: '已完工', value: casesStore.statusCount('completed', null), color: '#70ad47' }
-])
+const pieData = computed(() => {
+    const all = yearFilteredCases.value
+    const count = status => all.filter(c => c.status === status).length
+    return [
+        { name: '進行中', value: count('construction'), color: '#c9a96e' },
+        { name: '洽談中', value: count('negotiating'), color: '#5b9bd5' },
+        { name: '待結算', value: count('pending_settlement'), color: '#e08e45' },
+        { name: '售後', value: count('aftercare'), color: '#9b7fd4' },
+        { name: '已完工', value: count('completed'), color: '#70ad47' }
+    ]
+})
 </script>

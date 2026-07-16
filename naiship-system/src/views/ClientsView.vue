@@ -134,6 +134,7 @@
 </template>
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { useToast } from '@/composables/useToast'
 import { useClientSources } from '@/composables/useClientSources'
 import { useExport } from '@/composables/useExport'
@@ -156,6 +157,7 @@ const tabs = [
 const selectedClient = ref(null)
 const showForm = ref(false)
 const submitting = ref(false)
+const route = useRoute()
 const clientsStore = useClientsStore()
 const authStore = useAuthStore()
 const casesStore = useCasesStore()
@@ -190,8 +192,11 @@ watch(() => clientsStore.clients, (clients) => {
     if (selectedClient.value) {
         const updated = clients.find(c => c.id === selectedClient.value.id)
         if (updated) selectedClient.value = updated
+    } else if (route.query.clientId) {
+        const target = clients.find(c => c.id === route.query.clientId)
+        if (target) selectedClient.value = target
     }
-})
+}, { immediate: true })
 
 const blankClient = () => ({ name: '', phone: '', email: '', lineId: '', address: '', source: 'IG', status: 'contacted', budget: 0, area: 0, companyId: authStore.companyId || 'south', linkedCaseId: '', followUpDate: '' })
 const clientForm = ref(blankClient())

@@ -367,7 +367,7 @@ async function submitLog() {
         const now = new Date()
         const dateStr = `${now.getMonth() + 1}/${now.getDate()}`
         const logDateISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-        notifStore.notifyAll(authStore.name ?? '', `新增了 ${dateStr} 工作日誌`, '', '', authStore.companyId ?? '', logDateISO)
+        notifStore.notifyAll(authStore.name ?? '', `新增了 ${dateStr} 工作日誌`, '', '', authStore.companyId ?? '', logDateISO, '', '', false, '', '', authStore.user?.uid ?? '')
         toast('日誌已送出')
         emit('submitted')
     } catch {

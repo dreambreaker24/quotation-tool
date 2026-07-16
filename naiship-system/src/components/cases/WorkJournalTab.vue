@@ -146,7 +146,7 @@ import WorkJournalEmployeeList from './WorkJournalEmployeeList.vue'
 import WorkJournalLogCard from './WorkJournalLogCard.vue'
 import WorkJournalLogForm from './WorkJournalLogForm.vue'
 
-const props = defineProps({ region: String, pendingOnly: Boolean, jumpDate: String })
+const props = defineProps({ region: String, pendingOnly: Boolean, jumpDate: String, jumpUserId: String })
 const logsStore = useWorkLogsStore()
 const authStore = useAuthStore()
 const notifStore = useNotificationsStore()
@@ -264,7 +264,7 @@ async function handleReply(logId, content) {
         const d = log?.date?.toDate?.() ?? new Date()
         const dateStr = `${d.getMonth() + 1}/${d.getDate()}`
         const logDateISO = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-        notifStore.notifyAll(authStore.name ?? '', `回覆了 ${ownerName} 在 ${dateStr} 的工作日誌`, '', '', authStore.companyId ?? '', logDateISO)
+        notifStore.notifyAll(authStore.name ?? '', `回覆了 ${ownerName} 在 ${dateStr} 的工作日誌`, '', '', authStore.companyId ?? '', logDateISO, '', '', false, '', '', log?.userId ?? '')
     } catch {
         toast('回覆失敗，請重試', 'error')
     }
@@ -328,6 +328,12 @@ watch(() => props.jumpDate, (d) => {
     const parts = d.split('-')
     if (parts.length !== 3) return
     selectedDate.value = new Date(+parts[0], +parts[1] - 1, +parts[2])
+}, { immediate: true })
+
+watch([() => props.jumpUserId, () => usersStore.users], ([id]) => {
+    if (!id) return
+    const target = usersStore.users.find(u => u.id === id)
+    if (target) selectedEmployee.value = target
 }, { immediate: true })
 
 watch([() => props.region, selectedDate, viewMode], ([region]) => {

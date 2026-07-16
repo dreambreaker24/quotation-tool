@@ -24,7 +24,7 @@
           <div class="flex-1 grid grid-cols-6 gap-2 items-start">
             <div class="min-w-0">
               <div class="text-[10px] text-gray-400 mb-0.5">工種</div>
-              <div class="text-xs font-semibold text-gray-800 truncate" :title="wt.name">{{ wt.name }}</div>
+              <div class="text-sm font-bold text-gray-900 truncate" :title="wt.name">{{ wt.name }}</div>
             </div>
             <div class="min-w-0">
               <div class="text-[10px] text-gray-400 mb-0.5">負責廠商</div>
@@ -58,7 +58,7 @@
                 <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-600 font-medium">免費</span>
               </template>
               <template v-else>
-                <div class="text-xs font-medium text-gray-700">
+                <div class="text-sm font-bold text-gray-900">
                   {{ wtVendorCostTotal(wt) > 0 ? `$${wtVendorCostTotal(wt).toLocaleString()}` : '—' }}
                 </div>
                 <span v-if="wtVendorCostTotal(wt) > 0" class="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
@@ -109,9 +109,9 @@
               :title="wt.invoiceReceived ? '點擊取消確認' : '確認廠商發票已到'">
               {{ wt.invoiceReceived ? '發票已到 ✓' : '確認發票' }}
             </button>
-            <button @click="openVendorPay(idx)" class="text-[11px] px-2 py-1 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors">記錄付款</button>
-            <button @click="openEdit(idx)" class="text-[11px] px-2 py-1 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors">編輯</button>
-            <button @click="removeWorkType(idx)" class="text-[11px] px-2 py-1 rounded-lg text-red-400 hover:bg-red-50 transition-colors">刪除</button>
+            <button @click="openVendorPay(idx)" class="text-[11px] px-1.5 py-1 text-gray-400 hover:text-gray-700 hover:underline transition-colors">記錄付款</button>
+            <button @click="openEdit(idx)" class="text-[11px] px-1.5 py-1 text-gray-400 hover:text-gray-700 hover:underline transition-colors">編輯</button>
+            <button @click="removeWorkType(idx)" class="text-[11px] px-1.5 py-1 text-red-300 hover:text-red-500 hover:underline transition-colors">刪除</button>
           </div>
         </div>
         </div>

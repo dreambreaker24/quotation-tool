@@ -137,7 +137,8 @@ async function submitLog() {
             createdBy: authStore.user?.uid ?? '',
             creatorName: authStore.name ?? '',
         })
-        notifStore.notifyAll(authStore.name ?? '', `新增了聯繫記錄（${form.value.method}・${form.value.outcome}）`, '', '')
+        const clientName = clientsStore.clients.find(c => c.id === props.clientId)?.name ?? ''
+        notifStore.notifyAll(authStore.name ?? '', `新增了「${clientName}」的聯繫記錄（${form.value.method}・${form.value.outcome}）`, '', '', '', '', '', '', false, '', props.clientId)
         toast('聯繫記錄已新增')
         closeModal()
         await loadLogs()

@@ -85,6 +85,7 @@ async function handleClick(n) {
     } else if (n.message.includes('工作日誌')) {
         const q = { tab: 'log' }
         if (n.logDate) q.date = n.logDate
+        if (n.logUserId) q.logUserId = n.logUserId
         router.push({ path: '/cases', query: q })
     } else if (n.tab === 'cal' || n.message.includes('行程')) {
         const q = { tab: 'cal' }
@@ -94,7 +95,7 @@ async function handleClick(n) {
     } else if (n.message.includes('公司佈達')) {
         router.push({ path: '/cases', query: { tab: 'announcement' } })
     } else if (n.message.includes('聯繫記錄')) {
-        router.push({ path: '/clients' })
+        router.push({ path: '/clients', query: n.clientId ? { clientId: n.clientId } : {} })
     }
 }
 

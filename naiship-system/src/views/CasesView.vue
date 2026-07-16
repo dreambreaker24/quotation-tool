@@ -22,7 +22,7 @@
     <div class="flex-1 overflow-auto p-6">
       <CalendarTab v-if="activeTab === 'cal'" :region="selectedRegion" :jump-event-date="jumpEventDate" @jumped-date="jumpEventDate = null" />
       <GanttTab v-else-if="activeTab === 'gantt'" :region="selectedRegion" :month="selectedMonth" :jump-case-id="jumpCaseId" :jump-case-tab="jumpCaseTab" @jumped="jumpCaseId = null; jumpCaseTab = null" />
-      <WorkJournalTab v-else-if="activeTab === 'log'" :region="selectedRegion" :pending-only="pendingOnly" :jump-date="jumpDate" />
+      <WorkJournalTab v-else-if="activeTab === 'log'" :region="selectedRegion" :pending-only="pendingOnly" :jump-date="jumpDate" :jump-user-id="jumpUserId" />
       <AnnouncementTab v-else-if="activeTab === 'announcement'" />
     </div>
   </main>
@@ -58,6 +58,7 @@ const activeTab = ref('cal')
 const jumpCaseId = ref(null)
 const jumpCaseTab = ref(null)
 const jumpDate = ref(null)
+const jumpUserId = ref(null)
 const jumpEventDate = ref(null)
 const pendingOnly = computed(() => route.query.pendingOnly === 'true')
 
@@ -122,6 +123,7 @@ onMounted(() => {
         jumpToCase(route.query.caseId, route.query.caseTab || null)
     }
     if (route.query.date) jumpDate.value = route.query.date
+    if (route.query.logUserId) jumpUserId.value = route.query.logUserId
     if (route.query.eventDate) jumpEventDate.value = route.query.eventDate
     checkNewAnnouncement()
 })
@@ -144,6 +146,10 @@ watch(() => route.query.tab, (t) => {
 
 watch(() => route.query.date, (d) => {
     if (d) jumpDate.value = d
+})
+
+watch(() => route.query.logUserId, (id) => {
+    if (id) jumpUserId.value = id
 })
 
 watch(() => route.query.eventDate, (d) => {

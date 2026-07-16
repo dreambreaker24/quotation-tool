@@ -30,7 +30,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
         notifications.value = []
     }
 
-    async function notifyAll(actorName, message, caseId, caseName, companyId = '', logDate = '', tab = '', eventDate = '', deleted = false, photoType = '') {
+    async function notifyAll(actorName, message, caseId, caseName, companyId = '', logDate = '', tab = '', eventDate = '', deleted = false, photoType = '', clientId = '', logUserId = '') {
         const authStore = useAuthStore()
         const usersStore = useUsersStore()
         const currentUid = authStore.user?.uid
@@ -49,6 +49,8 @@ export const useNotificationsStore = defineStore('notifications', () => {
                 eventDate: eventDate ?? '',
                 deleted: deleted ?? false,
                 photoType: photoType ?? '',
+                clientId: clientId ?? '',
+                logUserId: logUserId ?? '',
                 createdAt: serverTimestamp(),
             }))
         }

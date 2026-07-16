@@ -43,11 +43,13 @@
           </select>
         </div>
         <div class="col-span-2">
-          <span class="text-gray-400 text-xs block mb-0.5">連結案件</span>
-          <div v-if="linkedCases.length" class="flex flex-col gap-1.5">
-            <div v-for="c in linkedCases" :key="c.id" class="flex items-center gap-2">
-              <span class="text-gray-700 text-sm">{{ c.name }}</span>
-              <span class="text-[10px] px-2 py-0.5 rounded-full text-white font-medium"
+          <span class="text-gray-400 text-xs block mb-1.5">連結案件</span>
+          <div v-if="linkedCases.length" class="flex flex-col gap-2">
+            <div v-for="c in linkedCases" :key="c.id"
+              class="flex items-center justify-between gap-2 px-3 py-2 rounded-xl border"
+              style="background:rgba(201,169,110,0.06);border-color:rgba(201,169,110,0.3)">
+              <span class="text-gray-800 text-sm font-semibold">{{ c.name }}</span>
+              <span class="text-[10px] px-2 py-0.5 rounded-full text-white font-medium flex-shrink-0"
                 :style="`background:${CASE_STATUS_COLORS[c.status] ?? '#3b82f6'}`">{{ caseStatusLabel(c.status) }}</span>
             </div>
           </div>
