@@ -22,13 +22,13 @@
         <div class="flex items-center gap-3 min-w-[480px]">
           <span class="w-2.5 h-2.5 rounded-full flex-shrink-0" :style="`background:${wt.color}`"></span>
           <div class="flex-1 grid grid-cols-6 gap-2 items-start">
-            <div>
+            <div class="min-w-0">
               <div class="text-[10px] text-gray-400 mb-0.5">工種</div>
-              <div class="text-xs font-semibold text-gray-800">{{ wt.name }}</div>
+              <div class="text-xs font-semibold text-gray-800 truncate" :title="wt.name">{{ wt.name }}</div>
             </div>
-            <div>
+            <div class="min-w-0">
               <div class="text-[10px] text-gray-400 mb-0.5">負責廠商</div>
-              <div class="text-xs text-gray-600">{{ wt.vendorName || '—' }}</div>
+              <div class="text-xs text-gray-600 truncate" :title="wt.vendorName || ''">{{ wt.vendorName || '—' }}</div>
             </div>
             <div class="col-span-2">
               <div class="text-[10px] text-gray-400 mb-0.5">進場期間</div>

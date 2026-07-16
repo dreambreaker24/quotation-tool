@@ -24,7 +24,7 @@
             <span class="text-[10px] px-2 py-0.5 rounded-full font-medium" :class="methodBadgeClass(log.method)">{{ log.method }}</span>
             <span class="text-[10px] px-2 py-0.5 rounded-full font-medium" :class="outcomeBadgeClass(log.outcome)">{{ log.outcome }}</span>
           </div>
-          <p v-if="log.notes" class="text-xs text-gray-700 leading-relaxed whitespace-pre-wrap mb-1">{{ log.notes }}</p>
+          <p v-if="log.notes" class="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap mb-1">{{ log.notes }}</p>
           <div v-if="log.nextAction" class="flex items-center gap-1 text-[11px] text-amber-600">
             <span>🕐</span>
             <span>{{ log.nextAction }}</span>

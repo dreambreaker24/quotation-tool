@@ -45,7 +45,7 @@
           <div class="text-[10px] text-red-500 font-semibold mb-2 uppercase tracking-wide pl-1 border-l-2 border-red-300">缺失列舉</div>
           <ol class="flex flex-col gap-1.5">
             <li v-for="(issue, i) in r.issues" :key="i"
-              class="text-xs text-gray-700 flex gap-2.5 whitespace-pre-wrap items-start bg-red-50/50 rounded-lg px-3 py-2">
+              class="text-sm text-gray-700 flex gap-2.5 whitespace-pre-wrap items-start bg-red-50/50 rounded-lg px-3 py-2">
               <span class="w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-0.5">{{ i + 1 }}</span>
               <span>{{ issue }}</span>
             </li>
@@ -55,7 +55,7 @@
         <!-- Improvements -->
         <div v-if="r.improvements">
           <div class="text-[10px] text-green-600 font-semibold mb-2 uppercase tracking-wide pl-1 border-l-2 border-green-400">改善措施</div>
-          <p class="text-xs text-gray-700 whitespace-pre-wrap bg-green-50/60 rounded-lg px-3 py-2">{{ r.improvements }}</p>
+          <p class="text-sm text-gray-700 whitespace-pre-wrap bg-green-50/60 rounded-lg px-3 py-2">{{ r.improvements }}</p>
         </div>
 
         <!-- Attachments -->

@@ -80,8 +80,11 @@
                     <span class="mx-0.5">·</span>
                     <span :class="linkedClientName(row.data) ? '' : 'italic opacity-60'">{{ linkedClientName(row.data) || '未關聯客戶' }}</span>
                   </div>
-                  <div v-if="deadlineInfo(row.data)" class="text-[9px] font-medium leading-none mt-0.5" :style="`color:${deadlineInfo(row.data).color}`">
-                    ⚑ {{ deadlineInfo(row.data).label }}
+                  <div v-if="deadlineInfo(row.data)" class="mt-0.5">
+                    <span class="text-[9px] px-1.5 py-0.5 rounded font-semibold"
+                      :style="`color:${deadlineInfo(row.data).color};background:${deadlineInfo(row.data).bg}`">
+                      ⚑ {{ deadlineInfo(row.data).label }}
+                    </span>
                   </div>
                 </div>
                 <span class="w-16 text-center text-[11px] text-gray-500 flex-shrink-0">{{ row.data.assigneeName }}</span>
@@ -94,6 +97,7 @@
                 <div v-if="row.data.ganttBar" class="absolute top-2 bottom-2 rounded opacity-80 pointer-events-none"
                   :style="`left:${row.data.ganttBar.left}px;width:${row.data.ganttBar.width}px;background:${row.data.ganttBar.color}`">
                 </div>
+                <div v-else class="absolute inset-0 flex items-center pl-2 text-[10px] text-gray-300 italic pointer-events-none">尚未排程</div>
               </div>
               <!-- 備注欄 -->
               <div class="flex-shrink-0 flex items-center px-3 gap-2"

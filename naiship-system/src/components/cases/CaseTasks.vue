@@ -19,7 +19,7 @@
           </div>
           <div class="flex flex-col gap-2">
             <div v-for="(t, idx) in clientTasks" :key="t.id"
-              class="group relative flex items-start gap-2.5 rounded-xl px-3 py-2.5 text-xs text-gray-700 leading-relaxed transition-opacity"
+              class="group relative flex items-start gap-2.5 rounded-xl px-3 py-2.5 text-sm text-gray-700 leading-relaxed transition-opacity"
               :class="t.done ? 'bg-gray-50 opacity-50' : 'bg-blue-50'">
               <span class="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0 mt-0.5"
                 :class="t.done ? 'bg-gray-400' : 'bg-blue-500'">{{ idx + 1 }}</span>
@@ -86,7 +86,7 @@
           </div>
           <div class="flex flex-col gap-2">
             <div v-for="(t, idx) in managerTasks" :key="t.id"
-              class="group relative flex items-start gap-2.5 rounded-xl px-3 py-2.5 text-xs text-gray-700 leading-relaxed transition-opacity"
+              class="group relative flex items-start gap-2.5 rounded-xl px-3 py-2.5 text-sm text-gray-700 leading-relaxed transition-opacity"
               :class="t.done ? 'bg-gray-50 opacity-50' : 'bg-amber-50'">
               <span class="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0 mt-0.5"
                 :class="t.done ? 'bg-gray-400' : 'bg-amber-500'">{{ idx + 1 }}</span>
@@ -171,7 +171,7 @@
                       :style="`background:${personColor(t.createdBy)}`">
                       {{ displayName(t)?.[0] ?? '?' }}
                     </span>
-                    <div class="relative bg-green-50 rounded-xl px-3 py-2 flex-1 min-w-0 text-xs text-gray-700 leading-relaxed">
+                    <div class="relative bg-green-50 rounded-xl px-3 py-2 flex-1 min-w-0 text-sm text-gray-700 leading-relaxed">
                       <template v-if="editingId === t.id">
                         <textarea v-model="editContent" rows="3" class="w-full text-xs border border-green-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 resize-none bg-white mb-2"></textarea>
                         <div v-if="editExistingAttachments.length" class="flex gap-1.5 flex-wrap mb-2">
