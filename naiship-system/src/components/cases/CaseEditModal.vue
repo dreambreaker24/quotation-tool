@@ -277,6 +277,9 @@ async function save() {
                 ...existing,
                 { status: form.value.status, changedAt: Timestamp.now(), changedBy: authStore.name ?? '' }
             ]
+            if (form.value.status === 'completed') {
+                data.completedAt = serverTimestamp()
+            }
         }
 
         const newLinkedClientId = form.value.linkedClientId || ''

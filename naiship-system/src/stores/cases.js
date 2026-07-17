@@ -40,7 +40,12 @@ export const useCasesStore = defineStore('cases', () => {
     }
 
     async function updateCase(id, data) {
-        return updateDoc(doc(db, 'cases', id), { ...data, updatedAt: serverTimestamp() })
+        const patch = { ...data, updatedAt: serverTimestamp() }
+        if (data.status === 'completed') {
+            const existing = cases.value.find(c => c.id === id)
+            if (existing?.status !== 'completed') patch.completedAt = serverTimestamp()
+        }
+        return updateDoc(doc(db, 'cases', id), patch)
     }
 
     async function deleteCase(id) {
