@@ -80,7 +80,7 @@ const form = reactive(defaultCaseBonusData())
 
 onMounted(async () => {
     const data = await store.fetchData(props.caseId)
-    Object.assign(form, data)
+    Object.assign(form, JSON.parse(JSON.stringify(data)))
     loading.value = false
 })
 
@@ -104,6 +104,8 @@ async function save() {
         await store.saveData(props.caseId, { ...form })
         toast('已儲存')
         emit('close')
+    } catch {
+        toast('儲存失敗，請重試', 'error')
     } finally {
         saving.value = false
     }
