@@ -56,6 +56,9 @@ describe('calcSalesBonus', () => {
     it('設計約金額 x 4% + 工程約金額 x 1.25%，不扣 5% 管銷', () => {
         expect(calcSalesBonus(1000000, 800000, 1800000)).toBe(1000000 * 0.04 + 800000 * 0.0125)
     })
+    it('金額不是整除時四捨五入到整數元', () => {
+        expect(calcSalesBonus(0, 7654321, 8000000)).toBe(Math.round(7654321 * 0.0125))
+    })
     it('只有設計約金額也能算', () => {
         expect(calcSalesBonus(1000000, 0, 1000000)).toBe(1000000 * 0.04)
     })

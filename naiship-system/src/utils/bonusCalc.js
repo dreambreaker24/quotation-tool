@@ -22,5 +22,5 @@ export function calcDesignerBonus(signedAmount) {
 
 export function calcSalesBonus(designContractAmount, constructionContractAmount, signedAmount) {
     if (!isEligibleByAmount(signedAmount)) return 0
-    return (designContractAmount || 0) * SALES_DESIGN_RATE + (constructionContractAmount || 0) * SALES_CONSTRUCTION_RATE
+    return Math.round((designContractAmount || 0) * SALES_DESIGN_RATE + (constructionContractAmount || 0) * SALES_CONSTRUCTION_RATE)
 }
