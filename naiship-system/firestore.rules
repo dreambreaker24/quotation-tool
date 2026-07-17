@@ -127,5 +127,11 @@ service cloud.firestore {
     match /leaveRecords/{docId} {
       allow read, write: if isAdmin();
     }
+    match /caseBonusData/{caseId} {
+      allow read, write: if isAdmin();
+    }
+    match /bonusQuarters/{quarterId} {
+      allow read, write: if isAdmin();
+    }
   }
 }
