@@ -14,6 +14,10 @@ const routes = [
   {
     path: '/payslip', name: 'payslip', component: () => import('@/views/PayslipView.vue'),
     meta: { requireAdmin: true }
+  },
+  {
+    path: '/bonus', name: 'bonus', component: () => import('@/views/BonusView.vue'),
+    meta: { requireAdmin: true }
   }
 ]
 

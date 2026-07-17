@@ -49,7 +49,7 @@ const navItems = computed(() => [
   { to: '/quotation.html', label: '報價單', external: true },
   { to: '/clients', label: '客戶/廠商' },
   { to: '/petty-cash', label: '零用金' },
-  ...(auth.isAdmin ? [{ to: '/payslip', label: '薪資單' }, { to: '/settings', label: '系統設定' }] : [])
+  ...(auth.isAdmin ? [{ to: '/payslip', label: '薪資單' }, { to: '/bonus', label: '獎金統計' }, { to: '/settings', label: '系統設定' }] : [])
 ])
 function isActive(path) {
   if (path === '/') return route.path === '/'
