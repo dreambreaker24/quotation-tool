@@ -60,3 +60,65 @@ export function splitBonus(totalAmount, personIds, splitMap) {
     })
     return result
 }
+
+export function dateToQuarterKey(date) {
+    if (!date) return null
+    const [y, m] = date.toLocaleDateString('sv-SE', { timeZone: 'Asia/Taipei' }).split('-').map(Number)
+    const q = Math.floor((m - 1) / 3) + 1
+    return `${y}-Q${q}`
+}
+
+export function isCompletedInQuarter(completedAt, quarterKey) {
+    if (!completedAt) return false
+    const date = completedAt.toDate ? completedAt.toDate() : new Date(completedAt)
+    return dateToQuarterKey(date) === quarterKey
+}
+
+function pushRoleEntries(entries, role, amount, personIds, splitMap, usersById, caseInfo) {
+    if (amount <= 0 || !personIds?.length) return
+    const split = splitBonus(amount, personIds, splitMap)
+    personIds.forEach(uid => entries.push({
+        role,
+        personId: uid,
+        personName: usersById[uid]?.name || '',
+        caseId: caseInfo.id,
+        caseName: caseInfo.name,
+        suggestedAmount: split[uid],
+        finalAmount: split[uid],
+        paid: false,
+    }))
+}
+
+export function buildCaseBonusEntries(caseInfo, bonusData, usersById = {}) {
+    const entries = []
+    const vendorCostTotal = sumVendorCost(caseInfo.workTypes)
+
+    const salesAmount = calcSalesBonus(bonusData.designContractAmount, bonusData.constructionContractAmount, caseInfo.signedAmount)
+    pushRoleEntries(entries, 'sales', salesAmount, bonusData.salesPersonIds, bonusData.salesSplit, usersById, caseInfo)
+
+    const designerAmount = calcDesignerBonus(caseInfo.signedAmount)
+    pushRoleEntries(entries, 'designer', designerAmount, bonusData.designerIds, bonusData.designerSplit, usersById, caseInfo)
+
+    const siteManagerAmount = calcSiteManagerBonus(caseInfo.signedAmount, vendorCostTotal, bonusData.miscExpenses)
+    pushRoleEntries(entries, 'siteManager', siteManagerAmount, bonusData.siteManagerIds, bonusData.siteManagerSplit, usersById, caseInfo)
+
+    return entries
+}
+
+export function buildAdminEntry(adminTarget) {
+    const { leadCount, signedCount, leadThresholds, signedBonusPerCase, assignedToUid, assignedToName } = adminTarget
+    if (!assignedToUid) return null
+    const leadBonus = (leadThresholds || [])
+        .filter(t => (leadCount || 0) >= t.count)
+        .reduce((max, t) => Math.max(max, t.amount), 0)
+    const signedBonus = (signedCount || 0) * (signedBonusPerCase || 0)
+    const suggestedAmount = leadBonus + signedBonus
+    return {
+        role: 'admin',
+        personId: assignedToUid,
+        personName: assignedToName || '',
+        suggestedAmount,
+        finalAmount: suggestedAmount,
+        paid: false,
+    }
+}
