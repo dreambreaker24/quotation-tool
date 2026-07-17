@@ -220,8 +220,6 @@ async function recalculate() {
     ]
 }
 
-watch(eligibleCases, recalculate)
-
 const allEntries = computed(() => caseEntries.value)
 
 // markEntryPaid 的簽章是 (quarterKey, clientEntries, targetEntry, paid) ——用身分鍵
