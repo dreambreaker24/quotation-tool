@@ -124,12 +124,12 @@ describe('splitBonus', () => {
     it('兩人沒填分比時均分', () => {
         expect(splitBonus(10000, ['u1', 'u2'], {})).toEqual({ u1: 5000, u2: 5000 })
     })
-    it('三人沒填分比時均分，餘數算給最後一人', () => {
+    it('三人沒填分比時均分（100/人數取整數百分比），餘數算給最後一人', () => {
         const result = splitBonus(10000, ['u1', 'u2', 'u3'], {})
         expect(result.u1 + result.u2 + result.u3).toBe(10000)
-        expect(result.u1).toBe(3333)
-        expect(result.u2).toBe(3333)
-        expect(result.u3).toBe(3334)
+        expect(result.u1).toBe(3300)
+        expect(result.u2).toBe(3300)
+        expect(result.u3).toBe(3400)
     })
     it('有填自訂分比時依比例分配', () => {
         expect(splitBonus(10000, ['u1', 'u2'], { u1: 70, u2: 30 })).toEqual({ u1: 7000, u2: 3000 })

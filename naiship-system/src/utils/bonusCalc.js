@@ -47,19 +47,16 @@ export function splitBonus(totalAmount, personIds, splitMap) {
     const ids = personIds || []
     if (ids.length === 0) return {}
     const hasCustomSplit = !!splitMap && ids.every(id => typeof splitMap[id] === 'number')
-    if (hasCustomSplit) {
-        const result = {}
-        ids.forEach(id => {
-            result[id] = Math.round(totalAmount * splitMap[id] / 100)
-        })
-        return result
-    } else {
-        const result = {}
-        const perPerson = Math.floor(totalAmount / ids.length)
-        const remainder = totalAmount % ids.length
-        ids.forEach((id, i) => {
-            result[id] = i === ids.length - 1 ? perPerson + remainder : perPerson
-        })
-        return result
+    const percents = hasCustomSplit
+        ? ids.map(id => splitMap[id])
+        : ids.map(() => Math.floor(100 / ids.length))
+    if (!hasCustomSplit) {
+        const distributed = percents.reduce((s, p) => s + p, 0)
+        percents[percents.length - 1] += 100 - distributed
     }
+    const result = {}
+    ids.forEach((id, i) => {
+        result[id] = Math.round(totalAmount * percents[i] / 100)
+    })
+    return result
 }
