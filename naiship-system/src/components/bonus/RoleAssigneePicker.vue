@@ -36,10 +36,19 @@ function userName(uid) {
 }
 
 function toggle(uid) {
-    const next = props.modelValue.includes(uid)
+    const wasSelected = props.modelValue.includes(uid)
+    const next = wasSelected
         ? props.modelValue.filter(id => id !== uid)
         : [...props.modelValue, uid]
     emit('update:modelValue', next)
+    if (!wasSelected && next.length > 1) {
+        const evenPercent = Math.floor(100 / next.length)
+        const seededSplit = { ...props.split }
+        next.forEach(id => {
+            if (typeof seededSplit[id] !== 'number') seededSplit[id] = evenPercent
+        })
+        emit('update:split', seededSplit)
+    }
 }
 
 function setSplit(uid, value) {

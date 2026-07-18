@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { doc, getDoc, setDoc, runTransaction, serverTimestamp } from 'firebase/firestore'
+import { doc, getDoc, setDoc, runTransaction, serverTimestamp, Timestamp } from 'firebase/firestore'
 import { db } from '@/firebase'
 import { useAuthStore } from '@/stores/auth'
 
@@ -54,7 +54,7 @@ export const useBonusQuartersStore = defineStore('bonusQuarters', () => {
             const patchedEntry = {
                 ...(idx >= 0 ? baseEntries[idx] : targetEntry),
                 paid,
-                paidAt: paid ? serverTimestamp() : null,
+                paidAt: paid ? Timestamp.now() : null,
                 paidBy: paid ? (authStore.name ?? '') : '',
             }
             const nextEntries = idx >= 0
