@@ -37,7 +37,7 @@
 
     <CaseBonusForm v-if="editingCaseId" :case-id="editingCaseId"
       :case-info="eligibleCases.find(c => c.id === editingCaseId)"
-      @close="editingCaseId = null" />
+      @close="closeCaseBonusForm" />
 
     <section class="bg-white rounded-2xl shadow-md p-4 mb-4">
       <h2 class="text-sm font-bold text-gray-700 mb-3">行政獎金</h2>
@@ -218,6 +218,15 @@ async function recalculate() {
         ...existingPaid,
         ...results.filter(r => !existingPaid.some(p => p.role === r.role && p.personId === r.personId && p.caseId === r.caseId)),
     ]
+}
+
+// 關掉「編輯獎金資料」Modal 時順手重新試算一次——這是使用者剛剛編輯完
+// 那一筆案件的明確動作觸發，不是自動監看任何案件變動，所以不會重蹈先前
+// 那個「其他人改別的案件也會觸發重算、洗掉手動調整的實發金額」的問題，
+// 只是省掉「編輯完還要記得手動點重新試算」這一步。
+async function closeCaseBonusForm() {
+    editingCaseId.value = null
+    await recalculate()
 }
 
 const allEntries = computed(() => caseEntries.value)
