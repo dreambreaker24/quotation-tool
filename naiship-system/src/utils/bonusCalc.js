@@ -46,6 +46,7 @@ export function calcSiteManagerBonus(signedAmount, vendorCostTotal, miscExpenses
 export function splitBonus(totalAmount, personIds, splitMap) {
     const ids = personIds || []
     if (ids.length === 0) return {}
+    if (ids.length === 1) return { [ids[0]]: totalAmount }
     const hasCustomSplit = !!splitMap && ids.every(id => typeof splitMap[id] === 'number')
     const percents = hasCustomSplit
         ? ids.map(id => splitMap[id])

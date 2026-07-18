@@ -121,6 +121,9 @@ describe('splitBonus', () => {
     it('單人負責拿全額', () => {
         expect(splitBonus(9000, ['u1'], {})).toEqual({ u1: 9000 })
     })
+    it('單人負責時忽略殘留的舊分比資料，仍然拿全額', () => {
+        expect(splitBonus(9000, ['u1'], { u1: 50, u2: 50 })).toEqual({ u1: 9000 })
+    })
     it('兩人沒填分比時均分', () => {
         expect(splitBonus(10000, ['u1', 'u2'], {})).toEqual({ u1: 5000, u2: 5000 })
     })
