@@ -12,6 +12,7 @@ export function defaultCaseBonusData() {
         designerIds: [], designerSplit: {},
         siteManagerIds: [], siteManagerSplit: {},
         miscExpenses: 0,
+        teamBonusAmount: 0, teamBonusSplit: {},
         qualitativeChecks: {
             sales: { 達成簽約: false, 案件資訊: false, 簽約後交接: false },
             designer: { 丈量: false, 提案: false, 設計: false, 與業主收款: false, 廠商收取發票: false },
