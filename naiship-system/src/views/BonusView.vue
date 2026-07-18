@@ -75,16 +75,6 @@
     </section>
 
     <section class="bg-white rounded-2xl shadow-md p-4 mb-4">
-      <h2 class="text-sm font-bold text-gray-700 mb-3">團隊獎金（手動輸入）</h2>
-      <div class="grid grid-cols-4 gap-3">
-        <div v-for="role in ['sales', 'designer', 'siteManager', 'admin']" :key="role">
-          <label class="text-xs text-gray-500 mb-1 block">{{ roleLabel(role) }}</label>
-          <input v-model.number="quarterForm.teamBonus[role]" type="number" min="0" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1">
-        </div>
-      </div>
-    </section>
-
-    <section class="bg-white rounded-2xl shadow-md p-4 mb-4">
       <div class="flex items-center justify-between mb-3">
         <h2 class="text-sm font-bold text-gray-700">本季發放彙總</h2>
         <div class="flex gap-3">
@@ -182,7 +172,6 @@ const savingQuarter = ref(false)
 async function loadQuarter(q) {
     const data = await bonusQuartersStore.fetchQuarter(q)
     quarterForm.adminTarget = data.adminTarget
-    quarterForm.teamBonus = data.teamBonus
     caseEntries.value = data.entries || []
     await recalculate()
 }
@@ -197,7 +186,7 @@ function onAdminAssigneeChange() {
 const adminEntry = computed(() => buildAdminEntry(quarterForm.adminTarget))
 
 function roleLabel(role) {
-    return { sales: '業務', designer: '設計師', siteManager: '工務', admin: '行政' }[role]
+    return { sales: '業務', designer: '設計師', siteManager: '工務', admin: '行政', team: '團隊' }[role]
 }
 
 // 只更新記憶體內的 caseEntries，不寫 Firestore——存檔動作完全交給
@@ -252,7 +241,6 @@ async function saveQuarterData() {
     try {
         await bonusQuartersStore.saveQuarter(selectedQuarter.value, {
             adminTarget: quarterForm.adminTarget,
-            teamBonus: quarterForm.teamBonus,
             entries: caseEntries.value,
         })
         toast('已儲存本季資料')
