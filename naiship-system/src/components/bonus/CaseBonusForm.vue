@@ -37,6 +37,24 @@
         </div>
         <div class="text-xs text-gray-500">工務建議獎金：{{ siteManagerAmount.toLocaleString() }} 元</div>
 
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">團隊獎金總額</label>
+          <input v-model.number="form.teamBonusAmount" type="number" min="0" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1">
+        </div>
+        <div v-if="teamParticipantIds.length === 0" class="text-xs text-gray-400">尚未指定任何角色負責人，無法分配團隊獎金</div>
+        <div v-else class="flex flex-col gap-1.5">
+          <div class="text-xs text-gray-500">團隊獎金參與人（自動合併業務/設計師/工務負責人，同一人不重複計算）</div>
+          <div v-for="uid in teamParticipantIds" :key="uid" class="flex items-center gap-2 text-xs text-gray-600">
+            <span class="flex-1">{{ participantName(uid) }}</span>
+            <span v-if="teamParticipantIds.length > 1" class="flex items-center gap-1">
+              <input type="number" min="0" max="100" :value="form.teamBonusSplit[uid] ?? teamDefaultPercent"
+                @input="setTeamSplit(uid, $event.target.value)"
+                class="w-14 border border-gray-200 rounded px-1 py-0.5 text-xs">%
+            </span>
+            <span class="w-16 text-right">{{ (teamSplitPreview[uid] || 0).toLocaleString() }} 元</span>
+          </div>
+        </div>
+
         <div v-for="role in ['sales', 'designer', 'siteManager']" :key="role">
           <div class="text-xs text-gray-500 mb-1">{{ roleLabel(role) }}條件</div>
           <div class="flex flex-wrap gap-3">
@@ -62,10 +80,11 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useCaseBonusDataStore, defaultCaseBonusData } from '@/stores/caseBonusData'
+import { useUsersStore } from '@/stores/users'
 import { useToast } from '@/composables/useToast'
 import {
     calcSalesBonus, calcDesignerBonus, calcSiteManagerBonus,
-    calcProfitMargin, sumVendorCost,
+    calcProfitMargin, sumVendorCost, dedupeParticipants, splitBonus,
 } from '@/utils/bonusCalc'
 import RoleAssigneePicker from './RoleAssigneePicker.vue'
 
@@ -73,6 +92,7 @@ const props = defineProps({ caseId: String, caseInfo: Object })
 const emit = defineEmits(['close'])
 
 const store = useCaseBonusDataStore()
+const usersStore = useUsersStore()
 const { toast } = useToast()
 const loading = ref(true)
 const saving = ref(false)
@@ -93,6 +113,20 @@ const profitMargin = computed(() =>
     calcProfitMargin(props.caseInfo?.signedAmount, vendorCostTotal.value, form.miscExpenses))
 const siteManagerAmount = computed(() =>
     calcSiteManagerBonus(props.caseInfo?.signedAmount, vendorCostTotal.value, form.miscExpenses))
+
+const teamParticipantIds = computed(() => dedupeParticipants(form))
+const teamDefaultPercent = computed(() =>
+    teamParticipantIds.value.length ? Math.floor(100 / teamParticipantIds.value.length) : 0)
+const teamSplitPreview = computed(() =>
+    splitBonus(form.teamBonusAmount || 0, teamParticipantIds.value, form.teamBonusSplit))
+
+function participantName(uid) {
+    return usersStore.users.find(u => u.id === uid)?.name ?? uid
+}
+
+function setTeamSplit(uid, value) {
+    form.teamBonusSplit = { ...form.teamBonusSplit, [uid]: Number(value) || 0 }
+}
 
 function roleLabel(role) {
     return { sales: '業務', designer: '設計師', siteManager: '工務' }[role]
