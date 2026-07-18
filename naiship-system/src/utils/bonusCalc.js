@@ -90,6 +90,32 @@ function pushRoleEntries(entries, role, amount, personIds, splitMap, usersById, 
     }))
 }
 
+export function dedupeParticipants(bonusData) {
+    const ids = [
+        ...(bonusData.salesPersonIds || []),
+        ...(bonusData.designerIds || []),
+        ...(bonusData.siteManagerIds || []),
+    ]
+    return [...new Set(ids)]
+}
+
+export function buildTeamBonusEntries(caseInfo, bonusData, usersById = {}) {
+    const participantIds = dedupeParticipants(bonusData)
+    const amount = bonusData.teamBonusAmount || 0
+    if (amount <= 0 || participantIds.length === 0) return []
+    const split = splitBonus(amount, participantIds, bonusData.teamBonusSplit)
+    return participantIds.map(uid => ({
+        role: 'team',
+        personId: uid,
+        personName: usersById[uid]?.name || '',
+        caseId: caseInfo.id,
+        caseName: caseInfo.name,
+        suggestedAmount: split[uid],
+        finalAmount: split[uid],
+        paid: false,
+    }))
+}
+
 export function buildCaseBonusEntries(caseInfo, bonusData, usersById = {}) {
     const entries = []
     const vendorCostTotal = sumVendorCost(caseInfo.workTypes)
@@ -102,6 +128,8 @@ export function buildCaseBonusEntries(caseInfo, bonusData, usersById = {}) {
 
     const siteManagerAmount = calcSiteManagerBonus(caseInfo.signedAmount, vendorCostTotal, bonusData.miscExpenses)
     pushRoleEntries(entries, 'siteManager', siteManagerAmount, bonusData.siteManagerIds, bonusData.siteManagerSplit, usersById, caseInfo)
+
+    entries.push(...buildTeamBonusEntries(caseInfo, bonusData, usersById))
 
     return entries
 }

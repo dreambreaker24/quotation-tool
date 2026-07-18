@@ -223,3 +223,96 @@ describe('buildAdminEntry', () => {
         expect(entry).toMatchObject({ role: 'admin', personId: 'u2', personName: '陳柏兆', suggestedAmount: 5000, finalAmount: 5000, paid: false })
     })
 })
+
+import { dedupeParticipants, buildTeamBonusEntries } from '@/utils/bonusCalc'
+
+describe('dedupeParticipants', () => {
+    it('三個角色的人合併去重', () => {
+        const bonusData = { salesPersonIds: ['u1', 'u2'], designerIds: ['u2', 'u3'], siteManagerIds: ['u3'] }
+        expect(dedupeParticipants(bonusData)).toEqual(['u1', 'u2', 'u3'])
+    })
+    it('三個角色都沒人時回傳空陣列', () => {
+        expect(dedupeParticipants({})).toEqual([])
+    })
+    it('只有一個角色有人時只回傳那個角色的人', () => {
+        expect(dedupeParticipants({ designerIds: ['u5'] })).toEqual(['u5'])
+    })
+})
+
+describe('buildTeamBonusEntries', () => {
+    const usersById = { u1: { name: '柯其宏' }, u2: { name: '陳柏兆' } }
+
+    it('金額為 0 時回傳空陣列（即使有參與人）', () => {
+        const caseInfo = { id: 'c1', name: '測試案' }
+        const bonusData = { salesPersonIds: ['u1'], teamBonusAmount: 0 }
+        expect(buildTeamBonusEntries(caseInfo, bonusData, usersById)).toEqual([])
+    })
+    it('沒有參與人時回傳空陣列（即使有金額）', () => {
+        const caseInfo = { id: 'c1', name: '測試案' }
+        const bonusData = { teamBonusAmount: 10000 }
+        expect(buildTeamBonusEntries(caseInfo, bonusData, usersById)).toEqual([])
+    })
+    it('單人參與時全拿', () => {
+        const caseInfo = { id: 'c1', name: '測試案' }
+        const bonusData = { salesPersonIds: ['u1'], teamBonusAmount: 9000 }
+        const entries = buildTeamBonusEntries(caseInfo, bonusData, usersById)
+        expect(entries).toEqual([{
+            role: 'team', personId: 'u1', personName: '柯其宏',
+            caseId: 'c1', caseName: '測試案',
+            suggestedAmount: 9000, finalAmount: 9000, paid: false,
+        }])
+    })
+    it('同一人身兼業務+設計師只算一份，不會拿兩份', () => {
+        const caseInfo = { id: 'c1', name: '測試案' }
+        const bonusData = { salesPersonIds: ['u1'], designerIds: ['u1'], teamBonusAmount: 10000 }
+        const entries = buildTeamBonusEntries(caseInfo, bonusData, usersById)
+        expect(entries).toHaveLength(1)
+        expect(entries[0].suggestedAmount).toBe(10000)
+    })
+    it('兩人分屬不同角色時均分', () => {
+        const caseInfo = { id: 'c1', name: '測試案' }
+        const bonusData = { salesPersonIds: ['u1'], designerIds: ['u2'], teamBonusAmount: 10000 }
+        const entries = buildTeamBonusEntries(caseInfo, bonusData, usersById)
+        expect(entries).toHaveLength(2)
+        expect(entries[0].suggestedAmount + entries[1].suggestedAmount).toBe(10000)
+        expect(entries.find(e => e.personId === 'u1').suggestedAmount).toBe(5000)
+        expect(entries.find(e => e.personId === 'u2').suggestedAmount).toBe(5000)
+    })
+    it('有填自訂分比時依比例分配', () => {
+        const caseInfo = { id: 'c1', name: '測試案' }
+        const bonusData = {
+            salesPersonIds: ['u1'], designerIds: ['u2'],
+            teamBonusAmount: 10000, teamBonusSplit: { u1: 70, u2: 30 },
+        }
+        const entries = buildTeamBonusEntries(caseInfo, bonusData, usersById)
+        expect(entries.find(e => e.personId === 'u1').suggestedAmount).toBe(7000)
+        expect(entries.find(e => e.personId === 'u2').suggestedAmount).toBe(3000)
+    })
+})
+
+describe('buildCaseBonusEntries 併入團隊獎金', () => {
+    const usersById = { u1: { name: '柯其宏' } }
+
+    it('團隊獎金 entries 會併入回傳陣列', () => {
+        const caseInfo = { id: 'c1', name: '測試案', signedAmount: 1000000, workTypes: [] }
+        const bonusData = {
+            designContractAmount: 0, constructionContractAmount: 0,
+            salesPersonIds: ['u1'], designerIds: [], siteManagerIds: [],
+            miscExpenses: 0, teamBonusAmount: 5000,
+        }
+        const entries = buildCaseBonusEntries(caseInfo, bonusData, usersById)
+        expect(entries).toHaveLength(1)
+        expect(entries[0]).toMatchObject({ role: 'team', personId: 'u1', suggestedAmount: 5000 })
+    })
+    it('沒有 teamBonusAmount 欄位時（既有舊資料相容）不影響原本三個角色的 entries', () => {
+        const caseInfo = { id: 'c1', name: '測試案', signedAmount: 1000000, workTypes: [] }
+        const bonusData = {
+            designContractAmount: 1000000, constructionContractAmount: 0,
+            salesPersonIds: ['u1'], designerIds: [], siteManagerIds: [],
+            miscExpenses: 0,
+        }
+        const entries = buildCaseBonusEntries(caseInfo, bonusData, usersById)
+        expect(entries).toHaveLength(1)
+        expect(entries[0].role).toBe('sales')
+    })
+})
