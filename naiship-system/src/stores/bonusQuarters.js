@@ -12,8 +12,7 @@ export function defaultQuarterData() {
             leadThresholds: [],
             signedBonusPerCase: 1000,
             assignedToUid: '', assignedToName: '',
-        },
-        teamBonus: { sales: 0, designer: 0, siteManager: 0, admin: 0 },
+        }
     }
 }
 
