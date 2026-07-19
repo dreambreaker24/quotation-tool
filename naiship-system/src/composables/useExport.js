@@ -97,7 +97,9 @@ export function useExport() {
         const ws = XLSX.utils.json_to_sheet(rows)
         const wb = XLSX.utils.book_new()
         XLSX.utils.book_append_sheet(wb, ws, '發放彙總')
-        XLSX.writeFile(wb, `奈拾季度獎金_${quarterKey}_${new Date().toLocaleDateString('zh-TW').replace(/\//g, '')}.xlsx`)
+        const today = new Date()
+        const dateStr = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`
+        XLSX.writeFile(wb, `奈拾季度獎金_${quarterKey}_${dateStr}.xlsx`)
     }
 
     return { exportCases, exportClients, exportPettyCash, exportBonusSummary }
