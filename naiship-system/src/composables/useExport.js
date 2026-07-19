@@ -82,5 +82,23 @@ export function useExport() {
         XLSX.writeFile(wb, `奈拾零用金_${yearMonth}.xlsx`)
     }
 
-    return { exportCases, exportClients, exportPettyCash }
+    function exportBonusSummary(entries, quarterKey) {
+        const ROLE_LABELS = { sales: '業務', designer: '設計師', siteManager: '工務', admin: '行政', team: '團隊' }
+        const rows = entries.map(e => ({
+            '角色': ROLE_LABELS[e.role] || e.role,
+            '對象': e.personName || '',
+            '案件': e.caseName || '—',
+            '建議金額': e.suggestedAmount || 0,
+            '實發金額': e.finalAmount || 0,
+            '已發放': e.paid ? '已發放' : '未發放',
+            '發放時間': e.paidAt?.toDate?.()?.toLocaleDateString('zh-TW') ?? '',
+            '發放人': e.paidBy || '',
+        }))
+        const ws = XLSX.utils.json_to_sheet(rows)
+        const wb = XLSX.utils.book_new()
+        XLSX.utils.book_append_sheet(wb, ws, '發放彙總')
+        XLSX.writeFile(wb, `奈拾季度獎金_${quarterKey}_${new Date().toLocaleDateString('zh-TW').replace(/\//g, '')}.xlsx`)
+    }
+
+    return { exportCases, exportClients, exportPettyCash, exportBonusSummary }
 }

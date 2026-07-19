@@ -79,6 +79,9 @@
         <h2 class="text-sm font-bold text-gray-700">本季發放彙總</h2>
         <div class="flex gap-3">
           <button @click="recalculate" class="text-xs text-blue-600 hover:underline">重新試算</button>
+          <button @click="exportBonus" class="text-xs border border-gray-200 rounded-lg px-3 py-1.5 text-gray-500 hover:border-gray-400">
+            匯出 Excel
+          </button>
           <button @click="saveQuarterData" :disabled="savingQuarter" class="text-xs text-white px-3 py-1.5 rounded-lg" style="background:#1e2533">
             {{ savingQuarter ? '儲存中…' : '儲存本季資料' }}
           </button>
@@ -121,6 +124,7 @@ import { useUsersStore } from '@/stores/users'
 import { useCaseBonusDataStore } from '@/stores/caseBonusData'
 import { useBonusQuartersStore, defaultQuarterData } from '@/stores/bonusQuarters'
 import { useToast } from '@/composables/useToast'
+import { useExport } from '@/composables/useExport'
 import {
     isEligibleByAmount, dateToQuarterKey, isCompletedInQuarter,
     buildCaseBonusEntries, buildAdminEntry,
@@ -132,6 +136,7 @@ const usersStore = useUsersStore()
 const caseBonusDataStore = useCaseBonusDataStore()
 const bonusQuartersStore = useBonusQuartersStore()
 const { toast } = useToast()
+const { exportBonusSummary } = useExport()
 
 onMounted(() => {
     casesStore.subscribe(['north', 'central', 'south'])
@@ -249,5 +254,9 @@ async function saveQuarterData() {
     } finally {
         savingQuarter.value = false
     }
+}
+
+function exportBonus() {
+    exportBonusSummary(allEntries.value, selectedQuarter.value)
 }
 </script>
