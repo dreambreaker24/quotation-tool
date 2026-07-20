@@ -3,7 +3,11 @@ import { useAuthStore } from '@/stores/auth'
 
 const routes = [
   { path: '/login', name: 'login', component: () => import('@/views/LoginView.vue'), meta: { public: true } },
-  { path: '/', name: 'home', component: () => import('@/views/HomeView.vue') }
+  { path: '/', name: 'home', component: () => import('@/views/HomeView.vue') },
+  {
+    path: '/master-data', name: 'master-data', component: () => import('@/views/MasterDataView.vue'),
+    meta: { requireOwner: true }
+  }
 ]
 
 const router = createRouter({ history: createWebHistory(), routes })
@@ -12,6 +16,7 @@ router.beforeEach(async (to) => {
   const auth = useAuthStore()
   await auth.readyPromise
   if (!to.meta.public && !auth.user) return { name: 'login' }
+  if (to.meta.requireOwner && !auth.isOwner) return { name: 'home' }
 })
 
 export default router
