@@ -1,0 +1,11 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-pink: #d98fa0;
+  --color-brand-pink-light: #f6e2e5;
+  --color-brand-dark: #4a3535;
+}
+
+body { font-family: 'Noto Sans TC', sans-serif; }
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-thumb { background: #ccc; border-radius: 4px; }
