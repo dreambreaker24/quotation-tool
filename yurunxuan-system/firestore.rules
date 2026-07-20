@@ -7,11 +7,15 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read: if isSignedIn();
-      allow create: if isOwner();
+      allow create: if isOwner()
+        || (isSignedIn() && request.auth.uid == userId
+            && exists(/databases/$(database)/documents/users/$(request.auth.token.email))
+            && get(/databases/$(database)/documents/users/$(request.auth.token.email)).data.role == request.resource.data.role);
       allow update: if isOwner()
         || (isSignedIn() && request.auth.uid == userId
             && request.resource.data.role == resource.data.role);
-      allow delete: if isOwner();
+      allow delete: if isOwner()
+        || (isSignedIn() && userId == request.auth.token.email);
     }
     match /expenseItems/{itemId} {
       allow read, write: if isOwner();

@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut } from 'firebase/auth'
-import { doc, getDoc, setDoc, deleteDoc, collection, query, where, getDocs } from 'firebase/firestore'
+import { doc, getDoc, setDoc, deleteDoc } from 'firebase/firestore'
 import { auth, db } from '@/firebase'
 
 export const useAuthStore = defineStore('auth', () => {
@@ -19,15 +19,14 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       let snap = await getDoc(doc(db, 'users', uid))
       if (!snap.exists() && email) {
-        const q = query(collection(db, 'users'), where('email', '==', email))
-        const preSnap = await getDocs(q)
-        if (!preSnap.empty) {
-          const preData = preSnap.docs[0].data()
+        const preSnap = await getDoc(doc(db, 'users', email))
+        if (preSnap.exists()) {
+          const preData = preSnap.data()
           role.value = preData.role
           name.value = preData.name
           try {
             await setDoc(doc(db, 'users', uid), { ...preData, googleUid: uid })
-            await deleteDoc(preSnap.docs[0].ref)
+            await deleteDoc(doc(db, 'users', email))
           } catch (e) {
             console.warn('setDoc users failed:', e)
           }
