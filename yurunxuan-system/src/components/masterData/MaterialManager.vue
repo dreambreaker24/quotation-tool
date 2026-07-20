@@ -14,6 +14,7 @@
                 class="flex items-center gap-3 px-3 py-2 rounded-lg border border-gray-100 bg-gray-50/50 text-xs">
                 <span class="flex-1 font-medium text-gray-800">{{ m.name }}<span class="ml-1.5 text-[10px] text-gray-400">{{ m.category }}</span></span>
                 <span class="text-gray-600">庫存 {{ m.currentStock ?? 0 }} {{ m.unit }}</span>
+                <span v-if="m.vendorId" class="text-[10px] text-gray-400">{{ vendorsStore.vendors.find(v => v.id === m.vendorId)?.name }}</span>
                 <span v-if="auth.isOwner" class="flex items-center gap-2">
                     <button @click="openEdit(m)" class="text-gray-400 hover:text-gray-700">編輯</button>
                     <button @click="confirmDelete(m)" class="text-red-400 hover:text-red-600">刪除</button>
@@ -54,6 +55,13 @@
                     <label class="text-xs text-gray-500 mb-1 block">安全庫存量（低於此量之後版本會提醒補貨）</label>
                     <input v-model.number="form.safetyStock" type="number" min="0" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1">
                 </div>
+                <div>
+                    <label class="text-xs text-gray-500 mb-1 block">供應廠商</label>
+                    <select v-model="form.vendorId" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
+                        <option value="">未指定</option>
+                        <option v-for="v in vendorsStore.vendors" :key="v.id" :value="v.id">{{ v.name }}</option>
+                    </select>
+                </div>
             </div>
             <div class="flex justify-end gap-2 mt-5">
                 <button @click="showForm = false" class="text-sm text-gray-400 px-4 py-2">取消</button>
@@ -67,17 +75,19 @@
 <script setup>
 import { ref } from 'vue'
 import { useMaterialsStore } from '@/stores/materials'
+import { useVendorsStore } from '@/stores/vendors'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
 
 const store = useMaterialsStore()
+const vendorsStore = useVendorsStore()
 const auth = useAuthStore()
 const { toast } = useToast()
 
 const showForm = ref(false)
 const submitting = ref(false)
 const editingId = ref(null)
-const blankForm = () => ({ name: '', category: '原料', unit: '', currentStock: 0, safetyStock: 0 })
+const blankForm = () => ({ name: '', category: '原料', unit: '', currentStock: 0, safetyStock: 0, vendorId: '' })
 const form = ref(blankForm())
 
 function openAdd() {
@@ -88,7 +98,7 @@ function openAdd() {
 
 function openEdit(m) {
     editingId.value = m.id
-    form.value = { name: m.name, category: m.category, unit: m.unit, currentStock: m.currentStock ?? 0, safetyStock: m.safetyStock ?? 0 }
+    form.value = { name: m.name, category: m.category, unit: m.unit, currentStock: m.currentStock ?? 0, safetyStock: m.safetyStock ?? 0, vendorId: m.vendorId || '' }
     showForm.value = true
 }
 
