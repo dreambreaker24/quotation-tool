@@ -99,7 +99,13 @@ function removeIngredient(idx) {
 
 function onMaterialSelect(ing) {
     const m = materialsStore.materials.find(m => m.id === ing.materialId)
-    if (m) { ing.materialName = m.name; ing.unit = m.unit }
+    if (m) {
+        ing.materialName = m.name
+        ing.unit = m.unit
+    } else {
+        ing.materialName = ''
+        ing.unit = ''
+    }
 }
 
 async function submitForm() {
@@ -111,7 +117,9 @@ async function submitForm() {
     submitting.value = true
     const data = {
         name: form.value.name,
-        ingredients: form.value.ingredients.map(ing => ({ ...ing, qtyPerUnit: Number(ing.qtyPerUnit) || 0 }))
+        ingredients: form.value.ingredients
+            .filter(ing => ing.materialId)
+            .map(ing => ({ ...ing, qtyPerUnit: Number(ing.qtyPerUnit) || 0 }))
     }
     try {
         if (editingId.value) {
