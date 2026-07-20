@@ -10,29 +10,36 @@
         </div>
         <ExpenseItemManager v-if="activeTab === 'expense'" />
         <MaterialManager v-if="activeTab === 'material'" />
+        <VendorManager v-if="activeTab === 'vendor'" />
     </div>
 </template>
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 import ExpenseItemManager from '@/components/masterData/ExpenseItemManager.vue'
 import MaterialManager from '@/components/masterData/MaterialManager.vue'
+import VendorManager from '@/components/masterData/VendorManager.vue'
 import { useExpenseItemsStore } from '@/stores/expenseItems'
 import { useMaterialsStore } from '@/stores/materials'
+import { useVendorsStore } from '@/stores/vendors'
 
 const tabs = [
     { key: 'expense', label: '開店支出攤提' },
-    { key: 'material', label: '原料/包材' }
+    { key: 'material', label: '原料/包材' },
+    { key: 'vendor', label: '廠商資料' }
 ]
 const activeTab = ref('expense')
 
 const expenseItemsStore = useExpenseItemsStore()
 const materialsStore = useMaterialsStore()
+const vendorsStore = useVendorsStore()
 onMounted(() => {
     expenseItemsStore.subscribe()
     materialsStore.subscribe()
+    vendorsStore.subscribe()
 })
 onUnmounted(() => {
     expenseItemsStore.cleanup()
     materialsStore.cleanup()
+    vendorsStore.cleanup()
 })
 </script>
