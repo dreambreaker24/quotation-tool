@@ -99,12 +99,17 @@ async function submitForm() {
         return
     }
     submitting.value = true
+    const data = {
+        ...form.value,
+        currentStock: Number(form.value.currentStock) || 0,
+        safetyStock: Number(form.value.safetyStock) || 0
+    }
     try {
         if (editingId.value) {
-            await store.updateMaterial(editingId.value, form.value)
+            await store.updateMaterial(editingId.value, data)
             toast('品項已更新')
         } else {
-            await store.addMaterial(form.value)
+            await store.addMaterial(data)
             toast('品項已新增')
         }
         showForm.value = false
