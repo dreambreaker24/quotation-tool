@@ -16,4 +16,6 @@ dist-ssr
 
 # Environment
 .env
+.env.*.local
 firebase-admin-key.json
+.firebase/
