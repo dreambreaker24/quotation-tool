@@ -21,6 +21,9 @@
                 <div class="text-gray-500">
                     {{ (r.ingredients || []).map(i => `${i.materialName} ${i.qtyPerUnit}${i.unit}`).join('、') || '（尚未設定用料）' }}
                 </div>
+                <div v-if="r.pricing" class="text-[10px] text-gray-400 mt-1">
+                    單瓶 {{ r.pricing.single?.price }} 元／3入 {{ r.pricing.pack3?.price }} 元／6入 {{ r.pricing.pack6?.price }} 元
+                </div>
             </div>
         </div>
     </div>
@@ -49,6 +52,23 @@
                     </div>
                     <button @click="addIngredient" class="text-xs px-2 py-1 rounded-lg border border-gray-200 text-gray-500 hover:border-gray-400">+ 加一項用料</button>
                 </div>
+                <div>
+                    <label class="text-xs text-gray-500 mb-2 block">售價設定</label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <div>
+                            <label class="text-[10px] text-gray-400 mb-1 block">單瓶（元）</label>
+                            <input v-model.number="form.pricing.single.price" type="number" min="0" class="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1">
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-gray-400 mb-1 block">3入組（元）</label>
+                            <input v-model.number="form.pricing.pack3.price" type="number" min="0" class="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1">
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-gray-400 mb-1 block">6入組（元）</label>
+                            <input v-model.number="form.pricing.pack6.price" type="number" min="0" class="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1">
+                        </div>
+                    </div>
+                </div>
             </div>
             <div class="flex justify-end gap-2 mt-5">
                 <button @click="showForm = false" class="text-sm text-gray-400 px-4 py-2">取消</button>
@@ -74,7 +94,12 @@ const { toast } = useToast()
 const showForm = ref(false)
 const submitting = ref(false)
 const editingId = ref(null)
-const blankForm = () => ({ name: '', ingredients: [] })
+const blankPricing = () => ({
+    single: { price: null, bottles: 1 },
+    pack3: { price: null, bottles: 3 },
+    pack6: { price: null, bottles: 6 }
+})
+const blankForm = () => ({ name: '', ingredients: [], pricing: blankPricing() })
 const form = ref(blankForm())
 
 function openAdd() {
@@ -85,7 +110,15 @@ function openAdd() {
 
 function openEdit(r) {
     editingId.value = r.id
-    form.value = { name: r.name, ingredients: (r.ingredients || []).map(i => ({ ...i })) }
+    form.value = {
+        name: r.name,
+        ingredients: (r.ingredients || []).map(i => ({ ...i })),
+        pricing: {
+            single: { price: r.pricing?.single?.price ?? null, bottles: 1 },
+            pack3: { price: r.pricing?.pack3?.price ?? null, bottles: 3 },
+            pack6: { price: r.pricing?.pack6?.price ?? null, bottles: 6 }
+        }
+    }
     showForm.value = true
 }
 
@@ -119,7 +152,12 @@ async function submitForm() {
         name: form.value.name,
         ingredients: form.value.ingredients
             .filter(ing => ing.materialId)
-            .map(ing => ({ ...ing, qtyPerUnit: Number(ing.qtyPerUnit) || 0 }))
+            .map(ing => ({ ...ing, qtyPerUnit: Number(ing.qtyPerUnit) || 0 })),
+        pricing: {
+            single: { price: Number(form.value.pricing.single.price) || 0, bottles: 1 },
+            pack3: { price: Number(form.value.pricing.pack3.price) || 0, bottles: 3 },
+            pack6: { price: Number(form.value.pricing.pack6.price) || 0, bottles: 6 }
+        }
     }
     try {
         if (editingId.value) {
