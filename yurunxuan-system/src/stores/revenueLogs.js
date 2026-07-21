@@ -14,6 +14,9 @@ export const useRevenueLogsStore = defineStore('revenueLogs', () => {
     }
 
     async function getMonthlyTotal(monthStr) {
+        if (!/^\d{4}-\d{2}$/.test(monthStr)) {
+            throw new Error('月份格式錯誤，應為 YYYY-MM')
+        }
         const start = `${monthStr}-01`
         const end = `${monthStr}-31`
         const q = query(collection(db, 'revenueLogs'), where('date', '>=', start), where('date', '<=', end))
