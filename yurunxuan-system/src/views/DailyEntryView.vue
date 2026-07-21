@@ -2,14 +2,14 @@
     <div class="flex-1 p-4 sm:p-6 max-w-lg mx-auto w-full">
         <div class="flex gap-2 mb-4">
             <button v-for="tab in tabs" :key="tab.key" @click="activeTab = tab.key"
-                class="flex-1 px-3 py-2 rounded-lg text-sm font-medium"
+                class="flex-1 px-3 py-2.5 rounded-lg text-sm font-medium"
                 :class="activeTab === tab.key ? 'text-white' : 'text-gray-500 bg-white'"
                 :style="activeTab === tab.key ? 'background:#4a3535' : ''">
                 {{ tab.label }}
             </button>
         </div>
-        <ProductionForm v-if="activeTab === 'production'" />
-        <PurchaseForm v-if="activeTab === 'purchase'" />
+        <ProductionForm v-show="activeTab === 'production'" />
+        <PurchaseForm v-show="activeTab === 'purchase'" />
     </div>
 </template>
 <script setup>
