@@ -44,4 +44,13 @@ describe('calcProductionDeductions', () => {
     expect(calcProductionDeductions(ingredients, NaN)).toEqual([])
     expect(calcProductionDeductions(ingredients, undefined)).toEqual([])
   })
+  it('配方裡同一個原料重複出現時，扣除量要合併加總而不是各自獨立（避免 Firestore Transaction 覆蓋問題）', () => {
+    const ingredients = [
+      { materialId: 'm1', qtyPerUnit: 10 },
+      { materialId: 'm1', qtyPerUnit: 5 }
+    ]
+    expect(calcProductionDeductions(ingredients, 2)).toEqual([
+      { materialId: 'm1', delta: -30 }
+    ])
+  })
 })
