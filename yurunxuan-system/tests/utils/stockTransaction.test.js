@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { calcProductionDeductions } from '@/utils/stockTransaction'
+import { calcProductionDeductions, isLowStock } from '@/utils/stockTransaction'
 
 describe('calcProductionDeductions', () => {
   it('依配方用量乘以生產杯數，算出每項原料要扣多少（負數）', () => {
@@ -52,5 +52,19 @@ describe('calcProductionDeductions', () => {
     expect(calcProductionDeductions(ingredients, 2)).toEqual([
       { materialId: 'm1', delta: -30 }
     ])
+  })
+})
+
+describe('isLowStock', () => {
+  it('安全庫存大於 0 且目前庫存低於安全庫存時回傳 true', () => {
+    expect(isLowStock({ currentStock: 2, safetyStock: 5 })).toBe(true)
+  })
+  it('目前庫存大於等於安全庫存時回傳 false', () => {
+    expect(isLowStock({ currentStock: 5, safetyStock: 5 })).toBe(false)
+    expect(isLowStock({ currentStock: 8, safetyStock: 5 })).toBe(false)
+  })
+  it('安全庫存是 0 或未設定時一律回傳 false（代表還沒設定，不當成低庫存）', () => {
+    expect(isLowStock({ currentStock: 0, safetyStock: 0 })).toBe(false)
+    expect(isLowStock({ currentStock: 0 })).toBe(false)
   })
 })

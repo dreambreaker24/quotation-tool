@@ -8,3 +8,9 @@ export function calcProductionDeductions(ingredients, qty) {
     }
     return Array.from(deltaMap, ([materialId, delta]) => ({ materialId, delta }))
 }
+
+export function isLowStock(material) {
+    const safetyStock = material.safetyStock ?? 0
+    const currentStock = material.currentStock ?? 0
+    return safetyStock > 0 && currentStock < safetyStock
+}
