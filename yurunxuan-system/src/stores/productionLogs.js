@@ -3,6 +3,12 @@ import { runTransaction, doc, collection, serverTimestamp } from 'firebase/fires
 import { db } from '@/firebase'
 import { calcProductionDeductions } from '@/utils/stockTransaction'
 
+function calcExpiryDate(producedDate) {
+    const d = new Date(`${producedDate}T00:00:00+08:00`)
+    d.setDate(d.getDate() + 7)
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei' }).format(d)
+}
+
 export const useProductionLogsStore = defineStore('productionLogs', () => {
     async function addProductionLog({ date, drinkId, drinkName, qty, recordedBy, recordedByUid, ingredients }) {
         const validQty = Number(qty)
@@ -21,6 +27,17 @@ export const useProductionLogsStore = defineStore('productionLogs', () => {
 
             const logRef = doc(collection(db, 'productionLogs'))
             transaction.set(logRef, { date, drinkId, drinkName, qty: validQty, recordedBy, recordedByUid, createdAt: serverTimestamp() })
+
+            const batchRef = doc(collection(db, 'productionBatches'))
+            transaction.set(batchRef, {
+                drinkId, drinkName,
+                qty: validQty,
+                remainingQty: validQty,
+                producedDate: date,
+                expiryDate: calcExpiryDate(date),
+                createdAt: serverTimestamp()
+            })
+
             return logRef.id
         })
     }
