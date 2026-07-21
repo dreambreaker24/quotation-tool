@@ -34,4 +34,18 @@ describe('pickBatchesForDeduction', () => {
     expect(() => pickBatchesForDeduction(batches, 0)).toThrow('扣庫存數量必須是正數')
     expect(() => pickBatchesForDeduction(batches, -3)).toThrow('扣庫存數量必須是正數')
   })
+  it('remainingQty 是 undefined/NaN 的髒資料時，視為 0，不會污染後面批次的扣款量', () => {
+    const batches = [{ id: 'b1' }, { id: 'b2', remainingQty: 20 }]
+    expect(pickBatchesForDeduction(batches, 5)).toEqual([
+      { batchId: 'b1', deductQty: 0 },
+      { batchId: 'b2', deductQty: 5 }
+    ])
+  })
+  it('remainingQty 是負數的髒資料時，視為 0，不會讓扣款方向顛倒', () => {
+    const batches = [{ id: 'b1', remainingQty: -5 }, { id: 'b2', remainingQty: 20 }]
+    expect(pickBatchesForDeduction(batches, 15)).toEqual([
+      { batchId: 'b1', deductQty: 0 },
+      { batchId: 'b2', deductQty: 15 }
+    ])
+  })
 })
