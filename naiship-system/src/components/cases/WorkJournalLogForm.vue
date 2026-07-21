@@ -2,7 +2,7 @@
   <div v-if="show" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center" style="background:rgba(0,0,0,0.4)">
     <div class="bg-white sm:rounded-2xl rounded-t-2xl shadow-xl px-4 py-5 sm:p-6 w-full sm:max-w-lg sm:mx-4 max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
       <div class="flex items-center justify-between mb-4">
-        <h3 class="text-base font-bold text-gray-800">{{ editingLog ? '編輯工作日誌' : '填寫今日工作日誌' }}</h3>
+        <h3 class="text-base font-bold text-gray-800">{{ editingLog ? '編輯工作日誌' : '填寫工作日誌' }}</h3>
         <button @click="$emit('close')" class="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
       </div>
       <div class="flex items-center gap-2 mb-4">
@@ -221,7 +221,7 @@ const REGION_LABELS = { south: '奈拾南區', north: '奈拾北區', central: '
 const regionLabel = computed(() => REGION_LABELS[props.region] ?? props.region)
 
 const todayLabel = computed(() => {
-    const d = props.editingLog?.date?.toDate?.() ?? new Date()
+    const d = props.editingLog?.date?.toDate?.() ?? props.targetDate ?? new Date()
     return `${d.getFullYear()} 年 ${d.getMonth() + 1} 月 ${d.getDate()} 日`
 })
 
