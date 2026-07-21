@@ -22,7 +22,8 @@ service cloud.firestore {
     }
     match /materials/{materialId} {
       allow read: if isSignedIn();
-      allow write: if isOwner();
+      allow write: if isOwner()
+        || (isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['currentStock']));
     }
     match /recipes/{recipeId} {
       allow read: if isSignedIn();
@@ -53,6 +54,10 @@ service cloud.firestore {
     }
     match /monthlyExpenses/{expenseId} {
       allow read, write: if isOwner();
+    }
+    match /productionBatches/{batchId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
     }
   }
 }
