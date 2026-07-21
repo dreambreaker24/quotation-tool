@@ -33,17 +33,17 @@ service cloud.firestore {
     }
     match /productionLogs/{logId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.recordedByUid == request.auth.uid;
       allow update, delete: if isOwner();
     }
     match /purchaseLogs/{logId} {
       allow read: if isOwner();
-      allow create: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.recordedByUid == request.auth.uid;
       allow update, delete: if isOwner();
     }
     match /wasteLogs/{logId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.recordedByUid == request.auth.uid;
       allow update, delete: if isOwner();
     }
   }
