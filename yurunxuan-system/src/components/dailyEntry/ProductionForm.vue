@@ -77,9 +77,13 @@ async function submitForm() {
         return
     }
     submitting.value = true
-    const drinkName = selectedRecipe.value.name
-    const qty = form.value.qty
     try {
+        if (!selectedRecipe.value) {
+            toast('該配方已被移除，請重新選擇', 'error')
+            return
+        }
+        const drinkName = selectedRecipe.value.name
+        const qty = form.value.qty
         await productionLogsStore.addProductionLog({
             date: form.value.date,
             drinkId: selectedRecipe.value.id,
