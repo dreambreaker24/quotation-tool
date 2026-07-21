@@ -193,6 +193,7 @@ import { useToast } from '@/composables/useToast'
 
 const props = defineProps({
     show: Boolean, editingLog: Object, region: String,
+    targetDate: { type: Date, default: null },
     canEditContent: { type: Boolean, default: true },
     canEditOvertimeFuel: { type: Boolean, default: true },
 })
@@ -351,11 +352,12 @@ async function submitLog() {
         } catch { /* skip */ }
     }
 
+    const logDate = props.targetDate ?? new Date()
     const logDoc = {
         userId: authStore.user?.uid ?? '',
         userName: authStore.name ?? '',
         companyId: props.region,
-        date: Timestamp.fromDate(new Date()),
+        date: Timestamp.fromDate(logDate),
         ...(caseEntries.length > 0 && { caseEntries }),
         ...(other.length > 0 && { otherItems: other }),
         ...(fuelData && { fuelExpenses: fuelData, fuelApproved: false }),
@@ -364,9 +366,8 @@ async function submitLog() {
     }
     try {
         await logsStore.addLog(logDoc)
-        const now = new Date()
-        const dateStr = `${now.getMonth() + 1}/${now.getDate()}`
-        const logDateISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+        const dateStr = `${logDate.getMonth() + 1}/${logDate.getDate()}`
+        const logDateISO = `${logDate.getFullYear()}-${String(logDate.getMonth() + 1).padStart(2, '0')}-${String(logDate.getDate()).padStart(2, '0')}`
         notifStore.notifyAll(authStore.name ?? '', `新增了 ${dateStr} 工作日誌`, '', '', authStore.companyId ?? '', logDateISO, '', '', false, '', '', authStore.user?.uid ?? '')
         toast('日誌已送出')
         emit('submitted')

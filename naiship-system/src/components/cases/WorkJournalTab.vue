@@ -37,9 +37,9 @@
           </div>
           <button v-if="viewMode === 'week'" @click="exportWeekLogs"
             class="text-xs border border-gray-200 rounded-lg px-3 py-1.5 text-gray-500 hover:border-gray-400">匯出本週</button>
-          <button v-if="isToday" @click="openLogForm"
+          <button v-if="canCreateLog" @click="openLogForm"
             class="text-sm text-white px-4 py-2 rounded-lg w-full lg:w-auto min-h-[40px] font-semibold" style="background:#1e2533">
-            + 填寫今日日誌
+            {{ createLogLabel }}
           </button>
           <button v-if="authStore.isManager" @click="openProxyPicker"
             class="text-sm text-gray-500 border border-gray-200 px-4 py-2 rounded-lg w-full lg:w-auto min-h-[40px] font-semibold hover:border-gray-400">
@@ -95,6 +95,7 @@
     :show="showLogForm"
     :editing-log="editingLog"
     :region="region"
+    :target-date="selectedDate"
     :can-edit-content="editingLog ? canEditContentFor(editingLog) : true"
     :can-edit-overtime-fuel="editingLog ? canEditOvertimeFuelFor(editingLog) : true"
     @close="showLogForm = false; editingLog = null"
@@ -290,6 +291,14 @@ const isToday = computed(() => {
     const t = new Date()
     const s = selectedDate.value
     return t.getFullYear() === s.getFullYear() && t.getMonth() === s.getMonth() && t.getDate() === s.getDate()
+})
+
+const canCreateLog = computed(() => canSelfEditOvertimeFuel(selectedDate.value))
+
+const createLogLabel = computed(() => {
+    if (isToday.value) return '+ 填寫今日日誌'
+    const d = selectedDate.value
+    return `+ 補寫 ${d.getMonth() + 1}/${d.getDate()} 日誌`
 })
 
 const isAtEnd = computed(() => {
