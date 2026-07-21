@@ -10,19 +10,22 @@
         </div>
         <ProductionForm v-show="activeTab === 'production'" />
         <PurchaseForm v-show="activeTab === 'purchase'" />
+        <RevenueForm v-show="activeTab === 'revenue'" />
     </div>
 </template>
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 import ProductionForm from '@/components/dailyEntry/ProductionForm.vue'
 import PurchaseForm from '@/components/dailyEntry/PurchaseForm.vue'
+import RevenueForm from '@/components/dailyEntry/RevenueForm.vue'
 import { useMaterialsStore } from '@/stores/materials'
 import { useVendorsStore } from '@/stores/vendors'
 import { useRecipesStore } from '@/stores/recipes'
 
 const tabs = [
     { key: 'production', label: '生產登記' },
-    { key: 'purchase', label: '進貨登記' }
+    { key: 'purchase', label: '進貨登記' },
+    { key: 'revenue', label: '收入登記' }
 ]
 const activeTab = ref('production')
 
