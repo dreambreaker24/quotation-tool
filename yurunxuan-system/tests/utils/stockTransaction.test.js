@@ -31,4 +31,17 @@ describe('calcProductionDeductions', () => {
       { materialId: 'm1', delta: -60 }
     ])
   })
+  it('qty 是負數時回傳空陣列，不會變成錯誤地加庫存', () => {
+    const ingredients = [{ materialId: 'm1', qtyPerUnit: 30 }]
+    expect(calcProductionDeductions(ingredients, -5)).toEqual([])
+  })
+  it('qty 是 0 時回傳空陣列', () => {
+    const ingredients = [{ materialId: 'm1', qtyPerUnit: 30 }]
+    expect(calcProductionDeductions(ingredients, 0)).toEqual([])
+  })
+  it('qty 是 NaN 或 undefined 時回傳空陣列，不會產生 NaN 扣庫存量', () => {
+    const ingredients = [{ materialId: 'm1', qtyPerUnit: 30 }]
+    expect(calcProductionDeductions(ingredients, NaN)).toEqual([])
+    expect(calcProductionDeductions(ingredients, undefined)).toEqual([])
+  })
 })
