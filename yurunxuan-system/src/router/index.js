@@ -5,6 +5,7 @@ const routes = [
   { path: '/login', name: 'login', component: () => import('@/views/LoginView.vue'), meta: { public: true } },
   { path: '/', name: 'home', component: () => import('@/views/HomeView.vue') },
   { path: '/daily-entry', name: 'daily-entry', component: () => import('@/views/DailyEntryView.vue') },
+  { path: '/inventory', name: 'inventory', component: () => import('@/views/InventoryView.vue') },
   {
     path: '/master-data', name: 'master-data', component: () => import('@/views/MasterDataView.vue'),
     meta: { requireOwner: true }
