@@ -219,8 +219,17 @@ function handleKeydown(e) {
     if (e.key === 'ArrowLeft') { e.preventDefault(); navigatePhoto(-1) }
 }
 
+function sameDayTaipei(a, b) {
+    const fmt = (d) => d.toLocaleDateString('sv-SE', { timeZone: 'Asia/Taipei' })
+    return fmt(a) === fmt(b)
+}
+
 function openLogForm() {
-    editingLog.value = null
+    const existing = logsStore.logs.find(l =>
+        l.userId === authStore.user?.uid &&
+        l.date && sameDayTaipei(l.date.toDate?.() ?? new Date(l.date), selectedDate.value)
+    )
+    editingLog.value = existing ?? null
     showLogForm.value = true
 }
 
