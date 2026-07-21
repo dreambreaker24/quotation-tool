@@ -84,10 +84,14 @@ async function submitForm() {
         return
     }
     submitting.value = true
-    const materialName = selectedMaterial.value.name
-    const qty = form.value.qty
-    const unit = selectedUnit.value
     try {
+        if (!selectedMaterial.value) {
+            toast('該品項已被移除，請重新選擇', 'error')
+            return
+        }
+        const materialName = selectedMaterial.value.name
+        const qty = form.value.qty
+        const unit = selectedUnit.value
         await purchaseLogsStore.addPurchaseLog({
             date: form.value.date,
             materialId: form.value.materialId,
@@ -102,7 +106,7 @@ async function submitForm() {
         form.value = blankForm()
     } catch (e) {
         console.warn('進貨登記失敗:', e)
-        toast('登記失敗，請重試', 'error')
+        toast(e.message === '進貨數量必須是正數' ? e.message : '登記失敗，請重試', 'error')
     } finally {
         submitting.value = false
     }
