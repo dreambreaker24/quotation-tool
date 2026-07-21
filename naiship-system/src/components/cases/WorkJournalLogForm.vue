@@ -48,7 +48,7 @@
           ✓ 油資已核准，無法修改
         </div>
         <div v-else-if="!canEditOvertimeFuel" class="text-xs text-center text-red-500 py-2 bg-red-50 rounded-lg">
-          油資申請已超過補請期限（事發日 2 天內），請聯絡主管協助補提出
+          油資申請已超過補請期限（事發日 3 天內），請聯絡主管協助補提出
         </div>
         <template v-if="!editingLog?.fuelApproved && canEditOvertimeFuel">
           <div v-if="fuelItems.length === 0" class="text-xs text-gray-400 py-1">無油資申請（可點右上新增）</div>
@@ -113,7 +113,7 @@
           ✓ 加班已全部審核完畢
         </div>
         <div v-else-if="!canEditOvertimeFuel" class="text-xs text-center text-red-500 py-2 bg-red-50 rounded-lg">
-          加班申請已超過補請期限（事發日 2 天內），請聯絡主管協助補提出
+          加班申請已超過補請期限（事發日 3 天內），請聯絡主管協助補提出
         </div>
         <div v-else-if="overtimeItems.length === 0 && decidedOvertimeItems.length === 0" class="text-xs text-gray-400 py-1">無加班申請（可點右上新增）</div>
         <div v-for="(item, idx) in overtimeItems" :key="idx"

@@ -15,9 +15,9 @@ export function canEditGeneralContent(logDate) {
 }
 
 export function canSelfEditOvertimeFuel(logDate) {
-    return daysSince(logDate) <= 2
+    return daysSince(logDate) <= 3
 }
 
 export function canApproveOvertimeFuel(logDate, isAdmin, isManager) {
-    return daysSince(logDate) <= 2 ? isManager : isAdmin
+    return daysSince(logDate) <= 3 ? isManager : isAdmin
 }

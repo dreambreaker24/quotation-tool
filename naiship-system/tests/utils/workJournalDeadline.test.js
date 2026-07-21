@@ -37,10 +37,11 @@ describe('canSelfEditOvertimeFuel', () => {
     beforeEach(() => vi.setSystemTime(MOCK_NOW))
     afterEach(() => vi.useRealTimers())
 
-    it('is true within 2 days, false beyond', () => {
+    it('is true within 3 days, false beyond', () => {
         expect(canSelfEditOvertimeFuel(tsDate('2026-07-13'))).toBe(true)
         expect(canSelfEditOvertimeFuel(tsDate('2026-07-11'))).toBe(true)
-        expect(canSelfEditOvertimeFuel(tsDate('2026-07-10'))).toBe(false)
+        expect(canSelfEditOvertimeFuel(tsDate('2026-07-10'))).toBe(true)
+        expect(canSelfEditOvertimeFuel(tsDate('2026-07-09'))).toBe(false)
     })
 })
 
@@ -48,12 +49,12 @@ describe('canApproveOvertimeFuel', () => {
     beforeEach(() => vi.setSystemTime(MOCK_NOW))
     afterEach(() => vi.useRealTimers())
 
-    it('within 2 days: any manager can approve', () => {
-        expect(canApproveOvertimeFuel(tsDate('2026-07-11'), false, true)).toBe(true)
-        expect(canApproveOvertimeFuel(tsDate('2026-07-11'), false, false)).toBe(false)
+    it('within 3 days: any manager can approve', () => {
+        expect(canApproveOvertimeFuel(tsDate('2026-07-10'), false, true)).toBe(true)
+        expect(canApproveOvertimeFuel(tsDate('2026-07-10'), false, false)).toBe(false)
     })
-    it('beyond 2 days: only admin can approve, even if manager', () => {
-        expect(canApproveOvertimeFuel(tsDate('2026-07-10'), false, true)).toBe(false)
-        expect(canApproveOvertimeFuel(tsDate('2026-07-10'), true, true)).toBe(true)
+    it('beyond 3 days: only admin can approve, even if manager', () => {
+        expect(canApproveOvertimeFuel(tsDate('2026-07-09'), false, true)).toBe(false)
+        expect(canApproveOvertimeFuel(tsDate('2026-07-09'), true, true)).toBe(true)
     })
 })
