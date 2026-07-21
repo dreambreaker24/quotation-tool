@@ -73,7 +73,11 @@ onMounted(async () => {
     expenseItemsStore.subscribe()
     monthlyExpensesStore.subscribe()
     materialsStore.subscribe()
-    revenueTotal.value = await revenueLogsStore.getMonthlyTotal(currentMonth)
+    try {
+        revenueTotal.value = await revenueLogsStore.getMonthlyTotal(currentMonth)
+    } catch (e) {
+        console.warn('取得本月營收失敗:', e)
+    }
 })
 onUnmounted(() => {
     if (!auth.isOwner) return
