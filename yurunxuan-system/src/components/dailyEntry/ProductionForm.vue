@@ -46,13 +46,14 @@ import { useProductionLogsStore } from '@/stores/productionLogs'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
 import { calcProductionDeductions } from '@/utils/stockTransaction'
+import { todayInTaipei } from '@/utils/date'
 
 const recipesStore = useRecipesStore()
 const productionLogsStore = useProductionLogsStore()
 const auth = useAuthStore()
 const { toast } = useToast()
 
-const todayStr = new Date().toISOString().slice(0, 10)
+const todayStr = todayInTaipei()
 const blankForm = () => ({ date: todayStr, drinkId: '', qty: null })
 const form = ref(blankForm())
 const submitting = ref(false)
@@ -76,17 +77,19 @@ async function submitForm() {
         return
     }
     submitting.value = true
+    const drinkName = selectedRecipe.value.name
+    const qty = form.value.qty
     try {
         await productionLogsStore.addProductionLog({
             date: form.value.date,
             drinkId: selectedRecipe.value.id,
-            drinkName: selectedRecipe.value.name,
-            qty: form.value.qty,
+            drinkName,
+            qty,
             recordedBy: auth.name,
             recordedByUid: auth.user.uid,
             ingredients: selectedRecipe.value.ingredients
         })
-        todayEntries.value.unshift({ drinkName: selectedRecipe.value.name, qty: form.value.qty })
+        todayEntries.value.unshift({ drinkName, qty })
         toast('生產登記成功')
         form.value = blankForm()
     } catch (e) {
