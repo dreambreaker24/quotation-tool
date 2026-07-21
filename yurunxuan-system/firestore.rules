@@ -46,5 +46,13 @@ service cloud.firestore {
       allow create: if isSignedIn() && request.resource.data.recordedByUid == request.auth.uid;
       allow update, delete: if isOwner();
     }
+    match /revenueLogs/{logId} {
+      allow read: if isOwner();
+      allow create: if isSignedIn() && request.resource.data.recordedByUid == request.auth.uid;
+      allow update, delete: if isOwner();
+    }
+    match /monthlyExpenses/{expenseId} {
+      allow read, write: if isOwner();
+    }
   }
 }
