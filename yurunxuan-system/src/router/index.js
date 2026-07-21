@@ -9,6 +9,10 @@ const routes = [
   {
     path: '/master-data', name: 'master-data', component: () => import('@/views/MasterDataView.vue'),
     meta: { requireOwner: true }
+  },
+  {
+    path: '/monthly-expenses', name: 'monthly-expenses', component: () => import('@/views/MonthlyExpenseView.vue'),
+    meta: { requireOwner: true }
   }
 ]
 
