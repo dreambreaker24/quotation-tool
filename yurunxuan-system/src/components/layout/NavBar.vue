@@ -6,6 +6,8 @@
     </div>
     <div class="flex gap-0.5 sm:gap-1 overflow-x-auto flex-shrink min-w-0">
       <router-link to="/" class="px-2 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm text-gray-300 hover:text-white transition-colors whitespace-nowrap">首頁</router-link>
+      <router-link to="/daily-entry" class="px-2 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm text-gray-300 hover:text-white transition-colors whitespace-nowrap">每日輸入</router-link>
+      <router-link to="/inventory" class="px-2 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm text-gray-300 hover:text-white transition-colors whitespace-nowrap">庫存總覽</router-link>
       <router-link v-if="auth.isOwner" to="/master-data" class="px-2 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm text-gray-300 hover:text-white transition-colors whitespace-nowrap">主檔資料</router-link>
     </div>
     <div class="ml-auto flex items-center gap-2">
