@@ -5,7 +5,11 @@ import { calcProductionDeductions } from '@/utils/stockTransaction'
 
 export const useProductionLogsStore = defineStore('productionLogs', () => {
     async function addProductionLog({ date, drinkId, drinkName, qty, recordedBy, recordedByUid, ingredients }) {
-        const deductions = calcProductionDeductions(ingredients, qty)
+        const validQty = Number(qty)
+        if (!Number.isFinite(validQty) || validQty <= 0) {
+            throw new Error('生產杯數必須是正數')
+        }
+        const deductions = calcProductionDeductions(ingredients, validQty)
         return runTransaction(db, async (transaction) => {
             const materialRefs = deductions.map(d => doc(db, 'materials', d.materialId))
             const materialSnaps = await Promise.all(materialRefs.map(ref => transaction.get(ref)))
@@ -16,7 +20,7 @@ export const useProductionLogsStore = defineStore('productionLogs', () => {
             })
 
             const logRef = doc(collection(db, 'productionLogs'))
-            transaction.set(logRef, { date, drinkId, drinkName, qty, recordedBy, recordedByUid, createdAt: serverTimestamp() })
+            transaction.set(logRef, { date, drinkId, drinkName, qty: validQty, recordedBy, recordedByUid, createdAt: serverTimestamp() })
             return logRef.id
         })
     }
