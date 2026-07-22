@@ -629,7 +629,10 @@ function calcHours(start, end) {
     if (!start || !end) return null
     const [sh, sm] = start.split(':').map(Number)
     const [eh, em] = end.split(':').map(Number)
-    const diff = (eh * 60 + em - sh * 60 - sm) / 60
+    const startMin = sh * 60 + sm
+    const endMin = eh * 60 + em
+    let diff = (endMin - startMin) / 60
+    if (startMin < 13 * 60 && endMin > 12 * 60) diff -= 1
     return diff > 0 ? diff : null
 }
 
@@ -664,7 +667,7 @@ watch(
     [() => eventForm.value.date, () => eventForm.value.endDate, () => eventForm.value.leaveType],
     ([date, endDate, leaveType]) => {
         if (eventForm.value.type !== 'leave') return
-        if (!TRACKED_LEAVE_TYPES.includes(leaveType)) return
+        if (!leaveType) return
         if (eventForm.value.startTime && eventForm.value.endTime) return
         eventForm.value.hours = calcBusinessDays(date, endDate) * 8
     }
@@ -674,7 +677,7 @@ watch(
     [() => editForm.value.date, () => editForm.value.endDate, () => editForm.value.leaveType],
     ([date, endDate, leaveType]) => {
         if (editForm.value.type !== 'leave') return
-        if (!TRACKED_LEAVE_TYPES.includes(leaveType)) return
+        if (!leaveType) return
         if (editForm.value.startTime && editForm.value.endTime) return
         editForm.value.hours = calcBusinessDays(date, endDate) * 8
     }
