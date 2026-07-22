@@ -18,25 +18,34 @@
             </div>
         </div>
 
+        <div class="mb-4">
+            <ExpiringBatchesCard />
+        </div>
+
         <WasteForm />
     </div>
 </template>
 <script setup>
 import { onMounted, onUnmounted } from 'vue'
 import WasteForm from '@/components/inventory/WasteForm.vue'
+import ExpiringBatchesCard from '@/components/inventory/ExpiringBatchesCard.vue'
 import { useMaterialsStore } from '@/stores/materials'
 import { useRecipesStore } from '@/stores/recipes'
+import { useProductionBatchesStore } from '@/stores/productionBatches'
 import { isLowStock } from '@/utils/stockTransaction'
 
 const materialsStore = useMaterialsStore()
 const recipesStore = useRecipesStore()
+const productionBatchesStore = useProductionBatchesStore()
 
 onMounted(() => {
     materialsStore.subscribe()
     recipesStore.subscribe()
+    productionBatchesStore.subscribe()
 })
 onUnmounted(() => {
     materialsStore.cleanup()
     recipesStore.cleanup()
+    productionBatchesStore.cleanup()
 })
 </script>

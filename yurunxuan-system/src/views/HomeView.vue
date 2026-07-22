@@ -18,7 +18,7 @@
                 </div>
             </div>
 
-            <div v-if="lowStockMaterials.length > 0" class="bg-white rounded-2xl shadow-md p-5">
+            <div v-if="lowStockMaterials.length > 0" class="bg-white rounded-2xl shadow-md p-5 mb-4">
                 <h2 class="text-sm font-semibold text-gray-700 pl-3 border-l-2 mb-3" style="border-left-color:#ef4444">低庫存警示</h2>
                 <div class="flex flex-col gap-1">
                     <div v-for="m in lowStockMaterials" :key="m.id"
@@ -29,6 +29,8 @@
                     </div>
                 </div>
             </div>
+
+            <ExpiringBatchesCard />
         </template>
         <div v-else class="text-sm text-gray-500">
             每日輸入功能還在開發中，尚未上線。
@@ -42,16 +44,19 @@ import { useExpenseItemsStore } from '@/stores/expenseItems'
 import { useMonthlyExpensesStore } from '@/stores/monthlyExpenses'
 import { useMaterialsStore } from '@/stores/materials'
 import { useRevenueLogsStore } from '@/stores/revenueLogs'
+import { useProductionBatchesStore } from '@/stores/productionBatches'
 import { calcMonthlyAmortization } from '@/utils/amortization'
 import { calcMonthlyProfit } from '@/utils/dashboardSummary'
 import { isLowStock } from '@/utils/stockTransaction'
 import { currentMonthInTaipei } from '@/utils/date'
+import ExpiringBatchesCard from '@/components/inventory/ExpiringBatchesCard.vue'
 
 const auth = useAuthStore()
 const expenseItemsStore = useExpenseItemsStore()
 const monthlyExpensesStore = useMonthlyExpensesStore()
 const materialsStore = useMaterialsStore()
 const revenueLogsStore = useRevenueLogsStore()
+const productionBatchesStore = useProductionBatchesStore()
 
 const currentMonth = currentMonthInTaipei()
 const revenueTotal = ref(0)
@@ -73,6 +78,7 @@ onMounted(async () => {
     expenseItemsStore.subscribe()
     monthlyExpensesStore.subscribe()
     materialsStore.subscribe()
+    productionBatchesStore.subscribe()
     try {
         revenueTotal.value = await revenueLogsStore.getMonthlyTotal(currentMonth)
     } catch (e) {
@@ -84,5 +90,6 @@ onUnmounted(() => {
     expenseItemsStore.cleanup()
     monthlyExpensesStore.cleanup()
     materialsStore.cleanup()
+    productionBatchesStore.cleanup()
 })
 </script>
