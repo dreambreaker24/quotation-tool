@@ -125,7 +125,9 @@ async function submitForm() {
         showForm.value = false
     } catch (e) {
         console.warn('報廢登記失敗:', e)
-        toast(e.message === '報廢數量必須是正數' ? e.message : '登記失敗，請重試', 'error')
+        const knownErrors = ['報廢數量必須是正數', '報廢類型錯誤']
+        const isKnownError = knownErrors.includes(e.message) || e.message?.startsWith('庫存不足')
+        toast(isKnownError ? e.message : '登記失敗，請重試', 'error')
     } finally {
         submitting.value = false
     }
