@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { runTransaction, addDoc, getDocs, doc, collection, query, where, serverTimestamp } from 'firebase/firestore'
+import { runTransaction, getDocs, doc, collection, query, where, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/firebase'
 import { pickBatchesForDeduction } from '@/utils/batchDeduction'
 
