@@ -2,12 +2,7 @@ import { defineStore } from 'pinia'
 import { runTransaction, doc, collection, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/firebase'
 import { calcProductionDeductions } from '@/utils/stockTransaction'
-
-function calcExpiryDate(producedDate) {
-    const d = new Date(`${producedDate}T00:00:00+08:00`)
-    d.setDate(d.getDate() + 7)
-    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei' }).format(d)
-}
+import { calcExpiryDate } from '@/utils/date'
 
 export const useProductionLogsStore = defineStore('productionLogs', () => {
     async function addProductionLog({ date, drinkId, drinkName, qty, recordedBy, recordedByUid, ingredients }) {
