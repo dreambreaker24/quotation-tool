@@ -19,3 +19,6 @@ dist-ssr
 .env.*.local
 firebase-admin-key.json
 .firebase/
+
+# E2E 測試登入態（含 session token，不可進版控）
+tests/e2e/
