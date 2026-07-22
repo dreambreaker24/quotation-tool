@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { runTransaction, doc, collection, serverTimestamp } from 'firebase/firestore'
+import { runTransaction, doc, collection, getDocs, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/firebase'
 
 export const usePurchaseLogsStore = defineStore('purchaseLogs', () => {
@@ -22,5 +22,21 @@ export const usePurchaseLogsStore = defineStore('purchaseLogs', () => {
         })
     }
 
-    return { addPurchaseLog }
+    async function getLatestUnitCosts() {
+        const snap = await getDocs(collection(db, 'purchaseLogs'))
+        const latest = {}
+        snap.docs.forEach(d => {
+            const data = d.data()
+            const existing = latest[data.materialId]
+            const isNewer = !existing ||
+                data.date > existing.date ||
+                (data.date === existing.date && (data.createdAt?.seconds ?? 0) > (existing.createdAt?.seconds ?? 0))
+            if (isNewer) {
+                latest[data.materialId] = { date: data.date, unitCost: data.unitCost, createdAt: data.createdAt }
+            }
+        })
+        return Object.fromEntries(Object.entries(latest).map(([id, v]) => [id, v.unitCost]))
+    }
+
+    return { addPurchaseLog, getLatestUnitCosts }
 })
