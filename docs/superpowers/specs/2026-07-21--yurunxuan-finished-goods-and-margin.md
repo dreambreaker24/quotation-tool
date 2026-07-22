@@ -107,6 +107,20 @@ Phase 1（骨架＋主檔＋進銷存＋收支儀表板）已經完成並上線�
 
 毛利率 = (單瓶售價 − 單瓶成本) ÷ 單瓶售價，三層售價（單瓶/3入/6入）都各自算一次，因為換算下來的「每瓶均價」不同，毛利率也會不同。畫面呈現：在「主檔資料」裡配方表分頁旁邊新增一個獨立的「毛利分析」分頁，三款飲品並排比較單瓶成本／三層毛利率，不跟配方表的用料清單擠在同一個列表（配方表本身欄位已經不少，硬塞毛利數字視覺會太擠）。
 
+### 計畫四B-2 實作細節（2026-07-22 補充）
+
+- `purchaseLogs.js` store 新增 `getLatestUnitCosts()`：查詢全部 `purchaseLogs`，依 `date`（同一天用 `createdAt` 判斷先後）取每項原料最新一筆的 `unitCost`，回傳 `{ materialId: unitCost }` 的 map。這是唯讀查詢，不需要即時訂閱（跟 `HomeView.vue` 現有的 `getMonthlyTotal` 一次性 fetch 模式一致），在「毛利分析」分頁 mount 時呼叫一次即可。
+- 新增純函式 `src/utils/marginAnalysis.js`：
+  - `calcDrinkCost(ingredients, unitCostMap)` — 加總每項原料用量 × 對應單價；只要有任一項原料在 `unitCostMap` 裡完全沒有紀錄（從未進貨過），整款飲品的成本標記為「未知」（回傳 `{ cost: null, hasUnknownCost: true }` 這種形狀，不是硬湊一個包含 0 元原料成本的誤導數字）
+  - `calcTierMargins(pricing, unitCost)` — 對 `single`/`pack3`/`pack6` 三層分別算「每瓶均價」＝ `tier.price / tier.bottles`，再算 `(avgPricePerBottle - unitCost) / avgPricePerBottle`；如果 `unitCost` 是 `null`（成本未知），每層都回傳 `null` 毛利率，畫面顯示「成本未知」而非錯誤數字
+- 新增純函式 `src/utils/expiringBatches.js`：
+  - `daysUntilExpiry(expiryDate, todayStr)` — 用跟 `calcExpiryDate` 一致的時區安全 UTC 日期運算，回傳整數天數差（0＝今天到期，負數＝已過期幾天）
+  - `filterExpiringBatches(batches, todayStr, withinDays = 2)` — 篩出 `remainingQty > 0` 且 `daysUntilExpiry <= withinDays` 的批次（**含已過期未報廢的批次**，柏確認需要看到，才知道要去手動報廢），依到期天數由小到大排序
+- 新增共用元件 `ExpiringBatchesCard.vue`，同時放在 `HomeView.vue`（首頁儀表板，owner-only 區塊內）跟 `InventoryView.vue`（庫存總覽，員工也看得到——這張卡只顯示飲品名/到期天數/剩餘瓶數，不含成本金額，跟現有「員工只看數量不看成本」的權限原則一致）。兩個畫面目前都還沒訂閱 `productionBatchesStore`，這次要各自補上 `subscribe()`/`cleanup()`。
+- 樣式：已過期（`daysUntilExpiry < 0`）用紅色標示「已過期 X 天，請盡快報廢」；0～2 天內用黃色標示「今天到期／明天到期／2 天後到期」
+- 新分頁：`MasterDataView.vue` 加第五個分頁「毛利分析」，對應新元件 `src/components/masterData/MarginAnalysis.vue`（整個 `/master-data` 路由本來就是 `requireOwner`，不用額外加權限判斷）
+- Firestore rules 不用改：`purchaseLogs` 讀取本來就 owner-only，`productionBatches` 讀取本來就 signed-in 皆可，都已經符合這次需求
+
 ## 頁面異動
 
 | 頁面 | 異動 |
@@ -114,7 +128,7 @@ Phase 1（骨架＋主檔＋進銷存＋收支儀表板）已經完成並上線�
 | 配方表（主檔資料） | 新增售價設定欄位（單瓶/3入/6入），新增「毛利分析」檢視 |
 | 收入登記（每日輸入） | 從單一金額輸入改成「品項＋方案＋組數」多筆列表，金額自動加總 |
 | 報廢登記（庫存總覽） | 成品飲品報廢時，不用手動選批次，跟銷售一樣自動用 FIFO 從最早到期的批次開始扣 |
-| 庫存總覽／首頁儀表板 | 新增「即將到期成品」卡片，列出到期日在 1～2 天內、`remainingQty > 0` 的批次 |
+| 庫存總覽／首頁儀表板 | 新增「即將到期成品」卡片，列出到期日在 1～2 天內（含已過期未報廢）、`remainingQty > 0` 的批次；庫存總覽這張卡員工也看得到 |
 
 ## 多人同時操作
 
@@ -128,7 +142,8 @@ Phase 1（骨架＋主檔＋進銷存＋收支儀表板）已經完成並上線�
 
 - `pickBatchesForDeduction` 這個 FIFO 純函式，用 vitest 完整覆蓋：單批夠扣、跨批扣、庫存不足拋錯、批次剛好扣完等情境
 - 毛利計算（單瓶成本、毛利率）比照 `calcMonthlyAmortization`／`calcMonthlyProfit` 的模式抽成純函式測試
-- Vue 元件（銷售登記多品項表單、毛利分析畫面）用瀏覽器手動走過完整流程驗證，不特別搭 component-mount 測試
+- `daysUntilExpiry`／`filterExpiringBatches` 用 vitest 覆蓋邊界情境：今天到期、明天到期、剛好2天後、超過2天（不列入）、已過期（列入）、`remainingQty` 為0或負數（排除）
+- Vue 元件（銷售登記多品項表單、毛利分析畫面、即將到期提醒卡）用瀏覽器手動走過完整流程驗證，不特別搭 component-mount 測試
 
 ## 現有資料遷移
 
