@@ -15,7 +15,7 @@ export function calcTierMargins(pricing, unitCost) {
     const result = {}
     for (const tier of tiers) {
         const tierInfo = pricing?.[tier]
-        if (!tierInfo || !tierInfo.price || unitCost === null || unitCost === undefined) {
+        if (!tierInfo || !tierInfo.price || !tierInfo.bottles || unitCost === null || unitCost === undefined) {
             result[tier] = null
             continue
         }

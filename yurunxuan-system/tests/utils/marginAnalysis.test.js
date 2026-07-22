@@ -55,4 +55,14 @@ describe('calcTierMargins', () => {
     expect(result.pack3).toBeNull()
     expect(result.pack6).toBeNull()
   })
+
+  it('該層瓶數是 0 或缺欄位時，那一層回傳 null，不會算出 Infinity/NaN', () => {
+    const badPricing = {
+      single: { price: 190, bottles: 0 },
+      pack3: { price: 520 }
+    }
+    const result = calcTierMargins(badPricing, 50)
+    expect(result.single).toBeNull()
+    expect(result.pack3).toBeNull()
+  })
 })
