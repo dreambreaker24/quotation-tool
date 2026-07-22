@@ -13,6 +13,7 @@
         <VendorManager v-if="activeTab === 'vendor'" />
         <RecipeManager v-if="activeTab === 'recipe'" />
         <MarginAnalysis v-if="activeTab === 'margin'" />
+        <LineRecipientManager v-if="activeTab === 'line'" />
     </div>
 </template>
 <script setup>
@@ -22,17 +23,20 @@ import MaterialManager from '@/components/masterData/MaterialManager.vue'
 import VendorManager from '@/components/masterData/VendorManager.vue'
 import RecipeManager from '@/components/masterData/RecipeManager.vue'
 import MarginAnalysis from '@/components/masterData/MarginAnalysis.vue'
+import LineRecipientManager from '@/components/masterData/LineRecipientManager.vue'
 import { useExpenseItemsStore } from '@/stores/expenseItems'
 import { useMaterialsStore } from '@/stores/materials'
 import { useVendorsStore } from '@/stores/vendors'
 import { useRecipesStore } from '@/stores/recipes'
+import { useLineRecipientsStore } from '@/stores/lineRecipients'
 
 const tabs = [
     { key: 'expense', label: '開店支出攤提' },
     { key: 'material', label: '原料/包材' },
     { key: 'vendor', label: '廠商資料' },
     { key: 'recipe', label: '配方表' },
-    { key: 'margin', label: '毛利分析' }
+    { key: 'margin', label: '毛利分析' },
+    { key: 'line', label: 'LINE 通知設定' }
 ]
 const activeTab = ref('expense')
 
@@ -40,16 +44,19 @@ const expenseItemsStore = useExpenseItemsStore()
 const materialsStore = useMaterialsStore()
 const vendorsStore = useVendorsStore()
 const recipesStore = useRecipesStore()
+const lineRecipientsStore = useLineRecipientsStore()
 onMounted(() => {
     expenseItemsStore.subscribe()
     materialsStore.subscribe()
     vendorsStore.subscribe()
     recipesStore.subscribe()
+    lineRecipientsStore.subscribe()
 })
 onUnmounted(() => {
     expenseItemsStore.cleanup()
     materialsStore.cleanup()
     vendorsStore.cleanup()
     recipesStore.cleanup()
+    lineRecipientsStore.cleanup()
 })
 </script>
