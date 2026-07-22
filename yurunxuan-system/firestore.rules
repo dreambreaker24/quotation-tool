@@ -57,7 +57,10 @@ service cloud.firestore {
     }
     match /productionBatches/{batchId} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isOwner()
+        || (isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['remainingQty']));
+      allow delete: if isOwner();
     }
   }
 }
