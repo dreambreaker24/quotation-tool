@@ -10,7 +10,7 @@
         <div v-else class="flex flex-col gap-2">
             <div v-for="r in store.recipients" :key="r.id" class="px-3 py-2 rounded-lg border border-gray-100 bg-gray-50/50">
                 <div class="flex items-center gap-2 mb-2">
-                    <input :value="r.name" @change="updateName(r.id, $event.target.value)"
+                    <input v-model="draftNames[r.id]" @change="updateName(r.id, draftNames[r.id])"
                         class="flex-1 text-sm border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1">
                     <button @click="confirmDelete(r)" class="text-red-400 hover:text-red-600 text-xs">刪除</button>
                 </div>
@@ -29,11 +29,23 @@
     </div>
 </template>
 <script setup>
+import { reactive, watch } from 'vue'
 import { useLineRecipientsStore } from '@/stores/lineRecipients'
 import { useToast } from '@/composables/useToast'
 
 const store = useLineRecipientsStore()
 const { toast } = useToast()
+
+// Local draft copy of names, decoupled from the live store array so that an
+// unrelated Firestore snapshot (e.g. someone else toggling a checkbox) can't
+// reset an in-progress edit. Seeded lazily and only once per id — never
+// overwritten once present, so it survives every later re-render.
+const draftNames = reactive({})
+watch(() => store.recipients, (list) => {
+    for (const r of list) {
+        if (!(r.id in draftNames)) draftNames[r.id] = r.name
+    }
+}, { immediate: true })
 
 async function updateName(id, name) {
     if (!name) {
