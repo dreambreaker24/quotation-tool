@@ -62,7 +62,7 @@
 
           <!-- 案件列 -->
           <template v-else-if="row.type === 'case'">
-            <div :id="'case-row-' + row.data.id" class="flex border-b border-gray-100" style="height:44px"
+            <div :id="'case-row-' + row.data.id" class="flex border-b border-gray-100" style="min-height:44px"
               :style="[row.isEnded ? 'opacity:0.55' : '', selectedCaseId === row.data.id ? 'background:rgba(201,169,110,0.05)' : ''].filter(Boolean).join(';')">
               <div @click="selectCase(row.data.id)"
                 class="flex-shrink-0 sticky left-0 z-10 border-r border-gray-200 px-3 flex items-center gap-2 cursor-pointer transition-colors"
