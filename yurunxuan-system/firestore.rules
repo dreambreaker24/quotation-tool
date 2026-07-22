@@ -62,5 +62,8 @@ service cloud.firestore {
         || (isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['remainingQty']));
       allow delete: if isOwner();
     }
+    match /lineRecipients/{recipientId} {
+      allow read, write: if isOwner();
+    }
   }
 }
