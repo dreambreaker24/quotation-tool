@@ -48,53 +48,54 @@ async function handleFollow(userId, accessToken) {
 
 export const checkLowStockOnBatchWrite = onDocumentWritten(
     { document: 'productionBatches/{batchId}', secrets: [LINE_CHANNEL_ACCESS_TOKEN] },
-    async (event) => {
-        const after = event.data.after?.data()
-        const before = event.data.before?.data()
-        const drinkId = after?.drinkId || before?.drinkId
-        if (!drinkId) return
+    (event) => handleBatchWrite(event)
+)
 
-        const drinkName = after?.drinkName || before?.drinkName
-        const recipeRef = db.collection('recipes').doc(drinkId)
-        let pushInfo = null
+async function handleBatchWrite(event) {
+    const after = event.data.after.data()
+    const before = event.data.before.data()
+    const drinkId = after?.drinkId || before?.drinkId
+    if (!drinkId) return
 
-        await db.runTransaction(async (transaction) => {
-            const recipeSnap = await transaction.get(recipeRef)
-            if (!recipeSnap.exists) return
-            const recipe = recipeSnap.data()
-            if (recipe.lowStockThreshold == null) return
+    const drinkName = after?.drinkName || before?.drinkName
+    const recipeRef = db.collection('recipes').doc(drinkId)
 
-            const batchesSnap = await transaction.get(
-                db.collection('productionBatches').where('drinkId', '==', drinkId)
-            )
-            const totalRemainingQty = batchesSnap.docs.reduce(
-                (sum, doc) => sum + (doc.data().remainingQty || 0), 0
-            )
+    const pushInfo = await db.runTransaction(async (transaction) => {
+        const recipeSnap = await transaction.get(recipeRef)
+        if (!recipeSnap.exists) return null
+        const recipe = recipeSnap.data()
+        if (recipe.lowStockThreshold == null) return null
 
-            const lastPushAt = recipe.lastLowStockPushAt ? recipe.lastLowStockPushAt.toMillis() : null
-            const shouldPush = shouldSendLowStockPush({
-                totalRemainingQty,
-                threshold: recipe.lowStockThreshold,
-                lastPushAt,
-                now: Date.now()
-            })
-            if (!shouldPush) return
+        const batchesSnap = await transaction.get(
+            db.collection('productionBatches').where('drinkId', '==', drinkId)
+        )
+        const totalRemainingQty = batchesSnap.docs.reduce(
+            (sum, doc) => sum + (doc.data().remainingQty || 0), 0
+        )
 
-            transaction.update(recipeRef, { lastLowStockPushAt: FieldValue.serverTimestamp() })
-            pushInfo = { drinkName, totalRemainingQty, threshold: recipe.lowStockThreshold }
+        const lastPushAt = recipe.lastLowStockPushAt ? recipe.lastLowStockPushAt.toMillis() : null
+        const shouldPush = shouldSendLowStockPush({
+            totalRemainingQty,
+            threshold: recipe.lowStockThreshold,
+            lastPushAt,
+            now: Date.now()
         })
+        if (!shouldPush) return null
 
-        if (!pushInfo) return
+        transaction.update(recipeRef, { lastLowStockPushAt: FieldValue.serverTimestamp() })
+        return { drinkName, totalRemainingQty, threshold: recipe.lowStockThreshold }
+    })
 
-        const text = `${pushInfo.drinkName}庫存低於門檻：剩 ${pushInfo.totalRemainingQty} 杯（門檻 ${pushInfo.threshold} 杯）`
-        const recipientsSnap = await db.collection('lineRecipients').where('notifyLowStock', '==', true).get()
-        const accessToken = LINE_CHANNEL_ACCESS_TOKEN.value()
-        for (const doc of recipientsSnap.docs) {
-            try {
-                await sendLinePush(doc.id, text, accessToken)
-            } catch (err) {
-                console.error(`推播低庫存通知給 ${doc.id} 失敗:`, err)
-            }
+    if (!pushInfo) return
+
+    const text = `${pushInfo.drinkName}庫存低於門檻：剩 ${pushInfo.totalRemainingQty} 杯（門檻 ${pushInfo.threshold} 杯）`
+    const recipientsSnap = await db.collection('lineRecipients').where('notifyLowStock', '==', true).get()
+    const accessToken = LINE_CHANNEL_ACCESS_TOKEN.value()
+    for (const doc of recipientsSnap.docs) {
+        try {
+            await sendLinePush(doc.id, text, accessToken)
+        } catch (err) {
+            console.error(`推播低庫存通知給 ${doc.id} 失敗:`, err)
         }
     }
-)
+}
