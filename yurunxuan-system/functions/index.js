@@ -107,9 +107,18 @@ export const dailySummaryPush = onSchedule(
     () => sendDailySummary()
 )
 
+function getStartOfDayInTaipei() {
+    const todayInTaipei = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Taipei',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+    }).format(new Date())
+    return new Date(`${todayInTaipei}T00:00:00+08:00`)
+}
+
 async function sendDailySummary() {
-    const startOfDay = new Date()
-    startOfDay.setHours(0, 0, 0, 0)
+    const startOfDay = getStartOfDayInTaipei()
 
     const [recipesSnap, productionSnap, revenueSnap, wasteSnap, batchesSnap] = await Promise.all([
         db.collection('recipes').get(),
