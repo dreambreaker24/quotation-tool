@@ -475,6 +475,8 @@ const currentYear = ref(today.getFullYear())
 const currentMonth = ref(today.getMonth())
 const highlightDate = ref(null)
 
+const REGION_LABELS = { south: '南區', north: '北區', central: '中區' }
+
 watch(() => props.jumpEventDate, (dateStr) => {
     if (!dateStr) return
     const d = new Date(dateStr)
@@ -483,6 +485,7 @@ watch(() => props.jumpEventDate, (dateStr) => {
     currentMonth.value = d.getMonth()
     highlightDate.value = dateStr
     emit('jumped-date')
+    toast(`已跳轉至 ${d.getFullYear()}年${d.getMonth() + 1}月・${REGION_LABELS[props.region] ?? props.region}`)
 }, { immediate: true })
 const showAddEvent = ref(false)
 const showAllRegions = ref(false)
