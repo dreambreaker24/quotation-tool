@@ -69,6 +69,10 @@
                         </div>
                     </div>
                 </div>
+                <div>
+                    <label class="text-xs text-gray-500 mb-1 block">低庫存門檻（杯）</label>
+                    <input v-model.number="form.lowStockThreshold" type="number" min="0" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1" placeholder="留空表示不啟用低庫存推播">
+                </div>
             </div>
             <div class="flex justify-end gap-2 mt-5">
                 <button @click="showForm = false" class="text-sm text-gray-400 px-4 py-2">取消</button>
@@ -99,7 +103,7 @@ const blankPricing = () => ({
     pack3: { price: null, bottles: 3 },
     pack6: { price: null, bottles: 6 }
 })
-const blankForm = () => ({ name: '', ingredients: [], pricing: blankPricing() })
+const blankForm = () => ({ name: '', ingredients: [], pricing: blankPricing(), lowStockThreshold: null })
 const form = ref(blankForm())
 
 function openAdd() {
@@ -117,7 +121,8 @@ function openEdit(r) {
             single: { price: r.pricing?.single?.price ?? null, bottles: 1 },
             pack3: { price: r.pricing?.pack3?.price ?? null, bottles: 3 },
             pack6: { price: r.pricing?.pack6?.price ?? null, bottles: 6 }
-        }
+        },
+        lowStockThreshold: r.lowStockThreshold ?? null
     }
     showForm.value = true
 }
@@ -157,7 +162,10 @@ async function submitForm() {
             single: { price: Number(form.value.pricing.single.price) || 0, bottles: 1 },
             pack3: { price: Number(form.value.pricing.pack3.price) || 0, bottles: 3 },
             pack6: { price: Number(form.value.pricing.pack6.price) || 0, bottles: 6 }
-        }
+        },
+        lowStockThreshold: form.value.lowStockThreshold === '' || form.value.lowStockThreshold == null
+            ? null
+            : Number(form.value.lowStockThreshold)
     }
     try {
         if (editingId.value) {
