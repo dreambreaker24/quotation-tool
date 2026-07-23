@@ -65,5 +65,11 @@ service cloud.firestore {
     match /lineRecipients/{recipientId} {
       allow read, write: if isOwner();
     }
+    match /pettyCash/{entryId} {
+      allow read, write: if isOwner();
+    }
+    match /settings/{settingId} {
+      allow read, write: if isOwner();
+    }
   }
 }
