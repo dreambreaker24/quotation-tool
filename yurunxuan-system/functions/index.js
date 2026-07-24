@@ -153,3 +153,52 @@ async function sendDailySummary() {
         }
     }
 }
+
+export const checkPettyCashOnEntryWrite = onDocumentWritten(
+    { document: 'pettyCash/{entryId}', secrets: [LINE_CHANNEL_ACCESS_TOKEN] },
+    () => handlePettyCashWrite()
+)
+
+async function handlePettyCashWrite() {
+    const settingsRef = db.collection('settings').doc('pettyCash')
+
+    const pushInfo = await db.runTransaction(async (transaction) => {
+        const settingsSnap = await transaction.get(settingsRef)
+        if (!settingsSnap.exists) return null
+        const settings = settingsSnap.data()
+        if (settings.lowBalanceThreshold == null) return null
+
+        const entriesSnap = await transaction.get(db.collection('pettyCash'))
+        const balance = entriesSnap.docs.reduce((sum, doc) => {
+            const data = doc.data()
+            if (data.type === 'topup') return sum + (data.amount || 0)
+            if (data.type === 'expense') return sum - (data.amount || 0)
+            return sum
+        }, 0)
+
+        const lastPushAt = settings.lastLowBalancePushAt ? settings.lastLowBalancePushAt.toMillis() : null
+        const shouldPush = shouldSendLowStockPush({
+            totalRemainingQty: balance,
+            threshold: settings.lowBalanceThreshold,
+            lastPushAt,
+            now: Date.now()
+        })
+        if (!shouldPush) return null
+
+        transaction.update(settingsRef, { lastLowBalancePushAt: FieldValue.serverTimestamp() })
+        return { balance, threshold: settings.lowBalanceThreshold }
+    })
+
+    if (!pushInfo) return
+
+    const text = `零用金餘額低於門檻：剩 $${pushInfo.balance}（門檻 $${pushInfo.threshold}）`
+    const recipientsSnap = await db.collection('lineRecipients').where('notifyLowPettyCash', '==', true).get()
+    const accessToken = LINE_CHANNEL_ACCESS_TOKEN.value()
+    for (const doc of recipientsSnap.docs) {
+        try {
+            await sendLinePush(doc.id, text, accessToken)
+        } catch (err) {
+            console.error(`推播零用金低餘額通知給 ${doc.id} 失敗:`, err)
+        }
+    }
+}
