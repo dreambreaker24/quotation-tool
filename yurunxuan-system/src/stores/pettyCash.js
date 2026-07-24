@@ -3,8 +3,6 @@ import { ref } from 'vue'
 import { collection, query, orderBy, onSnapshot, addDoc, doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/firebase'
 
-const SETTINGS_REF_PATH = ['settings', 'pettyCash']
-
 export const usePettyCashStore = defineStore('pettyCash', () => {
     const entries = ref([])
     const settings = ref({ lowBalanceThreshold: null })
@@ -16,7 +14,7 @@ export const usePettyCashStore = defineStore('pettyCash', () => {
         unsubscribe = onSnapshot(q, snap => {
             entries.value = snap.docs.map(d => ({ id: d.id, ...d.data() }))
         })
-        getDoc(doc(db, ...SETTINGS_REF_PATH)).then(snap => {
+        getDoc(doc(db, 'settings', 'pettyCash')).then(snap => {
             if (snap.exists()) settings.value = { ...settings.value, ...snap.data() }
         })
     }
@@ -27,11 +25,15 @@ export const usePettyCashStore = defineStore('pettyCash', () => {
 
     async function updateSettings(patch) {
         const next = { ...settings.value, ...patch }
-        await setDoc(doc(db, ...SETTINGS_REF_PATH), next, { merge: true })
+        await setDoc(doc(db, 'settings', 'pettyCash'), next, { merge: true })
         settings.value = next
     }
 
-    function cleanup() { if (unsubscribe) { unsubscribe(); unsubscribe = null }; entries.value = [] }
+    function cleanup() {
+        if (unsubscribe) { unsubscribe(); unsubscribe = null }
+        entries.value = []
+        settings.value = { lowBalanceThreshold: null }
+    }
 
     return { entries, settings, subscribe, addEntry, updateSettings, cleanup }
 })
