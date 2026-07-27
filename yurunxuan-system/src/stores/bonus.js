@@ -87,35 +87,35 @@ export const useBonusStore = defineStore('bonus', () => {
     }
 
     async function updateIndividualFinalAmount(quarterKey, uid, finalAmount) {
-        const ref = doc(db, 'bonusQuarters', quarterKey)
-        const snap = await getDoc(ref)
+        const docRef = doc(db, 'bonusQuarters', quarterKey)
+        const snap = await getDoc(docRef)
         const data = snap.data()
         const updated = data.individual.map(e => e.uid === uid ? { ...e, finalAmount } : e)
-        await updateDoc(ref, { individual: updated })
+        await updateDoc(docRef, { individual: updated })
         currentQuarter.value = { ...data, individual: updated }
     }
 
     async function setIndividualPaid(quarterKey, uid, paid) {
         const authStore = useAuthStore()
-        const ref = doc(db, 'bonusQuarters', quarterKey)
-        const snap = await getDoc(ref)
+        const docRef = doc(db, 'bonusQuarters', quarterKey)
+        const snap = await getDoc(docRef)
         const data = snap.data()
         const updated = data.individual.map(e => e.uid === uid
             ? { ...e, paid, paidAt: paid ? Timestamp.now() : null, paidBy: paid ? (authStore.name ?? '') : null }
             : e)
-        await updateDoc(ref, { individual: updated })
+        await updateDoc(docRef, { individual: updated })
         currentQuarter.value = { ...data, individual: updated }
     }
 
     async function setTeamPaid(quarterKey, uid, paid) {
         const authStore = useAuthStore()
-        const ref = doc(db, 'bonusQuarters', quarterKey)
-        const snap = await getDoc(ref)
+        const docRef = doc(db, 'bonusQuarters', quarterKey)
+        const snap = await getDoc(docRef)
         const data = snap.data()
         const updated = data.team.participants.map(e => e.uid === uid
             ? { ...e, paid, paidAt: paid ? Timestamp.now() : null, paidBy: paid ? (authStore.name ?? '') : null }
             : e)
-        await updateDoc(ref, { 'team.participants': updated })
+        await updateDoc(docRef, { 'team.participants': updated })
         currentQuarter.value = { ...data, team: { ...data.team, participants: updated } }
     }
 
