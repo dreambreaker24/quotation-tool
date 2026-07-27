@@ -23,6 +23,10 @@
                         <input type="checkbox" :checked="r.notifyDailySummary" @change="toggle(r.id, 'notifyDailySummary', $event.target.checked)">
                         每日摘要
                     </label>
+                    <label class="flex items-center gap-1.5">
+                        <input type="checkbox" :checked="r.notifyLowPettyCash" @change="toggle(r.id, 'notifyLowPettyCash', $event.target.checked)">
+                        零用金提醒
+                    </label>
                 </div>
             </div>
         </div>
