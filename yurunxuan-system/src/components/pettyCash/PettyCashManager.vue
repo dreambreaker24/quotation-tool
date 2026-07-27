@@ -26,9 +26,9 @@
                 <button @click="openAdd" class="text-xs text-white px-3 py-1.5 rounded-lg" style="background:#4a3535">+ 新增記帳</button>
             </div>
 
-            <div v-if="store.entries.length === 0" class="text-sm text-gray-400 text-center py-8">尚無記帳紀錄，點擊右上新增</div>
+            <div v-if="monthEntriesDesc.length === 0" class="text-sm text-gray-400 text-center py-8">本月尚無記帳紀錄，點擊右上新增</div>
             <div v-else class="flex flex-col gap-1">
-                <div v-for="item in store.entries" :key="item.id"
+                <div v-for="item in monthEntriesDesc" :key="item.id"
                     class="flex items-center gap-3 px-3 py-2 rounded-lg border border-gray-100 bg-gray-50/50 text-xs">
                     <span class="text-gray-500 w-20 flex-shrink-0">{{ item.date }}</span>
                     <span class="w-12 flex-shrink-0" :class="item.type === 'expense' ? 'text-red-500' : 'text-green-600'">{{ item.type === 'expense' ? '支出' : '撥入' }}</span>
@@ -126,6 +126,7 @@ const form = ref(blankForm())
 
 const balance = computed(() => calcBalance(store.entries))
 const monthSummary = computed(() => summarizeMonth(store.entries, reportMonth.value))
+const monthEntriesDesc = computed(() => [...monthSummary.value.entries].reverse())
 
 function openAdd() {
     form.value = blankForm()

@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { collection, query, orderBy, onSnapshot, addDoc, doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/firebase'
+import { useAuthStore } from '@/stores/auth'
 
 export const usePettyCashStore = defineStore('pettyCash', () => {
     const entries = ref([])
@@ -20,7 +21,8 @@ export const usePettyCashStore = defineStore('pettyCash', () => {
     }
 
     async function addEntry(data) {
-        return addDoc(collection(db, 'pettyCash'), { ...data, createdAt: serverTimestamp() })
+        const authStore = useAuthStore()
+        return addDoc(collection(db, 'pettyCash'), { ...data, createdBy: authStore.name ?? '', createdAt: serverTimestamp() })
     }
 
     async function updateSettings(patch) {
