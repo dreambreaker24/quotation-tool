@@ -114,7 +114,10 @@ import { useWorkLogsStore } from '@/stores/workLogs'
 import { useToast } from '@/composables/useToast'
 
 const TRACKED = ['蚌', 'Ramy', '昆霖', '賴賴']
-const COMP_FIELDS = ['compensatoryHours', 'compensatoryHolidayHours']
+// 補休月結（ensureMonthClosed）只跟這兩個欄位有關，特休沒有月結快照機制
+const MONTH_CLOSING_FIELDS = ['compensatoryHours', 'compensatoryHolidayHours']
+// 稽核記錄（adjustCompensatoryField 寫入 compAdjustments）三個欄位都適用
+const AUDITED_FIELDS = ['compensatoryHours', 'compensatoryHolidayHours', 'annualLeaveHours']
 
 const usersStore = useUsersStore()
 const authStore = useAuthStore()
@@ -200,8 +203,10 @@ async function saveEdit() {
     const user = usersStore.users.find(u => u.name === editingName.value)
     if (!user) { toast('找不到此員工', 'error'); return }
     try {
-        if (COMP_FIELDS.includes(editingField.value)) {
+        if (MONTH_CLOSING_FIELDS.includes(editingField.value)) {
             await usersStore.ensureMonthClosed(user.id)
+        }
+        if (AUDITED_FIELDS.includes(editingField.value)) {
             const prevValue = getHours(editingName.value, editingField.value)
             await usersStore.adjustCompensatoryField(user.id, editingField.value, editHours.value, prevValue, authStore.name)
         } else {
@@ -219,8 +224,10 @@ async function confirmReset(name, field, label) {
     const user = usersStore.users.find(u => u.name === name)
     if (!user) { toast('找不到此員工', 'error'); return }
     try {
-        if (COMP_FIELDS.includes(field)) {
+        if (MONTH_CLOSING_FIELDS.includes(field)) {
             await usersStore.ensureMonthClosed(user.id)
+        }
+        if (AUDITED_FIELDS.includes(field)) {
             const prevValue = getHours(name, field)
             await usersStore.adjustCompensatoryField(user.id, field, 0, prevValue, authStore.name)
         } else {
