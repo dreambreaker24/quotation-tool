@@ -10,6 +10,7 @@
       <router-link to="/inventory" class="px-2 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm text-gray-300 hover:text-white transition-colors whitespace-nowrap">庫存總覽</router-link>
       <router-link v-if="auth.isOwner" to="/master-data" class="px-2 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm text-gray-300 hover:text-white transition-colors whitespace-nowrap">主檔資料</router-link>
       <router-link v-if="auth.isOwner" to="/monthly-expenses" class="px-2 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm text-gray-300 hover:text-white transition-colors whitespace-nowrap">每月支出</router-link>
+      <router-link v-if="auth.isOwner" to="/petty-cash" class="px-2 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm text-gray-300 hover:text-white transition-colors whitespace-nowrap">零用金</router-link>
     </div>
     <div class="ml-auto flex items-center gap-2">
       <span class="hidden sm:inline text-xs text-gray-300">{{ auth.name }}（{{ auth.isOwner ? '負責人' : '店員' }}）</span>
