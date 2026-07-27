@@ -17,6 +17,10 @@ const routes = [
   {
     path: '/petty-cash', name: 'petty-cash', component: () => import('@/views/PettyCashView.vue'),
     meta: { requireOwner: true }
+  },
+  {
+    path: '/bonus', name: 'bonus', component: () => import('@/views/BonusView.vue'),
+    meta: { requireOwner: true }
   }
 ]
 

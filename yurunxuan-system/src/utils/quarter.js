@@ -1,7 +1,13 @@
+import { todayInTaipei } from './date'
+
 export function getQuarterKeyFromDate(dateStr) {
     const [year, month] = dateStr.split('-').map(Number)
     const q = Math.ceil(month / 3)
     return `${year}-Q${q}`
+}
+
+export function getCurrentQuarterKey() {
+    return getQuarterKeyFromDate(todayInTaipei())
 }
 
 export function getQuarterDateRange(quarterKey) {
