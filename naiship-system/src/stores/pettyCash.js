@@ -20,21 +20,35 @@ export const usePettyCashStore = defineStore('pettyCash', () => {
         lastNotifiedTotalLow: '',
     })
     let unsubscribe = null
+    let entriesReady = false
+    let entriesReadyResolvers = []
 
     function subscribe() {
         if (unsubscribe) return
         const q = query(collection(db, 'pettyCash'), orderBy('date', 'desc'))
         unsubscribe = onSnapshot(q, snap => {
             entries.value = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+            if (!entriesReady) {
+                entriesReady = true
+                entriesReadyResolvers.forEach(resolve => resolve())
+                entriesReadyResolvers = []
+            }
         })
         getDoc(doc(db, SETTINGS_PATH)).then(snap => {
             if (snap.exists()) settings.value = { ...settings.value, ...snap.data() }
         })
     }
 
+    function waitForEntriesReady() {
+        if (entriesReady) return Promise.resolve()
+        return new Promise(resolve => entriesReadyResolvers.push(resolve))
+    }
+
     function cleanup() {
         if (unsubscribe) { unsubscribe(); unsubscribe = null }
         entries.value = []
+        entriesReady = false
+        entriesReadyResolvers = []
     }
 
     const totalBalance = computed(() =>
@@ -73,7 +87,10 @@ export const usePettyCashStore = defineStore('pettyCash', () => {
             createdByName: authStore.name ?? '',
             createdAt: serverTimestamp(),
         })
-        if (data.type === 'expense') await checkNotifications()
+        if (data.type === 'expense') {
+            await waitForEntriesReady()
+            await checkNotifications()
+        }
     }
 
     async function updateEntry(id, data) {
