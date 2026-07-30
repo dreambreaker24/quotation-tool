@@ -143,12 +143,56 @@
         <span class="w-8 h-8 rounded-full flex items-center justify-center text-xs text-white font-bold flex-shrink-0" style="background:#c9a96e">
           {{ reply.creatorName?.[0] ?? '管' }}
         </span>
-        <div class="flex-1 rounded-xl px-3 py-2.5 border-l-4 text-xs text-gray-800 whitespace-pre-wrap" style="background:#fffbf4;border-left-color:#c9a96e">
+        <div class="flex-1 rounded-xl px-3 py-2.5 border-l-4 text-xs text-gray-800" style="background:#fffbf4;border-left-color:#c9a96e">
           <div class="flex items-center gap-2 mb-1">
             <span class="text-[10px] font-bold px-2 py-0.5 rounded-full text-white" style="background:#c9a96e">主管</span>
-            <span class="text-[10px] text-gray-500">{{ reply.creatorName }} · {{ formatTime(reply.createdAt) }}</span>
+            <span class="text-[10px] text-gray-500">
+              {{ reply.creatorName }} · {{ formatTime(reply.createdAt) }}
+              <span v-if="reply.updatedAt" class="text-gray-300">（已編輯）</span>
+            </span>
+            <button v-if="reply.createdBy === authStore.user?.uid && editingReplyId !== reply.id" @click="startEditReply(reply)"
+              class="ml-auto text-[10px] text-gray-400 hover:text-amber-600">編輯</button>
           </div>
-          {{ reply.content }}
+
+          <template v-if="editingReplyId === reply.id">
+            <textarea v-model="editReplyContent" rows="3"
+              class="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5 resize-none focus:outline-none focus:ring-1 mb-2"></textarea>
+            <div v-if="editReplyExistingAttachments.length || editReplyFiles.length" class="flex gap-2 flex-wrap mb-2">
+              <div v-for="(att, i) in editReplyExistingAttachments" :key="'e' + i" class="relative">
+                <a v-if="att.isPdf" :href="att.pdfUrl ?? att.url" target="_blank"
+                  class="w-10 h-10 rounded bg-red-100 flex items-center justify-center text-[9px] text-red-600 font-bold">PDF</a>
+                <img v-else :src="att.url" class="w-10 h-10 rounded object-cover">
+                <button @click="editReplyExistingAttachments.splice(i, 1)"
+                  class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-gray-600 text-white rounded-full text-[8px] leading-none flex items-center justify-center hover:bg-red-500">✕</button>
+              </div>
+              <div v-for="(f, i) in editReplyFiles" :key="'n' + i" class="relative">
+                <img v-if="f.preview" :src="f.preview" class="w-10 h-10 rounded object-cover">
+                <div v-else class="w-10 h-10 rounded bg-red-100 flex items-center justify-center text-[9px] text-red-600 font-bold">PDF</div>
+                <button @click="editReplyFiles.splice(i, 1)"
+                  class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-gray-600 text-white rounded-full text-[8px] leading-none flex items-center justify-center hover:bg-red-500">✕</button>
+              </div>
+            </div>
+            <div class="flex justify-between items-center gap-2">
+              <button @click="editReplyFileInput?.click()" class="text-[10px]" style="color:#c9a96e">+ 附加檔案</button>
+              <div class="flex gap-2">
+                <button @click="cancelEditReply" class="text-[10px] text-gray-500 px-2 py-1 rounded-lg border border-gray-200">取消</button>
+                <button @click="submitEditReply(reply)" :disabled="editReplyUploading"
+                  class="text-[10px] text-white px-2 py-1 rounded-lg disabled:opacity-60" style="background:#1e2533">
+                  {{ editReplyUploading ? '儲存中…' : '儲存' }}
+                </button>
+              </div>
+            </div>
+          </template>
+          <template v-else>
+            <div class="whitespace-pre-wrap">{{ reply.content }}</div>
+            <div v-if="reply.attachments?.length" class="flex gap-2 flex-wrap mt-1.5">
+              <a v-for="att in reply.attachments" :key="att.url"
+                :href="att.isPdf ? (att.pdfUrl ?? att.url) : undefined" :target="att.isPdf ? '_blank' : undefined">
+                <div v-if="att.isPdf" class="w-10 h-10 rounded bg-red-100 flex items-center justify-center text-[9px] text-red-600 font-bold hover:bg-red-200">PDF</div>
+                <img v-else :src="att.url" @click.prevent="previewImage(att.url)" class="w-10 h-10 rounded object-cover cursor-pointer hover:opacity-80">
+              </a>
+            </div>
+          </template>
         </div>
       </div>
       <button v-if="isManager" @click="showReply = !showReply"
@@ -160,13 +204,28 @@
       <div v-if="showReply" class="mt-2 flex flex-col gap-2 ml-4 sm:ml-8">
         <textarea v-model="replyContent" rows="3" placeholder="輸入回覆..."
           class="w-full text-xs border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 resize-none"></textarea>
-        <div class="flex justify-end gap-2">
-          <button @click="showReply = false; replyContent = ''"
-            class="text-xs text-gray-500 px-3 py-1.5 rounded-lg border border-gray-200">取消</button>
-          <button @click="submitReply"
-            class="text-xs text-white px-3 py-1.5 rounded-lg" style="background:#1e2533">送出</button>
+        <div v-if="replyFiles.length" class="flex gap-2 flex-wrap">
+          <div v-for="(f, i) in replyFiles" :key="i" class="relative">
+            <img v-if="f.preview" :src="f.preview" class="w-12 h-12 rounded object-cover">
+            <div v-else class="w-12 h-12 rounded bg-red-100 flex items-center justify-center text-[9px] text-red-600 font-bold">PDF</div>
+            <button @click="replyFiles.splice(i, 1)"
+              class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-gray-600 text-white rounded-full text-[8px] leading-none flex items-center justify-center hover:bg-red-500">✕</button>
+          </div>
+        </div>
+        <div class="flex justify-between items-center gap-2">
+          <button @click="replyFileInput?.click()" class="text-xs" style="color:#c9a96e">+ 附加檔案</button>
+          <div class="flex gap-2">
+            <button @click="showReply = false; replyContent = ''; replyFiles = []"
+              class="text-xs text-gray-500 px-3 py-1.5 rounded-lg border border-gray-200">取消</button>
+            <button @click="submitReply" :disabled="replyUploading"
+              class="text-xs text-white px-3 py-1.5 rounded-lg disabled:opacity-60" style="background:#1e2533">
+              {{ replyUploading ? '送出中…' : '送出' }}
+            </button>
+          </div>
         </div>
       </div>
+      <input ref="replyFileInput" type="file" accept="image/jpeg,image/jpg,image/png,image/webp,.pdf" multiple class="hidden" @change="handleReplyFiles">
+      <input ref="editReplyFileInput" type="file" accept="image/jpeg,image/jpg,image/png,image/webp,.pdf" multiple class="hidden" @change="handleEditReplyFiles">
     </div>
   </div>
 </template>
@@ -174,11 +233,14 @@
 import { ref, computed } from 'vue'
 import { useCasesStore } from '@/stores/cases'
 import { useUsersStore } from '@/stores/users'
+import { useAuthStore } from '@/stores/auth'
 import { CASE_STATUS_COLORS } from '@/constants/caseStatus'
 import { canApproveOvertimeFuel } from '@/utils/workJournalDeadline'
+import { uploadPhoto, validateUploadFile } from '@/composables/useStorage'
 
 const casesStore = useCasesStore()
 const usersStore = useUsersStore()
+const authStore = useAuthStore()
 
 const props = defineProps({
     log: Object,
@@ -186,7 +248,7 @@ const props = defineProps({
     isManager: Boolean,
     isAdmin: Boolean,
 })
-const emit = defineEmits(['edit', 'approve-fuel', 'approve-overtime-item', 'reply', 'preview'])
+const emit = defineEmits(['edit', 'approve-fuel', 'approve-overtime-item', 'reply', 'edit-reply', 'preview'])
 
 const displayName = computed(() =>
     usersStore.users.find(u => u.id === props.log.userId)?.name || props.log.userName
@@ -203,6 +265,16 @@ const canApprove = computed(() => canApproveOvertimeFuel(props.log.date, props.i
 
 const showReply = ref(false)
 const replyContent = ref('')
+const replyFiles = ref([])
+const replyFileInput = ref(null)
+const replyUploading = ref(false)
+
+const editingReplyId = ref(null)
+const editReplyContent = ref('')
+const editReplyFiles = ref([])
+const editReplyExistingAttachments = ref([])
+const editReplyFileInput = ref(null)
+const editReplyUploading = ref(false)
 
 function getLogImages(log) {
     const urls = []
@@ -214,6 +286,9 @@ function getLogImages(log) {
     if (log.logAttachments?.length) {
         log.logAttachments.forEach(att => { if (!att.isPdf) urls.push(att.url) })
     }
+    (log.replies || []).forEach(reply => {
+        reply.attachments?.forEach(att => { if (!att.isPdf) urls.push(att.url) })
+    })
     return urls
 }
 
@@ -223,11 +298,65 @@ function previewImage(url) {
     emit('preview', { urls, index: idx >= 0 ? idx : 0 })
 }
 
-function submitReply() {
-    if (!replyContent.value.trim()) return
-    emit('reply', props.log.id, replyContent.value.trim())
+function pickFiles(e, target) {
+    Array.from(e.target.files).forEach(file => {
+        const err = validateUploadFile(file)
+        if (err) { alert(err); return }
+        const isPdf = file.name.toLowerCase().endsWith('.pdf')
+        target.value.push({ file, preview: isPdf ? null : URL.createObjectURL(file) })
+    })
+    e.target.value = ''
+}
+
+function handleReplyFiles(e) { pickFiles(e, replyFiles) }
+function handleEditReplyFiles(e) { pickFiles(e, editReplyFiles) }
+
+async function uploadReplyFiles(files) {
+    const attachments = []
+    for (const f of files) {
+        try {
+            const url = await uploadPhoto(f.file, 'reply')
+            const isPdf = f.file.name.toLowerCase().endsWith('.pdf')
+            const pdfUrl = isPdf && !url.toLowerCase().endsWith('.pdf') ? url + '.pdf' : url
+            attachments.push({ url, isPdf, pdfUrl })
+        } catch { /* skip */ }
+    }
+    return attachments
+}
+
+async function submitReply() {
+    if (!replyContent.value.trim() || replyUploading.value) return
+    replyUploading.value = true
+    const attachments = await uploadReplyFiles(replyFiles.value)
+    emit('reply', props.log.id, replyContent.value.trim(), attachments)
     replyContent.value = ''
+    replyFiles.value = []
+    replyUploading.value = false
     showReply.value = false
+}
+
+function startEditReply(reply) {
+    editingReplyId.value = reply.id
+    editReplyContent.value = reply.content
+    editReplyExistingAttachments.value = [...(reply.attachments ?? [])]
+    editReplyFiles.value = []
+}
+
+function cancelEditReply() {
+    editingReplyId.value = null
+    editReplyContent.value = ''
+    editReplyFiles.value = []
+    editReplyExistingAttachments.value = []
+}
+
+async function submitEditReply(reply) {
+    if (!editReplyContent.value.trim() || editReplyUploading.value) return
+    editReplyUploading.value = true
+    const newAttachments = await uploadReplyFiles(editReplyFiles.value)
+    const attachments = [...editReplyExistingAttachments.value, ...newAttachments]
+    emit('edit-reply', props.log, reply.id, editReplyContent.value.trim(), attachments)
+    editReplyUploading.value = false
+    cancelEditReply()
 }
 
 const MEMBER_COLORS = { '柏': '#c9a96e', '其宏': '#1f2937', '蚌': '#ef4444' }

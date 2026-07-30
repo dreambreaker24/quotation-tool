@@ -59,6 +59,7 @@
         @approve-fuel="approveFuel"
         @approve-overtime-item="approveOvertimeItem"
         @reply="handleReply"
+        @edit-reply="handleEditReply"
         @preview="handlePreview"
       />
 
@@ -266,9 +267,9 @@ async function approveOvertimeItem(log, itemIndex, isApproved) {
     }
 }
 
-async function handleReply(logId, content) {
+async function handleReply(logId, content, attachments) {
     try {
-        await logsStore.addReply(logId, content, authStore.user?.uid ?? 'unknown', authStore.name ?? '')
+        await logsStore.addReply(logId, content, authStore.user?.uid ?? 'unknown', authStore.name ?? '', attachments)
         const log = logsStore.logs.find(l => l.id === logId) ?? logsStore.pendingLogs.find(l => l.id === logId)
         const ownerName = log?.userName ?? ''
         const d = log?.date?.toDate?.() ?? new Date()
@@ -277,6 +278,15 @@ async function handleReply(logId, content) {
         notifStore.notifyAll(authStore.name ?? '', `回覆了 ${ownerName} 在 ${dateStr} 的工作日誌`, '', '', authStore.companyId ?? '', logDateISO, '', '', false, '', '', log?.userId ?? '')
     } catch {
         toast('回覆失敗，請重試', 'error')
+    }
+}
+
+async function handleEditReply(log, replyId, content, attachments) {
+    try {
+        await logsStore.editReply(log, replyId, content, attachments)
+        toast('回覆已更新')
+    } catch {
+        toast('更新失敗，請重試', 'error')
     }
 }
 

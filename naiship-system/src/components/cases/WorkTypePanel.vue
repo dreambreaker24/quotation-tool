@@ -198,7 +198,7 @@
           <template v-if="wtFoldersForWt(wt.id).length">
             <div v-for="folder in wtFoldersForWt(wt.id)" :key="folder.id" class="mb-1">
               <div class="flex items-center gap-1.5 cursor-pointer py-0.5" @click="toggleWtFolder(folder.id)">
-                <span class="text-[9px] text-gray-300">{{ wtFolderExpanded[folder.id] !== false ? '▼' : '▶' }}</span>
+                <span class="text-[9px] text-gray-300">{{ wtFolderExpanded[folder.id] === true ? '▼' : '▶' }}</span>
                 <span class="text-[10px] font-semibold text-gray-600">📁 {{ folder.label }}</span>
                 <span v-if="wtPhotosInFolder(wt.id, folder.id).length"
                   class="text-[8px] min-w-[14px] h-3.5 px-0.5 rounded-full bg-gray-100 text-gray-500 leading-[14px] text-center">
@@ -215,8 +215,8 @@
                     class="text-[8px] text-red-300 hover:text-red-500 transition-colors px-0.5">刪除</button>
                 </div>
               </div>
-              <div v-if="folder.description && wtFolderExpanded[folder.id] !== false" class="text-[9px] text-gray-400 ml-4 mb-0.5">{{ folder.description }}</div>
-              <div v-if="wtFolderExpanded[folder.id] !== false">
+              <div v-if="folder.description && wtFolderExpanded[folder.id] === true" class="text-[9px] text-gray-400 ml-4 mb-0.5">{{ folder.description }}</div>
+              <div v-if="wtFolderExpanded[folder.id] === true">
                 <div v-if="!wtPhotosInFolder(wt.id, folder.id).length" class="text-[9px] text-gray-300 ml-4 py-0.5">尚無照片</div>
                 <div v-else class="flex gap-2 overflow-x-auto pb-1">
                   <div v-for="item in wtPhotosInFolder(wt.id, folder.id)" :key="item.id"

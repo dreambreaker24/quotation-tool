@@ -58,15 +58,23 @@ export const useWorkLogsStore = defineStore('workLogs', () => {
         return updateDoc(doc(db, 'workLogs', logId), { ...data, updatedAt: serverTimestamp() })
     }
 
-    async function addReply(logId, content, userId, userName) {
+    async function addReply(logId, content, userId, userName, attachments = []) {
         const reply = {
             id: Date.now().toString(),
             content,
             createdBy: userId,
             creatorName: userName ?? '',
-            createdAt: Timestamp.fromDate(new Date())
+            createdAt: Timestamp.fromDate(new Date()),
+            attachments
         }
         return updateDoc(doc(db, 'workLogs', logId), { replies: arrayUnion(reply) })
+    }
+
+    async function editReply(log, replyId, content, attachments) {
+        const updatedReplies = (log.replies ?? []).map(r =>
+            r.id === replyId ? { ...r, content, attachments, updatedAt: Timestamp.fromDate(new Date()) } : r
+        )
+        return updateDoc(doc(db, 'workLogs', log.id), { replies: updatedReplies })
     }
 
     async function approveFuel(logId, approverName) {
@@ -225,7 +233,7 @@ export const useWorkLogsStore = defineStore('workLogs', () => {
     return {
         logs, pendingLogs,
         subscribe, subscribePending, cleanupPending,
-        addLog, updateLog, addReply,
+        addLog, updateLog, addReply, editReply,
         approveFuel, approveOvertimeItem,
         fetchMonthlyKm, fetchMonthlyOvertimeHours, fetchMonthlyAttendance, fetchApprovedOvertimeDetail,
         findLogForUserDate, createProxyLog,

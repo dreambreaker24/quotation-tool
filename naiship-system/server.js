@@ -9,7 +9,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const app = express()
 app.use(cors())
 
-const TYPES = ['survey', '3d', 'construction', 'completion', 'commercial', 'fuel', 'floorplan', 'blueprint', 'vendor_quote']
+const TYPES = ['survey', '3d', 'construction', 'completion', 'commercial', 'fuel', 'floorplan', 'blueprint', 'vendor_quote', 'reply']
 
 TYPES.forEach(t => fs.mkdirSync(path.join(__dirname, 'uploads', t), { recursive: true }))
 
