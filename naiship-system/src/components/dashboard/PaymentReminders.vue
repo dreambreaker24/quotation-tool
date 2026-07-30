@@ -63,6 +63,7 @@
                             :class="getInvoiceReceived(r) ? 'text-green-600' : 'text-amber-500'">
                             {{ getInvoiceReceived(r) ? '✓ 發票已到' : '待收發票' }}
                           </span>
+                          <span v-if="r.endDate" class="text-[10px] text-gray-400">工程結束 {{ formatDate(r.endDate) }}</span>
                         </div>
                       </div>
                       <button v-if="authStore.isManager" @click="markDone(r.id)"
@@ -100,6 +101,7 @@
                 <div class="text-[11px] text-gray-500 mt-0.5">
                   {{ r.workTypeName }}<template v-if="r.description"> · {{ r.description }}</template>
                 </div>
+                <div v-if="r.endDate" class="text-[10px] text-gray-400 mt-0.5">工程結束 {{ formatDate(r.endDate) }}</div>
                 <div class="text-sm font-bold mt-1" style="color:#c9a96e">${{ (r.amount || 0).toLocaleString() }}</div>
                 <div v-if="r.note" class="text-[11px] text-gray-400 mt-0.5">{{ r.note }}</div>
                 <div v-if="r.createdByName" class="text-[10px] text-gray-300 mt-1">{{ r.createdByName }} 建立</div>

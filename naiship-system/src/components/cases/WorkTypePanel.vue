@@ -924,6 +924,7 @@ async function markDone(idx) {
         workTypeName: wt.name,
         vendorName: wt.vendorName || '',
         amount: wtVendorCostTotal(wt),
+        endDate: wt.endDate || '',
         createdBy: authStore.user?.uid ?? '',
         createdByName: authStore.name ?? '',
     })
@@ -1171,6 +1172,7 @@ async function submitForm() {
                     workTypeName: entry.name,
                     vendorName: entry.vendorName || '',
                     amount: vendorChange.amount,
+                    endDate: entry.endDate || '',
                     createdBy: authStore.user?.uid ?? '',
                     createdByName: authStore.name ?? '',
                 })
@@ -1202,6 +1204,7 @@ async function sendReminder(item, type) {
         description: item.description,
         amount: item.amount || 0,
         note: item.note || '',
+        endDate: wt.endDate || '',
         createdBy: authStore.user?.uid ?? '',
         createdByName: authStore.name ?? '',
     })
@@ -1281,6 +1284,7 @@ async function addVendorPayment() {
                     workTypeName: wt.name,
                     vendorName: wt.vendorName || '',
                     amount: totalCost - totalPaid,
+                    endDate: wt.endDate || '',
                     createdBy: authStore.user?.uid ?? '',
                     createdByName: authStore.name ?? '',
                 })

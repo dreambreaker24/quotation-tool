@@ -125,7 +125,7 @@ function wtPaymentTotal(wt) {
     return (items || []).reduce((s, i) => s + (i.amount || 0), 0)
 }
 
-const BACKFILL_KEY = 'naiship_reminders_backfilled_v4'
+const BACKFILL_KEY = 'naiship_reminders_backfilled_v5'
 
 async function backfillReminders() {
     if (localStorage.getItem(BACKFILL_KEY)) return
@@ -147,6 +147,7 @@ async function backfillReminders() {
                         workTypeId: wt.id, workTypeName: wt.name,
                         vendorName: wt.vendorName || '',
                         amount: vendorCost - vendorPaid,
+                        endDate: wt.endDate || '',
                         createdBy: authStore.user?.uid ?? '',
                         createdByName: authStore.name ?? '',
                     })
@@ -161,6 +162,7 @@ async function backfillReminders() {
                     workTypeId: wt.id, workTypeName: wt.name,
                     vendorName: wt.vendorName || '',
                     amount: wtPaymentTotal(wt),
+                    endDate: wt.endDate || '',
                     createdBy: authStore.user?.uid ?? '',
                     createdByName: authStore.name ?? '',
                 })
