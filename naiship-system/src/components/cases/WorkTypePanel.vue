@@ -102,7 +102,11 @@
             </div>
           </div>
           <div class="flex gap-1.5 flex-shrink-0">
-            <button v-if="wt.done && wtVendorCostTotal(wt) > 0 && !wt.vendorCostFree"
+            <span v-if="wt.done && wtVendorCostTotal(wt) > 0 && !wt.vendorCostFree && wt.costIncludesTax === false"
+              class="text-[11px] px-2 py-1 rounded-lg bg-gray-100 text-gray-400 font-medium">
+              不開發票
+            </span>
+            <button v-else-if="wt.done && wtVendorCostTotal(wt) > 0 && !wt.vendorCostFree"
               @click="toggleInvoice(idx)"
               class="text-[11px] px-2 py-1 rounded-lg transition-colors"
               :class="wt.invoiceReceived ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-amber-100 text-amber-700 hover:bg-amber-200'"
@@ -116,7 +120,7 @@
         </div>
         </div>
 
-        <div v-if="wt.done && wtVendorCostTotal(wt) > 0 && !wt.vendorCostFree" class="mt-2 pt-2 border-t border-gray-100 flex items-center gap-2">
+        <div v-if="wt.done && wtVendorCostTotal(wt) > 0 && !wt.vendorCostFree && wt.costIncludesTax !== false" class="mt-2 pt-2 border-t border-gray-100 flex items-center gap-2">
           <span class="text-[10px] text-gray-400 font-medium">開立對象</span>
           <button @click="setInvoiceTarget(idx, 'naiship')"
             class="text-[10px] px-2 py-0.5 rounded-full font-medium transition-colors"
@@ -405,10 +409,24 @@
           </div>
         </div>
         <div class="border border-gray-100 rounded-xl p-3 bg-gray-50/50 flex flex-col gap-2">
-          <label class="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" v-model="form.costIncludesTax" class="rounded">
-            <span class="text-sm text-gray-700">含稅</span>
-          </label>
+          <div>
+            <div class="text-xs text-gray-500 mb-1">稅別</div>
+            <div class="flex gap-2">
+              <button type="button" @click="form.costIncludesTax = true"
+                class="flex-1 text-sm px-3 py-1.5 rounded-lg border transition-colors"
+                :class="form.costIncludesTax === true ? 'bg-green-100 text-green-700 border-green-300' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'">
+                含稅
+              </button>
+              <button type="button" @click="form.costIncludesTax = false"
+                class="flex-1 text-sm px-3 py-1.5 rounded-lg border transition-colors"
+                :class="form.costIncludesTax === false ? 'bg-gray-200 text-gray-700 border-gray-400' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'">
+                未稅
+              </button>
+            </div>
+            <div v-if="form.costIncludesTax === null && formVendorCostTotal > 0" class="text-[11px] text-red-500 mt-1">
+              請選擇含稅或未稅
+            </div>
+          </div>
           <label class="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" v-model="form.hasQuote" class="rounded">
             <span class="text-sm text-gray-700">已提供報價單</span>
@@ -447,7 +465,11 @@
             <span class="text-gray-600 flex-shrink-0">{{ vp.paidDate || '—' }}</span>
             <span class="font-medium text-gray-800 flex-shrink-0">${{ (vp.amount || 0).toLocaleString() }}</span>
             <span class="text-gray-400 truncate flex-1">{{ vp.note || '' }}</span>
-            <button type="button" @click="toggleVendorInvoice(vp.id)"
+            <span v-if="workTypes[vendorPayingIdx]?.costIncludesTax === false"
+              class="text-[10px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0 bg-gray-100 text-gray-400">
+              不開發票
+            </span>
+            <button v-else type="button" @click="toggleVendorInvoice(vp.id)"
               class="text-[10px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0 transition-colors"
               :class="vp.hasInvoice ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'">
               {{ vp.hasInvoice ? '有發票' : '無發票' }}
@@ -634,7 +656,7 @@ const form = ref({
     name: '', vendorId: '', startDate: '', endDate: '',
     hasQuote: false, hasSchedule: false,
     vendorCostItems: [], vendorCostFree: false,
-    costIncludesTax: false, locations: [], customName: false,
+    costIncludesTax: null, locations: [], customName: false,
 })
 
 const showVendorPayForm = ref(false)
@@ -1049,6 +1071,7 @@ function totalVendorPaid(wt) {
 }
 
 function vendorInvoiceStatus(wt) {
+    if (wt.costIncludesTax === false) return null
     const payments = wt.vendorPayments || []
     if (payments.length === 0) return null
     const count = payments.filter(vp => vp.hasInvoice).length
@@ -1065,7 +1088,7 @@ function openAdd() {
         name: '', vendorId: '', startDate: '', endDate: '',
         hasQuote: false, hasSchedule: false,
         vendorCostItems: [], vendorCostFree: false,
-        costIncludesTax: false, locations: [], customName: false,
+        costIncludesTax: null, locations: [], customName: false,
     }
     showForm.value = true
 }
@@ -1084,7 +1107,7 @@ function openEdit(idx) {
         hasSchedule: wt.hasSchedule || false,
         vendorCostItems: normalizeItems(wt.vendorCostItems, wt.vendorCost, 'vc'),
         vendorCostFree: wt.vendorCostFree || false,
-        costIncludesTax: wt.costIncludesTax || false,
+        costIncludesTax: wt.costIncludesTax ?? null,
         locations: (wt.locations || []).map(l => ({ ...l })),
         customName: wt.customName || false,
     }
@@ -1118,6 +1141,10 @@ function buildVendorChangeLines(existing, entry) {
 
 async function submitForm() {
     if (!form.value.name || saving.value) return
+    if (!form.value.vendorCostFree && formVendorCostTotal.value > 0 && form.value.costIncludesTax === null) {
+        toast('請選擇含稅或未稅', 'error')
+        return
+    }
     const vendor = vendorsStore.vendors.find(v => v.id === form.value.vendorId)
     const existing = editingIdx.value !== null ? workTypes.value[editingIdx.value] : null
     const entry = {
@@ -1131,7 +1158,7 @@ async function submitForm() {
         hasSchedule: form.value.hasSchedule || false,
         vendorCostItems: form.value.vendorCostFree ? [] : form.value.vendorCostItems.filter(i => i.description || i.amount > 0),
         vendorCostFree: form.value.vendorCostFree || false,
-        costIncludesTax: form.value.costIncludesTax || false,
+        costIncludesTax: form.value.costIncludesTax,
         color: existing ? existing.color : WT_COLORS[workTypes.value.length % WT_COLORS.length],
         vendorPayments: existing?.vendorPayments ?? [],
         done: existing?.done ?? false,
