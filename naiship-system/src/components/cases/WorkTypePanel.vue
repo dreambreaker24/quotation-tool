@@ -1264,10 +1264,27 @@ async function addVendorPayment() {
         }]
         updated[vendorPayingIdx.value] = wt
         await casesStore.updateCase(props.caseId, { workTypes: updated })
-        const totalPaid = (wt.vendorPayments || []).reduce((s, vp) => s + (vp.amount || 0), 0)
+        const totalPaid = totalVendorPaid(wt)
         const totalCost = wtVendorCostTotal(wt)
         if (totalCost > 0 && totalPaid >= totalCost) {
             try { await remindersStore.markDone(`auto_vendor_${wt.id}`) } catch (_) {}
+        } else if (wt.done && totalCost > 0) {
+            try {
+                await remindersStore.addAutoReminder(`auto_vendor_${wt.id}`, {
+                    source: 'auto',
+                    type: 'vendor',
+                    dueDate: calcVendorDueDate(wt.endDate || new Date().toISOString().slice(0, 10)),
+                    caseId: props.caseId,
+                    caseName: props.caseName,
+                    companyId: caseData.value?.companyId ?? '',
+                    workTypeId: wt.id,
+                    workTypeName: wt.name,
+                    vendorName: wt.vendorName || '',
+                    amount: totalCost - totalPaid,
+                    createdBy: authStore.user?.uid ?? '',
+                    createdByName: authStore.name ?? '',
+                })
+            } catch (_) {}
         }
         showVendorPayForm.value = false
     } catch {
