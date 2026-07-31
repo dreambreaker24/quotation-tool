@@ -527,8 +527,13 @@ function tsToDateStr(ts) {
 
 function openEditEvent(event) {
   editingEventId.value = event.id
+  const casePrefix = event.type === 'milestone' ? (event.caseNames || []).join(' ') : ''
+  let label = event.label || ''
+  if (casePrefix) {
+    while (label.startsWith(casePrefix)) label = label.slice(casePrefix.length).trimStart()
+  }
   editForm.value = {
-    type: event.type, date: tsToDateStr(event.date), label: event.label || '',
+    type: event.type, date: tsToDateStr(event.date), label,
     personName: event.personName || '', hours: event.hours || 0, leaveType: event.leaveType || '',
     caseIds: event.caseIds ?? (event.caseId ? [event.caseId] : []),
     personNames: event.personNames ?? (event.type === 'milestone' && event.personName ? [event.personName] : []),
