@@ -434,9 +434,10 @@ async function applyLeaveDelta(leaveType, name, deltaHours) {
     if (!user) return
     if (leaveType === '補休') {
         await usersStore.ensureMonthClosed(user.id)
+        const meta = { leaveType, adjustedBy: authStore.name ?? '' }
         if (deltaHours >= 0) {
             // 還回補休（移除請假）：還入平日補休
-            await usersStore.adjustCompensatoryHours(user.id, deltaHours)
+            await usersStore.adjustCompensatoryHours(user.id, deltaHours, meta)
         } else {
             // 扣除補休：先扣平日，不夠再扣休息日。用月結後的最新餘額算，
             // 不能用函式一開始拿到的 user 物件（可能是月結歸零前的舊快照）
@@ -444,8 +445,8 @@ async function applyLeaveDelta(leaveType, name, deltaHours) {
             const weekday = fresh?.compensatoryHours ?? 0
             const fromWeekday = Math.max(deltaHours, -weekday)
             const fromHoliday = deltaHours - fromWeekday
-            if (fromWeekday !== 0) await usersStore.adjustCompensatoryHours(user.id, fromWeekday)
-            if (fromHoliday !== 0) await usersStore.adjustCompensatoryHolidayHours(user.id, fromHoliday)
+            if (fromWeekday !== 0) await usersStore.adjustCompensatoryHours(user.id, fromWeekday, meta)
+            if (fromHoliday !== 0) await usersStore.adjustCompensatoryHolidayHours(user.id, fromHoliday, meta)
         }
     } else if (leaveType === '特休') await usersStore.adjustAnnualLeaveHours(user.id, hoursToDays(deltaHours))
 }

@@ -32,12 +32,24 @@ export const useUsersStore = defineStore('users', () => {
         return updateDoc(doc(db, 'users', uid), data)
     }
 
-    async function adjustCompensatoryHours(uid, delta) {
-        return updateDoc(doc(db, 'users', uid), { compensatoryHours: increment(delta) })
+    async function logLeaveAdjustment(uid, field, delta, meta) {
+        if (!meta || delta === 0) return
+        await addDoc(collection(db, 'users', uid, 'compAdjustments'), {
+            field, delta, source: 'leave',
+            leaveType: meta.leaveType || '',
+            adjustedBy: meta.adjustedBy || '',
+            adjustedAt: serverTimestamp(),
+        })
     }
 
-    async function adjustCompensatoryHolidayHours(uid, delta) {
-        return updateDoc(doc(db, 'users', uid), { compensatoryHolidayHours: increment(delta) })
+    async function adjustCompensatoryHours(uid, delta, meta = null) {
+        await updateDoc(doc(db, 'users', uid), { compensatoryHours: increment(delta) })
+        await logLeaveAdjustment(uid, 'compensatoryHours', delta, meta)
+    }
+
+    async function adjustCompensatoryHolidayHours(uid, delta, meta = null) {
+        await updateDoc(doc(db, 'users', uid), { compensatoryHolidayHours: increment(delta) })
+        await logLeaveAdjustment(uid, 'compensatoryHolidayHours', delta, meta)
     }
 
     async function adjustAnnualLeaveHours(uid, delta) {
@@ -107,8 +119,10 @@ export const useUsersStore = defineStore('users', () => {
             .map(a => ({
                 date: a.adjustedAt?.toDate?.() ?? null,
                 hours: a.delta,
-                reason: `人工調整${a.adjustedBy ? `（${a.adjustedBy}）` : ''}`,
-                manual: true,
+                reason: a.source === 'leave'
+                    ? `請假${a.leaveType ? `（${a.leaveType}）` : ''}${a.adjustedBy ? `－${a.adjustedBy}` : ''}`
+                    : `人工調整${a.adjustedBy ? `（${a.adjustedBy}）` : ''}`,
+                manual: a.source !== 'leave',
             }))
     }
 
