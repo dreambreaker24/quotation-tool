@@ -478,6 +478,7 @@ function selectEmployee(uid) {
     form.value.base    = u.salary || 0
     autoIns.value = true
     onBaseChange()
+    fetchPayrollData()
 }
 
 /* ── 表單狀態 ── */
@@ -637,8 +638,8 @@ async function fetchPayrollData() {
         ])
         if (form.value.empName !== targetName || form.value.payMonth !== targetMonth) return
         otSnapshotMonth.value = closing ? form.value.payMonth : null
-        form.value.otWeekdayHours = closing?.weekdayHours || 0
-        form.value.otHolidayHours = closing?.holidayHours || 0
+        form.value.otWeekdayHours = Math.round((closing?.weekdayHours || 0) * 10) / 10
+        form.value.otHolidayHours = Math.round((closing?.holidayHours || 0) * 10) / 10
         calcOTFromHours('weekday')
         calcOTFromHours('restday')
         form.value.fuelKm = kmMap[form.value.empName] || 0
@@ -697,6 +698,13 @@ async function fetchYtd() {
 }
 
 watch(() => [form.value.empName, currentYear.value], fetchYtd, { immediate: true })
+
+// 切換發薪月份時（員工已選好的情況下）直接重抓那個月的加班/請假/油資資料，
+// 不用再手動點「自動帶入」，避免上個月的殘留數字被誤用到新月份
+watch(() => form.value.payMonth, () => {
+    if (!form.value.empName) return
+    fetchPayrollData()
+})
 
 async function recordLeave() {
     if (!form.value.empName || !hasLeave.value) return
