@@ -433,7 +433,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import html2canvas from 'html2canvas'
 import { useLeaveRecordsStore } from '@/stores/leaveRecords'
 import { useAuthStore } from '@/stores/auth'
-import { useUsersStore } from '@/stores/users'
+import { useUsersStore, prevMonthOf } from '@/stores/users'
 import { useWorkLogsStore } from '@/stores/workLogs'
 import { useCalendarEventsStore } from '@/stores/calendarEvents'
 import { useToast } from '@/composables/useToast'
@@ -462,9 +462,11 @@ const otSnapshotMonth = ref(null)
 const showConfirmRecord = ref(false)
 const alreadyRecordedThisMonth = ref(false)
 
+let restoringDraft = true
 onMounted(() => {
     usersStore.subscribe()
     loadForm()
+    restoringDraft = false
     compute()
 })
 
@@ -478,7 +480,7 @@ function selectEmployee(uid) {
     form.value.base    = u.salary || 0
     autoIns.value = true
     onBaseChange()
-    fetchPayrollData()
+    switchMonthContext()
 }
 
 /* ── 表單狀態 ── */
@@ -610,14 +612,50 @@ function fmtMD(date) {
     return `${date.getMonth() + 1}/${date.getDate()}`
 }
 
-function buildAutoRemark(entries, otWeekdayHrs, otHolidayHrs) {
-    const lines = entries.map(e => `${fmtMD(e.date)} ${e.leaveType} ${e.hours}h`)
-    if (otWeekdayHrs > 0) lines.push(`平日補休 ${otWeekdayHrs}h 已轉入加班費`)
-    if (otHolidayHrs > 0) lines.push(`休息日補休 ${otHolidayHrs}h 已轉入加班費`)
+function buildAutoRemark(leaveEntries, otWeekdayEntries, otHolidayEntries) {
+    const combined = [
+        ...leaveEntries.map(e => ({ date: e.date, text: `${e.leaveType} ${e.hours}h` })),
+        ...otWeekdayEntries.map(e => ({ date: e.date, text: `平日加班 ${e.hours}h${e.reason ? ` ${e.reason}` : ''}` })),
+        ...otHolidayEntries.map(e => ({ date: e.date, text: `休息日加班 ${e.hours}h${e.reason ? ` ${e.reason}` : ''}` })),
+    ].sort((a, b) => (a.date ?? 0) - (b.date ?? 0))
+    const lines = combined.map(e => `${fmtMD(e.date)} ${e.text}`)
     const block = lines.length ? `${REMARK_MARKER_START}\n${lines.join('\n')}\n${REMARK_MARKER_END}` : ''
     const startIdx = form.value.remark.indexOf(REMARK_MARKER_START)
     const manualPart = startIdx === -1 ? form.value.remark : form.value.remark.slice(0, startIdx).trimEnd()
     form.value.remark = block ? `${manualPart ? manualPart + '\n\n' : ''}${block}` : manualPart
+}
+
+// 切換員工或發薪月份：先把「這個月才有意義」的欄位清空歸零，
+// 再重新抓資料，避免上一個月/上一個人的殘留數字被誤用
+function resetMonthlyFields() {
+    form.value.payDate = ''
+    form.value.otWeekdayHours = 0
+    form.value.otWeekday = 0
+    form.value.otHolidayHours = 0
+    form.value.otHoliday = 0
+    form.value.fuelKm = 0
+    form.value.fuel = 0
+    form.value.attend = 0
+    form.value.addName1 = ''
+    form.value.addAmt1 = 0
+    form.value.addName2 = ''
+    form.value.addAmt2 = 0
+    form.value.personalDays = 0
+    form.value.sickDays = 0
+    form.value.typhoonDays = 0
+    form.value.deductName1 = ''
+    form.value.deductAmt1 = 0
+    form.value.deductName2 = ''
+    form.value.deductAmt2 = 0
+    form.value.remark = ''
+    otSnapshotMonth.value = null
+    pendingLeaveEntries.value = []
+}
+
+async function switchMonthContext() {
+    resetMonthlyFields()
+    if (form.value.empName && form.value.payMonth) await fetchPayrollData()
+    else compute()
 }
 
 async function fetchPayrollData() {
@@ -631,10 +669,15 @@ async function fetchPayrollData() {
         const uid = usersStore.users.find(u => u.name === form.value.empName)?.id
         if (!uid) { toast('找不到對應的員工帳號', 'error'); return }
         await usersStore.ensureMonthClosed(uid)
-        const [closing, kmMap, leaveEntries] = await Promise.all([
-            usersStore.getClosingBalance(uid, form.value.payMonth),
+        const closing = await usersStore.getClosingBalance(uid, form.value.payMonth)
+        const periodEnd = closing?.closedAt?.toDate?.() ?? null
+        const prevClosing = await usersStore.getClosingBalance(uid, prevMonthOf(form.value.payMonth))
+        const periodStart = prevClosing?.closedAt?.toDate?.() ?? null
+        const [kmMap, leaveEntries, otWeekdayEntries, otHolidayEntries] = await Promise.all([
             workLogsStore.fetchMonthlyKm(y, monthIdx),
             calendarEventsStore.fetchMonthlyLeaveDetail(y, monthIdx, form.value.empName),
+            workLogsStore.fetchApprovedOvertimeDetail(uid, 'weekday', periodStart, periodEnd),
+            workLogsStore.fetchApprovedOvertimeDetail(uid, 'holiday', periodStart, periodEnd),
         ])
         if (form.value.empName !== targetName || form.value.payMonth !== targetMonth) return
         otSnapshotMonth.value = closing ? form.value.payMonth : null
@@ -650,7 +693,7 @@ async function fetchPayrollData() {
         form.value.sickDays = hoursToDays(sickHours)
         calcLeave()
         pendingLeaveEntries.value = leaveEntries
-        buildAutoRemark(leaveEntries, form.value.otWeekdayHours, form.value.otHolidayHours)
+        buildAutoRemark(leaveEntries, otWeekdayEntries, otHolidayEntries)
         compute()
         toast(closing ? '已自動帶入加班/請假/油資資料' : '已帶入請假/油資，該月加班尚未結算（下個月才會有數字）')
     } catch {
@@ -699,11 +742,13 @@ async function fetchYtd() {
 
 watch(() => [form.value.empName, currentYear.value], fetchYtd, { immediate: true })
 
-// 切換發薪月份時（員工已選好的情況下）直接重抓那個月的加班/請假/油資資料，
-// 不用再手動點「自動帶入」，避免上個月的殘留數字被誤用到新月份
+// 切換發薪月份：清空這個月的欄位再重抓資料，不用再手動點「自動帶入」，
+// 避免上個月的殘留數字（時數、請假天數、加項扣款、備註…）被誤用到新月份。
+// restoringDraft 是為了跳過剛掛載、loadForm() 從 localStorage 還原草稿的那次觸發，
+// 不然剛還原好的草稿會馬上被這裡清空重蓋
 watch(() => form.value.payMonth, () => {
-    if (!form.value.empName) return
-    fetchPayrollData()
+    if (restoringDraft) return
+    switchMonthContext()
 })
 
 async function recordLeave() {
