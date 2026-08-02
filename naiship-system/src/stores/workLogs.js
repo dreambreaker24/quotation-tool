@@ -184,7 +184,7 @@ export const useWorkLogsStore = defineStore('workLogs', () => {
     // 跟加班當天的日期（workLog.date）無關，所以這裡改成用 userId 撈全部日誌，再用「核准時間」比對
     // periodStart 篩選，才會跟即時餘額對得起來；不再用 workLog.date 限定本月，避免補登/延遲核准的舊日誌
     // 被漏掉。periodStart 為 null（從未結算過）時不設下限，全部列出。
-    async function fetchApprovedOvertimeDetail(userId, type, periodStart = null) {
+    async function fetchApprovedOvertimeDetail(userId, type, periodStart = null, periodEnd = null) {
         const q = query(collection(db, 'workLogs'), where('userId', '==', userId))
         const snap = await getDocs(q)
         const entries = []
@@ -203,6 +203,7 @@ export const useWorkLogsStore = defineStore('workLogs', () => {
                 if (type === 'weekday' && isHoliday) return
                 const approvedAt = item.approvedAt?.toDate?.() ?? docApprovedAt
                 if (periodStart && approvedAt && approvedAt < periodStart) return
+                if (periodEnd && approvedAt && approvedAt >= periodEnd) return
                 entries.push({ date, hours: item.hours || 0, reason: item.reason || '' })
             })
         })

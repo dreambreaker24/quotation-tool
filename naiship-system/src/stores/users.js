@@ -9,11 +9,15 @@ export function monthStr(date = new Date()) {
     return date.toLocaleDateString('sv-SE', { timeZone: 'Asia/Taipei' }).slice(0, 7)
 }
 
-export function prevMonthStr(date = new Date()) {
-    const [y, m] = monthStr(date).split('-').map(Number)
+export function prevMonthOf(monthKey) {
+    const [y, m] = monthKey.split('-').map(Number)
     const prevM = m === 1 ? 12 : m - 1
     const prevY = m === 1 ? y - 1 : y
     return `${prevY}-${String(prevM).padStart(2, '0')}`
+}
+
+export function prevMonthStr(date = new Date()) {
+    return prevMonthOf(monthStr(date))
 }
 
 export const useUsersStore = defineStore('users', () => {
@@ -93,6 +97,13 @@ export const useUsersStore = defineStore('users', () => {
         return snap.exists() ? snap.data() : null
     }
 
+    // 補休結算快照依月份分開存，回傳這個人所有已結算過的月份（新到舊排序），
+    // 讓明細視窗可以列出來給使用者挑選查看歷史月份
+    async function listClosingMonths(uid) {
+        const snap = await getDocs(collection(db, 'users', uid, 'compClosingBalances'))
+        return snap.docs.map(d => d.id).sort().reverse()
+    }
+
     // 手動調整補休/休息日補休時數（「調整」「歸零」按鈕）：這條路徑不經過加班核准流程，
     // 沒有對應的 workLog 可查，所以額外寫一筆 compAdjustments 記錄，讓明細清單能追溯到這筆異動。
     async function adjustCompensatoryField(uid, field, newValue, prevValue, adjustedBy) {
@@ -107,14 +118,16 @@ export const useUsersStore = defineStore('users', () => {
         }
     }
 
-    async function fetchCompAdjustments(uid, field, periodStart) {
+    async function fetchCompAdjustments(uid, field, periodStart, periodEnd = null) {
         const q = query(collection(db, 'users', uid, 'compAdjustments'), where('field', '==', field))
         const snap = await getDocs(q)
         return snap.docs
             .map(d => d.data())
             .filter(a => {
                 const at = a.adjustedAt?.toDate?.() ?? null
-                return !periodStart || !at || at >= periodStart
+                if (periodStart && at && at < periodStart) return false
+                if (periodEnd && at && at >= periodEnd) return false
+                return true
             })
             .map(a => ({
                 date: a.adjustedAt?.toDate?.() ?? null,
@@ -135,5 +148,5 @@ export const useUsersStore = defineStore('users', () => {
         if (unsubscribe) { unsubscribe(); unsubscribe = null }
     }
 
-    return { users, subscribe, updateUser, adjustCompensatoryHours, adjustCompensatoryHolidayHours, adjustAnnualLeaveHours, ensureMonthClosed, getClosingBalance, adjustCompensatoryField, fetchCompAdjustments, getUser, cleanup }
+    return { users, subscribe, updateUser, adjustCompensatoryHours, adjustCompensatoryHolidayHours, adjustAnnualLeaveHours, ensureMonthClosed, getClosingBalance, listClosingMonths, adjustCompensatoryField, fetchCompAdjustments, getUser, cleanup }
 })

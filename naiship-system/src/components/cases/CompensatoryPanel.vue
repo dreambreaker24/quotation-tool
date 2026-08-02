@@ -86,9 +86,16 @@
   <!-- 明細 Modal -->
   <div v-if="detailName" class="fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.4)">
     <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm mx-4 border-t-4" style="border-top-color:#c9a96e">
-      <div class="flex items-center justify-between mb-4">
-        <h3 class="text-sm font-bold text-gray-800">{{ detailLabel }}明細 — {{ detailName }}（本期未結算）</h3>
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-sm font-bold text-gray-800">{{ detailLabel }}明細 — {{ detailName }}</h3>
         <button @click="detailName = null" class="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
+      </div>
+      <select v-model="selectedMonth" class="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5 mb-2 focus:outline-none focus:ring-1">
+        <option value="">本期未結算</option>
+        <option v-for="m in availableMonths" :key="m" :value="m">{{ formatMonthLabel(m) }}結算</option>
+      </select>
+      <div v-if="selectedMonth && selectedMonthBalance !== null" class="text-[11px] text-gray-500 mb-2">
+        該月結算後餘額：<span class="font-semibold text-gray-700">{{ selectedMonthBalance }}h</span>
       </div>
       <div v-if="detailLoading" class="text-xs text-gray-400 text-center py-4">載入中…</div>
       <div v-else-if="detailEntries.length === 0" class="text-xs text-gray-400 text-center py-4">尚無已核准的加班記錄或人工調整</div>
@@ -108,7 +115,7 @@
 </template>
 <script setup>
 import { ref, watch } from 'vue'
-import { useUsersStore, prevMonthStr } from '@/stores/users'
+import { useUsersStore, prevMonthStr, prevMonthOf } from '@/stores/users'
 import { useAuthStore } from '@/stores/auth'
 import { useWorkLogsStore } from '@/stores/workLogs'
 import { useToast } from '@/composables/useToast'
@@ -134,6 +141,12 @@ const detailType = ref('')
 const detailLabel = ref('')
 const detailEntries = ref([])
 const detailLoading = ref(false)
+const detailUserId = ref(null)
+const selectedMonth = ref('')
+const availableMonths = ref([])
+const selectedMonthBalance = ref(null)
+
+watch(selectedMonth, () => { if (detailName.value) loadDetail() })
 
 function getHours(name, field) {
     const user = usersStore.users.find(u => u.name === name)
@@ -172,23 +185,49 @@ async function openDetail(name, type, label) {
     detailName.value = name
     detailType.value = type
     detailLabel.value = label
+    selectedMonth.value = ''
+    selectedMonthBalance.value = null
+    const user = usersStore.users.find(u => u.name === name)
+    detailUserId.value = user?.id ?? null
+    availableMonths.value = user ? await usersStore.listClosingMonths(user.id) : []
+    await loadDetail()
+}
+
+function formatMonthLabel(monthKey) {
+    const [y, m] = monthKey.split('-').map(Number)
+    return `${y}年${m}月`
+}
+
+async function loadDetail() {
     detailEntries.value = []
     detailLoading.value = true
     try {
-        const user = usersStore.users.find(u => u.name === name)
-        if (user) {
-            let periodStart = null
-            if (user.compClosedMonth) {
-                const closing = await usersStore.getClosingBalance(user.id, user.compClosedMonth)
+        const uid = detailUserId.value
+        if (!uid) return
+        const field = detailType.value === 'holiday' ? 'compensatoryHolidayHours' : 'compensatoryHours'
+        let periodStart = null
+        let periodEnd = null
+        if (selectedMonth.value) {
+            const closing = await usersStore.getClosingBalance(uid, selectedMonth.value)
+            periodEnd = closing?.closedAt?.toDate?.() ?? null
+            selectedMonthBalance.value = closing
+                ? (detailType.value === 'holiday' ? closing.holidayHours : closing.weekdayHours)
+                : null
+            const prevClosing = await usersStore.getClosingBalance(uid, prevMonthOf(selectedMonth.value))
+            periodStart = prevClosing?.closedAt?.toDate?.() ?? null
+        } else {
+            selectedMonthBalance.value = null
+            const user = usersStore.users.find(u => u.id === uid)
+            if (user?.compClosedMonth) {
+                const closing = await usersStore.getClosingBalance(uid, user.compClosedMonth)
                 periodStart = closing?.closedAt?.toDate?.() ?? null
             }
-            const field = type === 'holiday' ? 'compensatoryHolidayHours' : 'compensatoryHours'
-            const [overtimeEntries, adjustments] = await Promise.all([
-                logsStore.fetchApprovedOvertimeDetail(user.id, type, periodStart),
-                usersStore.fetchCompAdjustments(user.id, field, periodStart),
-            ])
-            detailEntries.value = [...overtimeEntries, ...adjustments].sort((a, b) => (a.date ?? 0) - (b.date ?? 0))
         }
+        const [overtimeEntries, adjustments] = await Promise.all([
+            logsStore.fetchApprovedOvertimeDetail(uid, detailType.value, periodStart, periodEnd),
+            usersStore.fetchCompAdjustments(uid, field, periodStart, periodEnd),
+        ])
+        detailEntries.value = [...overtimeEntries, ...adjustments].sort((a, b) => (a.date ?? 0) - (b.date ?? 0))
     } finally {
         detailLoading.value = false
     }
