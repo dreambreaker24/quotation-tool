@@ -30,7 +30,7 @@
           <div class="text-xs leading-snug flex items-start gap-1.5" :class="n.read ? 'text-gray-400' : 'text-gray-800'">
             <span class="flex-shrink-0 text-sm leading-none mt-0.5">{{ notifIcon(n.message) }}</span>
             <span :class="n.deleted ? 'line-through opacity-60' : ''">
-              <span class="font-semibold">{{ n.actorName }}</span> {{ n.message }}
+              <span v-if="n.actorName" class="font-semibold">{{ n.actorName }}</span> {{ n.message }}
             </span>
             <span v-if="n.deleted" class="flex-shrink-0 text-[10px] text-gray-400 bg-gray-100 rounded px-1 py-0.5 ml-0.5 no-underline">已刪除</span>
           </div>

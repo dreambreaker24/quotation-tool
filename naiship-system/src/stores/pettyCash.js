@@ -112,27 +112,29 @@ export const usePettyCashStore = defineStore('pettyCash', () => {
 
     async function checkNotifications() {
         const notifStore = useNotificationsStore()
-        const authStore = useAuthStore()
         const ym = new Date().toISOString().slice(0, 7)
         const patch = {}
 
+        // 這三則是系統自動門檻警示，不是「誰」做了什麼動作觸發的（觸發者只是剛好記了一筆
+        // 支出，跟警示的對象常常是不同人），所以不掛發言人名稱，避免訊息前面的粗體人名
+        // 被誤讀成「這個人的餘額不足」
         if (bunBalance.value < 5000 && settings.value.lastNotifiedBunLow !== ym) {
             await notifStore.notifyManagers(
-                authStore.name,
+                '',
                 `蚌零用金餘額不足 $5,000，目前剩餘 $${bunBalance.value.toLocaleString()}`
             )
             patch.lastNotifiedBunLow = ym
         }
         if (laiBalance.value < 5000 && settings.value.lastNotifiedLaiLow !== ym) {
             await notifStore.notifyManagers(
-                authStore.name,
+                '',
                 `賴賴零用金餘額不足 $5,000，目前剩餘 $${laiBalance.value.toLocaleString()}`
             )
             patch.lastNotifiedLaiLow = ym
         }
         if (totalBalance.value < 10000 && settings.value.lastNotifiedTotalLow !== ym) {
             await notifStore.notifyManagers(
-                authStore.name,
+                '',
                 `總零用金不足 $10,000，目前剩餘 $${totalBalance.value.toLocaleString()}，請補款`
             )
             patch.lastNotifiedTotalLow = ym
