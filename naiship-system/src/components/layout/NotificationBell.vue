@@ -80,7 +80,7 @@ async function handleClick(n) {
     open.value = false
     await notifStore.markRead(n.id)
     if (n.caseId) {
-        navStore.requestCaseJump(n.caseId, n.tab || '', n.companyId || '', n.photoType || '')
+        navStore.requestCaseJump(n.caseId, n.tab || '', n.companyId || '', n.photoType || '', n.workTypeId || '')
         router.push({ path: '/cases', query: n.companyId ? { region: n.companyId } : {} })
     } else if (n.message.includes('工作日誌')) {
         const q = { tab: 'log' }

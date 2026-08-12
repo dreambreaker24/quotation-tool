@@ -245,7 +245,7 @@
       :company-id="selectedCaseCompanyId"
     />
     <BidRequestPanel v-if="selectedTab === 'bidding'" :key="`bid-${selectedCaseId}`" :case-id="selectedCaseId" :case-name="selectedCaseName" />
-    <WorkTypePanel v-if="selectedTab === 'worktype'" :key="`wt-${selectedCaseId}`" :case-id="selectedCaseId" :case-name="selectedCaseName" :company-id="selectedCaseCompanyId" />
+    <WorkTypePanel v-if="selectedTab === 'worktype'" :key="`wt-${selectedCaseId}`" :case-id="selectedCaseId" :case-name="selectedCaseName" :company-id="selectedCaseCompanyId" :jump-work-type-id="pendingWorkTypeId" />
     <PaymentMilestones v-if="selectedTab === 'payment'" :case-id="selectedCaseId" :case-name="selectedCaseName" :company-id="selectedCaseCompanyId" />
     <PhotoUpload v-if="selectedTab === 'photo'" :case-id="selectedCaseId" :case-name="selectedCaseName" :company-id="selectedCaseCompanyId" />
     <CaseTasks v-if="selectedTab === 'tasks'" :case-id="selectedCaseId" :case-name="selectedCaseName" :company-id="selectedCaseCompanyId" />
@@ -289,7 +289,7 @@ function isWtOverdue(wt, c) {
     return wt.endDate < TODAY_STR
 }
 
-const props = defineProps({ region: String, month: String, jumpCaseId: String, jumpCaseTab: String })
+const props = defineProps({ region: String, month: String, jumpCaseId: String, jumpCaseTab: String, jumpWorkTypeId: String })
 const emit = defineEmits(['jumped'])
 const casesStore = useCasesStore()
 const tasksStore = useCaseTasksStore()
@@ -312,6 +312,7 @@ const selectedCaseCompanyId = ref('')
 const panelMode = ref('both') // 'both' | 'ganttFull' | 'detailFull'
 const editingCaseId = ref(null)
 const selectedTab = ref('worktype')
+const pendingWorkTypeId = ref('')
 const todayDate = new Date().getDate()
 
 const displayYear = computed(() => props.month ? Number(props.month.split('-')[0]) : new Date().getFullYear())
@@ -365,6 +366,7 @@ watch([() => props.jumpCaseId, () => casesStore.cases], ([id]) => {
     const c = casesStore.cases.find(x => x.id === id)
     if (!c) return
     const jumpTab = props.jumpCaseTab  // 在 emit 清掉 prop 前先捕捉
+    const jumpWorkType = props.jumpWorkTypeId
     if (!expanded[id]) selectCase(id)
     emit('jumped')
     // nextTick 確保在 watch(selectedCaseId) 把 tab 重設為 'worktype' 之後再覆蓋
@@ -373,6 +375,7 @@ watch([() => props.jumpCaseId, () => casesStore.cases], ([id]) => {
             const validTab = CASE_TABS.find(t => t.key === jumpTab)
             if (validTab) selectedTab.value = jumpTab
         }
+        if (jumpWorkType) pendingWorkTypeId.value = jumpWorkType
         document.getElementById('case-row-' + id)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
     })
 }, { immediate: true })

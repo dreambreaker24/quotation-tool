@@ -15,8 +15,9 @@
     </div>
 
     <div v-else class="flex flex-col gap-2">
-      <div v-for="(wt, idx) in workTypes" :key="wt.id"
-        class="border border-gray-100 rounded-xl p-3 bg-gray-50/50 hover:bg-white hover:shadow-sm transition-all">
+      <div v-for="(wt, idx) in workTypes" :key="wt.id" :id="'worktype-card-' + wt.id"
+        class="border rounded-xl p-3 bg-gray-50/50 hover:bg-white hover:shadow-sm transition-all"
+        :class="highlightedWorkTypeId === wt.id ? 'ring-2 ring-inset ring-amber-400 border-transparent' : 'border-gray-100'">
         <!-- Main row -->
         <div class="overflow-x-auto -mx-1 px-1">
         <div class="flex items-center gap-3 min-w-[480px]">
@@ -602,7 +603,7 @@
   </div>
 </template>
 <script setup>
-import { ref, computed, reactive, onMounted, onUnmounted } from 'vue'
+import { ref, computed, reactive, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { WORK_CATEGORIES } from '@/constants/workCategories'
 import { WT_COLORS } from '@/constants/workTypeColors'
 import { isLegacyCategoryName } from '@/utils/workTypeCategory'
@@ -640,7 +641,7 @@ function formatDateChinese(isoDate) {
     return `${d.getMonth() + 1}/${d.getDate()}（週${days[d.getDay()]}）`
 }
 
-const props = defineProps({ caseId: String, caseName: String })
+const props = defineProps({ caseId: String, caseName: String, jumpWorkTypeId: String })
 const vendorsStore = useVendorsStore()
 const casesStore = useCasesStore()
 const authStore = useAuthStore()
@@ -652,6 +653,15 @@ const { toast } = useToast()
 const showForm = ref(false)
 const saving = ref(false)
 const editingIdx = ref(null)
+const highlightedWorkTypeId = ref(null)
+
+watch(() => props.jumpWorkTypeId, (id) => {
+    if (!id) return
+    highlightedWorkTypeId.value = id
+    nextTick(() => {
+        document.getElementById('worktype-card-' + id)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    })
+}, { immediate: true })
 const form = ref({
     name: '', vendorId: '', startDate: '', endDate: '',
     hasQuote: false, hasSchedule: false,
@@ -1207,7 +1217,9 @@ async function submitForm() {
                 toast('工種已儲存，但同步首頁付款清單失敗，請手動確認', 'error')
             }
         }
-        notifStore.notifyAll(authStore.name ?? '', `更新了「${props.caseName}」的工種安排`, props.caseId, props.caseName, caseData.value?.companyId ?? '', '', 'worktype')
+        const changeSuffix = vendorChange?.lines?.length > 0 ? `（${vendorChange.lines.join('、')}）` : ''
+        const verb = existing ? '更新' : '新增'
+        notifStore.notifyAll(authStore.name ?? '', `${verb}了「${props.caseName}」的「${entry.name}」工種${changeSuffix}`, props.caseId, props.caseName, caseData.value?.companyId ?? '', '', 'worktype', '', false, '', '', '', entry.id)
         showForm.value = false
     } catch {
         toast('儲存失敗，請重試', 'error')

@@ -21,7 +21,7 @@
     </div>
     <div class="flex-1 overflow-auto p-6">
       <CalendarTab v-if="activeTab === 'cal'" :region="selectedRegion" :jump-event-date="jumpEventDate" @jumped-date="jumpEventDate = null" />
-      <GanttTab v-else-if="activeTab === 'gantt'" :region="selectedRegion" :month="selectedMonth" :jump-case-id="jumpCaseId" :jump-case-tab="jumpCaseTab" @jumped="jumpCaseId = null; jumpCaseTab = null" />
+      <GanttTab v-else-if="activeTab === 'gantt'" :region="selectedRegion" :month="selectedMonth" :jump-case-id="jumpCaseId" :jump-case-tab="jumpCaseTab" :jump-work-type-id="jumpWorkTypeId" @jumped="jumpCaseId = null; jumpCaseTab = null; jumpWorkTypeId = null" />
       <WorkJournalTab v-else-if="activeTab === 'log'" :region="selectedRegion" :pending-only="pendingOnly" :jump-date="jumpDate" :jump-user-id="jumpUserId" />
       <AnnouncementTab v-else-if="activeTab === 'announcement'" />
     </div>
@@ -57,15 +57,17 @@ const selectedRegion = ref(validRegions.includes(route.query.region) ? route.que
 const activeTab = ref('cal')
 const jumpCaseId = ref(null)
 const jumpCaseTab = ref(null)
+const jumpWorkTypeId = ref(null)
 const jumpDate = ref(null)
 const jumpUserId = ref(null)
 const jumpEventDate = ref(null)
 const pendingOnly = computed(() => route.query.pendingOnly === 'true')
 
-function jumpToCase(caseId, caseTab = null) {
+function jumpToCase(caseId, caseTab = null, workTypeId = null) {
     activeTab.value = 'gantt'
     jumpCaseId.value = caseId
     jumpCaseTab.value = caseTab
+    jumpWorkTypeId.value = workTypeId
 }
 const showAddCase = ref(false)
 const casesStore = useCasesStore()
@@ -115,12 +117,12 @@ onMounted(() => {
     if (route.query.region && validRegions.includes(route.query.region)) selectedRegion.value = route.query.region
     if (route.query.tab) { const valid = ['cal', 'gantt', 'log', 'announcement']; if (valid.includes(route.query.tab)) switchTab(route.query.tab) }
     if (navStore.pendingJump) {
-        const { caseId, caseTab, companyId } = navStore.pendingJump
+        const { caseId, caseTab, companyId, workTypeId } = navStore.pendingJump
         if (companyId && validRegions.includes(companyId)) selectedRegion.value = companyId
-        jumpToCase(caseId, caseTab || null)
+        jumpToCase(caseId, caseTab || null, workTypeId || null)
         navStore.clearJump()
     } else if (route.query.caseId) {
-        jumpToCase(route.query.caseId, route.query.caseTab || null)
+        jumpToCase(route.query.caseId, route.query.caseTab || null, route.query.workTypeId || null)
     }
     if (route.query.date) jumpDate.value = route.query.date
     if (route.query.logUserId) jumpUserId.value = route.query.logUserId
@@ -131,7 +133,7 @@ onMounted(() => {
 watch(() => navStore.pendingJump, (jump) => {
     if (!jump) return
     if (jump.companyId && validRegions.includes(jump.companyId)) selectedRegion.value = jump.companyId
-    jumpToCase(jump.caseId, jump.caseTab || null)
+    jumpToCase(jump.caseId, jump.caseTab || null, jump.workTypeId || null)
     navStore.clearJump()
 })
 
