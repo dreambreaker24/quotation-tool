@@ -188,7 +188,7 @@
   <!-- Case detail panel -->
   <div v-if="selectedCaseId" ref="caseDetailRef"
     class="mt-3 lg:mt-0 lg:sticky lg:top-0 lg:max-h-[calc(100vh-150px)] lg:overflow-y-auto bg-white rounded-2xl shadow-md"
-    :class="panelMode === 'ganttFull' ? 'lg:w-0 lg:opacity-0 lg:pointer-events-none lg:overflow-hidden' : panelMode === 'detailFull' ? 'lg:flex-1' : 'lg:w-[640px] lg:flex-shrink-0'">
+    :class="panelMode === 'ganttFull' ? 'lg:w-0 lg:opacity-0 lg:pointer-events-none lg:overflow-hidden' : panelMode === 'detailFull' ? 'lg:flex-1' : 'lg:w-[clamp(360px,33vw,640px)] lg:flex-shrink-0'">
 
     <!-- Action bar -->
     <div class="px-4 pt-3 pb-2 border-b border-amber-100 bg-amber-50/40 rounded-t-2xl">
