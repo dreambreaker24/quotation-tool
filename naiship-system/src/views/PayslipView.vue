@@ -950,6 +950,22 @@ async function downloadJpg() {
 }
 .ps-preview-panel { flex:1; padding:24px 32px; display:flex; flex-direction:column; align-items:center; gap:16px; }
 
+@media (max-width: 1023px) {
+    .ps-app { flex-direction: column; }
+    .ps-form-panel {
+        width: 100%;
+        position: static;
+        max-height: none;
+        border-right: none;
+        border-bottom: 1px solid #ebe9e3;
+    }
+    .ps-preview-panel {
+        padding: 16px;
+        overflow-x: auto;
+        align-items: flex-start;
+    }
+}
+
 /* ── 表單 header ── */
 .ps-app-header { background:#1e2533; padding:20px 24px 16px; }
 .ps-app-title  { font-size:16px; font-weight:700; color:#c9a96e; }
