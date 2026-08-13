@@ -70,6 +70,19 @@ describe('quotation store', () => {
     expect(store.mgmtAmount).toBe(6000)
     expect(store.taxAmount).toBe(5050)
     expect(store.total).toBe(106050)
+    // totalCost=60000, profit=106050-60000=46050, profitPct=(46050/106050*100).toFixed(1)+'%'=43.4%
+    expect(store.totalCost).toBe(60000)
+    expect(store.profit).toBe(46050)
+    expect(store.profitPct).toBe('43.4%')
+  })
+
+  it('profitPct 在 total 為 0 時回傳 —（避免除以零）', () => {
+    const store = useQuotationStore()
+    store.loadQuote({ categories: [] })
+    expect(store.total).toBe(0)
+    expect(store.totalCost).toBe(0)
+    expect(store.profit).toBe(0)
+    expect(store.profitPct).toBe('—')
   })
 
   it('cnNum 把索引轉成中文數字', () => {
