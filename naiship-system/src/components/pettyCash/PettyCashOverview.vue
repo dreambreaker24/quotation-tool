@@ -1,5 +1,5 @@
 <template>
-  <div class="grid grid-cols-3 gap-3 mb-4">
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
     <!-- 蚌 -->
     <div class="bg-white rounded-2xl shadow-sm px-4 py-3 border-t-4" style="border-top-color:#ef4444">
       <div class="text-[11px] text-gray-400 mb-1">蚌 零用金</div>

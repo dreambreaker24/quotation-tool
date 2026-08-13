@@ -10,7 +10,8 @@
     <section class="bg-white rounded-2xl shadow-md p-4 mb-4">
       <h2 class="text-sm font-bold text-gray-700 mb-3">本季完工案件（業務／設計師／工務）</h2>
       <div v-if="eligibleCases.length === 0" class="text-sm text-gray-400 py-4 text-center">這一季沒有完工案件</div>
-      <table v-else class="w-full text-sm">
+      <div v-else class="overflow-x-auto">
+      <table class="w-full text-sm">
         <thead>
           <tr class="text-left text-gray-400 text-xs border-b border-gray-100">
             <th class="py-2 font-medium">案件</th>
@@ -33,6 +34,7 @@
           </tr>
         </tbody>
       </table>
+      </div>
     </section>
 
     <CaseBonusForm v-if="editingCaseId" :case-id="editingCaseId"
@@ -88,7 +90,8 @@
         </div>
       </div>
       <div v-if="allEntries.length === 0" class="text-sm text-gray-400 py-4 text-center">目前沒有可發放的項目</div>
-      <table v-else class="w-full text-sm">
+      <div v-else class="overflow-x-auto">
+      <table class="w-full text-sm">
         <thead>
           <tr class="text-left text-gray-400 text-xs border-b border-gray-100">
             <th class="py-2 font-medium">角色</th>
@@ -114,6 +117,7 @@
           </tr>
         </tbody>
       </table>
+      </div>
     </section>
   </main>
 </template>

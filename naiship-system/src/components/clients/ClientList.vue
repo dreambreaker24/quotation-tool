@@ -1,5 +1,5 @@
 <template>
-  <div class="w-64 bg-white border-r border-gray-200 flex flex-col flex-shrink-0 min-h-screen">
+  <div class="w-full sm:w-64 bg-white border-r border-gray-200 flex flex-col flex-shrink-0 sm:min-h-screen">
     <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
       <span class="text-sm font-semibold pl-2 border-l-2" style="color:#1e2533;border-left-color:#c9a96e">客戶列表</span>
       <button @click="emit('add')" class="text-xs text-white px-2 py-1 rounded-lg" style="background:#1e2533">+ 新增</button>

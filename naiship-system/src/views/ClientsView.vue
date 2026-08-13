@@ -12,9 +12,9 @@
     </div>
 
     <!-- 客戶管理 -->
-    <div v-if="activeTab === 'clients'" class="flex flex-1 overflow-hidden">
+    <div v-if="activeTab === 'clients'" class="flex flex-col sm:flex-row flex-1 overflow-y-auto sm:overflow-hidden">
       <ClientList :selected="selectedClient" @select="selectClient" @add="showForm = true" />
-      <div class="flex-1 flex flex-col overflow-hidden">
+      <div class="flex-1 flex flex-col sm:overflow-hidden">
         <!-- 客戶來源統計（近 3 個月） -->
         <div v-if="sourceStats.length > 0" class="bg-white border-b border-gray-100 px-5 py-3 flex-shrink-0">
           <div class="flex items-center gap-4 flex-wrap row-gap-2">
