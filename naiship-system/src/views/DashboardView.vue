@@ -1,5 +1,6 @@
 <template>
-  <aside class="w-56 text-white flex-shrink-0 min-h-screen pt-4 pb-6 overflow-y-auto" style="background:#1e2533">
+  <div class="flex flex-col sm:flex-row w-full">
+  <aside class="w-full sm:w-56 text-white flex-shrink-0 sm:min-h-screen pt-4 pb-6 overflow-y-auto" style="background:#1e2533">
     <!-- 待確認申請（主管才看得到） -->
     <div v-if="authStore.isManager && pendingCount > 0" class="mx-3 mb-4 rounded-xl p-3 border-l-4 border-red-400" style="background:rgba(239,68,68,0.15)">
       <div class="text-[10px] text-red-300 font-semibold uppercase tracking-wide mb-1">待確認申請</div>
@@ -59,7 +60,7 @@
         </select>
       </div>
     </div>
-    <div class="grid grid-cols-2 gap-4 mb-4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
       <DashboardTodo />
       <DashboardNoteBoard />
     </div>
@@ -68,6 +69,7 @@
     <EmployeeTable :year="selectedYear" class="mt-6" />
     <MonthlyCashFlow :year="selectedYear" :month="currentMonth" class="mt-6" />
   </main>
+  </div>
 </template>
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
