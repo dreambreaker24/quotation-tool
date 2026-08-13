@@ -227,10 +227,8 @@ const todayLabel = computed(() => {
 
 const myCases = computed(() =>
     casesStore.cases.filter(c =>
-        c.companyId === props.region &&
         !['completed', 'lost'].includes(c.status) &&
-        (authStore.isAdmin || authStore.isManager ||
-         c.assignedTo === authStore.user?.uid ||
+        (c.assignedTo === authStore.user?.uid ||
          (authStore.name && c.assignees?.includes(authStore.name)))
     )
 )
