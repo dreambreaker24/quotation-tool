@@ -27,7 +27,10 @@
       padding: 0 16px;
       box-shadow: 0 2px 12px rgba(0,0,0,0.2);
       z-index: 20;
+      overflow-x: auto;
+      scrollbar-width: none;
     }
+    #top-nav::-webkit-scrollbar { display: none; }
     #top-nav .brand {
       display: flex; align-items: center; gap: 8px;
       color: #fff; font-size: 13px; font-weight: 600;
@@ -177,6 +180,19 @@
       position: relative;
     }
 
+    /* 手機版：輸入區/預覽區一次只顯示一個，靠 #panel-divider 切換 */
+    @media (max-width: 768px) {
+      #input-panel {
+        width: calc(100% - 28px);
+        min-width: 0;
+        margin: 8px 0 8px 8px;
+      }
+      #preview-panel { display: none; }
+      body.preview-expanded #input-panel { display: none; }
+      body.preview-expanded #preview-panel { display: flex; width: 100%; }
+      #panel-divider { position: relative; }
+    }
+
     /* 列印設定 */
     @media print {
       body { background: white; display: block; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
@@ -249,7 +265,7 @@
     }
     #price-modal.open { display:flex; }
     #price-modal-box {
-      background:#fff; border-radius:10px; width:600px; max-height:82vh;
+      background:#fff; border-radius:10px; width:600px; max-width:95vw; max-height:82vh;
       display:flex; flex-direction:column;
       box-shadow:0 8px 40px rgba(0,0,0,0.25); overflow:hidden;
     }
@@ -306,7 +322,7 @@
     }
     #price-modal.open { display:flex; }
     #price-modal-box {
-      background:#fff; border-radius:10px; width:600px; max-height:82vh;
+      background:#fff; border-radius:10px; width:600px; max-width:95vw; max-height:82vh;
       display:flex; flex-direction:column;
       box-shadow:0 8px 40px rgba(0,0,0,0.25); overflow:hidden;
     }
@@ -363,7 +379,7 @@
     }
     #price-modal.open { display:flex; }
     #price-modal-box {
-      background:#fff; border-radius:10px; width:600px; max-height:82vh;
+      background:#fff; border-radius:10px; width:600px; max-width:95vw; max-height:82vh;
       display:flex; flex-direction:column;
       box-shadow:0 8px 40px rgba(0,0,0,0.25); overflow:hidden;
     }
@@ -420,7 +436,7 @@
     }
     #price-modal.open { display:flex; }
     #price-modal-box {
-      background:#fff; border-radius:10px; width:600px; max-height:82vh;
+      background:#fff; border-radius:10px; width:600px; max-width:95vw; max-height:82vh;
       display:flex; flex-direction:column;
       box-shadow:0 8px 40px rgba(0,0,0,0.25); overflow:hidden;
     }
@@ -477,7 +493,7 @@
     }
     #price-modal.open { display:flex; }
     #price-modal-box {
-      background:#fff; border-radius:10px; width:600px; max-height:82vh;
+      background:#fff; border-radius:10px; width:600px; max-width:95vw; max-height:82vh;
       display:flex; flex-direction:column;
       box-shadow:0 8px 40px rgba(0,0,0,0.25); overflow:hidden;
     }
@@ -534,7 +550,7 @@
     }
     #price-modal.open { display:flex; }
     #price-modal-box {
-      background:#fff; border-radius:10px; width:600px; max-height:82vh;
+      background:#fff; border-radius:10px; width:600px; max-width:95vw; max-height:82vh;
       display:flex; flex-direction:column;
       box-shadow:0 8px 40px rgba(0,0,0,0.25); overflow:hidden;
     }
@@ -591,7 +607,7 @@
     }
     #price-modal.open { display:flex; }
     #price-modal-box {
-      background:#fff; border-radius:10px; width:600px; max-height:82vh;
+      background:#fff; border-radius:10px; width:600px; max-width:95vw; max-height:82vh;
       display:flex; flex-direction:column;
       box-shadow:0 8px 40px rgba(0,0,0,0.25); overflow:hidden;
     }
@@ -648,7 +664,7 @@
     }
     #price-modal.open { display:flex; }
     #price-modal-box {
-      background:#fff; border-radius:10px; width:600px; max-height:82vh;
+      background:#fff; border-radius:10px; width:600px; max-width:95vw; max-height:82vh;
       display:flex; flex-direction:column;
       box-shadow:0 8px 40px rgba(0,0,0,0.25); overflow:hidden;
     }
@@ -705,7 +721,7 @@
     }
     #price-modal.open { display:flex; }
     #price-modal-box {
-      background:#fff; border-radius:10px; width:600px; max-height:82vh;
+      background:#fff; border-radius:10px; width:600px; max-width:95vw; max-height:82vh;
       display:flex; flex-direction:column;
       box-shadow:0 8px 40px rgba(0,0,0,0.25); overflow:hidden;
     }
@@ -762,7 +778,7 @@
     }
     #price-modal.open { display:flex; }
     #price-modal-box {
-      background:#fff; border-radius:10px; width:600px; max-height:82vh;
+      background:#fff; border-radius:10px; width:600px; max-width:95vw; max-height:82vh;
       display:flex; flex-direction:column;
       box-shadow:0 8px 40px rgba(0,0,0,0.25); overflow:hidden;
     }
@@ -1176,7 +1192,7 @@
 
   <!-- 右側預覽區 -->
   <div id="preview-panel">
-    <div style="display:flex; flex-direction:column; align-items:center; gap:16px;">
+    <div id="a4-scale-wrapper" style="display:flex; flex-direction:column; align-items:center; gap:16px;">
     <div id="a4-page">
       <img id="wm-page1" class="page-watermark" src="assets/奈拾設計LOGO2.png" alt="">
 
@@ -2678,7 +2694,33 @@
     const expanded = document.body.classList.toggle('preview-expanded');
     const icon = document.getElementById('divider-icon');
     if (icon) icon.textContent = expanded ? 'chevron_right' : 'chevron_left';
+    if (expanded) requestAnimationFrame(fitA4ToViewport);
   }
+
+  // 手機版：A4 預覽稿紙用 zoom 縮到跟螢幕一樣寬，zoom（不同於 transform）會讓瀏覽器
+  // 用縮小後的尺寸重新排版，才不會讓外層容器被撐開造成橫向捲動
+  function fitA4ToViewport() {
+    const page1 = document.getElementById('a4-page');
+    const page2 = document.getElementById('a4-page-2');
+    const previewPanel = document.getElementById('preview-panel');
+    if (!page1 || !previewPanel) return;
+    if (window.innerWidth > 768 || !document.body.classList.contains('preview-expanded')) {
+      page1.style.zoom = '';
+      if (page2) page2.style.zoom = '';
+      return;
+    }
+    page1.style.zoom = '1';
+    if (page2) page2.style.zoom = '1';
+    // 用 preview-panel（受版面約束）量可用寬度，不能用 a4-scale-wrapper 自己的寬度——
+    // wrapper 沒設寬度會直接撐開跟著 A4 內容一樣寬，量出來永遠等於 naturalWidth，scale 算出來就會恆為 1
+    const availableWidth = previewPanel.clientWidth - 24;
+    const naturalWidth = page1.offsetWidth;
+    if (!naturalWidth || !availableWidth) return;
+    const scale = Math.max(0.28, Math.min(1, availableWidth / naturalWidth));
+    page1.style.zoom = scale;
+    if (page2) page2.style.zoom = scale;
+  }
+  window.addEventListener('resize', fitA4ToViewport);
 
   function newQuote() {
     if (_currentDocId) {

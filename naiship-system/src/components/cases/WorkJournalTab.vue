@@ -1,5 +1,5 @@
 <template>
-  <div class="flex gap-4">
+  <div class="flex flex-col lg:flex-row gap-4">
     <WorkJournalEmployeeList
       :employees="uniqueEmployees"
       :model-value="selectedEmployee"
