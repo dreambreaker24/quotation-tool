@@ -185,3 +185,25 @@ const contractTermLines = computed(() =>
     (quote.value.contractTerms || '').split('\n').filter(l => l.trim())
 )
 </script>
+<style scoped>
+.page-watermark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 62%;
+  opacity: 0.10;
+  filter: brightness(0);
+  pointer-events: none;
+  user-select: none;
+  z-index: 0;
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+@media print {
+  .cost-col { display: none !important; }
+  :global(body.print-with-cost) .cost-col { display: table-cell !important; }
+  .cost-block { display: none !important; }
+  :global(body.print-with-cost) .cost-block { display: flex !important; }
+}
+</style>

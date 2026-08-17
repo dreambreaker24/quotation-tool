@@ -63,15 +63,29 @@ describe('QuotationPreviewPage1', () => {
     expect(hidden.find('[data-test="tax-row"]').exists()).toBe(false)
   })
 
-  it('付款條件表格顯示三行六欄（訂金/第二期款/第三期款/第四期款/第五期款/尾款）', () => {
+  it('付款條件表格依照舊版特殊順序（p1,p2,p3,p5,p6,p4）對應到訂金～尾款六個標籤與正確金額', () => {
     const wrapper = mountWithQuote({
       categories: [{ name: 'A', subItems: [{ price: 100000, qty: 1 }] }],
-      p1: 30, p2: 30, p3: 30, p4: 10, p5: 0, p6: 0,
+      p1: 10, p2: 20, p3: 30, p4: 5, p5: 15, p6: 20,
     })
-    const text = wrapper.text()
-    expect(text).toContain('訂金')
-    expect(text).toContain('第二期款')
-    expect(text).toContain('尾款')
+    const rows = wrapper.findAll('table')
+      .find(t => t.text().includes('訂金'))
+      .findAll('tr')
+    // row0: 訂金(p1=10%) / 第二期款(p2=20%)
+    expect(rows[0].text()).toContain('訂金')
+    expect(rows[0].text()).toContain('10%')
+    expect(rows[0].text()).toContain('第二期款')
+    expect(rows[0].text()).toContain('20%')
+    // row1: 第三期款(p3=30%) / 第四期款(p5=15%，不是 p4！)
+    expect(rows[1].text()).toContain('第三期款')
+    expect(rows[1].text()).toContain('30%')
+    expect(rows[1].text()).toContain('第四期款')
+    expect(rows[1].text()).toContain('15%')
+    // row2: 第五期款(p6=20%，不是 p5！) / 尾款(p4=5%，不是 p6！)
+    expect(rows[2].text()).toContain('第五期款')
+    expect(rows[2].text()).toContain('20%')
+    expect(rows[2].text()).toContain('尾款')
+    expect(rows[2].text()).toContain('5%')
   })
 
   it('公司切換到 baiting 時顯示柏延品牌資訊', () => {
