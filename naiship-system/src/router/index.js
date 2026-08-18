@@ -18,7 +18,9 @@ const routes = [
   {
     path: '/bonus', name: 'bonus', component: () => import('@/views/BonusView.vue'),
     meta: { requireAdmin: true }
-  }
+  },
+  // 開發用測試頁：不加進導覽列，只能直接打網址進來（報價系統 Vue 改寫 subproject 1 task 5）
+  { path: '/quotation-preview-dev', name: 'quotation-preview-dev', component: () => import('@/views/QuotationPreviewDevView.vue') }
 ]
 
 const router = createRouter({ history: createWebHistory(), routes })
