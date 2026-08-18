@@ -3,8 +3,8 @@
 // 涵蓋幾種容易讓 A4 排版跑掉的情境（單頁/多頁、含稅/未稅、長文字、不同公司品牌）。
 // 之後 Vue 版本做出來後，同一批資料用相同流程餵給新版，兩邊截圖逐像素比對。
 //
-// 這份是 tests/quotation-regression/fixtures.mjs 的內容原封不動複製一份，
-// 放到 src/ 底下讓 Vue 元件可以直接 import（Node 腳本與前端各自維護一份路徑，內容需保持同步）。
+// 這是唯一資料來源，放在 src/ 底下讓 Vue 元件可以直接 import；
+// tests/quotation-regression/fixtures.mjs 是從這裡 re-export，不是另一份副本。
 
 function subItem(desc, spec, qty, unit, price, cost) {
     return { desc, spec, qty, unit, price, cost: cost ?? 0, margin: 0, flag: 0 }
