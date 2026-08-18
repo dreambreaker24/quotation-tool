@@ -1,5 +1,8 @@
 <template>
-  <div id="a4-page" style="width:210mm; min-height:297mm; background:#fff; padding:4mm 16mm 20mm 16mm; box-shadow:0 2px 12px rgba(0,0,0,0.15); font-family:'Microsoft JhengHei','Noto Sans TC',sans-serif; font-size:11pt; color:#1a1a1a; position:relative;">
+  <!-- line-height:normal 是刻意加的：Tailwind preflight 把 html line-height 設成 1.5，
+       會蓋過瀏覽器預設值滲進表格列高，跟獨立的 quotation-dev.html（沒有任何 CSS reset，
+       用瀏覽器預設 normal）不一致，逐大項累加下來會造成明顯的排版偏移 -->
+  <div id="a4-page" style="width:210mm; min-height:297mm; background:#fff; padding:4mm 16mm 20mm 16mm; box-shadow:0 2px 12px rgba(0,0,0,0.15); font-family:'Microsoft JhengHei','Noto Sans TC',sans-serif; font-size:11pt; color:#1a1a1a; position:relative; line-height:normal;">
     <img class="page-watermark" :src="wmLogo" alt="">
 
     <div style="display:flex; justify-content:space-between; align-items:center; background:#2C2C2C; border-bottom:3px solid #c9a96e; margin: -4mm -16mm 0 -16mm; padding: 0 16mm; height:50mm; overflow:hidden;">

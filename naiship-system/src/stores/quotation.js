@@ -33,6 +33,11 @@ export const FLAG_STYLES = [
 ]
 const CN = ['壹','貳','參','肆','伍','陸','柒','捌','玖','拾','拾壹','拾貳','拾參','拾肆','拾伍','拾陸','拾柒','拾捌','拾玖','貳拾']
 
+// 已核對 quotation-dev.html 第 1728 行原文，逐字搬過來——這是新建/未填合約條款時的預設法律文字，
+// loadQuote() 沒帶 contractTerms 時要用這個，不能留空字串（跟舊版 loadQuote 第 2809 行
+// `q.contractTerms || DEFAULT_CONTRACT_TERMS` 的 fallback 邏輯一致）
+export const DEFAULT_CONTRACT_TERMS = '付款條款：依付款條件約定期程給付，逾期每日加計千分之三違約金。\n工程變更：工程施作期間如需變更設計或材料，須雙方書面同意，並另行議定費用。\n工期延誤：因不可抗力（天災、疫情、供料延誤）造成工期延誤，雙方不互相追究。\n驗收標準：工程完工後，委託人應於 7 日內完成驗收；逾期視為驗收通過。\n保固責任：竣工驗收後，乙方提供 1 年工程保固，材料瑕疵不在此限。\n爭議處理：因本合約發生爭議，雙方同意以台灣台南地方法院為第一審管轄法院。'
+
 function blankQuote() {
     return {
         company: 'naiship', contractNo: '', date: '', clientName: '', project: '',
@@ -48,7 +53,7 @@ export const useQuotationStore = defineStore('quotation', () => {
     const quote = ref(blankQuote())
 
     function loadQuote(q) {
-        quote.value = { ...blankQuote(), ...q }
+        quote.value = { ...blankQuote(), ...q, contractTerms: (q && q.contractTerms) || DEFAULT_CONTRACT_TERMS }
     }
 
     function cnNum(n) { return CN[n] || String(n + 1) }
