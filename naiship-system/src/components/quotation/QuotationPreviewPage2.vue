@@ -41,6 +41,9 @@
                 <tbody v-if="cat.subItems && cat.subItems.length">
                   <tr v-for="(s, idx) in cat.subItems" :key="idx" data-test="sub-row"
                     :style="`background:${flagStyle(s.flag).bg || (idx % 2 === 0 ? '#fff' : '#f9f9f9')};${flagStyle(s.flag).border ? 'border-left:4px solid ' + flagStyle(s.flag).border + ';' : ''}`">
+                    <!-- 拆除工程列顯示強制覆寫為 1/式/—/—，但成本欄與小計仍用真實數量計算——
+                         對應舊版 quotation-dev.html 第 3268-3279 行的 DOM 覆寫邏輯，故意保留真實數量供內部成本追蹤，
+                         不是 bug，不要「修正」成跟顯示欄位一致 -->
                     <template v-if="isDemolition(cat.name)">
                       <td style="padding:4px 6px; border-bottom:1px solid #e5e7eb; text-align:center;">{{ idx + 1 }}</td>
                       <td style="padding:4px 6px; border-bottom:1px solid #e5e7eb;">{{ s.desc || '—' }}</td>
