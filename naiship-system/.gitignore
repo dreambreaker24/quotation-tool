@@ -30,3 +30,6 @@ firebase-admin-key.json
 
 # Local E2E test scaffolding (contains saved Google/Firebase auth tokens — never commit)
 tests/e2e/
+
+# 報價系統新舊版比對每次跑都會重新產生，不用進版控
+tests/quotation-regression/diffs/
