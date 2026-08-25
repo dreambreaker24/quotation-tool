@@ -11,9 +11,13 @@ function daysForCompletedYears(years) {
 
 // 用 y/m/d 數字建構 Date（而不是直接 new Date('YYYY-MM-DD') 字串解析），
 // 避免 ISO 日期字串被當成 UTC 午夜解析、跟本地時區的 getFullYear/getMonth/getDate 對不齊而位移一天
+// 重要：對於月底日期（29/30/31），加月份時若目標月份較短會溢出到隔月，需要 clamp 到目標月的最後一天
 function addMonths(dateStr, months) {
     const [y, m, d] = dateStr.split('-').map(Number)
-    const date = new Date(y, m - 1 + months, d)
+    const targetMonthIndex = m - 1 + months
+    const daysInTargetMonth = new Date(y, targetMonthIndex + 1, 0).getDate()
+    const clampedDay = Math.min(d, daysInTargetMonth)
+    const date = new Date(y, targetMonthIndex, clampedDay)
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
 

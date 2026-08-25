@@ -68,4 +68,22 @@ describe('getAnnualLeaveCycleInfo', () => {
     const y30 = getAnnualLeaveCycleInfo('2000-01-01', new Date(2035, 0, 1))
     expect(y30.currentCycleDays).toBe(30) // 封頂，不會超過30
   })
+
+  it('到職日在月底（8/31）時，6個月後正確落在2月最後一天，不會位移到3月', () => {
+    const info = getAnnualLeaveCycleInfo('2026-08-31', new Date(2027, 1, 28)) // 2027/02/28
+    expect(info.currentCycleStart).toBe('2027-02-28')
+    expect(info.currentCycleDays).toBe(3)
+  })
+
+  it('到職日是閏年2/29，隔年不是閏年時滿1年落在2/28', () => {
+    const info = getAnnualLeaveCycleInfo('2024-02-29', new Date(2025, 1, 28)) // 2025/02/28
+    expect(info.currentCycleStart).toBe('2025-02-28')
+    expect(info.currentCycleDays).toBe(7)
+  })
+
+  it('到職日 10/31，加 6 個月到 4 月應正確落在 4/30，不會位移到 5 月', () => {
+    const info = getAnnualLeaveCycleInfo('2026-10-31', new Date(2027, 3, 30)) // 2027/04/30
+    expect(info.currentCycleStart).toBe('2027-04-30')
+    expect(info.currentCycleDays).toBe(3)
+  })
 })
