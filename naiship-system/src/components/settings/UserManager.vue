@@ -236,6 +236,7 @@ async function saveHireDate(id) {
     if (!date) { editingHireDateId.value = null; return }
     const target = users.value.find(u => u.id === id)
     const payload = { hireDate: date }
+    // 只在第一次填到職日時初始化，避免之後修正到職日打字誤植時，把已經套用過的週期紀錄覆蓋掉
     if (!target?.annualLeaveAppliedCycleStart) {
         payload.annualLeaveAppliedCycleStart = getAnnualLeaveCycleInfo(date).currentCycleStart
     }
