@@ -44,6 +44,10 @@
           <label class="text-xs text-gray-500 mb-1 block">底薪（薪資單用）</label>
           <input v-model.number="form.salary" type="number" min="0" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1">
         </div>
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">到職日</label>
+          <input v-model="form.hireDate" type="date" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1">
+        </div>
       </div>
       <div class="flex justify-end gap-2 mt-3">
         <button @click="showForm = false" class="text-xs text-gray-400 px-3 py-1">取消</button>
@@ -62,6 +66,7 @@
           <th class="text-left px-4 py-2.5 text-gray-600 font-semibold text-xs">分區</th>
           <th class="text-left px-4 py-2.5 text-gray-600 font-semibold text-xs">職稱</th>
           <th class="text-left px-4 py-2.5 text-gray-600 font-semibold text-xs">底薪</th>
+          <th class="text-left px-4 py-2.5 text-gray-600 font-semibold text-xs">到職日</th>
           <th class="px-4 py-2.5"></th>
         </tr>
       </thead>
@@ -82,6 +87,18 @@
           <td class="px-4 py-2.5 text-gray-500 text-xs">{{ regionLabel(u.companyId) }}</td>
           <td class="px-4 py-2.5 text-gray-500 text-xs">{{ u.job || '—' }}</td>
           <td class="px-4 py-2.5 text-gray-500 text-xs">{{ u.salary ? u.salary.toLocaleString() : '—' }}</td>
+          <td class="px-4 py-2.5 text-gray-500 text-xs">
+            <template v-if="editingHireDateId === u.id">
+              <input v-model="hireDateValue" type="date"
+                class="text-xs border border-gray-200 rounded px-2 py-1 focus:outline-none focus:ring-1"
+                @keyup.enter="saveHireDate(u.id)" @keyup.escape="editingHireDateId = null">
+              <button @click="saveHireDate(u.id)" class="text-xs text-white px-2 py-1 rounded ml-1" style="background:#1e2533">確認</button>
+              <button @click="editingHireDateId = null" class="text-xs text-gray-400 ml-1">取消</button>
+            </template>
+            <template v-else>
+              <span @click="startHireDateEdit(u)" class="cursor-pointer hover:text-gray-700">{{ u.hireDate || '—' }}</span>
+            </template>
+          </td>
           <td class="px-4 py-2.5 text-right flex items-center justify-end gap-3">
             <template v-if="renamingId === u.id">
               <input v-model="renameValue" type="text"
@@ -99,7 +116,7 @@
           </td>
         </tr>
         <tr v-if="users.length === 0">
-          <td colspan="8" class="px-4 py-6 text-center text-gray-400 text-xs">尚無帳號資料</td>
+          <td colspan="9" class="px-4 py-6 text-center text-gray-400 text-xs">尚無帳號資料</td>
         </tr>
       </tbody>
     </table>
@@ -135,12 +152,15 @@ import { ref, onMounted } from 'vue'
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/firebase'
 import { memberColor } from '@/utils/memberColor'
+import { getAnnualLeaveCycleInfo } from '@/utils/annualLeaveSchedule'
 
 const users = ref([])
 const showForm = ref(false)
-const form = ref({ name: '', fullName: '', email: '', role: 'employee', companyId: 'south', job: '', salary: 0 })
+const form = ref({ name: '', fullName: '', email: '', role: 'employee', companyId: 'south', job: '', salary: 0, hireDate: '' })
 const renamingId = ref(null)
 const renameValue = ref('')
+const editingHireDateId = ref(null)
+const hireDateValue = ref('')
 const editingSalaryId = ref(null)
 const salaryForm = ref({ fullName: '', job: '', salary: 0 })
 
@@ -170,8 +190,12 @@ async function loadUsers() {
 
 async function createUser() {
     if (!form.value.name || !form.value.email) return
-    await addDoc(collection(db, 'users'), { ...form.value, createdAt: serverTimestamp() })
-    form.value = { name: '', fullName: '', email: '', role: 'employee', companyId: 'south', job: '', salary: 0 }
+    const payload = { ...form.value, createdAt: serverTimestamp() }
+    if (form.value.hireDate) {
+        payload.annualLeaveAppliedCycleStart = getAnnualLeaveCycleInfo(form.value.hireDate).currentCycleStart
+    }
+    await addDoc(collection(db, 'users'), payload)
+    form.value = { name: '', fullName: '', email: '', role: 'employee', companyId: 'south', job: '', salary: 0, hireDate: '' }
     showForm.value = false
     await loadUsers()
 }
@@ -200,6 +224,24 @@ async function saveRename(id) {
     const target = users.value.find(u => u.id === id)
     if (target) target.name = name
     renamingId.value = null
+}
+
+function startHireDateEdit(u) {
+    editingHireDateId.value = u.id
+    hireDateValue.value = u.hireDate || ''
+}
+
+async function saveHireDate(id) {
+    const date = hireDateValue.value
+    if (!date) { editingHireDateId.value = null; return }
+    const target = users.value.find(u => u.id === id)
+    const payload = { hireDate: date }
+    if (!target?.annualLeaveAppliedCycleStart) {
+        payload.annualLeaveAppliedCycleStart = getAnnualLeaveCycleInfo(date).currentCycleStart
+    }
+    await updateDoc(doc(db, 'users', id), payload)
+    if (target) Object.assign(target, payload)
+    editingHireDateId.value = null
 }
 
 async function removeUser(id) {
