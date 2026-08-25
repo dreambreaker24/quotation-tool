@@ -60,6 +60,13 @@
               class="text-[10px] text-red-400 px-1.5 py-0.5 rounded border border-red-200 hover:bg-red-50">歸零</button>
           </div>
         </div>
+        <div v-if="leaveCycleInfo(name)" class="mt-1 flex items-center justify-between rounded-lg px-1.5 py-1"
+          :class="isLeaveCycleDue(name) ? 'bg-amber-50 text-amber-600' : 'text-gray-400'">
+          <span class="text-[10px]">依到職日：目前 {{ leaveCycleInfo(name).currentCycleDays }} 天（{{ formatCycleDate(leaveCycleInfo(name).nextCycleStart) }} 起 +{{ leaveCycleInfo(name).nextCycleDays }} 天）</span>
+          <button v-if="authStore.isAdmin" @click="applyLeaveCycle(name)" :disabled="!isLeaveCycleDue(name)"
+            class="text-[10px] px-1.5 py-0.5 rounded border ml-1 flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+            :class="isLeaveCycleDue(name) ? 'text-amber-600 border-amber-300 hover:bg-amber-100' : 'text-gray-400 border-gray-200'">套用</button>
+        </div>
       </div>
     </div>
   </div>
@@ -114,19 +121,20 @@
   </div>
 </template>
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useUsersStore, prevMonthStr, prevMonthOf } from '@/stores/users'
 import { useAuthStore } from '@/stores/auth'
 import { useWorkLogsStore } from '@/stores/workLogs'
 import { useToast } from '@/composables/useToast'
+import { getAnnualLeaveCycleInfo } from '@/utils/annualLeaveSchedule'
 
-const TRACKED = ['蚌', 'Ramy', '昆霖', '賴賴']
+const usersStore = useUsersStore()
+const TRACKED = computed(() => usersStore.users.map(u => u.name))
 // 補休月結（ensureMonthClosed）只跟這兩個欄位有關，特休沒有月結快照機制
 const MONTH_CLOSING_FIELDS = ['compensatoryHours', 'compensatoryHolidayHours']
 // 稽核記錄（adjustCompensatoryField 寫入 compAdjustments）三個欄位都適用
 const AUDITED_FIELDS = ['compensatoryHours', 'compensatoryHolidayHours', 'annualLeaveHours']
 
-const usersStore = useUsersStore()
 const authStore = useAuthStore()
 const logsStore = useWorkLogsStore()
 const { toast } = useToast()
@@ -162,7 +170,7 @@ function lastMonthTotal(name) {
 
 async function refreshLastMonthBalances() {
     const month = prevMonthStr(new Date())
-    for (const name of TRACKED) {
+    for (const name of TRACKED.value) {
         const user = usersStore.users.find(u => u.name === name)
         if (!user) continue
         await usersStore.ensureMonthClosed(user.id)
@@ -275,6 +283,39 @@ async function confirmReset(name, field, label) {
         toast(`${name} ${label}時數已歸零`)
     } catch {
         toast('歸零失敗，請重試', 'error')
+    }
+}
+
+function leaveCycleInfo(name) {
+    const user = usersStore.users.find(u => u.name === name)
+    if (!user?.hireDate) return null
+    return getAnnualLeaveCycleInfo(user.hireDate)
+}
+
+function isLeaveCycleDue(name) {
+    const user = usersStore.users.find(u => u.name === name)
+    const info = leaveCycleInfo(name)
+    if (!user || !info) return false
+    return info.currentCycleStart > (user.annualLeaveAppliedCycleStart || '')
+}
+
+function formatCycleDate(dateStr) {
+    const [y, m, d] = dateStr.split('-')
+    return `${y}/${m}/${d}`
+}
+
+async function applyLeaveCycle(name) {
+    const user = usersStore.users.find(u => u.name === name)
+    const info = leaveCycleInfo(name)
+    if (!user || !info) return
+    try {
+        const prevValue = getHours(name, 'annualLeaveHours')
+        const newValue = prevValue + info.currentCycleDays
+        await usersStore.adjustCompensatoryField(user.id, 'annualLeaveHours', newValue, prevValue, authStore.name)
+        await usersStore.updateUser(user.id, { annualLeaveAppliedCycleStart: info.currentCycleStart })
+        toast(`${name} 特休已套用，+${info.currentCycleDays}天`)
+    } catch {
+        toast('套用失敗，請重試', 'error')
     }
 }
 </script>
