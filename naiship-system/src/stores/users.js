@@ -118,6 +118,21 @@ export const useUsersStore = defineStore('users', () => {
         }
     }
 
+    // 套用特休週期：跟一般的 adjustCompensatoryField 不同之處是要「同一次 updateDoc」把餘額
+    // 和週期起算日一起寫入，避免中途失敗導致餘額已加但週期起算日沒更新、按鈕誤判成還沒套用
+    // 而被重複點擊套用
+    async function applyAnnualLeaveCycle(uid, newValue, prevValue, cycleStart, adjustedBy) {
+        const delta = newValue - prevValue
+        await updateDoc(doc(db, 'users', uid), { annualLeaveHours: newValue, annualLeaveAppliedCycleStart: cycleStart })
+        if (delta !== 0) {
+            await addDoc(collection(db, 'users', uid, 'compAdjustments'), {
+                field: 'annualLeaveHours', delta, prevValue, newValue,
+                adjustedBy: adjustedBy || '',
+                adjustedAt: serverTimestamp(),
+            })
+        }
+    }
+
     async function fetchCompAdjustments(uid, field, periodStart, periodEnd = null) {
         const q = query(collection(db, 'users', uid, 'compAdjustments'), where('field', '==', field))
         const snap = await getDocs(q)
@@ -148,5 +163,5 @@ export const useUsersStore = defineStore('users', () => {
         if (unsubscribe) { unsubscribe(); unsubscribe = null }
     }
 
-    return { users, subscribe, updateUser, adjustCompensatoryHours, adjustCompensatoryHolidayHours, adjustAnnualLeaveHours, ensureMonthClosed, getClosingBalance, listClosingMonths, adjustCompensatoryField, fetchCompAdjustments, getUser, cleanup }
+    return { users, subscribe, updateUser, adjustCompensatoryHours, adjustCompensatoryHolidayHours, adjustAnnualLeaveHours, ensureMonthClosed, getClosingBalance, listClosingMonths, adjustCompensatoryField, applyAnnualLeaveCycle, fetchCompAdjustments, getUser, cleanup }
 })

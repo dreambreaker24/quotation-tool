@@ -311,8 +311,7 @@ async function applyLeaveCycle(name) {
     try {
         const prevValue = getHours(name, 'annualLeaveHours')
         const newValue = prevValue + info.currentCycleDays
-        await usersStore.adjustCompensatoryField(user.id, 'annualLeaveHours', newValue, prevValue, authStore.name)
-        await usersStore.updateUser(user.id, { annualLeaveAppliedCycleStart: info.currentCycleStart })
+        await usersStore.applyAnnualLeaveCycle(user.id, newValue, prevValue, info.currentCycleStart, authStore.name)
         toast(`${name} 特休已套用，+${info.currentCycleDays}天`)
     } catch {
         toast('套用失敗，請重試', 'error')

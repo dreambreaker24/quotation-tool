@@ -115,16 +115,14 @@ describe('CompensatoryPanel — 特休依到職日試算套用', () => {
     const wrapper = mount(CompensatoryPanel)
     await flushPromises()
 
-    const adjustSpy = vi.spyOn(usersStore, 'adjustCompensatoryField')
-    const updateSpy = vi.spyOn(usersStore, 'updateUser')
+    const applySpy = vi.spyOn(usersStore, 'applyAnnualLeaveCycle')
 
     const applyButton = wrapper.findAll('button').find(b => b.text() === '套用')
     expect(applyButton.attributes('disabled')).toBeUndefined()
     await applyButton.trigger('click')
     await flushPromises()
 
-    expect(adjustSpy).toHaveBeenCalledWith('u1', 'annualLeaveHours', 5 + info.currentCycleDays, 5, '柏')
-    expect(updateSpy).toHaveBeenCalledWith('u1', { annualLeaveAppliedCycleStart: info.currentCycleStart })
+    expect(applySpy).toHaveBeenCalledWith('u1', 5 + info.currentCycleDays, 5, info.currentCycleStart, '柏')
   })
 
   it('未到期時，套用按鈕停用', async () => {
