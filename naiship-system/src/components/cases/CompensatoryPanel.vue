@@ -129,7 +129,9 @@ import { useToast } from '@/composables/useToast'
 import { getAnnualLeaveCycleInfo } from '@/utils/annualLeaveSchedule'
 
 const usersStore = useUsersStore()
-const TRACKED = computed(() => usersStore.users.map(u => u.name))
+// 其宏、柏是老闆，不追蹤補休/特休餘額，面板不顯示他們（到職日/特休週期試算仍會照常存，只是這裡排除顯示）
+const UNTRACKED_NAMES = ['其宏', '柏']
+const TRACKED = computed(() => usersStore.users.filter(u => !UNTRACKED_NAMES.includes(u.name)).map(u => u.name))
 // 補休月結（ensureMonthClosed）只跟這兩個欄位有關，特休沒有月結快照機制
 const MONTH_CLOSING_FIELDS = ['compensatoryHours', 'compensatoryHolidayHours']
 // 稽核記錄（adjustCompensatoryField 寫入 compAdjustments）三個欄位都適用
