@@ -997,6 +997,9 @@ async function openCaseModal() {
     try {
         const data = await fetch(`/api/cases?company=${encodeURIComponent(company)}`).then(r => r.json());
         modalCaseNames = data.caseNames || [];
+        if (data.naishipSyncOk === false) {
+            toast('⚠️ 無法連線案件系統，目前僅顯示手動清單', 'info');
+        }
     } catch {
         modalCaseNames = [];
     }
