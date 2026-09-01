@@ -100,7 +100,7 @@ app.post('/api/export', async (req, res) => {
 
     const config           = core.loadConfig();
     const co               = (config.companies || {})[company] || {};
-    const masterPath       = path.join(os.homedir(), 'Desktop', co.excel_name || `${company}_發票報帳總表.xlsx`);
+    const masterPath       = path.join(os.homedir(), 'Desktop', '發票開立資訊', co.excel_name || `${company}_發票報帳總表.xlsx`);
     const defaultCaseNames = co.case_names || [];
 
     try {
@@ -130,7 +130,7 @@ app.get('/api/cases', async (req, res) => {
 
     const config     = core.loadConfig();
     const co         = (config.companies || {})[company] || {};
-    const masterPath = path.join(os.homedir(), 'Desktop', co.excel_name || `${company}_發票報帳總表.xlsx`);
+    const masterPath = path.join(os.homedir(), 'Desktop', '發票開立資訊', co.excel_name || `${company}_發票報帳總表.xlsx`);
 
     try {
         const existingNames = await core.getCaseNames(masterPath, co.case_names || []);
@@ -158,7 +158,7 @@ app.post('/api/cases', async (req, res) => {
 
     const config     = core.loadConfig();
     const co         = (config.companies || {})[company] || {};
-    const masterPath = path.join(os.homedir(), 'Desktop', co.excel_name || `${company}_發票報帳總表.xlsx`);
+    const masterPath = path.join(os.homedir(), 'Desktop', '發票開立資訊', co.excel_name || `${company}_發票報帳總表.xlsx`);
 
     try {
         await core.updateExcel([], masterPath, [], 'purchase', caseNames);
@@ -178,7 +178,7 @@ app.post('/api/expenses', async (req, res) => {
 
     const config           = core.loadConfig();
     const co               = (config.companies || {})[company] || {};
-    const masterPath       = path.join(os.homedir(), 'Desktop', co.excel_name || `${company}_發票報帳總表.xlsx`);
+    const masterPath       = path.join(os.homedir(), 'Desktop', '發票開立資訊', co.excel_name || `${company}_發票報帳總表.xlsx`);
     const defaultCaseNames = co.case_names || [];
 
     try {
@@ -195,7 +195,7 @@ app.post('/api/sales', async (req, res) => {
 
     const config           = core.loadConfig();
     const co               = (config.companies || {})[company] || {};
-    const masterPath       = path.join(os.homedir(), 'Desktop', co.excel_name || `${company}_發票報帳總表.xlsx`);
+    const masterPath       = path.join(os.homedir(), 'Desktop', '發票開立資訊', co.excel_name || `${company}_發票報帳總表.xlsx`);
     const defaultCaseNames = co.case_names || [];
 
     try {
