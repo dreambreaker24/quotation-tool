@@ -5,6 +5,7 @@ const fs        = require('fs');
 const os        = require('os');
 const Anthropic = require('@anthropic-ai/sdk');
 const core      = require('./invoice_core');
+const naishipSync = require('./naiship_sync');
 
 const app  = express();
 const PORT = 3000;
@@ -132,8 +133,20 @@ app.get('/api/cases', async (req, res) => {
     const masterPath = path.join(os.homedir(), 'Desktop', co.excel_name || `${company}_發票報帳總表.xlsx`);
 
     try {
-        const caseNames = await core.getCaseNames(masterPath, co.case_names || []);
-        res.json({ caseNames });
+        const existingNames = await core.getCaseNames(masterPath, co.case_names || []);
+
+        if (!co.syncFromNaiship) {
+            return res.json({ caseNames: existingNames, naishipSyncOk: true });
+        }
+
+        try {
+            const naishipNames = await naishipSync.getNaishipCaseNames();
+            const merged       = naishipSync.mergeCaseNames(naishipNames, existingNames);
+            res.json({ caseNames: merged, naishipSyncOk: true });
+        } catch (syncErr) {
+            console.error('[naiship_sync] 連線 naiship-system 失敗，退回手動清單:', syncErr.message);
+            res.json({ caseNames: existingNames, naishipSyncOk: false });
+        }
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
