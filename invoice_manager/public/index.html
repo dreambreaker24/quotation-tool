@@ -707,9 +707,10 @@ async function init() {
 
 async function fetchCaseNames(company) {
     try {
-        const cfg = await fetch('/api/config').then(r => r.json());
-        const names = cfg.caseNames?.[company] || [];
+        const data = await fetch(`/api/cases?company=${encodeURIComponent(company)}`).then(r => r.json());
+        const names = data.caseNames || [];
         window._caseNames = names;
+        if (data.naishipSyncOk === false) toast('⚠️ 無法連線案件系統，目前僅顯示手動清單', 'info');
         return names;
     } catch { return []; }
 }

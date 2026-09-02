@@ -125,20 +125,15 @@ const PROMPT = `請從這份發票提取所有發票的資訊。若有多張發�
   "date": "YYYY-MM-DD",
   "invoice_number": "發票號碼",
   "tax_id": "賣方統一編號（8碼數字，無則空字串）",
-  "store_name": "賣方名稱",
-  "items": "品項（多品項用逗號分隔）",
   "amount": 金額數字（不含稅）,
   "tax": 稅額數字,
   "total": 總金額數字
 }
 重要規則：
-1. store_name 填「賣方／開立人」的公司名稱，絕對不是「買受人」。台灣發票的買受人是採購方，不是賣方。
-2. tax_id 填「賣方」的統一編號，不是買受人的統編。94201846 是買受人請忽略。
-3. 紙本三聯式發票：賣方名稱在發票右下角印章區，買受人在中間欄位，請勿混淆。
-4. 電子發票：賣方名稱通常在最上方最顯眼的位置。
-5. 發票號碼格式：兩英文字母加8數字（如 AB12345678）。
-6. 民國年自動換算西元，日期格式 YYYY-MM-DD。
-7. 金額欄位只填數字。`;
+1. tax_id 填「賣方」的統一編號，不是買受人的統編。94201846 是買受人請忽略。
+2. 發票號碼格式：兩英文字母加8數字（如 AB12345678）。
+3. 民國年自動換算西元，日期格式 YYYY-MM-DD。
+4. 金額欄位只填數字。`;
 
 async function extractInvoice(client, filePath, retries = 2) {
     const ext      = path.extname(filePath).toLowerCase();
@@ -184,8 +179,8 @@ async function extractInvoice(client, filePath, retries = 2) {
         date:           parseDate(item.date),
         invoice_number: cleanInvoiceNum(item.invoice_number),
         tax_id:         cleanStr(item.tax_id),
-        store_name:     cleanStr(item.store_name),
-        items:          cleanStr(item.items),
+        store_name:     '',
+        items:          '',
         amount:         Number(item.amount) || 0,
         tax:            Number(item.tax)    || 0,
         total:          Number(item.total)  || 0,
