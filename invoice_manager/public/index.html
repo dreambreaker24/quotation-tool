@@ -898,7 +898,7 @@ document.getElementById('bulkApplyCaseBtn').addEventListener('click', () => {
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
 
 function flagSeverity(f) {
-    if (f === '⚠金額為0' || f === '⚠店家空白') return 'severity-high';
+    if (f === '⚠金額為0' || f === '⚠請填寫店家名稱') return 'severity-high';
     if (f === '⚠自家公司') return 'severity-medium';
     if (f === '⚠手動輸入') return 'severity-info';
     return '';

@@ -72,7 +72,7 @@ function cleanInvoiceNum(s) {
 function getFlags(item, ownNames = []) {
     const currentYear = new Date().getFullYear();
     const flags = [];
-    if (!item.store_name || String(item.store_name).trim() === '') flags.push('⚠店家空白');
+    if (!item.store_name || String(item.store_name).trim() === '') flags.push('⚠請填寫店家名稱');
     else if (ownNames.some(name => item.store_name.includes(name))) flags.push('⚠自家公司');
     if (Number(item.total) === 0 && Number(item.amount) === 0) flags.push('⚠金額為0');
     if (item.date) {
