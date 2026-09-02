@@ -234,9 +234,21 @@ const BORDER = {
     left:   { style: 'thin', color: { argb: 'FFD0D7E0' } },
     right:  { style: 'thin', color: { argb: 'FFD0D7E0' } }
 };
+const UNASSIGNED_FILL = 'FFF0F0F0';
+const CASE_PALETTE = [
+    'FFFCE4EC', 'FFE3F2FD', 'FFE8F5E9', 'FFFFF3E0', 'FFF3E5F5',
+    'FFFFFDE7', 'FFE0F7FA', 'FFFBE9E7', 'FFF1F8E9', 'FFEDE7F6',
+    'FFFFEBEE', 'FFE0F2F1', 'FFFFF8E1', 'FFECEFF1',
+];
+
+function buildCaseColorMap(caseNames) {
+    const map = {};
+    caseNames.forEach((name, i) => { map[name] = CASE_PALETTE[i % CASE_PALETTE.length]; });
+    return map;
+}
 
 function styleHeader(row) {
-    row.height = 28;
+    row.height = 40;
     row.eachCell(cell => {
         cell.fill = H_FILL; cell.font = H_FONT; cell.border = BORDER;
         cell.alignment = { horizontal: 'center', vertical: 'middle' };
@@ -255,15 +267,17 @@ function getBimonthlySheet(dateStr) {
     return `${y} 11-12月`;
 }
 
-function buildCaseListSheet(ws, caseNames) {
-    ws.columns = [{ header: '案場名稱（可直接在此新增或刪除）', key: 'name', width: 36 }];
+function buildCaseListSheet(ws, caseNames, caseColorMap = {}) {
+    ws.columns = [{ header: '案場名稱（可直接在此新增或刪除，右側顏色對應各分頁的案場顏色）', key: 'name', width: 46 }];
     styleHeader(ws.getRow(1));
     for (const name of caseNames) {
         const row = ws.addRow([name]);
-        row.height = 22;
-        row.getCell(1).font      = D_FONT;
-        row.getCell(1).border    = BORDER;
-        row.getCell(1).alignment = { vertical: 'middle' };
+        row.height = 32;
+        const cell = row.getCell(1);
+        cell.font      = D_FONT;
+        cell.border    = BORDER;
+        cell.alignment = { vertical: 'middle' };
+        cell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: caseColorMap[name] || UNASSIGNED_FILL } };
     }
 }
 
@@ -291,7 +305,7 @@ function buildSummarySheet(ws, purchaseGroups, salesGroups, expenseGroups = {}) 
 
             const period = sn.replace(/^銷 /, '');
             const row = ws.addRow([label, period, count, amount, tax, total]);
-            row.height = 22;
+            row.height = 32;
             row.eachCell((cell, col) => {
                 cell.font   = D_FONT; cell.border = BORDER;
                 cell.fill   = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } };
@@ -322,7 +336,7 @@ function buildSummarySheet(ws, purchaseGroups, salesGroups, expenseGroups = {}) 
 
             const period = sn.replace(/^支 /, '');
             const row = ws.addRow(['固定支出', period, count, amount, '', amount]);
-            row.height = 22;
+            row.height = 32;
             row.eachCell((cell, col) => {
                 cell.font   = D_FONT; cell.border = BORDER;
                 cell.fill   = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } };
@@ -341,7 +355,7 @@ function buildSummarySheet(ws, purchaseGroups, salesGroups, expenseGroups = {}) 
     }
 }
 
-function buildSheet(ws, items) {
+function buildSheet(ws, items, caseColorMap = {}) {
     ws.columns = COLS;
     styleHeader(ws.getRow(1));
 
@@ -354,8 +368,8 @@ function buildSheet(ws, items) {
             Number(t.amount) || 0, Number(t.tax) || 0, Number(t.total) || 0,
             t.case_name || ''
         ]);
-        row.height = 22;
-        const bg = i % 2 === 0 ? 'FFFFFFFF' : 'FFF5F7FA';
+        row.height = 32;
+        const bg = caseColorMap[t.case_name || ''] || UNASSIGNED_FILL;
         row.eachCell((cell, col) => {
             cell.font   = D_FONT; cell.border = BORDER;
             cell.fill   = { type: 'pattern', pattern: 'solid', fgColor: { argb: bg } };
@@ -390,7 +404,7 @@ function buildSheet(ws, items) {
     });
 }
 
-function buildSalesSheet(ws, items) {
+function buildSalesSheet(ws, items, caseColorMap = {}) {
     ws.columns = SALES_COLS;
     styleHeader(ws.getRow(1));
 
@@ -403,8 +417,8 @@ function buildSalesSheet(ws, items) {
             Number(t.amount) || 0, Number(t.tax) || 0, Number(t.total) || 0,
             t.case_name || ''
         ]);
-        row.height = 22;
-        const bg = i % 2 === 0 ? 'FFFFFFFF' : 'FFF5F7FA';
+        row.height = 32;
+        const bg = caseColorMap[t.case_name || ''] || UNASSIGNED_FILL;
         row.eachCell((cell, col) => {
             cell.font   = D_FONT; cell.border = BORDER;
             cell.fill   = { type: 'pattern', pattern: 'solid', fgColor: { argb: bg } };
@@ -447,7 +461,7 @@ function buildExpenseSheet(ws, items) {
     for (let i = 0; i < sorted.length; i++) {
         const t   = sorted[i];
         const row = ws.addRow([t.date || '', t.category || '', Number(t.amount) || 0, t.note || '']);
-        row.height = 22;
+        row.height = 32;
         const bg = i % 2 === 0 ? 'FFFFFFFF' : 'FFF5F7FA';
         row.eachCell((cell, col) => {
             cell.font   = D_FONT; cell.border = BORDER;
@@ -562,6 +576,7 @@ async function updateExcel(newData, masterPath, defaultCaseNames = [], type = 'p
 
     if (overrideCaseNames) caseNames = [...overrideCaseNames];
     else if (caseNames.length === 0) caseNames = defaultCaseNames;
+    const caseColorMap = buildCaseColorMap(caseNames);
 
     let added = 0, skipped = 0, duplicates = [];
 
@@ -609,12 +624,12 @@ async function updateExcel(newData, masterPath, defaultCaseNames = [], type = 'p
 
     const wb = new ExcelJS.Workbook();
     buildSummarySheet(wb.addWorksheet('年度摘要'), purchaseGroups, salesGroups, expenseGroups);
-    buildCaseListSheet(wb.addWorksheet('案場清單'), caseNames);
+    buildCaseListSheet(wb.addWorksheet('案場清單'), caseNames, caseColorMap);
     for (const sn of Object.keys(purchaseGroups).sort()) {
-        buildSheet(wb.addWorksheet(sn), purchaseGroups[sn]);
+        buildSheet(wb.addWorksheet(sn), purchaseGroups[sn], caseColorMap);
     }
     for (const sn of Object.keys(salesGroups).sort()) {
-        buildSalesSheet(wb.addWorksheet(sn), salesGroups[sn]);
+        buildSalesSheet(wb.addWorksheet(sn), salesGroups[sn], caseColorMap);
     }
     for (const sn of Object.keys(expenseGroups).sort()) {
         buildExpenseSheet(wb.addWorksheet(sn), expenseGroups[sn]);

@@ -2,14 +2,14 @@ import ExcelJS from 'exceljs';
 import path from 'path';
 
 const FILES = [
-    'C:\\Users\\user\\Desktop\\奈拾設計_發票報帳總表.xlsx',
-    'C:\\Users\\user\\Desktop\\柏延_發票報帳總表.xlsx',
+    'C:\\Users\\user\\Desktop\\發票開立資訊\\奈拾設計_發票報帳總表.xlsx',
+    'C:\\Users\\user\\Desktop\\發票開立資訊\\柏延_發票報帳總表.xlsx',
 ];
 
 const HEADER_FONT_SIZE = 14;
 const DATA_FONT_SIZE   = 13;
-const HEADER_ROW_HEIGHT = 36;
-const DATA_ROW_HEIGHT   = 28;
+const HEADER_ROW_HEIGHT = 40;
+const DATA_ROW_HEIGHT   = 32;
 
 async function fixFile(filePath) {
     const wb = new ExcelJS.Workbook();
