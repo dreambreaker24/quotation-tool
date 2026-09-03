@@ -1191,8 +1191,10 @@ function populateSalsCaseSelect() {
 
 function setSalesInvoiceType(type) {
     salesInvoiceType = type;
-    document.getElementById('s-type-duplicate').className  = 'btn ' + (type === '二聯' ? 'btn-primary' : 'btn-outline');
-    document.getElementById('s-type-triplicate').className = 'btn ' + (type === '三聯' ? 'btn-primary' : 'btn-outline');
+    document.getElementById('s-type-duplicate').classList.toggle('btn-primary', type === '二聯');
+    document.getElementById('s-type-duplicate').classList.toggle('btn-outline', type !== '二聯');
+    document.getElementById('s-type-triplicate').classList.toggle('btn-primary', type === '三聯');
+    document.getElementById('s-type-triplicate').classList.toggle('btn-outline', type !== '三聯');
     document.getElementById('s-buyer-tax-id-group').style.display = type === '三聯' ? '' : 'none';
     if (type === '二聯') document.getElementById('s-buyer-tax-id').value = '';
 }
