@@ -120,6 +120,10 @@ function isSuspiciousBatch(items) {
     return numsDuplicate || amountsSame;
 }
 
+function inferInvoiceType(buyerTaxId) {
+    return (buyerTaxId && String(buyerTaxId).trim()) ? '三聯' : '二聯';
+}
+
 const PROMPT = `請從這份發票提取所有發票的資訊。若有多張發票，回傳 JSON 陣列；單張則回傳單一物件。只回傳 JSON 不含任何說明：
 {
   "date": "YYYY-MM-DD",
@@ -529,11 +533,13 @@ async function updateExcel(newData, masterPath, defaultCaseNames = [], type = 'p
             if (['年度摘要', '案場清單'].includes(ws.name)) return;
             const isSales   = ws.name.startsWith('銷 ');
             const isExpense = ws.name.startsWith('支 ');
+            const salesHasTypeCol = isSales && String(ws.getRow(1).values[6] || '') === '發票類別';
+
             ws.eachRow((row, rowNum) => {
                 if (rowNum === 1) return;
                 const v = row.values;
                 if (!v[1] && !v[2]) return;
-                const isTotalRow = [1, 2, 3, 4, 5, 6, 7, 8, 9].some(idx => String(v[idx] || '').trim() === '合　計');
+                const isTotalRow = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].some(idx => String(v[idx] || '').trim() === '合　計');
                 if (isTotalRow) return;
 
                 const dateVal = v[1];
@@ -549,13 +555,26 @@ async function updateExcel(newData, masterPath, defaultCaseNames = [], type = 'p
 
                 const invoiceNum = String(v[2] || '').replace(/[\s\-]/g, '').toUpperCase().trim();
                 if (isSales) {
-                    salesData.push({
-                        date: dateStr, invoice_number: invoiceNum,
-                        buyer_name: String(v[3] || ''), buyer_tax_id: String(v[4] || ''),
-                        items: String(v[5] || ''),
-                        amount: Number(v[6]) || 0, tax: Number(v[7]) || 0, total: Number(v[8]) || 0,
-                        case_name: String(v[9] || '')
-                    });
+                    const buyerTaxId = String(v[4] || '');
+                    if (salesHasTypeCol) {
+                        salesData.push({
+                            date: dateStr, invoice_number: invoiceNum,
+                            buyer_name: String(v[3] || ''), buyer_tax_id: buyerTaxId,
+                            items: String(v[5] || ''),
+                            invoice_type: String(v[6] || '') || inferInvoiceType(buyerTaxId),
+                            amount: Number(v[7]) || 0, tax: Number(v[8]) || 0, total: Number(v[9]) || 0,
+                            case_name: String(v[10] || '')
+                        });
+                    } else {
+                        salesData.push({
+                            date: dateStr, invoice_number: invoiceNum,
+                            buyer_name: String(v[3] || ''), buyer_tax_id: buyerTaxId,
+                            items: String(v[5] || ''),
+                            invoice_type: inferInvoiceType(buyerTaxId),
+                            amount: Number(v[6]) || 0, tax: Number(v[7]) || 0, total: Number(v[8]) || 0,
+                            case_name: String(v[9] || '')
+                        });
+                    }
                     if (invoiceNum) seenSales.add(invoiceNum);
                 } else {
                     purchaseData.push({
