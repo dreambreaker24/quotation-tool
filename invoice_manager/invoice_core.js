@@ -208,11 +208,13 @@ const SALES_COLS = [
     { header: '買受人名稱', key: 'buyer_name',       width: 22 },
     { header: '買受人統編', key: 'buyer_tax_id',     width: 12 },
     { header: '品項',       key: 'items',           width: 32 },
+    { header: '發票類別',   key: 'invoice_type',     width: 10 },
     { header: '金額',       key: 'amount',          width: 12 },
     { header: '稅額',       key: 'tax',             width: 10 },
     { header: '總金額',     key: 'total',           width: 12 },
     { header: '案場名稱',   key: 'case_name',        width: 20 },
 ];
+const SALES_MONEY_COLS = [7, 8, 9];
 const EXPENSE_COLS = [
     { header: '日期', key: 'date',     width: 14 },
     { header: '類別', key: 'category', width: 16 },
@@ -408,7 +410,7 @@ function buildSalesSheet(ws, items, caseColorMap = {}) {
         const t   = sorted[i];
         const row = ws.addRow([
             t.date || '', t.invoice_number || '', t.buyer_name || '', t.buyer_tax_id || '',
-            t.items || '',
+            t.items || '', t.invoice_type || '',
             Number(t.amount) || 0, Number(t.tax) || 0, Number(t.total) || 0,
             t.case_name || ''
         ]);
@@ -418,12 +420,12 @@ function buildSalesSheet(ws, items, caseColorMap = {}) {
             cell.font   = D_FONT; cell.border = BORDER;
             cell.fill   = { type: 'pattern', pattern: 'solid', fgColor: { argb: bg } };
             cell.alignment = { vertical: 'middle', wrapText: col === 5 };
-            if (MONEY_COLS.includes(col)) {
+            if (SALES_MONEY_COLS.includes(col)) {
                 cell.numFmt    = '#,##0';
                 cell.alignment = { horizontal: 'right', vertical: 'middle' };
             }
         });
-        ws.getCell(i + 2, 9).dataValidation = {
+        ws.getCell(i + 2, 10).dataValidation = {
             type: 'list', allowBlank: true,
             formulae: ["'案場清單'!$A$2:$A$100"]
         };
@@ -431,17 +433,17 @@ function buildSalesSheet(ws, items, caseColorMap = {}) {
 
     const last = sorted.length + 1;
     const tRow = ws.addRow([
-        '', '', '', '', '合　計',
-        { formula: `SUM(F2:F${last})` },
+        '', '', '', '', '合　計', '',
         { formula: `SUM(G2:G${last})` },
         { formula: `SUM(H2:H${last})` },
+        { formula: `SUM(I2:I${last})` },
         ''
     ]);
     tRow.height = 24;
     tRow.eachCell((cell, col) => {
         cell.font   = { ...D_FONT, bold: true }; cell.border = BORDER;
         cell.fill   = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8EDF4' } };
-        if (MONEY_COLS.includes(col)) {
+        if (SALES_MONEY_COLS.includes(col)) {
             cell.numFmt    = '#,##0';
             cell.alignment = { horizontal: 'right', vertical: 'middle' };
         }
