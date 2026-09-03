@@ -102,6 +102,8 @@ body { font-family: '微軟正黑體', 'Microsoft JhengHei', sans-serif; backgro
     border: 1px solid #b0bec5;
 }
 .btn-outline:not(:disabled):hover { background: #f0f4f9; border-color: #2c4a6e; }
+.invoice-type-toggle { display: flex; gap: 8px; }
+.invoice-type-toggle .btn { padding: 9px 18px; }
 .btn-outline-light {
     background: transparent;
     color: #fff;
@@ -558,11 +560,18 @@ td:first-child { width: 64px; }
                 </div>
                 <div class="form-group">
                     <label>買受人名稱</label>
-                    <input type="text" id="s-buyer-name" placeholder="公司名稱">
+                    <input type="text" id="s-buyer-name" placeholder="選填">
+                </div>
+                <div class="form-group" id="s-buyer-tax-id-group" style="display:none">
+                    <label>買受人統編</label>
+                    <input type="text" id="s-buyer-tax-id" placeholder="8碼統編（必填）" maxlength="8">
                 </div>
                 <div class="form-group">
-                    <label>買受人統編</label>
-                    <input type="text" id="s-buyer-tax-id" placeholder="8碼統編（選填）" maxlength="8">
+                    <label>發票類別</label>
+                    <div class="invoice-type-toggle">
+                        <button type="button" class="btn btn-primary" id="s-type-duplicate" onclick="setSalesInvoiceType('二聯')">二聯式</button>
+                        <button type="button" class="btn btn-outline" id="s-type-triplicate" onclick="setSalesInvoiceType('三聯')">三聯式</button>
+                    </div>
                 </div>
                 <div class="form-group full">
                     <label>品項</label>
@@ -1166,6 +1175,7 @@ document.getElementById('stickyImportBtn').addEventListener('click', () => {
 // ── Sales ──────────────────────────────────────────────────────────────────
 
 let salesList = [];
+let salesInvoiceType = '二聯';
 
 ['s-date', 's-invoice-number', 's-buyer-name', 's-buyer-tax-id', 's-items', 's-amount', 's-tax', 's-total'].forEach(id => {
     document.getElementById(id).addEventListener('keydown', e => {
@@ -1177,6 +1187,14 @@ function populateSalsCaseSelect() {
     const dl    = document.getElementById('s-case-list');
     const names = window._caseNames || [];
     dl.innerHTML = names.map(n => `<option value="${esc(n)}">`).join('');
+}
+
+function setSalesInvoiceType(type) {
+    salesInvoiceType = type;
+    document.getElementById('s-type-duplicate').className  = 'btn ' + (type === '二聯' ? 'btn-primary' : 'btn-outline');
+    document.getElementById('s-type-triplicate').className = 'btn ' + (type === '三聯' ? 'btn-primary' : 'btn-outline');
+    document.getElementById('s-buyer-tax-id-group').style.display = type === '三聯' ? '' : 'none';
+    if (type === '二聯') document.getElementById('s-buyer-tax-id').value = '';
 }
 
 function calcSalesTax() {
@@ -1203,16 +1221,19 @@ function addSalesItem() {
     const total         = parseFloat(document.getElementById('s-total').value)  || 0;
     const case_name     = document.getElementById('s-case').value;
 
-    if (!date)       { toast('請填入日期', 'error'); return; }
-    if (!buyer_name) { toast('請填入買受人名稱', 'error'); return; }
+    if (!date)   { toast('請填入日期', 'error'); return; }
     if (total === 0) { toast('請填入金額', 'error'); return; }
+    if (salesInvoiceType === '三聯' && !buyer_tax_id) {
+        toast('三聯式發票請填入買受人統編', 'error');
+        return;
+    }
 
     if (invoice_number && salesList.find(i => i.invoice_number === invoice_number)) {
         toast(`發票號碼 ${invoice_number} 已在清單中`, 'error');
         return;
     }
 
-    salesList.push({ date, invoice_number, buyer_name, buyer_tax_id, items, amount, tax, total, case_name });
+    salesList.push({ date, invoice_number, buyer_name, buyer_tax_id, items, invoice_type: salesInvoiceType, amount, tax, total, case_name });
     renderSalesList();
 
     // 清空表單（保留日期和案場）
@@ -1256,6 +1277,7 @@ function renderSalesList() {
             <td><input class="editable" value="${esc(r.buyer_name)}" onchange="updateSalesField(${i},'buyer_name',this.value)"></td>
             <td><input class="editable" value="${esc(r.buyer_tax_id)}" onchange="updateSalesField(${i},'buyer_tax_id',this.value)"></td>
             <td><input class="editable" value="${esc(r.items)}" onchange="updateSalesField(${i},'items',this.value)"></td>
+            <td>${esc(r.invoice_type)}</td>
             <td><input class="editable" type="number" value="${r.amount}" onchange="updateSalesField(${i},'amount',+this.value)" style="text-align:right"></td>
             <td><input class="editable" type="number" value="${r.tax}" onchange="updateSalesField(${i},'tax',+this.value)" style="text-align:right"></td>
             <td><input class="editable amount-total" type="number" value="${r.total}" onchange="updateSalesField(${i},'total',+this.value)" style="text-align:right"></td>
@@ -1268,11 +1290,11 @@ function renderSalesList() {
             <table style="table-layout:fixed">
                 <colgroup>
                     <col style="width:100px"><col style="width:120px"><col style="width:200px"><col style="width:110px">
-                    <col><col style="width:100px"><col style="width:90px"><col style="width:100px"><col style="width:140px"><col style="width:50px">
+                    <col><col style="width:60px"><col style="width:100px"><col style="width:90px"><col style="width:100px"><col style="width:140px"><col style="width:50px">
                 </colgroup>
                 <thead><tr>
                     <th>日期</th><th>發票號碼</th><th>買受人名稱</th><th>買受人統編</th>
-                    <th>品項</th><th>金額</th><th>稅額</th><th>總金額</th><th>案場</th><th></th>
+                    <th>品項</th><th>類別</th><th>金額</th><th>稅額</th><th>總金額</th><th>案場</th><th></th>
                 </tr></thead>
                 <tbody>${rows}</tbody>
             </table>
