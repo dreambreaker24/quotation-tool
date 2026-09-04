@@ -23,6 +23,15 @@
             {{ typePhotoCount(type.key) }}
           </span>
           <div class="ml-auto flex items-center gap-1.5" @click.stop>
+            <FileSelectionBar
+              :selecting="fileSelections[type.key].selecting.value"
+              :count="fileSelections[type.key].selected.value.size"
+              :can-share="fileSelections[type.key].canShare.value"
+              @start="fileSelections[type.key].startSelecting()"
+              @stop="fileSelections[type.key].stopSelecting()"
+              @select-all="fileSelections[type.key].selectAll()"
+              @download="handleDownloadSelected(type.key)"
+              @share="handleShareSelected(type.key)" />
             <button @click="openFolderForm(type.key)"
               class="text-[10px] px-2 py-1 rounded-lg border border-gray-200 text-gray-400 hover:border-gray-400 hover:text-gray-600 transition-colors">
               + 資料夾
@@ -71,13 +80,19 @@
                 <div v-else class="flex gap-2 overflow-x-auto pb-1">
                   <div v-for="item in photosInFolder(type.key, folder.id)" :key="item.id"
                     class="flex-shrink-0 flex flex-col items-center gap-1 relative group">
-                    <a v-if="item.isPdf" :href="item.pdfUrl" target="_blank"
-                      class="w-20 h-20 rounded-xl bg-red-100 flex items-center justify-center text-xs text-red-600 font-bold hover:bg-red-200 transition-colors shadow-sm">PDF</a>
+                    <div v-if="fileSelections[type.key].selecting.value"
+                      class="absolute -top-1 -left-1 w-4 h-4 rounded-full border-2 border-white z-10 shadow flex items-center justify-center cursor-pointer"
+                      :style="fileSelections[type.key].selected.value.has(item.url) ? 'background:#c9a96e' : 'background:#fff'"
+                      @click.stop="fileSelections[type.key].toggle(item.url)">
+                      <span v-if="fileSelections[type.key].selected.value.has(item.url)" class="text-white text-[9px] leading-none">✓</span>
+                    </div>
+                    <div v-if="item.isPdf" @click="handleThumbClick(type.key, item)"
+                      class="w-20 h-20 rounded-xl bg-red-100 flex items-center justify-center text-xs text-red-600 font-bold hover:bg-red-200 transition-colors shadow-sm cursor-pointer">PDF</div>
                     <img v-else :src="item.url"
                       class="w-20 h-20 rounded-xl object-cover cursor-pointer hover:opacity-90 shadow-sm hover:shadow-md transition-all"
-                      @click="openPreview(type.key, item)">
+                      @click="handleThumbClick(type.key, item)">
                     <span class="text-[9px] text-gray-400 leading-tight">{{ formatTime(item.createdAt) }} · {{ uploaderName(item.uploadedBy) }}</span>
-                    <button @click="deletePhoto(type.key, item)"
+                    <button v-if="!fileSelections[type.key].selecting.value" @click="deletePhoto(type.key, item)"
                       class="absolute -top-1 -right-1 w-4 h-4 bg-gray-500 text-white rounded-full text-[9px] leading-none hidden group-hover:flex items-center justify-center hover:bg-red-500 z-10 shadow">✕</button>
                   </div>
                 </div>
@@ -98,13 +113,19 @@
                 <div v-else class="flex gap-2 overflow-x-auto pb-1">
                   <div v-for="item in photosInFolder(type.key, null)" :key="item.id"
                     class="flex-shrink-0 flex flex-col items-center gap-1 relative group">
-                    <a v-if="item.isPdf" :href="item.pdfUrl" target="_blank"
-                      class="w-20 h-20 rounded-xl bg-red-100 flex items-center justify-center text-xs text-red-600 font-bold hover:bg-red-200 transition-colors shadow-sm">PDF</a>
+                    <div v-if="fileSelections[type.key].selecting.value"
+                      class="absolute -top-1 -left-1 w-4 h-4 rounded-full border-2 border-white z-10 shadow flex items-center justify-center cursor-pointer"
+                      :style="fileSelections[type.key].selected.value.has(item.url) ? 'background:#c9a96e' : 'background:#fff'"
+                      @click.stop="fileSelections[type.key].toggle(item.url)">
+                      <span v-if="fileSelections[type.key].selected.value.has(item.url)" class="text-white text-[9px] leading-none">✓</span>
+                    </div>
+                    <div v-if="item.isPdf" @click="handleThumbClick(type.key, item)"
+                      class="w-20 h-20 rounded-xl bg-red-100 flex items-center justify-center text-xs text-red-600 font-bold hover:bg-red-200 transition-colors shadow-sm cursor-pointer">PDF</div>
                     <img v-else :src="item.url"
                       class="w-20 h-20 rounded-xl object-cover cursor-pointer hover:opacity-90 shadow-sm hover:shadow-md transition-all"
-                      @click="openPreview(type.key, item)">
+                      @click="handleThumbClick(type.key, item)">
                     <span class="text-[9px] text-gray-400 leading-tight">{{ formatTime(item.createdAt) }} · {{ uploaderName(item.uploadedBy) }}</span>
-                    <button @click="deletePhoto(type.key, item)"
+                    <button v-if="!fileSelections[type.key].selecting.value" @click="deletePhoto(type.key, item)"
                       class="absolute -top-1 -right-1 w-4 h-4 bg-gray-500 text-white rounded-full text-[9px] leading-none hidden group-hover:flex items-center justify-center hover:bg-red-500 z-10 shadow">✕</button>
                   </div>
                 </div>
@@ -119,13 +140,19 @@
               <div v-else class="flex gap-2.5 overflow-x-auto pb-1">
                 <div v-for="item in photos[type.key]" :key="item.id"
                   class="flex-shrink-0 flex flex-col items-center gap-1 relative group">
-                  <a v-if="item.isPdf" :href="item.pdfUrl" target="_blank"
-                    class="w-20 h-20 rounded-xl bg-red-100 flex items-center justify-center text-xs text-red-600 font-bold hover:bg-red-200 transition-colors shadow-sm">PDF</a>
+                  <div v-if="fileSelections[type.key].selecting.value"
+                    class="absolute -top-1 -left-1 w-4 h-4 rounded-full border-2 border-white z-10 shadow flex items-center justify-center cursor-pointer"
+                    :style="fileSelections[type.key].selected.value.has(item.url) ? 'background:#c9a96e' : 'background:#fff'"
+                    @click.stop="fileSelections[type.key].toggle(item.url)">
+                    <span v-if="fileSelections[type.key].selected.value.has(item.url)" class="text-white text-[9px] leading-none">✓</span>
+                  </div>
+                  <div v-if="item.isPdf" @click="handleThumbClick(type.key, item)"
+                    class="w-20 h-20 rounded-xl bg-red-100 flex items-center justify-center text-xs text-red-600 font-bold hover:bg-red-200 transition-colors shadow-sm cursor-pointer">PDF</div>
                   <img v-else :src="item.url"
                     class="w-20 h-20 rounded-xl object-cover cursor-pointer hover:opacity-90 shadow-sm hover:shadow-md transition-all"
-                    @click="openPreview(type.key, item)">
+                    @click="handleThumbClick(type.key, item)">
                   <span class="text-[9px] text-gray-400 leading-tight">{{ formatTime(item.createdAt) }} · {{ uploaderName(item.uploadedBy) }}</span>
-                  <button @click="deletePhoto(type.key, item)"
+                  <button v-if="!fileSelections[type.key].selecting.value" @click="deletePhoto(type.key, item)"
                     class="absolute -top-1 -right-1 w-4 h-4 bg-gray-500 text-white rounded-full text-[9px] leading-none hidden group-hover:flex items-center justify-center hover:bg-red-500 z-10 shadow">✕</button>
                 </div>
               </div>
@@ -218,6 +245,8 @@
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { uploadPhoto, validateUploadFile } from '@/composables/useStorage'
+import { useFileSelection } from '@/composables/useFileSelection'
+import FileSelectionBar from '@/components/ui/FileSelectionBar.vue'
 import { addDoc, collection, getDocs, orderBy, query, serverTimestamp, deleteDoc, doc } from 'firebase/firestore'
 import { db } from '@/firebase'
 import { useAuthStore } from '@/stores/auth'
@@ -225,6 +254,7 @@ import { useNotificationsStore } from '@/stores/notifications'
 import { useCasesStore } from '@/stores/cases'
 import { useNavStore } from '@/stores/nav'
 import { useUsersStore } from '@/stores/users'
+import { useToast } from '@/composables/useToast'
 
 const props = defineProps({ caseId: String, caseName: String, companyId: { type: String, default: '' } })
 const navStore = useNavStore()
@@ -232,6 +262,7 @@ const authStore = useAuthStore()
 const notifStore = useNotificationsStore()
 const casesStore = useCasesStore()
 const usersStore = useUsersStore()
+const { toast } = useToast()
 
 const photoTypes = [
     { key: 'survey',     label: '場勘',     icon: '📷' },
@@ -247,6 +278,30 @@ const allKeys = photoTypes.map(t => t.key)
 const photos = reactive(Object.fromEntries(allKeys.map(k => [k, []])))
 const expanded = reactive(Object.fromEntries(allKeys.map(k => [k, false])))
 const folderExpanded = reactive({})
+
+const fileSelections = Object.fromEntries(allKeys.map(k => [k, useFileSelection(computed(() => photos[k]))]))
+
+function handleThumbClick(typeKey, item) {
+    const sel = fileSelections[typeKey]
+    if (sel.selecting.value) {
+        sel.toggle(item.url)
+    } else if (item.isPdf) {
+        window.open(item.pdfUrl, '_blank')
+    } else {
+        openPreview(typeKey, item)
+    }
+}
+
+async function handleDownloadSelected(typeKey) {
+    const { failCount } = await fileSelections[typeKey].downloadSelected()
+    if (failCount > 0) toast(`${failCount} 個檔案下載失敗，已略過`, 'error')
+}
+
+async function handleShareSelected(typeKey) {
+    const { ok, failCount } = await fileSelections[typeKey].shareSelected()
+    if (failCount > 0) toast(`${failCount} 個檔案準備分享時失敗，已略過`, 'error')
+    if (!ok && failCount === 0) toast('分享失敗，請重試', 'error')
+}
 
 const fileInput = ref(null)
 const activeType = ref('')

@@ -32,13 +32,30 @@
           </template>
           <template v-else>
             <p class="text-xs text-gray-700 whitespace-pre-wrap">{{ note.text }}</p>
-            <div v-if="note.attachments?.length" class="flex gap-2 flex-wrap mt-2">
-              <template v-for="att in note.attachments" :key="att.url">
-                <a v-if="att.type === 'pdf'" :href="att.url" target="_blank"
-                  class="w-12 h-12 rounded-lg bg-red-50 flex items-center justify-center text-[10px] text-red-600 font-bold hover:bg-red-100">PDF</a>
-                <img v-else :src="att.url" @click="previewUrl = att.url"
-                  class="w-12 h-12 rounded-lg object-cover cursor-pointer hover:opacity-80">
-              </template>
+            <div v-if="note.attachments?.length" class="mt-2">
+              <FileSelectionBar
+                :selecting="getNoteFileSelection(note.id).selecting.value"
+                :count="getNoteFileSelection(note.id).selected.value.size"
+                :can-share="getNoteFileSelection(note.id).canShare.value"
+                @start="getNoteFileSelection(note.id).startSelecting()"
+                @stop="getNoteFileSelection(note.id).stopSelecting()"
+                @select-all="getNoteFileSelection(note.id).selectAll()"
+                @download="handleNoteDownloadSelected(note)"
+                @share="handleNoteShareSelected(note)" />
+              <div class="flex gap-2 flex-wrap mt-1">
+                <div v-for="att in note.attachments" :key="att.url" class="relative">
+                  <div v-if="getNoteFileSelection(note.id).selecting.value"
+                    class="absolute -top-1 -left-1 w-3.5 h-3.5 rounded-full border-2 border-white z-10 shadow flex items-center justify-center cursor-pointer"
+                    :style="getNoteFileSelection(note.id).selected.value.has(att.url) ? 'background:#c9a96e' : 'background:#fff'"
+                    @click.stop="getNoteFileSelection(note.id).toggle(att.url)">
+                    <span v-if="getNoteFileSelection(note.id).selected.value.has(att.url)" class="text-white text-[8px] leading-none">✓</span>
+                  </div>
+                  <div v-if="att.type === 'pdf'" @click="handleNoteThumbClick(note, att)"
+                    class="w-12 h-12 rounded-lg bg-red-50 flex items-center justify-center text-[10px] text-red-600 font-bold hover:bg-red-100 cursor-pointer">PDF</div>
+                  <img v-else :src="att.url" @click="handleNoteThumbClick(note, att)"
+                    class="w-12 h-12 rounded-lg object-cover cursor-pointer hover:opacity-80">
+                </div>
+              </div>
             </div>
             <button v-if="isOwn(note)" @click="startEdit(note)"
               class="mt-1 text-[10px] text-gray-400 hover:text-gray-600">編輯</button>
@@ -78,7 +95,7 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useCaseProgressNotesStore } from '@/stores/caseProgressNotes'
 import { useCasesStore } from '@/stores/cases'
 import { useAuthStore } from '@/stores/auth'
@@ -86,6 +103,8 @@ import { useUsersStore } from '@/stores/users'
 import { useNotificationsStore } from '@/stores/notifications'
 import { uploadPhoto, validateUploadFile } from '@/composables/useStorage'
 import { useToast } from '@/composables/useToast'
+import { useFileSelection } from '@/composables/useFileSelection'
+import FileSelectionBar from '@/components/ui/FileSelectionBar.vue'
 
 const props = defineProps({ caseId: String, caseName: String, companyId: String })
 const notesStore = useCaseProgressNotesStore()
@@ -123,6 +142,39 @@ const editingId = ref(null)
 const editText = ref('')
 const previewUrl = ref(null)
 const fileInput = ref(null)
+
+const noteFileSelections = {}
+function getNoteFileSelection(noteId) {
+    if (!noteFileSelections[noteId]) {
+        noteFileSelections[noteId] = useFileSelection(computed(() => {
+            const note = notesStore.notes.find(n => n.id === noteId)
+            return (note?.attachments || []).map(att => ({ url: att.url, isPdf: att.type === 'pdf' }))
+        }))
+    }
+    return noteFileSelections[noteId]
+}
+
+function handleNoteThumbClick(note, att) {
+    const sel = getNoteFileSelection(note.id)
+    if (sel.selecting.value) {
+        sel.toggle(att.url)
+    } else if (att.type === 'pdf') {
+        window.open(att.url, '_blank')
+    } else {
+        previewUrl.value = att.url
+    }
+}
+
+async function handleNoteDownloadSelected(note) {
+    const { failCount } = await getNoteFileSelection(note.id).downloadSelected()
+    if (failCount > 0) toast(`${failCount} 個檔案下載失敗，已略過`, 'error')
+}
+
+async function handleNoteShareSelected(note) {
+    const { ok, failCount } = await getNoteFileSelection(note.id).shareSelected()
+    if (failCount > 0) toast(`${failCount} 個檔案準備分享時失敗，已略過`, 'error')
+    if (!ok && failCount === 0) toast('分享失敗，請重試', 'error')
+}
 
 const EMAIL_COLORS = {
     'dreambreaker24@gmail.com': '#c9a96e',
