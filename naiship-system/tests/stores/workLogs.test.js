@@ -113,6 +113,44 @@ describe('fetchApprovedOvertimeDetail', () => {
   })
 })
 
+describe('fetchMonthlyKm', () => {
+    beforeEach(() => setActivePinia(createPinia()))
+
+    it('加總浮點數誤差組合後回傳乾淨的數字，不帶誤差尾巴', async () => {
+        getDocs.mockResolvedValue({
+            docs: [
+                { data: () => ({ userName: '昆霖', fuelExpenses: [{ distance: 21.7 }] }) },
+                { data: () => ({ userName: '昆霖', fuelExpenses: [{ distance: 134.1 }] }) },
+            ],
+        })
+        const store = useWorkLogsStore()
+        const result = await store.fetchMonthlyKm(2026, 7)
+        expect(result['昆霖']).toBe(155.8)
+    })
+
+    it('未核准的油資紀錄不列入加總', async () => {
+        getDocs.mockResolvedValue({
+            docs: [
+                { data: () => ({ userName: '蚌', fuelApproved: false, fuelExpenses: [{ distance: 50 }] }) },
+            ],
+        })
+        const store = useWorkLogsStore()
+        const result = await store.fetchMonthlyKm(2026, 7)
+        expect(result['蚌']).toBeUndefined()
+    })
+
+    it('正常整數輸入不受四捨五入影響', async () => {
+        getDocs.mockResolvedValue({
+            docs: [
+                { data: () => ({ userName: 'Ramy', fuelExpenses: [{ distance: 12 }, { distance: 8 }] }) },
+            ],
+        })
+        const store = useWorkLogsStore()
+        const result = await store.fetchMonthlyKm(2026, 7)
+        expect(result['Ramy']).toBe(20)
+    })
+})
+
 describe('findLogForUserDate / createProxyLog', () => {
     beforeEach(() => setActivePinia(createPinia()))
 

@@ -134,7 +134,7 @@ export const useWorkLogsStore = defineStore('workLogs', () => {
             } else if (data.fuelExpense?.distance) {
                 total += data.fuelExpense.distance
             }
-            if (total > 0) km[name] = (km[name] || 0) + total
+            if (total > 0) km[name] = Math.round(((km[name] || 0) + total) * 100) / 100
         })
         return km
     }
