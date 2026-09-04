@@ -185,12 +185,28 @@
           </template>
           <template v-else>
             <div class="whitespace-pre-wrap">{{ reply.content }}</div>
-            <div v-if="reply.attachments?.length" class="flex gap-2 flex-wrap mt-1.5">
-              <a v-for="att in reply.attachments" :key="att.url"
-                :href="att.isPdf ? (att.pdfUrl ?? att.url) : undefined" :target="att.isPdf ? '_blank' : undefined">
-                <div v-if="att.isPdf" class="w-10 h-10 rounded bg-red-100 flex items-center justify-center text-[9px] text-red-600 font-bold hover:bg-red-200">PDF</div>
-                <img v-else :src="att.url" @click.prevent="previewImage(att.url)" class="w-10 h-10 rounded object-cover cursor-pointer hover:opacity-80">
-              </a>
+            <div v-if="reply.attachments?.length" class="mt-1.5">
+              <FileSelectionBar
+                :selecting="getReplyFileSelection(reply.id).selecting.value"
+                :count="getReplyFileSelection(reply.id).selected.value.size"
+                :can-share="getReplyFileSelection(reply.id).canShare.value"
+                @start="getReplyFileSelection(reply.id).startSelecting()"
+                @stop="getReplyFileSelection(reply.id).stopSelecting()"
+                @select-all="getReplyFileSelection(reply.id).selectAll()"
+                @download="handleReplyDownloadSelected(reply)"
+                @share="handleReplyShareSelected(reply)" />
+              <div class="flex gap-2 flex-wrap mt-1">
+                <div v-for="att in reply.attachments" :key="att.url" class="relative">
+                  <div v-if="getReplyFileSelection(reply.id).selecting.value"
+                    class="absolute -top-1 -left-1 w-3.5 h-3.5 rounded-full border-2 border-white z-10 shadow flex items-center justify-center cursor-pointer"
+                    :style="getReplyFileSelection(reply.id).selected.value.has(att.url) ? 'background:#c9a96e' : 'background:#fff'"
+                    @click.stop="getReplyFileSelection(reply.id).toggle(att.url)">
+                    <span v-if="getReplyFileSelection(reply.id).selected.value.has(att.url)" class="text-white text-[8px] leading-none">✓</span>
+                  </div>
+                  <div v-if="att.isPdf" @click="handleReplyThumbClick(reply, att)" class="w-10 h-10 rounded bg-red-100 flex items-center justify-center text-[9px] text-red-600 font-bold hover:bg-red-200 cursor-pointer">PDF</div>
+                  <img v-else :src="att.url" @click="handleReplyThumbClick(reply, att)" class="w-10 h-10 rounded object-cover cursor-pointer hover:opacity-80">
+                </div>
+              </div>
             </div>
           </template>
         </div>
@@ -237,10 +253,14 @@ import { useAuthStore } from '@/stores/auth'
 import { CASE_STATUS_COLORS } from '@/constants/caseStatus'
 import { canApproveOvertimeFuel } from '@/utils/workJournalDeadline'
 import { uploadPhoto, validateUploadFile } from '@/composables/useStorage'
+import { useToast } from '@/composables/useToast'
+import { useFileSelection } from '@/composables/useFileSelection'
+import FileSelectionBar from '@/components/ui/FileSelectionBar.vue'
 
 const casesStore = useCasesStore()
 const usersStore = useUsersStore()
 const authStore = useAuthStore()
+const { toast } = useToast()
 
 const props = defineProps({
     log: Object,
@@ -296,6 +316,39 @@ function previewImage(url) {
     const urls = getLogImages(props.log)
     const idx = urls.indexOf(url)
     emit('preview', { urls, index: idx >= 0 ? idx : 0 })
+}
+
+const replyFileSelections = {}
+function getReplyFileSelection(replyId) {
+    if (!replyFileSelections[replyId]) {
+        replyFileSelections[replyId] = useFileSelection(computed(() => {
+            const reply = props.log.replies?.find(r => r.id === replyId)
+            return reply?.attachments || []
+        }))
+    }
+    return replyFileSelections[replyId]
+}
+
+function handleReplyThumbClick(reply, att) {
+    const sel = getReplyFileSelection(reply.id)
+    if (sel.selecting.value) {
+        sel.toggle(att.url)
+    } else if (att.isPdf) {
+        window.open(att.pdfUrl ?? att.url, '_blank')
+    } else {
+        previewImage(att.url)
+    }
+}
+
+async function handleReplyDownloadSelected(reply) {
+    const { failCount } = await getReplyFileSelection(reply.id).downloadSelected()
+    if (failCount > 0) toast(`${failCount} 個檔案下載失敗，已略過`, 'error')
+}
+
+async function handleReplyShareSelected(reply) {
+    const { ok, failCount } = await getReplyFileSelection(reply.id).shareSelected()
+    if (failCount > 0) toast(`${failCount} 個檔案準備分享時失敗，已略過`, 'error')
+    if (!ok && failCount === 0) toast('分享失敗，請重試', 'error')
 }
 
 function pickFiles(e, target) {
