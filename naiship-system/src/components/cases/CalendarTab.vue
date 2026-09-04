@@ -114,7 +114,7 @@
           </div>
         </div>
         <div>
-          <label class="text-xs text-gray-500 mb-1 block">時間（選填）</label>
+          <label class="text-xs text-gray-500 mb-1 block">時間{{ TIME_REQUIRED_TYPES.includes(eventForm.type) ? ' *' : '（選填）' }}</label>
           <div class="flex items-center gap-2">
             <select v-model="eventForm.startTime" class="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
               <option value="">不設定</option>
@@ -215,7 +215,8 @@
       </div>
       <div class="flex justify-end gap-2 mt-5">
         <button @click="showAddEvent = false" class="text-sm text-gray-400 px-4 py-2">取消</button>
-        <button @click="submitEvent" class="text-sm text-white px-5 py-2 rounded-xl" style="background:#1e2533">新增</button>
+        <button @click="submitEvent" :disabled="!canSubmitAddEvent"
+          class="text-sm text-white px-5 py-2 rounded-xl disabled:opacity-40 disabled:cursor-not-allowed" style="background:#1e2533">新增</button>
       </div>
     </div>
   </div>
@@ -252,7 +253,7 @@
           </div>
         </div>
         <div>
-          <label class="text-xs text-gray-500 mb-1 block">時間（選填）</label>
+          <label class="text-xs text-gray-500 mb-1 block">時間{{ TIME_REQUIRED_TYPES.includes(editForm.type) ? ' *' : '（選填）' }}</label>
           <div class="flex items-center gap-2">
             <select v-model="editForm.startTime" class="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
               <option value="">不設定</option>
@@ -360,7 +361,8 @@
         <button @click="removeEvent" class="text-sm text-red-400 hover:text-red-600 px-3 py-2">刪除</button>
         <div class="flex gap-2">
           <button @click="showEditEvent = false" class="text-sm text-gray-400 px-4 py-2">取消</button>
-          <button @click="saveEditEvent" class="text-sm text-white px-5 py-2 rounded-xl" style="background:#1e2533">儲存</button>
+          <button @click="saveEditEvent" :disabled="!canSubmitEditEvent"
+            class="text-sm text-white px-5 py-2 rounded-xl disabled:opacity-40 disabled:cursor-not-allowed" style="background:#1e2533">儲存</button>
         </div>
       </div>
     </div>
@@ -513,6 +515,17 @@ watch(() => eventForm.value.type, (t) => {
   if (t === 'leave' && !authStore.isManager) eventForm.value.personName = authStore.name ?? ''
 })
 
+// 重要記事/場勘施工/客戶跟進要求日期跟開始/結束時間都填才能送出；請假維持原樣（常見整天假不填時間）
+const TIME_REQUIRED_TYPES = ['note', 'milestone', 'followup']
+
+function hasRequiredDateTime(form) {
+  if (!TIME_REQUIRED_TYPES.includes(form.type)) return true
+  return !!(form.date && form.startTime && form.endTime)
+}
+
+const canSubmitAddEvent = computed(() => hasRequiredDateTime(eventForm.value))
+const canSubmitEditEvent = computed(() => hasRequiredDateTime(editForm.value))
+
 const activeCases = computed(() =>
     casesStore.cases.filter(c => !['completed', 'lost'].includes(c.status))
 )
@@ -550,6 +563,10 @@ function openEditEvent(event) {
 
 async function saveEditEvent() {
   if (!editForm.value.date) return
+  if (!hasRequiredDateTime(editForm.value)) {
+    toast('請填寫日期與開始/結束時間', 'error')
+    return
+  }
   const isLeave = editForm.value.type === 'leave'
   const isMilestone = editForm.value.type === 'milestone'
   if (isLeave && !editForm.value.personName) return
@@ -880,6 +897,10 @@ const dayDetailHoliday = computed(() => TAIWAN_HOLIDAY_NAMES[dayDetailDate.value
 
 async function submitEvent() {
   if (!eventForm.value.date) return
+  if (!hasRequiredDateTime(eventForm.value)) {
+    toast('請填寫日期與開始/結束時間', 'error')
+    return
+  }
   const isLeave = eventForm.value.type === 'leave'
   const isMilestone = eventForm.value.type === 'milestone'
   if (isLeave && !eventForm.value.personName) return
