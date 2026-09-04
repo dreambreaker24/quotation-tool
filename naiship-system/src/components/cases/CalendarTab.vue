@@ -9,21 +9,11 @@
         <button @click="nextMonth" class="text-gray-400 hover:text-gray-700 px-2">▶</button>
         <button @click="goToToday"
           class="text-[11px] px-2.5 py-1 rounded-lg border border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700 transition-colors ml-1">今天</button>
-        <div class="flex rounded-lg border border-gray-200 overflow-hidden text-[11px] ml-1">
-          <button @click="showAllRegions = false"
-            class="px-2.5 py-1 transition-colors"
-            :class="!showAllRegions ? 'text-white' : 'text-gray-500 hover:bg-gray-50'"
-            :style="!showAllRegions ? 'background:#1e2533' : ''">本區</button>
-          <button @click="showAllRegions = true"
-            class="px-2.5 py-1 transition-colors border-l border-gray-200"
-            :class="showAllRegions ? 'text-white' : 'text-gray-500 hover:bg-gray-50'"
-            :style="showAllRegions ? 'background:#c9a96e' : ''">全區</button>
-        </div>
       </div>
       <div class="flex flex-wrap items-center gap-2 sm:gap-4 text-[11px]">
         <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded" style="background:#fecdd3;border:1px solid #f9a8d4"></span>假日</div>
         <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-red-400"></span>重要記事</div>
-        <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-orange-400"></span>場勘/施工</div>
+        <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded" style="background:#22c55e"></span>場勘/施工</div>
         <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-blue-400"></span>員工請假</div>
         <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded" style="background:#a855f7"></span>客戶跟進</div>
         <button @click="showAddEvent = true" class="text-xs border border-gray-200 rounded-lg px-3 py-1.5 text-gray-500 hover:border-gray-400">+ 新增</button>
@@ -78,15 +68,15 @@
           class="text-[9px] text-rose-400 font-medium truncate leading-none mt-0.5">
           {{ cell.holidayName }}
         </div>
-        <div v-for="event in cell.events.slice(0, 2)" :key="event.id"
-          @click.stop="openEditEvent(event)"
+        <div v-for="event in cell.events.slice(0, 4)" :key="event.id"
+          @click.stop="event._merged ? openDayDetail(cell.dateStr) : openEditEvent(event)"
           class="mt-1 text-[10px] rounded px-1.5 py-0.5 truncate text-white cursor-pointer hover:opacity-80 transition-opacity"
           :class="event.type === 'leave' ? 'bg-blue-400' : event.type === 'note' ? 'bg-red-400' : ''"
-          :style="event.type === 'milestone' ? 'background:#fb923c' : event.type === 'followup' ? 'background:#a855f7' : ''">
+          :style="event.type === 'milestone' ? 'background:#22c55e' : event.type === 'followup' ? 'background:#a855f7' : ''">
           {{ event.startTime ? `${event.startTime}${event.endTime ? '-' + event.endTime : ''} ` : '' }}{{ event.label }}
         </div>
-        <div v-if="cell.events.length > 2" class="mt-1 text-[9px] text-gray-400 truncate">
-          還有 {{ cell.events.length - 2 }} 則
+        <div v-if="cell.events.length > 4" class="mt-1 text-[9px] text-gray-400 truncate">
+          還有 {{ cell.events.length - 4 }} 則
         </div>
       </div>
     </div>
@@ -140,7 +130,8 @@
         <template v-if="eventForm.type === 'leave'">
           <div>
             <label class="text-xs text-gray-500 mb-1 block">請假人員 *</label>
-            <select v-model="eventForm.personName" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
+            <select v-model="eventForm.personName" :disabled="!authStore.isManager"
+              class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1 disabled:bg-gray-50 disabled:text-gray-500">
               <option value="">— 請選擇 —</option>
               <option v-for="u in usersStore.users" :key="u.id" :value="u.name">{{ u.name }}</option>
             </select>
@@ -277,7 +268,8 @@
         <template v-if="editForm.type === 'leave'">
           <div>
             <label class="text-xs text-gray-500 mb-1 block">請假人員</label>
-            <select v-model="editForm.personName" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
+            <select v-model="editForm.personName" :disabled="!authStore.isManager"
+              class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1 disabled:bg-gray-50 disabled:text-gray-500">
               <option value="">— 請選擇 —</option>
               <option v-for="u in usersStore.users" :key="u.id" :value="u.name">{{ u.name }}</option>
             </select>
@@ -389,7 +381,7 @@
           class="flex items-center gap-2 rounded-lg px-3 py-2 border border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors">
           <span class="w-2.5 h-2.5 rounded-full flex-shrink-0"
             :class="event.type === 'leave' ? 'bg-blue-400' : event.type === 'note' ? 'bg-red-400' : ''"
-            :style="event.type === 'milestone' ? 'background:#fb923c' : event.type === 'followup' ? 'background:#a855f7' : ''"></span>
+            :style="event.type === 'milestone' ? 'background:#22c55e' : event.type === 'followup' ? 'background:#a855f7' : ''"></span>
           <span class="text-xs text-gray-700 flex-1 min-w-0 truncate">
             {{ event.startTime ? `${event.startTime}${event.endTime ? '-' + event.endTime : ''} ` : '' }}{{ event.label }}
           </span>
@@ -489,14 +481,13 @@ watch(() => props.jumpEventDate, (dateStr) => {
     toast(`已跳轉至 ${d.getFullYear()}年${d.getMonth() + 1}月・${REGION_LABELS[props.region] ?? props.region}`)
 }, { immediate: true })
 const showAddEvent = ref(false)
-const showAllRegions = ref(false)
 const showDayDetail = ref(false)
 const dayDetailDate = ref('')
 const ALL_REGIONS = ['south', 'north', 'central']
 
 const eventTypes = [
   { key: 'note',      label: '重要記事',   color: '#f87171' },
-  { key: 'milestone', label: '場勘/施工',   color: '#fb923c' },
+  { key: 'milestone', label: '場勘/施工',   color: '#22c55e' },
   { key: 'leave',     label: '員工請假',   color: '#60a5fa' },
   { key: 'followup',  label: '客戶跟進',   color: '#a855f7' },
 ]
@@ -517,6 +508,11 @@ const showEditEvent = ref(false)
 const editingEventId = ref(null)
 const editForm = ref({ type: 'note', date: '', endDate: '', label: '', personName: '', hours: 0, leaveType: '', caseIds: [], personNames: [], startTime: '', endTime: '' })
 
+// 非管理者（蚌/其宏/柏以外）新增請假時，只能填自己的名字，選單直接鎖定
+watch(() => eventForm.value.type, (t) => {
+  if (t === 'leave' && !authStore.isManager) eventForm.value.personName = authStore.name ?? ''
+})
+
 const activeCases = computed(() =>
     casesStore.cases.filter(c => !['completed', 'lost'].includes(c.status))
 )
@@ -527,6 +523,10 @@ function tsToDateStr(ts) {
 }
 
 function openEditEvent(event) {
+  if (event.type === 'leave' && !authStore.isManager && event.personName !== authStore.name) {
+    toast('只有蚌、其宏、柏可以編輯別人的請假紀錄', 'error')
+    return
+  }
   editingEventId.value = event.id
   const casePrefix = event.type === 'milestone' ? (event.caseNames || []).join(' ') : ''
   let label = event.label || ''
@@ -554,6 +554,11 @@ async function saveEditEvent() {
   const isMilestone = editForm.value.type === 'milestone'
   if (isLeave && !editForm.value.personName) return
   if (!isLeave && !editForm.value.label && !isMilestone) return
+  if (isLeave && !authStore.isManager &&
+      (editForm.value._origPersonName !== authStore.name || editForm.value.personName !== authStore.name)) {
+    toast('只有蚌、其宏、柏可以修改別人的請假紀錄', 'error')
+    return
+  }
   try {
     const caseNames = isMilestone
       ? editForm.value.caseIds.map(id => activeCases.value.find(c => c.id === id)?.name).filter(Boolean)
@@ -618,6 +623,10 @@ async function saveEditEvent() {
 }
 
 async function removeEvent() {
+  if (editForm.value.type === 'leave' && !authStore.isManager && editForm.value._origPersonName !== authStore.name) {
+    toast('只有蚌、其宏、柏可以刪除別人的請假紀錄', 'error')
+    return
+  }
   try {
     const delEvtDate = editForm.value.date
     const delLabel = editForm.value.type === 'leave'
@@ -634,6 +643,9 @@ async function removeEvent() {
   }
 }
 
+const WORK_START = '09:00'
+const WORK_END = '18:00'
+
 function calcHours(start, end) {
     if (!start || !end) return null
     const [sh, sm] = start.split(':').map(Number)
@@ -645,58 +657,60 @@ function calcHours(start, end) {
     return diff > 0 ? diff : null
 }
 
-function calcBusinessDays(dateStr, endDateStr) {
-    if (!dateStr) return 0
+function getBusinessDays(dateStr, endDateStr) {
+    if (!dateStr) return []
     const start = new Date(dateStr)
     const end = endDateStr && endDateStr > dateStr ? new Date(endDateStr) : new Date(dateStr)
-    let days = 0
+    const days = []
     const cur = new Date(start)
     while (cur <= end) {
         const dow = cur.getDay()
         const ds = `${cur.getFullYear()}-${String(cur.getMonth()+1).padStart(2,'0')}-${String(cur.getDate()).padStart(2,'0')}`
-        if (dow !== 0 && dow !== 6 && !TAIWAN_HOLIDAY_NAMES[ds]) days++
+        if (dow !== 0 && dow !== 6 && !TAIWAN_HOLIDAY_NAMES[ds]) days.push(ds)
         cur.setDate(cur.getDate() + 1)
     }
     return days
 }
 
-watch([() => eventForm.value.startTime, () => eventForm.value.endTime], ([start, end]) => {
-    if (eventForm.value.type !== 'leave') return
-    const h = calcHours(start, end)
-    if (h !== null) eventForm.value.hours = h
-})
-
-watch([() => editForm.value.startTime, () => editForm.value.endTime], ([start, end]) => {
-    if (editForm.value.type !== 'leave') return
-    const h = calcHours(start, end)
-    if (h !== null) editForm.value.hours = h
-})
+// 首尾兩天若有填時間，只算部分時數（用上下班時間09:00-18:00當滿天基準）；中間的平日一律算整天8小時
+function calcLeaveHours(dateStr, endDateStr, startTime, endTime) {
+    const days = getBusinessDays(dateStr, endDateStr)
+    if (!days.length) return null
+    let total = 0
+    days.forEach((_, i) => {
+        const isFirst = i === 0
+        const isLast = i === days.length - 1
+        if (isFirst && isLast) total += (startTime && endTime) ? (calcHours(startTime, endTime) ?? 0) : 8
+        else if (isFirst) total += startTime ? (calcHours(startTime, WORK_END) ?? 0) : 8
+        else if (isLast) total += endTime ? (calcHours(WORK_START, endTime) ?? 0) : 8
+        else total += 8
+    })
+    return total
+}
 
 watch(
-    [() => eventForm.value.date, () => eventForm.value.endDate, () => eventForm.value.leaveType],
-    ([date, endDate, leaveType]) => {
+    [() => eventForm.value.date, () => eventForm.value.endDate, () => eventForm.value.startTime, () => eventForm.value.endTime, () => eventForm.value.leaveType],
+    ([date, endDate, startTime, endTime, leaveType]) => {
         if (eventForm.value.type !== 'leave') return
         if (!leaveType) return
-        if (eventForm.value.startTime && eventForm.value.endTime) return
-        eventForm.value.hours = calcBusinessDays(date, endDate) * 8
+        const h = calcLeaveHours(date, endDate, startTime, endTime)
+        if (h !== null) eventForm.value.hours = h
     }
 )
 
 watch(
-    [() => editForm.value.date, () => editForm.value.endDate, () => editForm.value.leaveType],
-    ([date, endDate, leaveType]) => {
+    [() => editForm.value.date, () => editForm.value.endDate, () => editForm.value.startTime, () => editForm.value.endTime, () => editForm.value.leaveType],
+    ([date, endDate, startTime, endTime, leaveType]) => {
         if (editForm.value.type !== 'leave') return
         if (!leaveType) return
-        if (editForm.value.startTime && editForm.value.endTime) return
-        editForm.value.hours = calcBusinessDays(date, endDate) * 8
+        const h = calcLeaveHours(date, endDate, startTime, endTime)
+        if (h !== null) editForm.value.hours = h
     }
 )
 
-watch([() => props.region, currentYear, currentMonth, showAllRegions], ([region]) => {
-  if (region) eventsStore.subscribe(
-    showAllRegions.value ? ALL_REGIONS : region,
-    currentYear.value, currentMonth.value
-  )
+// 行事曆不分區，永遠訂閱全部分區的事件（案件/客戶等其他功能仍照原樣分區，不受影響）
+watch([currentYear, currentMonth], () => {
+  eventsStore.subscribe(ALL_REGIONS, currentYear.value, currentMonth.value)
 }, { immediate: true })
 
 onUnmounted(() => eventsStore.cleanup())
@@ -756,6 +770,32 @@ function eventsForDate(date) {
   })
 }
 
+// 同一案場、同一天的多筆場勘/施工事項合併成一個色塊（只用於月曆格子的精簡顯示，
+// 當天詳情視窗要看完整清單，所以不能動 eventsForDate() 本身）
+function mergeMilestonesByCase(events) {
+  const order = []
+  const groups = new Map()
+  for (const e of events) {
+    if (e.type !== 'milestone' || !(e.caseNames && e.caseNames.length)) { order.push({ single: e }); continue }
+    const caseKey = e.caseNames.join('、')
+    const casePrefix = e.caseNames.join(' ')
+    let item = e.label || ''
+    if (casePrefix) while (item.startsWith(casePrefix)) item = item.slice(casePrefix.length).trimStart()
+    if (!groups.has(caseKey)) {
+      const bucket = { caseKey, first: e, items: [] }
+      groups.set(caseKey, bucket)
+      order.push({ group: bucket })
+    }
+    groups.get(caseKey).items.push(item || e.label || '')
+  }
+  return order.map(o => {
+    if (o.single) return o.single
+    const { caseKey, first, items } = o.group
+    if (items.length === 1) return first
+    return { ...first, id: `merged_${first.id}`, label: `${caseKey}：${items.join('、')}`, _merged: true }
+  })
+}
+
 const calendarCells = computed(() => {
   const cells = []
   const first = new Date(currentYear.value, currentMonth.value, 1)
@@ -770,7 +810,7 @@ const calendarCells = computed(() => {
   for (let i = startOffset - 1; i >= 0; i--) {
     const date = new Date(currentYear.value, currentMonth.value - 1, prevMonthDays - i)
     const dow = date.getDay()
-    cells.push({ day: prevMonthDays - i, currentMonth: false, dateStr: toDateStr(date), events: eventsForDate(date), dayOfWeek: dow, isNonWorking: dow === 0 || dow === 6 })
+    cells.push({ day: prevMonthDays - i, currentMonth: false, dateStr: toDateStr(date), events: mergeMilestonesByCase(eventsForDate(date)), dayOfWeek: dow, isNonWorking: dow === 0 || dow === 6 })
   }
 
   for (let d = 1; d <= daysInMonth; d++) {
@@ -786,7 +826,7 @@ const calendarCells = computed(() => {
       dayOfWeek: dow,
       isNonWorking: isWeekend || Boolean(holidayName),
       holidayName,
-      events: eventsForDate(date)
+      events: mergeMilestonesByCase(eventsForDate(date))
     })
   }
 
@@ -794,7 +834,7 @@ const calendarCells = computed(() => {
   while (cells.length % 7 !== 0) {
     const date = new Date(currentYear.value, currentMonth.value + 1, nextDay)
     const dow = date.getDay()
-    cells.push({ day: nextDay, currentMonth: false, dateStr: toDateStr(date), events: eventsForDate(date), dayOfWeek: dow, isNonWorking: dow === 0 || dow === 6 })
+    cells.push({ day: nextDay, currentMonth: false, dateStr: toDateStr(date), events: mergeMilestonesByCase(eventsForDate(date)), dayOfWeek: dow, isNonWorking: dow === 0 || dow === 6 })
     nextDay++
   }
   return cells
@@ -844,6 +884,10 @@ async function submitEvent() {
   const isMilestone = eventForm.value.type === 'milestone'
   if (isLeave && !eventForm.value.personName) return
   if (!isLeave && !eventForm.value.label && !isMilestone) return
+  if (isLeave && !authStore.isManager && eventForm.value.personName !== authStore.name) {
+    toast('只有蚌、其宏、柏可以新增別人的請假紀錄', 'error')
+    return
+  }
   try {
     const caseNames = isMilestone
       ? eventForm.value.caseIds.map(id => activeCases.value.find(c => c.id === id)?.name).filter(Boolean)
