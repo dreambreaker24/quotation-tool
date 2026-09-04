@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx'
 import { formatCaseAddress } from '@/utils/caseAddress'
+import { useCasesStore } from '@/stores/cases'
 
 export function useExport() {
     function exportCases(cases) {
@@ -42,6 +43,15 @@ export function useExport() {
     function exportPettyCash(entries, yearMonth) {
         const TYPE_LABELS = { expense: '支出', topup: '補款', distribute: '發放', return: '歸還' }
         const RECEIPT_LABELS = { invoice: '發票', workorder: '點工單', none: '無憑證' }
+        const casesStore = useCasesStore()
+
+        // 案件如果後來改名，匯出時要顯示現在的名字，不是記帳當下存的舊名字
+        function resolveCaseName(e) {
+            if (!e.linkedCaseName) return ''
+            if (e.linkedCase === 'naiship' || e.linkedCase === 'boyan') return e.linkedCaseName
+            const c = casesStore.cases.find(x => x.id === e.linkedCase)
+            return c?.name || e.linkedCaseName
+        }
 
         const monthEntries = entries
             .filter(e => e.date?.startsWith(yearMonth))
@@ -54,7 +64,7 @@ export function useExport() {
             '分類': e.category || '',
             '金額': e.type === 'expense' ? -(e.amount || 0) : (e.amount || 0),
             '用途說明': e.description || '',
-            '關聯案件': e.linkedCaseName || '',
+            '關聯案件': resolveCaseName(e),
             '憑證類型': RECEIPT_LABELS[e.receiptType] || '',
         }))
 

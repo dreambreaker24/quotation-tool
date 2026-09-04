@@ -52,7 +52,7 @@
       <div v-if="expanded[entry.id]"
         class="border-t border-gray-100 px-4 py-3 bg-gray-50 text-xs text-gray-600 space-y-1.5">
         <div v-if="entry.category"><span class="text-gray-400">分類：</span>{{ entry.category }}</div>
-        <div v-if="entry.linkedCaseName"><span class="text-gray-400">關聯：</span>{{ entry.linkedCaseName }}</div>
+        <div v-if="entry.linkedCaseName"><span class="text-gray-400">關聯：</span>{{ resolveCaseName(entry) }}</div>
         <div v-if="entry.receiptType && entry.receiptType !== 'none'">
           <span class="text-gray-400">憑證：</span>{{ RECEIPT_LABELS[entry.receiptType] }}
         </div>
@@ -110,12 +110,22 @@
 import { ref, computed, reactive } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { usePettyCashStore } from '@/stores/pettyCash'
+import { useCasesStore } from '@/stores/cases'
 import { useToast } from '@/composables/useToast'
 
 defineEmits(['edit'])
 
 const auth = useAuthStore()
 const store = usePettyCashStore()
+const casesStore = useCasesStore()
+
+// 案件如果後來改名，關聯案件要顯示現在的名字，不是記帳當下存的舊名字（'naiship'/'boyan' 是公司層級固定選項，不是真的案件，維持顯示原本存的名稱）
+function resolveCaseName(entry) {
+    if (!entry.linkedCaseName) return ''
+    if (entry.linkedCase === 'naiship' || entry.linkedCase === 'boyan') return entry.linkedCaseName
+    const c = casesStore.cases.find(x => x.id === entry.linkedCase)
+    return c?.name || entry.linkedCaseName
+}
 const { toast } = useToast()
 
 const filterPayer = ref('')

@@ -222,8 +222,7 @@ const form = ref({
 const categorySelect = ref('材料費')
 const caseSelect = ref('naiship')
 const caseSearchText = ref('奈拾設計')
-const ACTIVE_CASE_STATUSES = ['drafting', 'construction', 'pending_settlement', 'aftercare']
-const activeCaseOptions = computed(() => casesStore.cases.filter(c => ACTIVE_CASE_STATUSES.includes(c.status)))
+const activeCaseOptions = computed(() => casesStore.cases.filter(c => !['completed', 'lost'].includes(c.status)))
 
 const showCaseDropdown = ref(false)
 

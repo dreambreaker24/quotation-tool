@@ -32,6 +32,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { usePettyCashStore } from '@/stores/pettyCash'
+import { useCasesStore } from '@/stores/cases'
 import { useExport } from '@/composables/useExport'
 import PettyCashOverview from '@/components/pettyCash/PettyCashOverview.vue'
 import PettyCashList from '@/components/pettyCash/PettyCashList.vue'
@@ -40,6 +41,7 @@ import PettyCashSettlement from '@/components/pettyCash/PettyCashSettlement.vue'
 
 const auth = useAuthStore()
 const store = usePettyCashStore()
+const casesStore = useCasesStore()
 const { exportPettyCash } = useExport()
 
 const listRef = ref(null)
@@ -58,6 +60,9 @@ function doExport() {
     exportPettyCash(store.entries, ym)
 }
 
-onMounted(() => store.subscribe())
+onMounted(() => {
+    store.subscribe()
+    casesStore.subscribe(['north', 'central', 'south'])
+})
 onUnmounted(() => store.cleanup())
 </script>
