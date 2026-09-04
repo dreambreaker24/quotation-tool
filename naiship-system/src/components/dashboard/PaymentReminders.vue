@@ -138,8 +138,8 @@ const doneFeedback = ref({})
 
 function getInvoiceReceived(r) {
     const c = casesStore.cases.find(c => c.id === r.caseId)
-    const payments = c?.workTypes?.find(wt => wt.id === r.workTypeId)?.vendorPayments || []
-    return payments.length > 0 && payments.every(vp => vp.hasInvoice)
+    const wt = c?.workTypes?.find(wt => wt.id === r.workTypeId)
+    return !!wt?.invoiceReceived
 }
 
 function getVendorName(r) {

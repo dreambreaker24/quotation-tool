@@ -11,9 +11,9 @@
           class="text-[11px] px-2.5 py-1 rounded-lg border border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700 transition-colors ml-1">今天</button>
       </div>
       <div class="flex flex-wrap items-center gap-2 sm:gap-4 text-[11px]">
-        <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded" style="background:#fecdd3;border:1px solid #f9a8d4"></span>假日</div>
+        <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded" style="background:#ffe4e6;border:1px solid #fda4af"></span>假日</div>
         <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-red-400"></span>重要記事</div>
-        <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded" style="background:#22c55e"></span>場勘/施工</div>
+        <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded" style="background:#0d9488"></span>場勘/施工</div>
         <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-blue-400"></span>員工請假</div>
         <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded" style="background:#a855f7"></span>客戶跟進</div>
         <button @click="showAddEvent = true" class="text-xs border border-gray-200 rounded-lg px-3 py-1.5 text-gray-500 hover:border-gray-400">+ 新增</button>
@@ -45,7 +45,7 @@
         class="border-r border-b border-gray-100 p-1 sm:p-2 min-h-[70px] sm:min-h-[90px]"
         :class="[
           !cell.currentMonth && 'opacity-40',
-          cell.isToday ? 'bg-amber-50' : cell.isNonWorking ? 'bg-rose-50/60' : '',
+          cell.isToday ? 'bg-amber-50' : cell.isNonWorking ? 'bg-rose-100' : '',
           cell.currentMonth && 'cursor-pointer hover:bg-gray-50/50 transition-colors',
           cell.dateStr === highlightDate && cell.currentMonth ? 'ring-2 ring-inset ring-amber-400' : ''
         ]"
@@ -72,7 +72,7 @@
           @click.stop="event._merged ? openDayDetail(cell.dateStr) : openEditEvent(event)"
           class="mt-1 text-[10px] rounded px-1.5 py-0.5 truncate text-white cursor-pointer hover:opacity-80 transition-opacity"
           :class="event.type === 'leave' ? 'bg-blue-400' : event.type === 'note' ? 'bg-red-400' : ''"
-          :style="event.type === 'milestone' ? 'background:#22c55e' : event.type === 'followup' ? 'background:#a855f7' : ''">
+          :style="event.type === 'milestone' ? 'background:#0d9488' : event.type === 'followup' ? 'background:#a855f7' : ''">
           {{ event.startTime ? `${event.startTime}${event.endTime ? '-' + event.endTime : ''} ` : '' }}{{ event.label }}
         </div>
         <div v-if="cell.events.length > 4" class="mt-1 text-[9px] text-gray-400 truncate">
@@ -381,7 +381,7 @@
           class="flex items-center gap-2 rounded-lg px-3 py-2 border border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors">
           <span class="w-2.5 h-2.5 rounded-full flex-shrink-0"
             :class="event.type === 'leave' ? 'bg-blue-400' : event.type === 'note' ? 'bg-red-400' : ''"
-            :style="event.type === 'milestone' ? 'background:#22c55e' : event.type === 'followup' ? 'background:#a855f7' : ''"></span>
+            :style="event.type === 'milestone' ? 'background:#0d9488' : event.type === 'followup' ? 'background:#a855f7' : ''"></span>
           <span class="text-xs text-gray-700 flex-1 min-w-0 truncate">
             {{ event.startTime ? `${event.startTime}${event.endTime ? '-' + event.endTime : ''} ` : '' }}{{ event.label }}
           </span>
@@ -487,7 +487,7 @@ const ALL_REGIONS = ['south', 'north', 'central']
 
 const eventTypes = [
   { key: 'note',      label: '重要記事',   color: '#f87171' },
-  { key: 'milestone', label: '場勘/施工',   color: '#22c55e' },
+  { key: 'milestone', label: '場勘/施工',   color: '#0d9488' },
   { key: 'leave',     label: '員工請假',   color: '#60a5fa' },
   { key: 'followup',  label: '客戶跟進',   color: '#a855f7' },
 ]

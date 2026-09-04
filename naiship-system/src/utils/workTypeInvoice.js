@@ -15,13 +15,12 @@ export function totalVendorPaid(wt) {
     return (wt.vendorPayments || []).reduce((sum, vp) => sum + (vp.amount || 0), 0)
 }
 
-// 回傳 null 代表這個工種不用管發票（未完工/沒有廠商成本/免費/明確標記不開發票）
+// 廠商發票是針對整個工種的合約總金額開立一次（不是每筆付款各自開票），
+// 所以發票狀態是工種層級的單一欄位（wt.invoiceReceived），不是統計每筆付款
+// 回傳 null 代表這個工種不用管發票（沒有廠商/沒有金額/免費/明確標記不開發票）
 export function vendorInvoiceStatus(wt) {
-    if (!wt.done || wtVendorCostTotal(wt) <= 0 || wt.vendorCostFree || wt.costIncludesTax === false) return null
-    const payments = wt.vendorPayments || []
-    if (payments.length === 0) return { label: '無發票', cls: 'bg-gray-100 text-gray-400' }
-    const count = payments.filter(vp => vp.hasInvoice).length
-    if (count === payments.length) return { label: '發票全到', cls: 'bg-green-100 text-green-700' }
-    if (count > 0) return { label: `發票 ${count}/${payments.length}`, cls: 'bg-amber-100 text-amber-700' }
-    return { label: '無發票', cls: 'bg-gray-100 text-gray-400' }
+    if (!wt.vendorName || wtVendorCostTotal(wt) <= 0 || wt.vendorCostFree || wt.costIncludesTax === false) return null
+    return wt.invoiceReceived
+        ? { label: '已收發票', cls: 'bg-green-100 text-green-700' }
+        : { label: '未收發票', cls: 'bg-gray-100 text-gray-400' }
 }

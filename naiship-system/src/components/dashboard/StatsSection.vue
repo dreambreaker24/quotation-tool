@@ -49,7 +49,7 @@ const pendingInvoiceCount = computed(() =>
     casesStore.cases.reduce((count, c) => {
         const pending = (c.workTypes || []).filter(wt => {
             const status = vendorInvoiceStatus(wt)
-            return status && status.label !== '發票全到'
+            return status && status.label !== '已收發票'
         })
         return count + pending.length
     }, 0)

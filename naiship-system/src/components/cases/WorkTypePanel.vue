@@ -88,8 +88,9 @@
                     </div>
                   </div>
                 </template>
-                <span v-if="vendorInvoiceStatus(wt)" class="text-[10px] px-1.5 py-0.5 rounded-full font-medium mt-0.5 inline-block"
-                  :class="vendorInvoiceStatus(wt).cls">
+                <span v-if="vendorInvoiceStatus(wt)" @click="toggleInvoiceReceived(idx)"
+                  class="text-[10px] px-1.5 py-0.5 rounded-full font-medium mt-0.5 inline-block cursor-pointer"
+                  :class="vendorInvoiceStatus(wt).cls" title="點擊切換發票狀態">
                   {{ vendorInvoiceStatus(wt).label }}
                 </span>
               </template>
@@ -108,7 +109,7 @@
             </div>
           </div>
           <div class="flex gap-1.5 flex-shrink-0">
-            <span v-if="wt.done && wtVendorCostTotal(wt) > 0 && !wt.vendorCostFree && wt.costIncludesTax === false"
+            <span v-if="wt.vendorName && wtVendorCostTotal(wt) > 0 && !wt.vendorCostFree && wt.costIncludesTax === false"
               class="text-[11px] px-2 py-1 rounded-lg bg-purple-100 text-purple-600 font-medium">
               不開發票
             </span>
@@ -119,7 +120,7 @@
         </div>
         </div>
 
-        <div v-if="wt.done && wtVendorCostTotal(wt) > 0 && !wt.vendorCostFree && wt.costIncludesTax !== false" class="mt-2 pt-2 border-t border-gray-100 flex items-center gap-2">
+        <div v-if="wt.vendorName && wtVendorCostTotal(wt) > 0 && !wt.vendorCostFree && wt.costIncludesTax !== false" class="mt-2 pt-2 border-t border-gray-100 flex items-center gap-2">
           <span class="text-[10px] text-gray-400 font-medium">開立對象</span>
           <button @click="setInvoiceTarget(idx, 'naiship')"
             class="text-[10px] px-2 py-0.5 rounded-full font-medium transition-colors"
@@ -495,11 +496,6 @@
               class="text-[10px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0 bg-purple-100 text-purple-600">
               不開發票
             </span>
-            <button v-else type="button" @click="toggleVendorInvoice(vp.id)"
-              class="text-[10px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0 transition-colors"
-              :class="vp.hasInvoice ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'">
-              {{ vp.hasInvoice ? '有發票' : '無發票' }}
-            </button>
             <button type="button" @click="deleteVendorPayment(vp.id)"
               class="text-[10px] text-red-400 hover:text-red-600 flex-shrink-0 px-1">✕</button>
           </div>
@@ -1298,13 +1294,10 @@ async function deleteVendorPayment(vpId) {
     await casesStore.updateCase(props.caseId, { workTypes: updated })
 }
 
-async function toggleVendorInvoice(vpId) {
+async function toggleInvoiceReceived(idx) {
+    const wt = workTypes.value[idx]
     const updated = [...workTypes.value]
-    const wt = { ...updated[vendorPayingIdx.value] }
-    wt.vendorPayments = wt.vendorPayments.map(vp =>
-        vp.id === vpId ? { ...vp, hasInvoice: !vp.hasInvoice } : vp
-    )
-    updated[vendorPayingIdx.value] = wt
+    updated[idx] = { ...wt, invoiceReceived: !wt.invoiceReceived }
     await casesStore.updateCase(props.caseId, { workTypes: updated })
 }
 
