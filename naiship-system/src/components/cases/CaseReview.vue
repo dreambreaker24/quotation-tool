@@ -60,13 +60,30 @@
 
         <!-- Attachments -->
         <div v-if="r.attachments?.length" class="mt-2">
-          <div class="text-[10px] text-gray-400 font-semibold mb-1.5 uppercase tracking-wide">附件</div>
+          <div class="flex items-center gap-2 mb-1.5">
+            <div class="text-[10px] text-gray-400 font-semibold uppercase tracking-wide">附件</div>
+            <FileSelectionBar
+              :selecting="getReviewFileSelection(r.id).selecting.value"
+              :count="getReviewFileSelection(r.id).selected.value.size"
+              :can-share="getReviewFileSelection(r.id).canShare.value"
+              @start="getReviewFileSelection(r.id).startSelecting()"
+              @stop="getReviewFileSelection(r.id).stopSelecting()"
+              @select-all="getReviewFileSelection(r.id).selectAll()"
+              @download="handleReviewDownloadSelected(r)"
+              @share="handleReviewShareSelected(r)" />
+          </div>
           <div class="flex gap-2 flex-wrap">
-            <a v-for="att in r.attachments" :key="att.url"
-              :href="att.isPdf ? (att.pdfUrl ?? att.url) : undefined" :target="att.isPdf ? '_blank' : undefined">
-              <div v-if="att.isPdf" class="w-12 h-12 rounded bg-red-100 flex items-center justify-center text-[10px] text-red-600 font-bold hover:bg-red-200">PDF</div>
-              <img v-else :src="att.url" @click.prevent="previewUrl = att.url" class="w-12 h-12 rounded object-cover cursor-pointer hover:opacity-80">
-            </a>
+            <div v-for="att in r.attachments" :key="att.url" class="relative">
+              <div v-if="getReviewFileSelection(r.id).selecting.value"
+                class="absolute -top-1 -left-1 w-4 h-4 rounded-full border-2 border-white z-10 shadow flex items-center justify-center cursor-pointer"
+                :style="getReviewFileSelection(r.id).selected.value.has(att.url) ? 'background:#c9a96e' : 'background:#fff'"
+                @click.stop="getReviewFileSelection(r.id).toggle(att.url)">
+                <span v-if="getReviewFileSelection(r.id).selected.value.has(att.url)" class="text-white text-[9px] leading-none">✓</span>
+              </div>
+              <div v-if="att.isPdf" @click="handleReviewThumbClick(r, att)"
+                class="w-12 h-12 rounded bg-red-100 flex items-center justify-center text-[10px] text-red-600 font-bold hover:bg-red-200 cursor-pointer">PDF</div>
+              <img v-else :src="att.url" @click="handleReviewThumbClick(r, att)" class="w-12 h-12 rounded object-cover cursor-pointer hover:opacity-80">
+            </div>
           </div>
         </div>
 
@@ -162,13 +179,15 @@
   </div>
 </template>
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { collection, addDoc, getDocs, deleteDoc, updateDoc, orderBy, query, serverTimestamp, doc } from 'firebase/firestore'
 import { db } from '@/firebase'
 import { useAuthStore } from '@/stores/auth'
 import { useNotificationsStore } from '@/stores/notifications'
 import { uploadPhoto, validateUploadFile } from '@/composables/useStorage'
 import { useToast } from '@/composables/useToast'
+import { useFileSelection } from '@/composables/useFileSelection'
+import FileSelectionBar from '@/components/ui/FileSelectionBar.vue'
 
 const props = defineProps({ caseId: String, caseName: String, companyId: { type: String, default: '' } })
 const authStore = useAuthStore()
@@ -193,6 +212,39 @@ function formatTime(ts) {
     if (!ts) return ''
     const d = ts.toDate?.() ?? new Date(ts)
     return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
+const reviewFileSelections = {}
+function getReviewFileSelection(reviewId) {
+    if (!reviewFileSelections[reviewId]) {
+        reviewFileSelections[reviewId] = useFileSelection(computed(() => {
+            const review = reviews.value.find(x => x.id === reviewId)
+            return review?.attachments || []
+        }))
+    }
+    return reviewFileSelections[reviewId]
+}
+
+function handleReviewThumbClick(r, att) {
+    const sel = getReviewFileSelection(r.id)
+    if (sel.selecting.value) {
+        sel.toggle(att.url)
+    } else if (att.isPdf) {
+        window.open(att.pdfUrl ?? att.url, '_blank')
+    } else {
+        previewUrl.value = att.url
+    }
+}
+
+async function handleReviewDownloadSelected(r) {
+    const { failCount } = await getReviewFileSelection(r.id).downloadSelected()
+    if (failCount > 0) toast(`${failCount} 個檔案下載失敗，已略過`, 'error')
+}
+
+async function handleReviewShareSelected(r) {
+    const { ok, failCount } = await getReviewFileSelection(r.id).shareSelected()
+    if (failCount > 0) toast(`${failCount} 個檔案準備分享時失敗，已略過`, 'error')
+    if (!ok && failCount === 0) toast('分享失敗，請重試', 'error')
 }
 
 onMounted(async () => {
