@@ -9,6 +9,7 @@
         <span v-if="milestones.length" class="text-xs text-gray-500">
           應收 <span style="color:#c9a96e" class="font-medium">${{ totalDue.toLocaleString() }}</span>
           ／已收 <span class="font-medium text-green-600">${{ totalPaid.toLocaleString() }}</span>
+          ／未收 <span class="font-medium text-red-500">${{ totalUnpaid.toLocaleString() }}</span>
         </span>
         <button @click="openTemplate"
           class="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">套用模板</button>
@@ -245,6 +246,7 @@ const caseData = computed(() => casesStore.cases.find(c => c.id === props.caseId
 const milestones = computed(() => caseData.value?.paymentMilestones ?? [])
 const totalDue = computed(() => milestones.value.reduce((sum, m) => sum + (m.amount || 0), 0))
 const totalPaid = computed(() => milestones.value.reduce((sum, m) => sum + (m.paidAmount || 0), 0))
+const totalUnpaid = computed(() => totalDue.value - totalPaid.value)
 
 function statusLabel(m) {
     if ((m.paidAmount || 0) >= (m.amount || 0) && m.amount > 0) return '已收清'
