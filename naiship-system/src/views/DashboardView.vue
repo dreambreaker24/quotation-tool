@@ -86,6 +86,7 @@ import { useCasesStore } from '@/stores/cases'
 import { useClientsStore } from '@/stores/clients'
 import { useAuthStore } from '@/stores/auth'
 import { useWorkLogsStore } from '@/stores/workLogs'
+import { calcVendorDueDate, vendorReminderPlan } from '@/utils/paymentDueDate'
 
 const router = useRouter()
 const casesStore = useCasesStore()
@@ -95,18 +96,6 @@ const logsStore = useWorkLogsStore()
 
 function toDateStr(d) {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
-function calcVendorDueDate(endDate) {
-    const d = new Date(endDate + 'T00:00:00')
-    const day = d.getDate()
-    const nextMonthDate = new Date(d.getFullYear(), d.getMonth() + 1, 1)
-    const year = nextMonthDate.getFullYear()
-    const month = nextMonthDate.getMonth()
-    const targetDay = day <= 15 ? 15 : new Date(year, month + 1, 0).getDate()
-    const result = new Date(year, month, targetDay)
-    while (result.getDay() === 0 || result.getDay() === 6) result.setDate(result.getDate() + 1)
-    return toDateStr(result)
 }
 
 function calcOwnerDueDate(startDate) {
@@ -127,7 +116,7 @@ function wtPaymentTotal(wt) {
     return (items || []).reduce((s, i) => s + (i.amount || 0), 0)
 }
 
-const BACKFILL_KEY = 'naiship_reminders_backfilled_v5'
+const BACKFILL_KEY = 'naiship_reminders_backfilled_v6'
 
 async function backfillReminders() {
     if (localStorage.getItem(BACKFILL_KEY)) return
@@ -137,7 +126,9 @@ async function backfillReminders() {
             if (wt.done) {
                 const vendorCost = wtVendorCostTotal(wt)
                 const vendorPaid = (wt.vendorPayments || []).reduce((s, vp) => s + (vp.amount || 0), 0)
-                if (vendorCost > 0 && vendorPaid >= vendorCost) {
+                const remaining = vendorCost - vendorPaid
+                const plan = vendorReminderPlan(remaining)
+                if ((vendorCost > 0 && vendorPaid >= vendorCost) || !plan.shouldRemind) {
                     await remindersStore.deleteAutoReminder(`auto_vendor_${wt.id}`)
                 } else {
                     const effectiveEnd = wt.endDate || today
@@ -148,10 +139,11 @@ async function backfillReminders() {
                         companyId: c.companyId ?? '',
                         workTypeId: wt.id, workTypeName: wt.name,
                         vendorName: wt.vendorName || '',
-                        amount: vendorCost - vendorPaid,
+                        amount: remaining,
                         endDate: wt.endDate || '',
                         createdBy: authStore.user?.uid ?? '',
                         createdByName: authStore.name ?? '',
+                        needsManualFollowup: plan.needsManualFollowup,
                     })
                 }
             }

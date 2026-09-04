@@ -7,6 +7,7 @@
         <StatCard label="洽談案件" :value="String(stats.negotiatingCount)" />
         <StatCard label="簽約案件" :value="String(stats.signedCount)" />
         <StatCard label="簽約金額" :value="formatAmount(stats.signedAmount)" />
+        <StatCard label="未開發票" :value="String(pendingInvoiceCount)" />
       </div>
     </div>
     <PieChart :data="pieData" />
@@ -17,6 +18,7 @@ import { computed } from 'vue'
 import StatCard from '@/components/ui/StatCard.vue'
 import PieChart from './PieChart.vue'
 import { useCasesStore } from '@/stores/cases'
+import { vendorInvoiceStatus } from '@/utils/workTypeInvoice'
 
 const props = defineProps({ year: Number })
 const casesStore = useCasesStore()
@@ -41,6 +43,17 @@ const stats = computed(() => {
         signedAmount: all.filter(c => c.signedAmount).reduce((s, c) => s + (c.signedAmount || 0), 0)
     }
 })
+
+// 「未開發票」是待處理事項，不受年份篩選影響（不管案子哪年成立，只要現在還沒拿到發票就該顯示）
+const pendingInvoiceCount = computed(() =>
+    casesStore.cases.reduce((count, c) => {
+        const pending = (c.workTypes || []).filter(wt => {
+            const status = vendorInvoiceStatus(wt)
+            return status && status.label !== '發票全到'
+        })
+        return count + pending.length
+    }, 0)
+)
 
 const pieData = computed(() => {
     const all = yearFilteredCases.value

@@ -6,6 +6,11 @@
         <span class="text-[10px] px-2 py-0.5 rounded-full font-semibold" style="background:rgba(201,169,110,0.15);color:#c9a96e">工種安排</span>
       </div>
       <div class="flex items-center gap-3">
+        <span v-if="workTypes.length" class="text-xs text-gray-500">
+          工程總額 <span style="color:#c9a96e" class="font-medium">${{ totalWorkTypeCost.toLocaleString() }}</span>
+          ／已付款 <span class="font-medium text-green-600">${{ totalWorkTypePaid.toLocaleString() }}</span>
+          ／未付款 <span class="font-medium text-red-500">${{ totalWorkTypeUnpaid.toLocaleString() }}</span>
+        </span>
         <button @click="openAdd" class="text-xs px-3 py-1.5 rounded-lg text-white" style="background:#1e2533">+ 新增工種</button>
       </div>
     </div>
@@ -104,16 +109,9 @@
           </div>
           <div class="flex gap-1.5 flex-shrink-0">
             <span v-if="wt.done && wtVendorCostTotal(wt) > 0 && !wt.vendorCostFree && wt.costIncludesTax === false"
-              class="text-[11px] px-2 py-1 rounded-lg bg-gray-100 text-gray-400 font-medium">
+              class="text-[11px] px-2 py-1 rounded-lg bg-purple-100 text-purple-600 font-medium">
               不開發票
             </span>
-            <button v-else-if="wt.done && wtVendorCostTotal(wt) > 0 && !wt.vendorCostFree"
-              @click="toggleInvoice(idx)"
-              class="text-[11px] px-2 py-1 rounded-lg transition-colors"
-              :class="wt.invoiceReceived ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-amber-100 text-amber-700 hover:bg-amber-200'"
-              :title="wt.invoiceReceived ? '點擊取消確認' : '確認廠商發票已到'">
-              {{ wt.invoiceReceived ? '發票已到 ✓' : '確認發票' }}
-            </button>
             <button @click="openVendorPay(idx)" class="text-[11px] px-1.5 py-1 text-gray-400 hover:text-gray-700 hover:underline transition-colors">記錄付款</button>
             <button @click="openEdit(idx)" class="text-[11px] px-1.5 py-1 text-gray-400 hover:text-gray-700 hover:underline transition-colors">編輯</button>
             <button @click="removeWorkType(idx)" class="text-[11px] px-1.5 py-1 text-red-300 hover:text-red-500 hover:underline transition-colors">刪除</button>
@@ -467,7 +465,7 @@
             <span class="font-medium text-gray-800 flex-shrink-0">${{ (vp.amount || 0).toLocaleString() }}</span>
             <span class="text-gray-400 truncate flex-1">{{ vp.note || '' }}</span>
             <span v-if="workTypes[vendorPayingIdx]?.costIncludesTax === false"
-              class="text-[10px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0 bg-gray-100 text-gray-400">
+              class="text-[10px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0 bg-purple-100 text-purple-600">
               不開發票
             </span>
             <button v-else type="button" @click="toggleVendorInvoice(vp.id)"
@@ -608,6 +606,8 @@ import { WORK_CATEGORIES } from '@/constants/workCategories'
 import { WT_COLORS } from '@/constants/workTypeColors'
 import { isLegacyCategoryName } from '@/utils/workTypeCategory'
 import { getVendorSpecialties, filterVendorsByCategory } from '@/utils/vendorSpecialty'
+import { wtVendorCostTotal, totalVendorPaid, vendorInvoiceStatus } from '@/utils/workTypeInvoice'
+import { calcVendorDueDate, vendorReminderPlan } from '@/utils/paymentDueDate'
 import { useVendorsStore } from '@/stores/vendors'
 import { useCasesStore } from '@/stores/cases'
 import { useAuthStore } from '@/stores/auth'
@@ -618,22 +618,6 @@ import { useToast } from '@/composables/useToast'
 import { uploadPhoto, validateUploadFile } from '@/composables/useStorage'
 import { addDoc, collection, getDocs, orderBy, query, serverTimestamp, deleteDoc, doc } from 'firebase/firestore'
 import { db } from '@/firebase'
-
-function toDateStr(d) {
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
-function calcVendorDueDate(endDate) {
-    const d = new Date(endDate + 'T00:00:00')
-    const day = d.getDate()
-    const nextMonthDate = new Date(d.getFullYear(), d.getMonth() + 1, 1)
-    const year = nextMonthDate.getFullYear()
-    const month = nextMonthDate.getMonth()
-    const targetDay = day <= 15 ? 15 : new Date(year, month + 1, 0).getDate()
-    const result = new Date(year, month, targetDay)
-    while (result.getDay() === 0 || result.getDay() === 6) result.setDate(result.getDate() + 1)
-    return toDateStr(result)
-}
 
 function formatDateChinese(isoDate) {
     const d = new Date(isoDate + 'T00:00:00')
@@ -856,15 +840,9 @@ async function deleteWtConstructPhoto(wtId, item) {
     }
 }
 
-function sumItems(items, free) {
-    if (free) return 0
-    return (items || []).reduce((s, i) => s + (i.amount || 0), 0)
-}
-
-function wtVendorCostTotal(wt) {
-    const items = wt.vendorCostItems ?? (wt.vendorCost > 0 ? [{ amount: wt.vendorCost }] : [])
-    return sumItems(items, wt.vendorCostFree)
-}
+const totalWorkTypeCost = computed(() => workTypes.value.reduce((sum, wt) => sum + wtVendorCostTotal(wt), 0))
+const totalWorkTypePaid = computed(() => workTypes.value.reduce((sum, wt) => sum + totalVendorPaid(wt), 0))
+const totalWorkTypeUnpaid = computed(() => totalWorkTypeCost.value - totalWorkTypePaid.value)
 
 function normalizeItems(items, legacyAmount, prefix) {
     if (items && items.length > 0) return items.map(i => ({ ...i }))
@@ -944,6 +922,13 @@ async function markDone(idx) {
     await casesStore.updateCase(props.caseId, { workTypes: updated })
     const wt = workTypes.value[idx]
     const effectiveEndDate = wt.endDate || new Date().toISOString().slice(0, 10)
+    const amount = wtVendorCostTotal(wt)
+    const plan = vendorReminderPlan(amount)
+    if (!plan.shouldRemind) {
+        await remindersStore.deleteAutoReminder(`auto_vendor_${wt.id}`)
+        toast(`已完工，金額 $${amount.toLocaleString()} 可直接付現，不建立匯款提醒`)
+        return
+    }
     const dueDate = calcVendorDueDate(effectiveEndDate)
     await remindersStore.addAutoReminder(`auto_vendor_${wt.id}`, {
         source: 'auto',
@@ -955,12 +940,13 @@ async function markDone(idx) {
         workTypeId: wt.id,
         workTypeName: wt.name,
         vendorName: wt.vendorName || '',
-        amount: wtVendorCostTotal(wt),
+        amount,
         endDate: wt.endDate || '',
         createdBy: authStore.user?.uid ?? '',
         createdByName: authStore.name ?? '',
+        needsManualFollowup: plan.needsManualFollowup,
     })
-    toast(`已完工，廠商付款提醒：${formatDateChinese(dueDate)}`)
+    toast(`已完工，廠商付款提醒：${formatDateChinese(dueDate)}${plan.needsManualFollowup ? '（已標記手動提醒）' : ''}`)
 }
 
 async function unmarkDone(idx) {
@@ -1076,20 +1062,6 @@ const regionVendors = computed(() => {
     const vendors = vendorsStore.vendors.filter(v => !v.companyId || v.companyId === caseData.value?.companyId)
     return filterVendorsByCategory(vendors, selectedCategory.value, WORK_CATEGORIES)
 })
-function totalVendorPaid(wt) {
-    return (wt.vendorPayments || []).reduce((sum, vp) => sum + (vp.amount || 0), 0)
-}
-
-function vendorInvoiceStatus(wt) {
-    if (wt.costIncludesTax === false) return null
-    const payments = wt.vendorPayments || []
-    if (payments.length === 0) return null
-    const count = payments.filter(vp => vp.hasInvoice).length
-    if (count === payments.length) return { label: '發票全到', cls: 'bg-green-100 text-green-700' }
-    if (count > 0) return { label: `發票 ${count}/${payments.length}`, cls: 'bg-amber-100 text-amber-700' }
-    return { label: '無發票', cls: 'bg-gray-100 text-gray-400' }
-}
-
 function openAdd() {
     editingIdx.value = null
     selectedCategory.value = ''
@@ -1172,7 +1144,6 @@ async function submitForm() {
         color: existing ? existing.color : WT_COLORS[workTypes.value.length % WT_COLORS.length],
         vendorPayments: existing?.vendorPayments ?? [],
         done: existing?.done ?? false,
-        invoiceReceived: existing?.invoiceReceived ?? false,
         invoiceTarget: existing?.invoiceTarget ?? null,
         locations: form.value.locations.filter(l => l.label),
         customName: existing?.customName ?? false,
@@ -1198,21 +1169,27 @@ async function submitForm() {
         await casesStore.updateCase(props.caseId, { workTypes: updated })
         if (existing?.done && vendorChange?.lines?.length > 0) {
             try {
-                await remindersStore.addAutoReminder(`auto_vendor_${entry.id}`, {
-                    source: 'auto',
-                    type: 'vendor',
-                    dueDate: vendorChange.dueDate,
-                    caseId: props.caseId,
-                    caseName: props.caseName,
-                    companyId: caseData.value?.companyId ?? '',
-                    workTypeId: entry.id,
-                    workTypeName: entry.name,
-                    vendorName: entry.vendorName || '',
-                    amount: vendorChange.amount,
-                    endDate: entry.endDate || '',
-                    createdBy: authStore.user?.uid ?? '',
-                    createdByName: authStore.name ?? '',
-                })
+                const plan = vendorReminderPlan(vendorChange.amount)
+                if (!plan.shouldRemind) {
+                    await remindersStore.deleteAutoReminder(`auto_vendor_${entry.id}`)
+                } else {
+                    await remindersStore.addAutoReminder(`auto_vendor_${entry.id}`, {
+                        source: 'auto',
+                        type: 'vendor',
+                        dueDate: vendorChange.dueDate,
+                        caseId: props.caseId,
+                        caseName: props.caseName,
+                        companyId: caseData.value?.companyId ?? '',
+                        workTypeId: entry.id,
+                        workTypeName: entry.name,
+                        vendorName: entry.vendorName || '',
+                        amount: vendorChange.amount,
+                        endDate: entry.endDate || '',
+                        createdBy: authStore.user?.uid ?? '',
+                        createdByName: authStore.name ?? '',
+                        needsManualFollowup: plan.needsManualFollowup,
+                    })
+                }
             } catch {
                 toast('工種已儲存，但同步首頁付款清單失敗，請手動確認', 'error')
             }
@@ -1273,14 +1250,6 @@ async function toggleVendorInvoice(vpId) {
     await casesStore.updateCase(props.caseId, { workTypes: updated })
 }
 
-async function toggleInvoice(idx) {
-    const wt = workTypes.value[idx]
-    const updated = [...workTypes.value]
-    updated[idx] = { ...wt, invoiceReceived: !wt.invoiceReceived }
-    await casesStore.updateCase(props.caseId, { workTypes: updated })
-    toast(wt.invoiceReceived ? '已取消發票確認' : '發票已確認')
-}
-
 const INVOICE_TARGET_LABELS = { naiship: '奈拾', boyan: '柏延' }
 
 async function setInvoiceTarget(idx, target) {
@@ -1312,21 +1281,28 @@ async function addVendorPayment() {
             try { await remindersStore.markDone(`auto_vendor_${wt.id}`) } catch (_) {}
         } else if (wt.done && totalCost > 0) {
             try {
-                await remindersStore.addAutoReminder(`auto_vendor_${wt.id}`, {
-                    source: 'auto',
-                    type: 'vendor',
-                    dueDate: calcVendorDueDate(wt.endDate || new Date().toISOString().slice(0, 10)),
-                    caseId: props.caseId,
-                    caseName: props.caseName,
-                    companyId: caseData.value?.companyId ?? '',
-                    workTypeId: wt.id,
-                    workTypeName: wt.name,
-                    vendorName: wt.vendorName || '',
-                    amount: totalCost - totalPaid,
-                    endDate: wt.endDate || '',
-                    createdBy: authStore.user?.uid ?? '',
-                    createdByName: authStore.name ?? '',
-                })
+                const remaining = totalCost - totalPaid
+                const plan = vendorReminderPlan(remaining)
+                if (!plan.shouldRemind) {
+                    await remindersStore.deleteAutoReminder(`auto_vendor_${wt.id}`)
+                } else {
+                    await remindersStore.addAutoReminder(`auto_vendor_${wt.id}`, {
+                        source: 'auto',
+                        type: 'vendor',
+                        dueDate: calcVendorDueDate(wt.endDate || new Date().toISOString().slice(0, 10)),
+                        caseId: props.caseId,
+                        caseName: props.caseName,
+                        companyId: caseData.value?.companyId ?? '',
+                        workTypeId: wt.id,
+                        workTypeName: wt.name,
+                        vendorName: wt.vendorName || '',
+                        amount: remaining,
+                        endDate: wt.endDate || '',
+                        createdBy: authStore.user?.uid ?? '',
+                        createdByName: authStore.name ?? '',
+                        needsManualFollowup: plan.needsManualFollowup,
+                    })
+                }
             } catch (_) {}
         }
         showVendorPayForm.value = false

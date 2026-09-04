@@ -63,6 +63,9 @@
                             :class="getInvoiceReceived(r) ? 'text-green-600' : 'text-amber-500'">
                             {{ getInvoiceReceived(r) ? '✓ 發票已到' : '待收發票' }}
                           </span>
+                          <span v-if="r.needsManualFollowup" class="text-[10px] text-purple-600 bg-purple-50 border border-purple-200 rounded px-1 py-0.5 font-medium">
+                            手動提醒
+                          </span>
                           <span v-if="r.endDate" class="text-[10px] text-gray-400">工程結束 {{ formatDate(r.endDate) }}</span>
                         </div>
                       </div>
@@ -135,7 +138,8 @@ const doneFeedback = ref({})
 
 function getInvoiceReceived(r) {
     const c = casesStore.cases.find(c => c.id === r.caseId)
-    return c?.workTypes?.find(wt => wt.id === r.workTypeId)?.invoiceReceived ?? false
+    const payments = c?.workTypes?.find(wt => wt.id === r.workTypeId)?.vendorPayments || []
+    return payments.length > 0 && payments.every(vp => vp.hasInvoice)
 }
 
 function getVendorName(r) {
