@@ -42,13 +42,30 @@
 
           <template v-else>
             <p class="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed">{{ note.content }}</p>
-            <div v-if="note.attachments?.length" class="flex gap-1.5 flex-wrap mt-1.5">
-              <template v-for="att in note.attachments" :key="att.url">
-                <a v-if="att.type === 'pdf'" :href="att.url" target="_blank"
-                  class="w-10 h-10 rounded bg-red-50 flex items-center justify-center text-[9px] text-red-600 font-bold hover:bg-red-100">PDF</a>
-                <img v-else :src="att.url" @click="openPreview(note, att.url)"
-                  class="w-10 h-10 rounded object-cover cursor-pointer hover:opacity-80">
-              </template>
+            <div v-if="note.attachments?.length" class="mt-1.5">
+              <FileSelectionBar
+                :selecting="getBoardNoteFileSelection(note.id).selecting.value"
+                :count="getBoardNoteFileSelection(note.id).selected.value.size"
+                :can-share="getBoardNoteFileSelection(note.id).canShare.value"
+                @start="getBoardNoteFileSelection(note.id).startSelecting()"
+                @stop="getBoardNoteFileSelection(note.id).stopSelecting()"
+                @select-all="getBoardNoteFileSelection(note.id).selectAll()"
+                @download="handleBoardNoteDownloadSelected(note)"
+                @share="handleBoardNoteShareSelected(note)" />
+              <div class="flex gap-1.5 flex-wrap mt-1">
+                <div v-for="att in note.attachments" :key="att.url" class="relative">
+                  <div v-if="getBoardNoteFileSelection(note.id).selecting.value"
+                    class="absolute -top-1 -left-1 w-3.5 h-3.5 rounded-full border-2 border-white z-10 shadow flex items-center justify-center cursor-pointer"
+                    :style="getBoardNoteFileSelection(note.id).selected.value.has(att.url) ? 'background:#c9a96e' : 'background:#fff'"
+                    @click.stop="getBoardNoteFileSelection(note.id).toggle(att.url)">
+                    <span v-if="getBoardNoteFileSelection(note.id).selected.value.has(att.url)" class="text-white text-[8px] leading-none">✓</span>
+                  </div>
+                  <div v-if="att.type === 'pdf'" @click="handleBoardNoteThumbClick(note, att)"
+                    class="w-10 h-10 rounded bg-red-50 flex items-center justify-center text-[9px] text-red-600 font-bold hover:bg-red-100 cursor-pointer">PDF</div>
+                  <img v-else :src="att.url" @click="handleBoardNoteThumbClick(note, att)"
+                    class="w-10 h-10 rounded object-cover cursor-pointer hover:opacity-80">
+                </div>
+              </div>
             </div>
             <div class="flex gap-2 mt-1">
               <button v-if="isOwn(note)" @click="startEdit(note)"
@@ -97,12 +114,14 @@
   </div>
 </template>
 <script setup>
-import { ref, watch, nextTick, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useDashboardNotesStore } from '@/stores/dashboardNotes'
 import { useAuthStore } from '@/stores/auth'
 import { useUsersStore } from '@/stores/users'
 import { uploadPhoto, validateUploadFile } from '@/composables/useStorage'
 import { useToast } from '@/composables/useToast'
+import { useFileSelection } from '@/composables/useFileSelection'
+import FileSelectionBar from '@/components/ui/FileSelectionBar.vue'
 
 const notesStore = useDashboardNotesStore()
 const authStore = useAuthStore()
@@ -184,6 +203,39 @@ function handleKeydown(e) {
     if (e.key === 'Escape') { closePreview(); return }
     if (e.key === 'ArrowRight') { e.preventDefault(); navigatePhoto(1) }
     if (e.key === 'ArrowLeft') { e.preventDefault(); navigatePhoto(-1) }
+}
+
+const boardNoteFileSelections = {}
+function getBoardNoteFileSelection(noteId) {
+    if (!boardNoteFileSelections[noteId]) {
+        boardNoteFileSelections[noteId] = useFileSelection(computed(() => {
+            const note = notesStore.notes.find(n => n.id === noteId)
+            return (note?.attachments || []).map(att => ({ url: att.url, isPdf: att.type === 'pdf' }))
+        }))
+    }
+    return boardNoteFileSelections[noteId]
+}
+
+function handleBoardNoteThumbClick(note, att) {
+    const sel = getBoardNoteFileSelection(note.id)
+    if (sel.selecting.value) {
+        sel.toggle(att.url)
+    } else if (att.type === 'pdf') {
+        window.open(att.url, '_blank')
+    } else {
+        openPreview(note, att.url)
+    }
+}
+
+async function handleBoardNoteDownloadSelected(note) {
+    const { failCount } = await getBoardNoteFileSelection(note.id).downloadSelected()
+    if (failCount > 0) toast(`${failCount} 個檔案下載失敗，已略過`, 'error')
+}
+
+async function handleBoardNoteShareSelected(note) {
+    const { ok, failCount } = await getBoardNoteFileSelection(note.id).shareSelected()
+    if (failCount > 0) toast(`${failCount} 個檔案準備分享時失敗，已略過`, 'error')
+    if (!ok && failCount === 0) toast('分享失敗，請重試', 'error')
 }
 
 function handleFiles(e) {
