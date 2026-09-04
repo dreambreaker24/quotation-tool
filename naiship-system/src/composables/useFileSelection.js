@@ -1,5 +1,5 @@
 // 檔案圈選＋下載／分享共用邏輯。9 個顯示照片/PDF 清單的地方都呼叫這個 composable，
-// 避免各自重複實作導致邏輯對不起來（跟 D3、C 組修過的問題同一類）。
+// 避免各自重複實作導致邏輯對不起來。
 import { ref, computed } from 'vue'
 
 export function useFileSelection(itemsRef) {
@@ -22,7 +22,7 @@ export function useFileSelection(itemsRef) {
 
     function stopSelecting() {
         selecting.value = false
-        selected.value = new Set()
+        clearSelection()
     }
 
     function toggle(url) {
@@ -55,6 +55,7 @@ export function useFileSelection(itemsRef) {
         for (const item of selectedItems()) {
             try {
                 const res = await fetch(item.url)
+                if (!res.ok) throw new Error('download failed')
                 const blob = await res.blob()
                 const blobUrl = URL.createObjectURL(blob)
                 const a = document.createElement('a')
@@ -63,7 +64,7 @@ export function useFileSelection(itemsRef) {
                 document.body.appendChild(a)
                 a.click()
                 document.body.removeChild(a)
-                URL.revokeObjectURL(blobUrl)
+                setTimeout(() => URL.revokeObjectURL(blobUrl), 0)
             } catch {
                 failCount++
             }
@@ -77,6 +78,7 @@ export function useFileSelection(itemsRef) {
         for (const item of selectedItems()) {
             try {
                 const res = await fetch(item.url)
+                if (!res.ok) throw new Error('download failed')
                 const blob = await res.blob()
                 files.push(new File([blob], guessFileName(item.url, item.isPdf), { type: blob.type }))
             } catch {
