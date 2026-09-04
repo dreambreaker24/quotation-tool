@@ -115,7 +115,7 @@
           <label class="text-xs text-gray-500 mb-1 block">同事 *</label>
           <select v-model="proxyForm.userId" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
             <option value="">— 選擇同事 —</option>
-            <option v-for="u in usersStore.users.filter(u => u.companyId === region)" :key="u.id" :value="u.id">{{ u.name }}</option>
+            <option v-for="u in usersStore.users" :key="u.id" :value="u.id">{{ u.name }}</option>
           </select>
         </div>
         <div>
@@ -185,8 +185,8 @@ async function submitProxyPicker() {
         const dateObj = new Date(`${proxyForm.value.date}T00:00:00`)
         let log = await logsStore.findLogForUserDate(proxyForm.value.userId, dateObj)
         if (!log) {
-            const docRef = await logsStore.createProxyLog(proxyForm.value.userId, targetUser?.name ?? '', props.region, dateObj)
-            log = { id: docRef.id, userId: proxyForm.value.userId, userName: targetUser?.name ?? '', companyId: props.region, date: Timestamp.fromDate(dateObj) }
+            const docRef = await logsStore.createProxyLog(proxyForm.value.userId, targetUser?.name ?? '', targetUser?.companyId ?? props.region, dateObj)
+            log = { id: docRef.id, userId: proxyForm.value.userId, userName: targetUser?.name ?? '', companyId: targetUser?.companyId ?? props.region, date: Timestamp.fromDate(dateObj) }
         }
         showProxyPicker.value = false
         editingLog.value = log
@@ -364,12 +364,14 @@ watch([() => props.jumpUserId, () => usersStore.users], ([id]) => {
     if (target) selectedEmployee.value = target
 }, { immediate: true })
 
+// 工作日誌不分區，永遠訂閱全部分區的日誌（案件/客戶等其他功能仍照原樣分區，不受影響）
+const ALL_REGIONS = ['south', 'north', 'central']
 watch([() => props.region, selectedDate, viewMode], ([region]) => {
     if (!region) return
     if (viewMode.value === 'week') {
-        logsStore.subscribe(region, getWeekStart(selectedDate.value), getWeekEnd(selectedDate.value))
+        logsStore.subscribe(ALL_REGIONS, getWeekStart(selectedDate.value), getWeekEnd(selectedDate.value))
     } else {
-        logsStore.subscribe(region, selectedDate.value)
+        logsStore.subscribe(ALL_REGIONS, selectedDate.value)
     }
 }, { immediate: true })
 

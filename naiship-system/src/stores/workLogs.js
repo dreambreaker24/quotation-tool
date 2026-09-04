@@ -10,14 +10,15 @@ export const useWorkLogsStore = defineStore('workLogs', () => {
     let unsubscribe = null
     let pendingUnsub = null
 
-    function subscribe(companyId, date, endDate) {
+    function subscribe(companyIdOrIds, date, endDate) {
         if (unsubscribe) unsubscribe()
+        const ids = Array.isArray(companyIdOrIds) ? companyIdOrIds : [companyIdOrIds]
         const start = new Date(date); start.setHours(0, 0, 0, 0)
         const end = endDate ? new Date(endDate) : new Date(date)
         end.setHours(23, 59, 59, 999)
         const q = query(
             collection(db, 'workLogs'),
-            where('companyId', '==', companyId),
+            where('companyId', 'in', ids),
             where('date', '>=', start),
             where('date', '<=', end),
             orderBy('date')
