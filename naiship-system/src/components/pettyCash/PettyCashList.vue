@@ -63,10 +63,29 @@
         </div>
         <div v-if="entry.supervisorName"><span class="text-gray-400">單位主管：</span>{{ entry.supervisorName }}</div>
         <div v-if="entry.inspectorName"><span class="text-gray-400">監工：</span>{{ entry.inspectorName }}</div>
-        <div v-if="entry.receiptImages?.length" class="flex gap-2 pt-1 flex-wrap">
-          <img v-for="url in entry.receiptImages" :key="url" :src="url"
-            class="w-16 h-16 rounded-lg object-cover cursor-pointer hover:opacity-80"
-            @click="previewUrl = url">
+        <div v-if="entry.receiptImages?.length" class="flex flex-col gap-1.5 pt-1">
+          <FileSelectionBar
+            :selecting="getReceiptFileSelection(entry.id, entry.receiptImages).selecting.value"
+            :count="getReceiptFileSelection(entry.id, entry.receiptImages).selected.value.size"
+            :can-share="getReceiptFileSelection(entry.id, entry.receiptImages).canShare.value"
+            @start="getReceiptFileSelection(entry.id, entry.receiptImages).startSelecting()"
+            @stop="getReceiptFileSelection(entry.id, entry.receiptImages).stopSelecting()"
+            @select-all="getReceiptFileSelection(entry.id, entry.receiptImages).selectAll()"
+            @download="handleReceiptDownloadSelected(entry)"
+            @share="handleReceiptShareSelected(entry)" />
+          <div class="flex gap-2 flex-wrap">
+            <div v-for="url in entry.receiptImages" :key="url" class="relative">
+              <div v-if="getReceiptFileSelection(entry.id, entry.receiptImages).selecting.value"
+                class="absolute -top-1 -left-1 w-4 h-4 rounded-full border-2 border-white z-10 shadow flex items-center justify-center cursor-pointer"
+                :style="getReceiptFileSelection(entry.id, entry.receiptImages).selected.value.has(url) ? 'background:#c9a96e' : 'background:#fff'"
+                @click.stop="getReceiptFileSelection(entry.id, entry.receiptImages).toggle(url)">
+                <span v-if="getReceiptFileSelection(entry.id, entry.receiptImages).selected.value.has(url)" class="text-white text-[9px] leading-none">✓</span>
+              </div>
+              <img :src="url"
+                class="w-16 h-16 rounded-lg object-cover cursor-pointer hover:opacity-80"
+                @click="handleReceiptThumbClick(entry, url)">
+            </div>
+          </div>
         </div>
         <div class="flex justify-end gap-2 pt-1">
           <button v-if="canEdit(entry)" @click.stop="$emit('edit', entry)"
@@ -111,6 +130,8 @@ import { ref, computed, reactive } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { usePettyCashStore } from '@/stores/pettyCash'
 import { useToast } from '@/composables/useToast'
+import { useFileSelection } from '@/composables/useFileSelection'
+import FileSelectionBar from '@/components/ui/FileSelectionBar.vue'
 
 defineEmits(['edit'])
 
@@ -122,6 +143,33 @@ const filterPayer = ref('')
 const filterType = ref('')
 const expanded = reactive({})
 const previewUrl = ref(null)
+
+const receiptFileSelections = {}
+function getReceiptFileSelection(entryId, images) {
+    if (!receiptFileSelections[entryId]) {
+        receiptFileSelections[entryId] = useFileSelection(computed(() =>
+            (images || []).map(url => ({ url, isPdf: false }))
+        ))
+    }
+    return receiptFileSelections[entryId]
+}
+
+function handleReceiptThumbClick(entry, url) {
+    const sel = getReceiptFileSelection(entry.id, entry.receiptImages)
+    if (sel.selecting.value) sel.toggle(url)
+    else previewUrl.value = url
+}
+
+async function handleReceiptDownloadSelected(entry) {
+    const { failCount } = await getReceiptFileSelection(entry.id, entry.receiptImages).downloadSelected()
+    if (failCount > 0) toast(`${failCount} 個檔案下載失敗，已略過`, 'error')
+}
+
+async function handleReceiptShareSelected(entry) {
+    const { ok, failCount } = await getReceiptFileSelection(entry.id, entry.receiptImages).shareSelected()
+    if (failCount > 0) toast(`${failCount} 個檔案準備分享時失敗，已略過`, 'error')
+    if (!ok && failCount === 0) toast('分享失敗，請重試', 'error')
+}
 
 const today = new Date()
 const filterMonth = ref(`${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`)
