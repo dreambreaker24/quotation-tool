@@ -35,10 +35,29 @@
       <!-- 公告內容 -->
       <div class="px-6 py-4">
         <p class="text-sm text-gray-700 whitespace-pre-wrap mb-4">{{ latest.content }}</p>
-        <div v-if="latest.images?.length" class="flex gap-2 flex-wrap mb-4">
-          <img v-for="url in latest.images" :key="url" :src="url"
-            @click="previewUrl = url"
-            class="w-24 h-24 object-cover rounded-xl cursor-pointer hover:opacity-80 transition-opacity">
+        <div v-if="latest.images?.length" class="flex flex-col gap-1.5 mb-4">
+          <FileSelectionBar
+            :selecting="latestFileSelection.selecting.value"
+            :count="latestFileSelection.selected.value.size"
+            :can-share="latestFileSelection.canShare.value"
+            @start="latestFileSelection.startSelecting()"
+            @stop="latestFileSelection.stopSelecting()"
+            @select-all="latestFileSelection.selectAll()"
+            @download="handleLatestDownloadSelected"
+            @share="handleLatestShareSelected" />
+          <div class="flex gap-2 flex-wrap">
+            <div v-for="url in latest.images" :key="url" class="relative">
+              <div v-if="latestFileSelection.selecting.value"
+                class="absolute -top-1 -left-1 w-4 h-4 rounded-full border-2 border-white z-10 shadow flex items-center justify-center cursor-pointer"
+                :style="latestFileSelection.selected.value.has(url) ? 'background:#c9a96e' : 'background:#fff'"
+                @click.stop="latestFileSelection.toggle(url)">
+                <span v-if="latestFileSelection.selected.value.has(url)" class="text-white text-[9px] leading-none">✓</span>
+              </div>
+              <img :src="url"
+                @click="handleLatestThumbClick(url)"
+                class="w-24 h-24 object-cover rounded-xl cursor-pointer hover:opacity-80 transition-opacity">
+            </div>
+          </div>
         </div>
         <div class="text-[11px] text-gray-400">{{ latest.createdByName }} · {{ formatDate(latest.createdAt) }}</div>
       </div>
@@ -68,10 +87,29 @@
         </button>
         <div v-if="expanded.has(a.id)" class="px-5 pb-4">
           <p class="text-sm text-gray-700 whitespace-pre-wrap mb-3">{{ a.content }}</p>
-          <div v-if="a.images?.length" class="flex gap-2 flex-wrap">
-            <img v-for="url in a.images" :key="url" :src="url"
-              @click="previewUrl = url"
-              class="w-20 h-20 object-cover rounded-xl cursor-pointer hover:opacity-80">
+          <div v-if="a.images?.length" class="flex flex-col gap-1.5">
+            <FileSelectionBar
+              :selecting="getOlderFileSelection(a.id).selecting.value"
+              :count="getOlderFileSelection(a.id).selected.value.size"
+              :can-share="getOlderFileSelection(a.id).canShare.value"
+              @start="getOlderFileSelection(a.id).startSelecting()"
+              @stop="getOlderFileSelection(a.id).stopSelecting()"
+              @select-all="getOlderFileSelection(a.id).selectAll()"
+              @download="handleOlderDownloadSelected(a)"
+              @share="handleOlderShareSelected(a)" />
+            <div class="flex gap-2 flex-wrap">
+              <div v-for="url in a.images" :key="url" class="relative">
+                <div v-if="getOlderFileSelection(a.id).selecting.value"
+                  class="absolute -top-1 -left-1 w-4 h-4 rounded-full border-2 border-white z-10 shadow flex items-center justify-center cursor-pointer"
+                  :style="getOlderFileSelection(a.id).selected.value.has(url) ? 'background:#c9a96e' : 'background:#fff'"
+                  @click.stop="getOlderFileSelection(a.id).toggle(url)">
+                  <span v-if="getOlderFileSelection(a.id).selected.value.has(url)" class="text-white text-[9px] leading-none">✓</span>
+                </div>
+                <img :src="url"
+                  @click="handleOlderThumbClick(a, url)"
+                  class="w-20 h-20 object-cover rounded-xl cursor-pointer hover:opacity-80">
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -144,6 +182,8 @@ import { useAuthStore } from '@/stores/auth'
 import { useNotificationsStore } from '@/stores/notifications'
 import { uploadPhoto, validateUploadFile } from '@/composables/useStorage'
 import { useToast } from '@/composables/useToast'
+import { useFileSelection } from '@/composables/useFileSelection'
+import FileSelectionBar from '@/components/ui/FileSelectionBar.vue'
 
 const authStore = useAuthStore()
 const notifStore = useNotificationsStore()
@@ -166,6 +206,51 @@ const sorted = computed(() => [
 ])
 const latest = computed(() => sorted.value[0] ?? null)
 const older = computed(() => sorted.value.slice(1))
+
+const latestFileSelection = useFileSelection(computed(() =>
+    (latest.value?.images || []).map(url => ({ url, isPdf: false }))
+))
+
+const olderFileSelections = {}
+function getOlderFileSelection(announcementId) {
+    if (!olderFileSelections[announcementId]) {
+        olderFileSelections[announcementId] = useFileSelection(computed(() => {
+            const announcement = announcements.value.find(x => x.id === announcementId)
+            return (announcement?.images || []).map(url => ({ url, isPdf: false }))
+        }))
+    }
+    return olderFileSelections[announcementId]
+}
+
+function handleLatestThumbClick(url) {
+    if (latestFileSelection.selecting.value) latestFileSelection.toggle(url)
+    else previewUrl.value = url
+}
+
+function handleOlderThumbClick(a, url) {
+    const sel = getOlderFileSelection(a.id)
+    if (sel.selecting.value) sel.toggle(url)
+    else previewUrl.value = url
+}
+
+async function handleLatestDownloadSelected() {
+    const { failCount } = await latestFileSelection.downloadSelected()
+    if (failCount > 0) toast(`${failCount} 個檔案下載失敗，已略過`, 'error')
+}
+async function handleLatestShareSelected() {
+    const { ok, failCount } = await latestFileSelection.shareSelected()
+    if (failCount > 0) toast(`${failCount} 個檔案準備分享時失敗，已略過`, 'error')
+    if (!ok && failCount === 0) toast('分享失敗，請重試', 'error')
+}
+async function handleOlderDownloadSelected(a) {
+    const { failCount } = await getOlderFileSelection(a.id).downloadSelected()
+    if (failCount > 0) toast(`${failCount} 個檔案下載失敗，已略過`, 'error')
+}
+async function handleOlderShareSelected(a) {
+    const { ok, failCount } = await getOlderFileSelection(a.id).shareSelected()
+    if (failCount > 0) toast(`${failCount} 個檔案準備分享時失敗，已略過`, 'error')
+    if (!ok && failCount === 0) toast('分享失敗，請重試', 'error')
+}
 
 onMounted(async () => {
     localStorage.setItem('announcementLastRead', Date.now().toString())
