@@ -188,6 +188,15 @@
               {{ wtConstructPhotoCount(wt.id) }}
             </span>
             <div class="ml-auto flex items-center gap-1.5">
+              <FileSelectionBar
+                :selecting="getWtFileSelection(wt.id).selecting.value"
+                :count="getWtFileSelection(wt.id).selected.value.size"
+                :can-share="getWtFileSelection(wt.id).canShare.value"
+                @start="getWtFileSelection(wt.id).startSelecting()"
+                @stop="getWtFileSelection(wt.id).stopSelecting()"
+                @select-all="getWtFileSelection(wt.id).selectAll()"
+                @download="handleWtDownloadSelected(wt.id)"
+                @share="handleWtShareSelected(wt.id)" />
               <button @click="openWtFolderForm(wt.id)"
                 class="text-[9px] px-1.5 py-0.5 border border-gray-200 rounded text-gray-400 hover:border-gray-400 hover:text-gray-600 transition-colors">
                 + 資料夾
@@ -226,13 +235,19 @@
                 <div v-else class="flex gap-2 overflow-x-auto pb-1">
                   <div v-for="item in wtPhotosInFolder(wt.id, folder.id)" :key="item.id"
                     class="flex-shrink-0 flex flex-col items-center gap-0.5 relative group">
-                    <a v-if="item.isPdf" :href="item.pdfUrl" target="_blank"
-                      class="w-14 h-14 rounded bg-red-100 flex items-center justify-center text-[10px] text-red-600 font-bold hover:bg-red-200 transition-colors">PDF</a>
+                    <div v-if="getWtFileSelection(wt.id).selecting.value"
+                      class="absolute -top-1 -left-1 w-3.5 h-3.5 rounded-full border-2 border-white z-10 shadow flex items-center justify-center cursor-pointer"
+                      :style="getWtFileSelection(wt.id).selected.value.has(item.url) ? 'background:#c9a96e' : 'background:#fff'"
+                      @click.stop="getWtFileSelection(wt.id).toggle(item.url)">
+                      <span v-if="getWtFileSelection(wt.id).selected.value.has(item.url)" class="text-white text-[8px] leading-none">✓</span>
+                    </div>
+                    <div v-if="item.isPdf" @click="handleWtThumbClick(wt.id, item)"
+                      class="w-14 h-14 rounded bg-red-100 flex items-center justify-center text-[10px] text-red-600 font-bold hover:bg-red-200 transition-colors cursor-pointer">PDF</div>
                     <img v-else :src="item.url"
                       class="w-14 h-14 rounded object-cover cursor-pointer hover:opacity-80"
-                      @click="openWtConstructPreview(wt.id, item)">
+                      @click="handleWtThumbClick(wt.id, item)">
                     <span class="text-[8px] text-gray-400 leading-tight">{{ formatTime(item.createdAt) }} · {{ uploaderName(item.uploadedBy) }}</span>
-                    <button @click="deleteWtConstructPhoto(wt.id, item)"
+                    <button v-if="!getWtFileSelection(wt.id).selecting.value" @click="deleteWtConstructPhoto(wt.id, item)"
                       class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-gray-600 text-white rounded-full text-[8px] leading-none hidden group-hover:flex items-center justify-center hover:bg-red-500 z-10">✕</button>
                   </div>
                 </div>
@@ -243,13 +258,19 @@
               <div class="flex gap-2 overflow-x-auto pb-1">
                 <div v-for="item in wtPhotosInFolder(wt.id, null)" :key="item.id"
                   class="flex-shrink-0 flex flex-col items-center gap-0.5 relative group">
-                  <a v-if="item.isPdf" :href="item.pdfUrl" target="_blank"
-                    class="w-14 h-14 rounded bg-red-100 flex items-center justify-center text-[10px] text-red-600 font-bold hover:bg-red-200 transition-colors">PDF</a>
+                  <div v-if="getWtFileSelection(wt.id).selecting.value"
+                    class="absolute -top-1 -left-1 w-3.5 h-3.5 rounded-full border-2 border-white z-10 shadow flex items-center justify-center cursor-pointer"
+                    :style="getWtFileSelection(wt.id).selected.value.has(item.url) ? 'background:#c9a96e' : 'background:#fff'"
+                    @click.stop="getWtFileSelection(wt.id).toggle(item.url)">
+                    <span v-if="getWtFileSelection(wt.id).selected.value.has(item.url)" class="text-white text-[8px] leading-none">✓</span>
+                  </div>
+                  <div v-if="item.isPdf" @click="handleWtThumbClick(wt.id, item)"
+                    class="w-14 h-14 rounded bg-red-100 flex items-center justify-center text-[10px] text-red-600 font-bold hover:bg-red-200 transition-colors cursor-pointer">PDF</div>
                   <img v-else :src="item.url"
                     class="w-14 h-14 rounded object-cover cursor-pointer hover:opacity-80"
-                    @click="openWtConstructPreview(wt.id, item)">
+                    @click="handleWtThumbClick(wt.id, item)">
                   <span class="text-[8px] text-gray-400 leading-tight">{{ formatTime(item.createdAt) }} · {{ uploaderName(item.uploadedBy) }}</span>
-                  <button @click="deleteWtConstructPhoto(wt.id, item)"
+                  <button v-if="!getWtFileSelection(wt.id).selecting.value" @click="deleteWtConstructPhoto(wt.id, item)"
                     class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-gray-600 text-white rounded-full text-[8px] leading-none hidden group-hover:flex items-center justify-center hover:bg-red-500 z-10">✕</button>
                 </div>
               </div>
@@ -262,13 +283,19 @@
             <div v-if="wtConstructPhotos[wt.id]?.length" class="flex gap-2 overflow-x-auto pb-1">
               <div v-for="item in wtConstructPhotos[wt.id]" :key="item.id"
                 class="flex-shrink-0 flex flex-col items-center gap-0.5 relative group">
-                <a v-if="item.isPdf" :href="item.pdfUrl" target="_blank"
-                  class="w-14 h-14 rounded bg-red-100 flex items-center justify-center text-[10px] text-red-600 font-bold hover:bg-red-200 transition-colors">PDF</a>
+                <div v-if="getWtFileSelection(wt.id).selecting.value"
+                  class="absolute -top-1 -left-1 w-3.5 h-3.5 rounded-full border-2 border-white z-10 shadow flex items-center justify-center cursor-pointer"
+                  :style="getWtFileSelection(wt.id).selected.value.has(item.url) ? 'background:#c9a96e' : 'background:#fff'"
+                  @click.stop="getWtFileSelection(wt.id).toggle(item.url)">
+                  <span v-if="getWtFileSelection(wt.id).selected.value.has(item.url)" class="text-white text-[8px] leading-none">✓</span>
+                </div>
+                <div v-if="item.isPdf" @click="handleWtThumbClick(wt.id, item)"
+                  class="w-14 h-14 rounded bg-red-100 flex items-center justify-center text-[10px] text-red-600 font-bold hover:bg-red-200 transition-colors cursor-pointer">PDF</div>
                 <img v-else :src="item.url"
                   class="w-14 h-14 rounded object-cover cursor-pointer hover:opacity-80"
-                  @click="openWtConstructPreview(wt.id, item)">
+                  @click="handleWtThumbClick(wt.id, item)">
                 <span class="text-[8px] text-gray-400 leading-tight">{{ formatTime(item.createdAt) }} · {{ uploaderName(item.uploadedBy) }}</span>
-                <button @click="deleteWtConstructPhoto(wt.id, item)"
+                <button v-if="!getWtFileSelection(wt.id).selecting.value" @click="deleteWtConstructPhoto(wt.id, item)"
                   class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-gray-600 text-white rounded-full text-[8px] leading-none hidden group-hover:flex items-center justify-center hover:bg-red-500 z-10">✕</button>
               </div>
             </div>
@@ -615,6 +642,8 @@ import { useNotificationsStore } from '@/stores/notifications'
 import { usePaymentRemindersStore } from '@/stores/paymentReminders'
 import { useUsersStore } from '@/stores/users'
 import { useToast } from '@/composables/useToast'
+import { useFileSelection } from '@/composables/useFileSelection'
+import FileSelectionBar from '@/components/ui/FileSelectionBar.vue'
 import { uploadPhoto, validateUploadFile } from '@/composables/useStorage'
 import { addDoc, collection, getDocs, orderBy, query, serverTimestamp, deleteDoc, doc } from 'firebase/firestore'
 import { db } from '@/firebase'
@@ -683,6 +712,35 @@ const previewImgIdx = ref(-1)
 
 // Construction photos per work type
 const wtConstructPhotos = reactive({})
+const wtFileSelections = {}
+function getWtFileSelection(wtId) {
+    if (!wtFileSelections[wtId]) {
+        wtFileSelections[wtId] = useFileSelection(computed(() => wtConstructPhotos[wtId] || []))
+    }
+    return wtFileSelections[wtId]
+}
+
+function handleWtThumbClick(wtId, item) {
+    const sel = getWtFileSelection(wtId)
+    if (sel.selecting.value) {
+        sel.toggle(item.url)
+    } else if (item.isPdf) {
+        window.open(item.pdfUrl, '_blank')
+    } else {
+        openWtConstructPreview(wtId, item)
+    }
+}
+
+async function handleWtDownloadSelected(wtId) {
+    const { failCount } = await getWtFileSelection(wtId).downloadSelected()
+    if (failCount > 0) toast(`${failCount} 個檔案下載失敗，已略過`, 'error')
+}
+
+async function handleWtShareSelected(wtId) {
+    const { ok, failCount } = await getWtFileSelection(wtId).shareSelected()
+    if (failCount > 0) toast(`${failCount} 個檔案準備分享時失敗，已略過`, 'error')
+    if (!ok && failCount === 0) toast('分享失敗，請重試', 'error')
+}
 const wtConstructFileInput = ref(null)
 const activeWtConstructId = ref('')
 const activeWtConstructFolderId = ref(null)
