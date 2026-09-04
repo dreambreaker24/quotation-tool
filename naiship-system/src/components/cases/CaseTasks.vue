@@ -51,12 +51,28 @@
                 </template>
                 <template v-else>
                   <span :class="doneClass(t)" class="break-words" v-html="linkify(t.content)"></span>
-                  <div v-if="t.attachments?.length" class="flex gap-1.5 flex-wrap mt-1.5">
-                    <a v-for="att in t.attachments" :key="att.url"
-                      :href="att.isPdf ? (att.pdfUrl ?? att.url) : undefined" :target="att.isPdf ? '_blank' : undefined">
-                      <div v-if="att.isPdf" class="w-10 h-10 rounded bg-red-100 flex items-center justify-center text-[9px] text-red-600 font-bold hover:bg-red-200">PDF</div>
-                      <img v-else :src="att.url" @click.prevent="openTaskPreview(t, att.url)" class="w-10 h-10 rounded object-cover cursor-pointer hover:opacity-80">
-                    </a>
+                  <div v-if="t.attachments?.length" class="mt-1.5">
+                    <FileSelectionBar
+                      :selecting="getTaskFileSelection(t.id).selecting.value"
+                      :count="getTaskFileSelection(t.id).selected.value.size"
+                      :can-share="getTaskFileSelection(t.id).canShare.value"
+                      @start="getTaskFileSelection(t.id).startSelecting()"
+                      @stop="getTaskFileSelection(t.id).stopSelecting()"
+                      @select-all="getTaskFileSelection(t.id).selectAll()"
+                      @download="handleTaskDownloadSelected(t)"
+                      @share="handleTaskShareSelected(t)" />
+                    <div class="flex gap-1.5 flex-wrap mt-1">
+                      <div v-for="att in t.attachments" :key="att.url" class="relative">
+                        <div v-if="getTaskFileSelection(t.id).selecting.value"
+                          class="absolute -top-1 -left-1 w-3.5 h-3.5 rounded-full border-2 border-white z-10 shadow flex items-center justify-center cursor-pointer"
+                          :style="getTaskFileSelection(t.id).selected.value.has(att.url) ? 'background:#c9a96e' : 'background:#fff'"
+                          @click.stop="getTaskFileSelection(t.id).toggle(att.url)">
+                          <span v-if="getTaskFileSelection(t.id).selected.value.has(att.url)" class="text-white text-[8px] leading-none">✓</span>
+                        </div>
+                        <div v-if="att.isPdf" @click="handleTaskThumbClick(t, att)" class="w-10 h-10 rounded bg-red-100 flex items-center justify-center text-[9px] text-red-600 font-bold hover:bg-red-200 cursor-pointer">PDF</div>
+                        <img v-else :src="att.url" @click="handleTaskThumbClick(t, att)" class="w-10 h-10 rounded object-cover cursor-pointer hover:opacity-80">
+                      </div>
+                    </div>
                   </div>
                   <div class="text-[10px] font-semibold mt-1" :style="`color:${personColor(t.createdBy)}`">{{ displayName(t) }} · {{ formatTime(t.createdAt) }}</div>
                   <div class="hidden group-hover:flex gap-1 mt-1 flex-wrap">
@@ -118,12 +134,28 @@
                 </template>
                 <template v-else>
                   <span :class="doneClass(t)" class="break-words" v-html="linkify(t.content)"></span>
-                  <div v-if="t.attachments?.length" class="flex gap-1.5 flex-wrap mt-1.5">
-                    <a v-for="att in t.attachments" :key="att.url"
-                      :href="att.isPdf ? (att.pdfUrl ?? att.url) : undefined" :target="att.isPdf ? '_blank' : undefined">
-                      <div v-if="att.isPdf" class="w-10 h-10 rounded bg-red-100 flex items-center justify-center text-[9px] text-red-600 font-bold hover:bg-red-200">PDF</div>
-                      <img v-else :src="att.url" @click.prevent="openTaskPreview(t, att.url)" class="w-10 h-10 rounded object-cover cursor-pointer hover:opacity-80">
-                    </a>
+                  <div v-if="t.attachments?.length" class="mt-1.5">
+                    <FileSelectionBar
+                      :selecting="getTaskFileSelection(t.id).selecting.value"
+                      :count="getTaskFileSelection(t.id).selected.value.size"
+                      :can-share="getTaskFileSelection(t.id).canShare.value"
+                      @start="getTaskFileSelection(t.id).startSelecting()"
+                      @stop="getTaskFileSelection(t.id).stopSelecting()"
+                      @select-all="getTaskFileSelection(t.id).selectAll()"
+                      @download="handleTaskDownloadSelected(t)"
+                      @share="handleTaskShareSelected(t)" />
+                    <div class="flex gap-1.5 flex-wrap mt-1">
+                      <div v-for="att in t.attachments" :key="att.url" class="relative">
+                        <div v-if="getTaskFileSelection(t.id).selecting.value"
+                          class="absolute -top-1 -left-1 w-3.5 h-3.5 rounded-full border-2 border-white z-10 shadow flex items-center justify-center cursor-pointer"
+                          :style="getTaskFileSelection(t.id).selected.value.has(att.url) ? 'background:#c9a96e' : 'background:#fff'"
+                          @click.stop="getTaskFileSelection(t.id).toggle(att.url)">
+                          <span v-if="getTaskFileSelection(t.id).selected.value.has(att.url)" class="text-white text-[8px] leading-none">✓</span>
+                        </div>
+                        <div v-if="att.isPdf" @click="handleTaskThumbClick(t, att)" class="w-10 h-10 rounded bg-red-100 flex items-center justify-center text-[9px] text-red-600 font-bold hover:bg-red-200 cursor-pointer">PDF</div>
+                        <img v-else :src="att.url" @click="handleTaskThumbClick(t, att)" class="w-10 h-10 rounded object-cover cursor-pointer hover:opacity-80">
+                      </div>
+                    </div>
                   </div>
                   <div class="text-[10px] font-semibold mt-1" :style="`color:${personColor(t.createdBy)}`">{{ displayName(t) }} · {{ formatTime(t.createdAt) }}</div>
                   <div v-if="authStore.isManager" class="hidden group-hover:flex gap-1 mt-1 flex-wrap">
@@ -198,12 +230,28 @@
                       </template>
                       <template v-else>
                         <span class="break-words" v-html="linkify(t.content)"></span>
-                        <div v-if="t.attachments?.length" class="flex gap-1.5 flex-wrap mt-1.5">
-                          <a v-for="att in t.attachments" :key="att.url"
-                            :href="att.isPdf ? (att.pdfUrl ?? att.url) : undefined" :target="att.isPdf ? '_blank' : undefined">
-                            <div v-if="att.isPdf" class="w-10 h-10 rounded bg-red-100 flex items-center justify-center text-[9px] text-red-600 font-bold hover:bg-red-200">PDF</div>
-                            <img v-else :src="att.url" @click.prevent="openTaskPreview(t, att.url)" class="w-10 h-10 rounded object-cover cursor-pointer hover:opacity-80">
-                          </a>
+                        <div v-if="t.attachments?.length" class="mt-1.5">
+                          <FileSelectionBar
+                            :selecting="getTaskFileSelection(t.id).selecting.value"
+                            :count="getTaskFileSelection(t.id).selected.value.size"
+                            :can-share="getTaskFileSelection(t.id).canShare.value"
+                            @start="getTaskFileSelection(t.id).startSelecting()"
+                            @stop="getTaskFileSelection(t.id).stopSelecting()"
+                            @select-all="getTaskFileSelection(t.id).selectAll()"
+                            @download="handleTaskDownloadSelected(t)"
+                            @share="handleTaskShareSelected(t)" />
+                          <div class="flex gap-1.5 flex-wrap mt-1">
+                            <div v-for="att in t.attachments" :key="att.url" class="relative">
+                              <div v-if="getTaskFileSelection(t.id).selecting.value"
+                                class="absolute -top-1 -left-1 w-3.5 h-3.5 rounded-full border-2 border-white z-10 shadow flex items-center justify-center cursor-pointer"
+                                :style="getTaskFileSelection(t.id).selected.value.has(att.url) ? 'background:#c9a96e' : 'background:#fff'"
+                                @click.stop="getTaskFileSelection(t.id).toggle(att.url)">
+                                <span v-if="getTaskFileSelection(t.id).selected.value.has(att.url)" class="text-white text-[8px] leading-none">✓</span>
+                              </div>
+                              <div v-if="att.isPdf" @click="handleTaskThumbClick(t, att)" class="w-10 h-10 rounded bg-red-100 flex items-center justify-center text-[9px] text-red-600 font-bold hover:bg-red-200 cursor-pointer">PDF</div>
+                              <img v-else :src="att.url" @click="handleTaskThumbClick(t, att)" class="w-10 h-10 rounded object-cover cursor-pointer hover:opacity-80">
+                            </div>
+                          </div>
                         </div>
                         <div class="text-[10px] font-semibold mt-1" :style="`color:${personColor(t.createdBy)}`">{{ displayName(t) }} · {{ formatTime(t.createdAt) }}</div>
                         <div class="absolute top-2 right-2 hidden group-hover:flex gap-1">
@@ -282,6 +330,8 @@ import { useUsersStore } from '@/stores/users'
 import { useNotificationsStore } from '@/stores/notifications'
 import { useToast } from '@/composables/useToast'
 import { uploadPhoto, validateUploadFile } from '@/composables/useStorage'
+import { useFileSelection } from '@/composables/useFileSelection'
+import FileSelectionBar from '@/components/ui/FileSelectionBar.vue'
 
 const props = defineProps({ caseId: String, caseName: String, companyId: { type: String, default: '' } })
 const tasksStore = useCaseTasksStore()
@@ -309,6 +359,39 @@ function openTaskPreview(task, clickedUrl) {
     const idx = images.indexOf(clickedUrl)
     previewList.value = images
     previewIndex.value = idx >= 0 ? idx : 0
+}
+
+const taskFileSelections = {}
+function getTaskFileSelection(taskId) {
+    if (!taskFileSelections[taskId]) {
+        taskFileSelections[taskId] = useFileSelection(computed(() => {
+            const task = tasksStore.tasks.find(x => x.id === taskId)
+            return task?.attachments || []
+        }))
+    }
+    return taskFileSelections[taskId]
+}
+
+function handleTaskThumbClick(t, att) {
+    const sel = getTaskFileSelection(t.id)
+    if (sel.selecting.value) {
+        sel.toggle(att.url)
+    } else if (att.isPdf) {
+        window.open(att.pdfUrl ?? att.url, '_blank')
+    } else {
+        openTaskPreview(t, att.url)
+    }
+}
+
+async function handleTaskDownloadSelected(t) {
+    const { failCount } = await getTaskFileSelection(t.id).downloadSelected()
+    if (failCount > 0) toast(`${failCount} 個檔案下載失敗，已略過`, 'error')
+}
+
+async function handleTaskShareSelected(t) {
+    const { ok, failCount } = await getTaskFileSelection(t.id).shareSelected()
+    if (failCount > 0) toast(`${failCount} 個檔案準備分享時失敗，已略過`, 'error')
+    if (!ok && failCount === 0) toast('分享失敗，請重試', 'error')
 }
 
 function closePreview() {
