@@ -97,3 +97,23 @@ describe('usePaymentRemindersStore — vendorDisplayItems', () => {
         expect(ids).not.toContain('auto2')
     })
 })
+
+describe('usePaymentRemindersStore — reminderExists', () => {
+    beforeEach(() => setActivePinia(createPinia()))
+
+    it('文件存在時回傳 true', async () => {
+        const { getDoc } = await import('firebase/firestore')
+        getDoc.mockResolvedValueOnce({ exists: () => true })
+        const store = usePaymentRemindersStore()
+        const result = await store.reminderExists('auto_vendor_item_vc_123')
+        expect(result).toBe(true)
+    })
+
+    it('文件不存在時回傳 false', async () => {
+        const { getDoc } = await import('firebase/firestore')
+        getDoc.mockResolvedValueOnce({ exists: () => false })
+        const store = usePaymentRemindersStore()
+        const result = await store.reminderExists('auto_vendor_item_vc_999')
+        expect(result).toBe(false)
+    })
+})

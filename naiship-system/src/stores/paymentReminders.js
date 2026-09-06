@@ -100,6 +100,12 @@ export const usePaymentRemindersStore = defineStore('paymentReminders', () => {
         })
     }
 
+    async function reminderExists(docId) {
+        const ref = doc(db, 'paymentReminders', docId)
+        const snap = await getDoc(ref)
+        return snap.exists()
+    }
+
     async function deleteAutoReminder(docId) {
         const ref = doc(db, 'paymentReminders', docId)
         const snap = await getDoc(ref)
@@ -121,6 +127,6 @@ export const usePaymentRemindersStore = defineStore('paymentReminders', () => {
         vendorDisplayItems,
         subscribe, cleanup,
         addReminder, markDone,
-        addAutoReminder, deleteAutoReminder,
+        addAutoReminder, reminderExists, deleteAutoReminder,
     }
 })
