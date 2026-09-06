@@ -393,7 +393,7 @@
                 <input v-if="editingIdx !== null" v-model="item.dueDate" type="date"
                   @change="handleVendorItemDueDateChange(item)"
                   class="text-xs border border-gray-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 bg-white w-32 flex-shrink-0">
-                <button v-if="editingIdx !== null" type="button" @click="sendReminder(item, 'vendor')"
+                <button v-if="editingIdx !== null" type="button" @click="sendReminder(item)"
                   class="text-[10px] px-2 py-1 rounded bg-blue-100 text-blue-700 hover:bg-blue-200 whitespace-nowrap transition-colors">
                   提醒主管
                 </button>
@@ -1286,14 +1286,13 @@ function buildVendorItemReminderPayload(item, wt) {
     }
 }
 
-async function sendReminder(item, type) {
+async function sendReminder(item) {
     if (editingIdx.value === null) return
     const wt = workTypes.value[editingIdx.value]
-    const typeLabel = type === 'owner' ? '向業主請款' : '廠商匯款'
     await remindersStore.addAutoReminder(vendorItemReminderDocId(item), buildVendorItemReminderPayload(item, wt))
     await notifStore.notifyManagers(
         authStore.name ?? '',
-        `${props.caseName}－${wt.name}：${item.description} ${typeLabel} $${(item.amount || 0).toLocaleString()}`
+        `${props.caseName}－${wt.name}：${item.description} 廠商匯款 $${(item.amount || 0).toLocaleString()}`
     )
     toast('已提醒主管')
 }
