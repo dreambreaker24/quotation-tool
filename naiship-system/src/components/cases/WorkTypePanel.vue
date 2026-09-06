@@ -390,6 +390,9 @@
               <div class="flex gap-1.5 items-center">
                 <input v-model="item.note" type="text" placeholder="備註"
                   class="flex-1 text-xs border border-gray-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 bg-white">
+                <input v-if="editingIdx !== null" v-model="item.dueDate" type="date"
+                  @change="handleVendorItemDueDateChange(item)"
+                  class="text-xs border border-gray-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 bg-white w-32 flex-shrink-0">
                 <button v-if="editingIdx !== null" type="button" @click="sendReminder(item, 'vendor')"
                   class="text-[10px] px-2 py-1 rounded bg-blue-100 text-blue-700 hover:bg-blue-200 whitespace-nowrap transition-colors">
                   提醒主管
@@ -905,7 +908,7 @@ function normalizeItems(items, legacyAmount, prefix) {
 }
 
 function addVendorCostItem() {
-    form.value.vendorCostItems.push({ id: `vc_${Date.now()}`, description: '', amount: 0, note: '' })
+    form.value.vendorCostItems.push({ id: `vc_${Date.now()}`, description: '', amount: 0, note: '', dueDate: '' })
 }
 function removeVendorCostItem(i) {
     form.value.vendorCostItems.splice(i, 1)
@@ -1259,30 +1262,49 @@ async function submitForm() {
     }
 }
 
-async function sendReminder(item, type) {
-    if (editingIdx.value === null) return
-    const wt = workTypes.value[editingIdx.value]
-    const typeLabel = type === 'owner' ? '向業主請款' : '廠商匯款'
-    await remindersStore.addReminder({
-        type,
+function vendorItemReminderDocId(item) {
+    return `auto_vendor_item_${item.id}`
+}
+
+function buildVendorItemReminderPayload(item, wt) {
+    return {
+        type: 'vendor',
         caseId: props.caseId,
         caseName: props.caseName,
         companyId: caseData.value?.companyId ?? '',
         workTypeId: wt.id,
         workTypeName: wt.name,
+        vendorName: wt.vendorName || '',
         itemId: item.id,
         description: item.description,
         amount: item.amount || 0,
         note: item.note || '',
+        dueDate: item.dueDate || '',
         endDate: wt.endDate || '',
         createdBy: authStore.user?.uid ?? '',
         createdByName: authStore.name ?? '',
-    })
+    }
+}
+
+async function sendReminder(item, type) {
+    if (editingIdx.value === null) return
+    const wt = workTypes.value[editingIdx.value]
+    const typeLabel = type === 'owner' ? '向業主請款' : '廠商匯款'
+    await remindersStore.addAutoReminder(vendorItemReminderDocId(item), buildVendorItemReminderPayload(item, wt))
     await notifStore.notifyManagers(
         authStore.name ?? '',
         `${props.caseName}－${wt.name}：${item.description} ${typeLabel} $${(item.amount || 0).toLocaleString()}`
     )
     toast('已提醒主管')
+}
+
+async function handleVendorItemDueDateChange(item) {
+    if (editingIdx.value === null) return
+    const wt = workTypes.value[editingIdx.value]
+    const docId = vendorItemReminderDocId(item)
+    const exists = await remindersStore.reminderExists(docId)
+    if (!exists && !item.dueDate) return
+    await remindersStore.addAutoReminder(docId, buildVendorItemReminderPayload(item, wt))
 }
 
 async function deleteVendorPayment(vpId) {
