@@ -39,6 +39,5 @@ describe('suggestPaymentPlan', () => {
         const plan1 = suggestPaymentPlan(350000)
         const plan2 = suggestPaymentPlan(350000)
         expect(plan1.stages[0].id).not.toBe(plan2.stages[0].id)
-        expect(plan1.stages).not.toBe(plan2.stages)
     })
 })
