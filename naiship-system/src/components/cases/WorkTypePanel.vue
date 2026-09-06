@@ -1229,7 +1229,7 @@ async function submitForm() {
             const removedItems = (existing.vendorCostItems || []).filter(i => !newItemIds.has(i.id))
             for (const removedItem of removedItems) {
                 try {
-                    await remindersStore.deleteAutoReminder(vendorItemReminderDocId(removedItem))
+                    await remindersStore.deleteAutoReminder(vendorItemReminderDocId(removedItem, existing))
                 } catch {
                     // 提醒文件清理失敗不擋主流程，工種本身已經存成功
                 }
@@ -1273,8 +1273,8 @@ async function submitForm() {
     }
 }
 
-function vendorItemReminderDocId(item) {
-    return `auto_vendor_item_${item.id}`
+function vendorItemReminderDocId(item, wt) {
+    return `auto_vendor_item_${wt.id}_${item.id}`
 }
 
 function buildVendorItemReminderPayload(item, wt) {
@@ -1300,7 +1300,7 @@ function buildVendorItemReminderPayload(item, wt) {
 async function sendReminder(item) {
     if (editingIdx.value === null) return
     const wt = workTypes.value[editingIdx.value]
-    await remindersStore.addAutoReminder(vendorItemReminderDocId(item), buildVendorItemReminderPayload(item, wt))
+    await remindersStore.addAutoReminder(vendorItemReminderDocId(item, wt), buildVendorItemReminderPayload(item, wt))
     await notifStore.notifyManagers(
         authStore.name ?? '',
         `${props.caseName}－${wt.name}：${item.description} 廠商匯款 $${(item.amount || 0).toLocaleString()}`
@@ -1311,7 +1311,7 @@ async function sendReminder(item) {
 async function handleVendorItemDueDateChange(item) {
     if (editingIdx.value === null) return
     const wt = workTypes.value[editingIdx.value]
-    const docId = vendorItemReminderDocId(item)
+    const docId = vendorItemReminderDocId(item, wt)
     const exists = await remindersStore.reminderExists(docId)
     if (!exists && !item.dueDate) return
     await remindersStore.addAutoReminder(docId, buildVendorItemReminderPayload(item, wt))
