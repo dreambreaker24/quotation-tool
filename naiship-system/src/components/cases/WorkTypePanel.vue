@@ -1224,6 +1224,17 @@ async function submitForm() {
             updated.push(entry)
         }
         await casesStore.updateCase(props.caseId, { workTypes: updated })
+        if (existing) {
+            const newItemIds = new Set(entry.vendorCostItems.map(i => i.id))
+            const removedItems = (existing.vendorCostItems || []).filter(i => !newItemIds.has(i.id))
+            for (const removedItem of removedItems) {
+                try {
+                    await remindersStore.deleteAutoReminder(vendorItemReminderDocId(removedItem))
+                } catch {
+                    // 提醒文件清理失敗不擋主流程，工種本身已經存成功
+                }
+            }
+        }
         if (existing?.done && vendorChange?.lines?.length > 0) {
             try {
                 const plan = vendorReminderPlan(vendorChange.amount)
