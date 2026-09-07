@@ -41,7 +41,7 @@ export const useBonusQuartersStore = defineStore('bonusQuarters', () => {
     // clientEntries：呼叫端目前畫面上顯示的完整 entries 陣列（不是只有要標記的那一筆）。
     // 文件還沒建立過（尚未按過「儲存本季資料」）時，會拿這份資料當底，讓第一次點
     // 「已發放」也能成功寫入，不用強制使用者先手動存檔一次。
-    async function markEntryPaid(quarterKey, clientEntries, targetEntry, paid) {
+    async function markEntryPaid(quarterKey, clientEntries, targetEntry, paid, finalAmountOverride) {
         const authStore = useAuthStore()
         const key = entryKey(targetEntry)
         const docRef = doc(db, 'bonusQuarters', quarterKey)
@@ -55,6 +55,7 @@ export const useBonusQuartersStore = defineStore('bonusQuarters', () => {
                 paid,
                 paidAt: paid ? Timestamp.now() : null,
                 paidBy: paid ? (authStore.name ?? '') : '',
+                ...(finalAmountOverride != null ? { finalAmount: finalAmountOverride } : {}),
             }
             const nextEntries = idx >= 0
                 ? baseEntries.map((e, i) => (i === idx ? patchedEntry : e))
@@ -65,7 +66,12 @@ export const useBonusQuartersStore = defineStore('bonusQuarters', () => {
             const idx = current.value.entries.findIndex(e => entryKey(e) === key)
             if (idx >= 0) {
                 const nextEntries = [...current.value.entries]
-                nextEntries[idx] = { ...nextEntries[idx], paid, paidBy: paid ? (authStore.name ?? '') : '' }
+                nextEntries[idx] = {
+                    ...nextEntries[idx],
+                    paid,
+                    paidBy: paid ? (authStore.name ?? '') : '',
+                    ...(finalAmountOverride != null ? { finalAmount: finalAmountOverride } : {}),
+                }
                 current.value = { ...current.value, entries: nextEntries }
             }
         }
