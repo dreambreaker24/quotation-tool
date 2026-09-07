@@ -1243,6 +1243,9 @@ function openEdit(idx) {
         vendorCostItems: normalizeItems(wt.vendorCostItems, wt.vendorCost, 'vc'),
         vendorCostFree: wt.vendorCostFree || false,
         costIncludesTax: wt.costIncludesTax ?? null,
+        // stages 一定要深拷貝：submitForm() 靠比對 existing.paymentPlan.stages 是否還等於
+        // entry.paymentPlan.stages 來抓被刪除的階段、清掉對應提醒文件；如果這裡共用同一份陣列參照，
+        // addPlanStage/removePlanStage 會直接原地改到 store 資料，讓那個差集比對永遠算出空集合。
         paymentPlan: wt.paymentPlan ? { ...wt.paymentPlan, stages: wt.paymentPlan.stages.map(s => ({ ...s })) } : null,
         locations: (wt.locations || []).map(l => ({ ...l })),
         customName: wt.customName || false,
