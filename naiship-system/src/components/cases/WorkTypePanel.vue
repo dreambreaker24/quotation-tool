@@ -93,9 +93,10 @@
                   :class="vendorInvoiceStatus(wt).cls" title="點擊切換發票狀態">
                   {{ vendorInvoiceStatus(wt).label }}
                 </span>
-                <label class="text-[10px] px-1.5 py-0.5 rounded-full font-medium mt-0.5 inline-block cursor-pointer bg-purple-50 text-purple-600 hover:bg-purple-100 transition-colors">
+                <label class="text-[10px] px-1.5 py-0.5 rounded-full font-medium mt-0.5 inline-block cursor-pointer"
+                  :class="'bg-purple-50 text-purple-600 hover:bg-purple-100 transition-colors'">
                   📎 {{ wt.invoiceFile ? '重新上傳發票' : '上傳發票' }}
-                  <input type="file" accept="image/*,.pdf" class="hidden" @change="uploadInvoiceFile(idx, $event.target.files)">
+                  <input type="file" accept="image/jpeg,image/jpg,image/png,image/webp,.pdf" class="hidden" @change="uploadInvoiceFile(idx, $event.target.files)">
                 </label>
                 <a v-if="wt.invoiceFile" :href="wt.invoiceFile.url" target="_blank"
                   class="text-[10px] text-purple-500 hover:text-purple-700 underline mt-0.5 inline-block">
@@ -1349,7 +1350,7 @@ async function uploadInvoiceFile(idx, fileList) {
             invoiceFile: {
                 url,
                 uploadedAt: new Date().toISOString(),
-                uploadedBy: authStore.name ?? '',
+                uploadedByName: authStore.name ?? '',
             },
         }
         await casesStore.updateCase(props.caseId, { workTypes: updated })
