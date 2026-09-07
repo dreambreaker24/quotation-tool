@@ -20,7 +20,7 @@
 </template>
 <script setup>
 import { ref, onMounted } from 'vue'
-import { doc, getDoc, setDoc } from 'firebase/firestore'
+import { doc, setDoc, getDoc } from 'firebase/firestore'
 import { db } from '@/firebase'
 
 const year = new Date().getFullYear()
@@ -39,10 +39,9 @@ async function save() {
     saving.value = true
     saved.value = false
     try {
-        const snap = await getDoc(doc(db, 'settings', 'payslipFestivals'))
-        const existing = snap.exists() ? snap.data() : {}
-        existing[year] = { dragonBoat: form.value.dragonBoat, midAutumn: form.value.midAutumn }
-        await setDoc(doc(db, 'settings', 'payslipFestivals'), existing)
+        await setDoc(doc(db, 'settings', 'payslipFestivals'), {
+            [year]: { dragonBoat: form.value.dragonBoat, midAutumn: form.value.midAutumn }
+        }, { merge: true })
         saved.value = true
     } finally {
         saving.value = false
