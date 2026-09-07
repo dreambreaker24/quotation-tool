@@ -700,17 +700,25 @@ watch(festivalSettings, () => {
 
 async function refreshAutoItems() {
     if (!form.value.empName || !form.value.payMonth) return
-    const user = usersStore.users.find(u => u.name === form.value.empName)
+    const targetName = form.value.empName
+    const targetMonth = form.value.payMonth
+    const user = usersStore.users.find(u => u.name === targetName)
     const items = []
     if (user) {
-        const bday = computeBirthdayGift(user, form.value.payMonth)
+        const bday = computeBirthdayGift(user, targetMonth)
         if (bday) items.push(bday)
     }
-    items.push(...computeFestivalGifts(form.value.payMonth, festivalSettings.value))
+    items.push(...computeFestivalGifts(targetMonth, festivalSettings.value))
     if (user) {
-        const quarterKey = payMonthToBonusQuarter(form.value.payMonth)
-        const quarterData = await bonusQuartersStore.fetchQuarter(quarterKey)
-        items.push(...buildBonusAutoItems(quarterData.entries, user.id))
+        try {
+            const quarterKey = payMonthToBonusQuarter(targetMonth)
+            const quarterData = await bonusQuartersStore.fetchQuarter(quarterKey)
+            if (form.value.empName !== targetName || form.value.payMonth !== targetMonth) return
+            items.push(...buildBonusAutoItems(quarterData.entries, user.id))
+        } catch {
+            toast('季度獎金查詢失敗，請重試', 'error')
+            if (form.value.empName !== targetName || form.value.payMonth !== targetMonth) return
+        }
     }
     form.value.autoItems = items
     compute()
