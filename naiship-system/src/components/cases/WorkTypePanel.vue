@@ -93,6 +93,14 @@
                   :class="vendorInvoiceStatus(wt).cls" title="點擊切換發票狀態">
                   {{ vendorInvoiceStatus(wt).label }}
                 </span>
+                <label class="text-[10px] px-1.5 py-0.5 rounded-full font-medium mt-0.5 inline-block cursor-pointer bg-purple-50 text-purple-600 hover:bg-purple-100 transition-colors">
+                  📎 {{ wt.invoiceFile ? '重新上傳發票' : '上傳發票' }}
+                  <input type="file" accept="image/*,.pdf" class="hidden" @change="uploadInvoiceFile(idx, $event.target.files)">
+                </label>
+                <a v-if="wt.invoiceFile" :href="wt.invoiceFile.url" target="_blank"
+                  class="text-[10px] text-purple-500 hover:text-purple-700 underline mt-0.5 inline-block">
+                  查看已上傳的發票
+                </a>
               </template>
             </div>
             <div>
@@ -1202,6 +1210,7 @@ async function submitForm() {
         vendorPayments: existing?.vendorPayments ?? [],
         done: existing?.done ?? false,
         invoiceTarget: existing?.invoiceTarget ?? null,
+        invoiceFile: existing?.invoiceFile ?? null,
         locations: form.value.locations.filter(l => l.label),
         customName: existing?.customName ?? false,
     }
@@ -1324,6 +1333,30 @@ async function deleteVendorPayment(vpId) {
     wt.vendorPayments = wt.vendorPayments.filter(vp => vp.id !== vpId)
     updated[vendorPayingIdx.value] = wt
     await casesStore.updateCase(props.caseId, { workTypes: updated })
+}
+
+async function uploadInvoiceFile(idx, fileList) {
+    const file = fileList?.[0]
+    if (!file) return
+    const err = validateUploadFile(file)
+    if (err) { toast(err, 'error'); return }
+    try {
+        const url = await uploadPhoto(file, 'invoice')
+        const wt = workTypes.value[idx]
+        const updated = [...workTypes.value]
+        updated[idx] = {
+            ...wt,
+            invoiceFile: {
+                url,
+                uploadedAt: new Date().toISOString(),
+                uploadedBy: authStore.name ?? '',
+            },
+        }
+        await casesStore.updateCase(props.caseId, { workTypes: updated })
+        toast('發票已上傳')
+    } catch {
+        toast('發票上傳失敗，請重試', 'error')
+    }
 }
 
 async function toggleInvoiceReceived(idx) {
