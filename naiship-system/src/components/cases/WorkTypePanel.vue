@@ -428,7 +428,7 @@
               </div>
               <div>
                 <label class="text-[10px] text-indigo-400 block mb-0.5">完工/付款日期</label>
-                <input v-model="form.paymentPlan.cashDate" type="date"
+                <input v-model="form.paymentPlan.cashDate" type="date" @change="markPlanCustomized"
                   class="text-xs border border-indigo-200 rounded px-2 py-1 bg-white focus:outline-none focus:ring-1">
               </div>
             </div>
@@ -680,7 +680,7 @@ import { isLegacyCategoryName } from '@/utils/workTypeCategory'
 import { getVendorSpecialties, filterVendorsByCategory } from '@/utils/vendorSpecialty'
 import { wtVendorCostTotal, totalVendorPaid, vendorInvoiceStatus } from '@/utils/workTypeInvoice'
 import { calcVendorDueDate, vendorReminderPlan } from '@/utils/paymentDueDate'
-import { suggestPaymentPlan } from '@/utils/paymentPlan'
+import { suggestPaymentPlan, makeStage } from '@/utils/paymentPlan'
 import { useVendorsStore } from '@/stores/vendors'
 import { useCasesStore } from '@/stores/cases'
 import { useAuthStore } from '@/stores/auth'
@@ -985,13 +985,7 @@ function markPlanCustomized() {
 function addPlanStage() {
     if (!form.value.paymentPlan?.stages) return
     markPlanCustomized()
-    form.value.paymentPlan.stages.push({
-        id: `stage_${Date.now()}`,
-        name: '訂金',
-        pct: 0,
-        dueDate: '',
-        status: 'pending',
-    })
+    form.value.paymentPlan.stages.push(makeStage('訂金', 0))
 }
 
 function removePlanStage(i) {

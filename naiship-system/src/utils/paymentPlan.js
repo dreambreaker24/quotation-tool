@@ -10,7 +10,7 @@ function nextStageId() {
     return `stage_${Date.now()}_${stageIdCounter}`
 }
 
-function makeStage(name, pct) {
+export function makeStage(name, pct) {
     return { id: nextStageId(), name, pct, dueDate: '', status: 'pending' }
 }
 
