@@ -93,8 +93,7 @@
                   :class="vendorInvoiceStatus(wt).cls" title="點擊切換發票狀態">
                   {{ vendorInvoiceStatus(wt).label }}
                 </span>
-                <label class="text-[10px] px-1.5 py-0.5 rounded-full font-medium mt-0.5 inline-block cursor-pointer
-                  bg-purple-50 text-purple-600 hover:bg-purple-100 transition-colors">
+                <label class="text-[10px] px-1.5 py-0.5 rounded-full font-medium mt-0.5 inline-block cursor-pointer bg-purple-50 text-purple-600 hover:bg-purple-100 transition-colors">
                   📎 {{ wt.invoiceFile ? '重新上傳發票' : '上傳發票' }}
                   <input type="file" accept="image/jpeg,image/jpg,image/png,image/webp,.pdf" class="hidden" @change="uploadInvoiceFile(idx, $event.target.files)">
                 </label>
