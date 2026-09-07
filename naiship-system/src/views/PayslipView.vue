@@ -97,13 +97,14 @@
           <input type="number" v-model.number="form.attend" min="0" @input="compute" placeholder="0">
           <span v-if="form.attend > 0" class="ps-hint">{{ fmtNum(form.attend) }}</span>
         </div>
+        <!-- paidConfirmed 由後續「確認發放獎金」功能設定，這裡先留欄位 -->
         <div v-for="(item, idx) in form.autoItems" :key="item.id" class="ps-field">
           <label>
             <input type="text" v-model="item.label" :disabled="item.paidConfirmed" @input="compute" class="ps-name-input">
           </label>
           <input type="number" v-model.number="item.amount" min="0" :disabled="item.paidConfirmed" @input="compute" placeholder="0">
           <span v-if="item.paidConfirmed" class="ps-hint" style="color:#3f7d5c">已標記發放</span>
-          <button v-else @click="form.autoItems.splice(idx, 1); compute()" type="button" class="ps-hint" style="color:#ef4444;cursor:pointer;background:none;border:none;padding:0">✕</button>
+          <button v-else @click="removeAutoItem(idx)" type="button" class="ps-hint" style="color:#ef4444;cursor:pointer;background:none;border:none;padding:0">✕</button>
         </div>
         <div class="ps-field">
           <label><input type="text" v-model="form.addName1" placeholder="其他加項名稱" @input="compute" class="ps-name-input"></label>
@@ -330,7 +331,7 @@
             <span class="sl-row-name">{{ form.addName2 || '其他加項' }}</span>
             <span class="sl-row-amt">{{ fmt(form.addAmt2) }}</span>
           </div>
-          <div v-for="item in form.autoItems" :key="item.id" class="sl-row">
+          <div v-for="item in visibleAutoItems" :key="item.id" class="sl-row">
             <span class="sl-row-name">{{ item.label }}</span>
             <span class="sl-row-amt">{{ fmt(item.amount) }}</span>
           </div>
@@ -681,11 +682,19 @@ async function switchMonthContext() {
 
 /* ── 自動生日/節慶禮金 ── */
 const festivalSettings = ref({})
+const visibleAutoItems = computed(() => form.value.autoItems.filter(i => i.amount > 0))
 
 async function loadFestivalSettings() {
     const snap = await getDoc(doc(db, 'settings', 'payslipFestivals'))
     festivalSettings.value = snap.exists() ? snap.data() : {}
 }
+
+// loadFestivalSettings() 是 fire-and-forget，若使用者手速夠快在資料回來前就選好員工/月份，
+// refreshGiftAutoItems() 當下會讀到空的 festivalSettings 而漏算節慶禮金；
+// 這裡補一個 watch，資料真的到位時如果已經選好員工+月份就重算一次
+watch(festivalSettings, () => {
+    if (form.value.empName && form.value.payMonth) refreshGiftAutoItems()
+})
 
 function refreshGiftAutoItems() {
     if (!form.value.empName || !form.value.payMonth) return
@@ -697,6 +706,11 @@ function refreshGiftAutoItems() {
     }
     items.push(...computeFestivalGifts(form.value.payMonth, festivalSettings.value))
     form.value.autoItems = items
+    compute()
+}
+
+function removeAutoItem(idx) {
+    form.value.autoItems.splice(idx, 1)
     compute()
 }
 
