@@ -988,7 +988,10 @@ const formVendorCostTotal = computed(() =>
     form.value.vendorCostItems.reduce((s, i) => s + (i.amount || 0), 0)
 )
 
+const suppressPlanWatch = ref(false)
+
 watch(formVendorCostTotal, (total) => {
+    if (suppressPlanWatch.value) return
     if (!form.value.paymentPlan) return
     if (!form.value.paymentPlan.autoSuggested) return
     form.value.paymentPlan = suggestPaymentPlan(total)
@@ -1209,6 +1212,7 @@ const regionVendors = computed(() => {
     return filterVendorsByCategory(vendors, selectedCategory.value, WORK_CATEGORIES)
 })
 function openAdd() {
+    suppressPlanWatch.value = true
     editingIdx.value = null
     selectedCategory.value = ''
     vendorSearch.value = ''
@@ -1220,9 +1224,11 @@ function openAdd() {
         paymentPlan: suggestPaymentPlan(0),
     }
     showForm.value = true
+    nextTick(() => { suppressPlanWatch.value = false })
 }
 
 function openEdit(idx) {
+    suppressPlanWatch.value = true
     editingIdx.value = idx
     const wt = workTypes.value[idx]
     selectedCategory.value = WORK_CATEGORIES.includes(wt.name) ? wt.name : ''
@@ -1242,6 +1248,7 @@ function openEdit(idx) {
         customName: wt.customName || false,
     }
     showForm.value = true
+    nextTick(() => { suppressPlanWatch.value = false })
 }
 
 function openVendorPay(idx) {
