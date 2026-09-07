@@ -45,6 +45,7 @@ export const useBonusQuartersStore = defineStore('bonusQuarters', () => {
         const authStore = useAuthStore()
         const key = entryKey(targetEntry)
         const docRef = doc(db, 'bonusQuarters', quarterKey)
+        const overridePatch = finalAmountOverride != null ? { finalAmount: finalAmountOverride } : {}
         await runTransaction(db, async (tx) => {
             const snap = await tx.get(docRef)
             const existing = snap.exists() ? snap.data() : null
@@ -55,7 +56,7 @@ export const useBonusQuartersStore = defineStore('bonusQuarters', () => {
                 paid,
                 paidAt: paid ? Timestamp.now() : null,
                 paidBy: paid ? (authStore.name ?? '') : '',
-                ...(finalAmountOverride != null ? { finalAmount: finalAmountOverride } : {}),
+                ...overridePatch,
             }
             const nextEntries = idx >= 0
                 ? baseEntries.map((e, i) => (i === idx ? patchedEntry : e))
@@ -70,7 +71,7 @@ export const useBonusQuartersStore = defineStore('bonusQuarters', () => {
                     ...nextEntries[idx],
                     paid,
                     paidBy: paid ? (authStore.name ?? '') : '',
-                    ...(finalAmountOverride != null ? { finalAmount: finalAmountOverride } : {}),
+                    ...overridePatch,
                 }
                 current.value = { ...current.value, entries: nextEntries }
             }

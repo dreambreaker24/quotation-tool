@@ -452,7 +452,7 @@
           ⚠ 確認後會同步在「獎金統計」頁面標記這幾筆已發放，且會鎖定不能再編輯金額
         </div>
         <div class="flex justify-end gap-2">
-          <button @click="showConfirmBonusPaid = false" class="text-sm text-gray-400 px-4 py-2">取消</button>
+          <button @click="showConfirmBonusPaid = false" :disabled="confirmingBonus" class="text-sm text-gray-400 px-4 py-2 disabled:opacity-50">取消</button>
           <button @click="confirmBonusPaid" :disabled="confirmingBonus" class="text-sm text-white px-5 py-2 rounded-xl" style="background:#1e2533">
             {{ confirmingBonus ? '處理中…' : '確認發放' }}
           </button>
@@ -889,21 +889,32 @@ function openConfirmBonusPaid() {
 
 async function confirmBonusPaid() {
     confirmingBonus.value = true
+    // 迴圈裡連續 await 好幾筆 markEntryPaid，處理中使用者若切走員工/月份，
+    // form.value.autoItems 會變成新畫面的內容——用快照比對避免誤標記到剛好同 id
+    // 的新項目。Firestore 那邊的寫入目標（quarterKey/pendingBonusItems）在迴圈外
+    // 就已經固定，不受切走影響，所以財務資料本身是安全的，這裡只是保護畫面狀態。
+    const targetName = form.value.empName
+    const targetMonth = form.value.payMonth
     try {
         // pendingBonusItems 全部來自同一次 refreshAutoItems()，quarterKey 只跟 form.value.payMonth
         // 有關，這一批項目一定是同一個季度，只要在迴圈外查一次，不用每筆各查一次。
-        const quarterKey = payMonthToBonusQuarter(form.value.payMonth)
+        const quarterKey = payMonthToBonusQuarter(targetMonth)
         const quarterData = await bonusQuartersStore.fetchQuarter(quarterKey)
         for (const item of pendingBonusItems.value) {
             const targetEntry = { role: item.bonusRef.role, personId: item.bonusRef.personId, caseId: item.bonusRef.caseId }
             await bonusQuartersStore.markEntryPaid(quarterKey, quarterData.entries, targetEntry, true, item.amount)
+            // 即使使用者已經切走，Firestore 端還是要把剩下的項目標記完整，
+            // 只是不要去動已經跟目前畫面無關的 form.value.autoItems
+            if (form.value.empName !== targetName || form.value.payMonth !== targetMonth) continue
             const idx = form.value.autoItems.findIndex(a => a.id === item.id)
             if (idx >= 0) form.value.autoItems[idx] = { ...form.value.autoItems[idx], paidConfirmed: true }
         }
         toast('已標記發放')
         showConfirmBonusPaid.value = false
     } catch {
-        toast('標記發放失敗，請重試', 'error')
+        if (form.value.empName === targetName && form.value.payMonth === targetMonth) {
+            toast('標記發放失敗，請重試', 'error')
+        }
     } finally {
         confirmingBonus.value = false
     }
