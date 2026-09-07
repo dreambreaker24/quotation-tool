@@ -97,7 +97,6 @@
           <input type="number" v-model.number="form.attend" min="0" @input="compute" placeholder="0">
           <span v-if="form.attend > 0" class="ps-hint">{{ fmtNum(form.attend) }}</span>
         </div>
-        <!-- paidConfirmed 由後續「確認發放獎金」功能設定，這裡先留欄位 -->
         <div v-for="(item, idx) in form.autoItems" :key="item.id" class="ps-field">
           <label>
             <input type="text" v-model="item.label" :disabled="item.paidConfirmed" @input="compute" class="ps-name-input">
@@ -174,6 +173,9 @@
           <div class="ps-leave-total">{{ leaveTotalText }}</div>
           <button v-if="auth.isAdmin && form.empName && hasLeave" @click="openConfirmRecord" class="ps-record-btn">
             📋 確認並記錄請假
+          </button>
+          <button v-if="auth.isAdmin && pendingBonusItems.length > 0" @click="openConfirmBonusPaid" class="ps-record-btn">
+            ✓ 確認發放獎金（{{ pendingBonusItems.length }} 筆）
           </button>
         </div>
 
@@ -438,6 +440,25 @@
         </div>
       </div>
     </div>
+
+    <!-- 確認發放獎金彈窗 -->
+    <div v-if="showConfirmBonusPaid" class="fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.4)">
+      <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm mx-4 border-t-4" style="border-top-color:#c9a96e">
+        <h3 class="text-sm font-bold text-gray-800 mb-4">確認發放獎金 — {{ form.empName }}（{{ form.payMonth }}）</h3>
+        <div class="text-xs text-gray-600 space-y-1 mb-4">
+          <div v-for="item in pendingBonusItems" :key="item.id">{{ item.label }}：NT$ {{ item.amount.toLocaleString() }}</div>
+        </div>
+        <div class="text-[11px] text-amber-600 bg-amber-50 rounded-lg px-3 py-2 mb-3">
+          ⚠ 確認後會同步在「獎金統計」頁面標記這幾筆已發放，且會鎖定不能再編輯金額
+        </div>
+        <div class="flex justify-end gap-2">
+          <button @click="showConfirmBonusPaid = false" class="text-sm text-gray-400 px-4 py-2">取消</button>
+          <button @click="confirmBonusPaid" :disabled="confirmingBonus" class="text-sm text-white px-5 py-2 rounded-xl" style="background:#1e2533">
+            {{ confirmingBonus ? '處理中…' : '確認發放' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -479,6 +500,8 @@ const pendingLeaveEntries = ref([])
 const otSnapshotMonth = ref(null)
 const showConfirmRecord = ref(false)
 const alreadyRecordedThisMonth = ref(false)
+const showConfirmBonusPaid = ref(false)
+const confirmingBonus = ref(false)
 
 let restoringDraft = true
 onMounted(() => {
@@ -685,6 +708,9 @@ async function switchMonthContext() {
 /* ── 自動生日/節慶禮金 ── */
 const festivalSettings = ref({})
 const visibleAutoItems = computed(() => form.value.autoItems.filter(i => i.amount > 0))
+const pendingBonusItems = computed(() =>
+    form.value.autoItems.filter(i => i.source === 'bonus' && !i.paidConfirmed)
+)
 
 async function loadFestivalSettings() {
     const snap = await getDoc(doc(db, 'settings', 'payslipFestivals'))
@@ -854,6 +880,33 @@ async function openConfirmRecord() {
 async function confirmRecordLeave() {
     await recordLeave()
     showConfirmRecord.value = false
+}
+
+function openConfirmBonusPaid() {
+    if (!pendingBonusItems.value.length) return
+    showConfirmBonusPaid.value = true
+}
+
+async function confirmBonusPaid() {
+    confirmingBonus.value = true
+    try {
+        // pendingBonusItems 全部來自同一次 refreshAutoItems()，quarterKey 只跟 form.value.payMonth
+        // 有關，這一批項目一定是同一個季度，只要在迴圈外查一次，不用每筆各查一次。
+        const quarterKey = payMonthToBonusQuarter(form.value.payMonth)
+        const quarterData = await bonusQuartersStore.fetchQuarter(quarterKey)
+        for (const item of pendingBonusItems.value) {
+            const targetEntry = { role: item.bonusRef.role, personId: item.bonusRef.personId, caseId: item.bonusRef.caseId }
+            await bonusQuartersStore.markEntryPaid(quarterKey, quarterData.entries, targetEntry, true, item.amount)
+            const idx = form.value.autoItems.findIndex(a => a.id === item.id)
+            if (idx >= 0) form.value.autoItems[idx] = { ...form.value.autoItems[idx], paidConfirmed: true }
+        }
+        toast('已標記發放')
+        showConfirmBonusPaid.value = false
+    } catch {
+        toast('標記發放失敗，請重試', 'error')
+    } finally {
+        confirmingBonus.value = false
+    }
 }
 
 const histYearOptions = computed(() => { const y = new Date().getFullYear(); return [y, y - 1, y - 2] })
