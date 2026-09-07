@@ -443,6 +443,20 @@
                 <span class="text-[10px] text-gray-400">%</span>
                 <input v-model="stage.dueDate" type="date" @change="markPlanCustomized"
                   class="text-[10px] border border-gray-200 rounded px-1.5 py-1 bg-white focus:outline-none focus:ring-1 w-28">
+                <span v-if="editingIdx !== null" class="text-[9px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0"
+                  :class="stage.status === 'done' ? 'bg-green-100 text-green-700' : stage.status === 'reminded' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-400'">
+                  {{ stage.status === 'done' ? '已完成' : stage.status === 'reminded' ? '已提醒' : '未開始' }}
+                </span>
+                <button v-if="editingIdx !== null" type="button" @click="remindPlanStage(editingIdx, stage.id)"
+                  class="text-[10px] px-2 py-1 rounded bg-blue-100 text-blue-700 hover:bg-blue-200 whitespace-nowrap transition-colors flex-shrink-0">
+                  提醒主管
+                </button>
+                <button v-if="editingIdx !== null" type="button" @click="completePlanStage(editingIdx, stage.id)"
+                  :disabled="stage.status === 'done'"
+                  class="text-[10px] px-2 py-1 rounded whitespace-nowrap transition-colors flex-shrink-0"
+                  :class="stage.status === 'done' ? 'bg-green-100 text-green-700' : 'bg-gray-800 text-white hover:bg-gray-700'">
+                  {{ stage.status === 'done' ? '✓ 已完成' : '完成' }}
+                </button>
                 <button type="button" @click="removePlanStage(si)"
                   class="text-[10px] text-red-400 hover:text-red-600 px-1 flex-shrink-0 ml-auto">✕</button>
               </div>
@@ -1396,6 +1410,86 @@ async function handleVendorItemDueDateChange(item) {
     const exists = await remindersStore.reminderExists(docId)
     if (!exists && !item.dueDate) return
     await remindersStore.addAutoReminder(docId, buildVendorItemReminderPayload(item, wt))
+}
+
+function paymentPlanStageDocId(wt, stage) {
+    return `auto_vendor_stage_${wt.id}_${stage.id}`
+}
+
+function buildPaymentPlanStagePayload(stage, wt, stageAmount) {
+    return {
+        type: 'vendor',
+        caseId: props.caseId,
+        caseName: props.caseName,
+        companyId: caseData.value?.companyId ?? '',
+        workTypeId: wt.id,
+        workTypeName: wt.name,
+        vendorName: wt.vendorName || '',
+        description: stage.name,
+        amount: stageAmount,
+        note: '',
+        dueDate: stage.dueDate || '',
+        endDate: wt.endDate || '',
+        createdBy: authStore.user?.uid ?? '',
+        createdByName: authStore.name ?? '',
+    }
+}
+
+function stageAmountOf(wt, stage) {
+    const total = wtVendorCostTotal(wt)
+    return Math.round(total * (stage.pct || 0) / 100)
+}
+
+function syncFormStageStatus(stageId, status) {
+    const formStage = form.value.paymentPlan?.stages?.find(s => s.id === stageId)
+    if (formStage) formStage.status = status
+}
+
+async function remindPlanStage(idx, stageId) {
+    const wt = workTypes.value[idx]
+    const stage = wt.paymentPlan?.stages?.find(s => s.id === stageId)
+    if (!stage) return
+    const docId = paymentPlanStageDocId(wt, stage)
+    const amount = stageAmountOf(wt, stage)
+    await remindersStore.addAutoReminder(docId, buildPaymentPlanStagePayload(stage, wt, amount))
+    if (stage.status !== 'done') {
+        const updated = [...workTypes.value]
+        const newStages = wt.paymentPlan.stages.map(s => s.id === stageId ? { ...s, status: 'reminded' } : s)
+        updated[idx] = { ...wt, paymentPlan: { ...wt.paymentPlan, stages: newStages } }
+        await casesStore.updateCase(props.caseId, { workTypes: updated })
+        syncFormStageStatus(stageId, 'reminded')
+    }
+    await notifStore.notifyManagers(
+        authStore.name ?? '',
+        `${props.caseName}－${wt.name}：${stage.name} 廠商匯款 $${amount.toLocaleString()}`
+    )
+    toast('已提醒主管')
+}
+
+async function completePlanStage(idx, stageId) {
+    const wt = workTypes.value[idx]
+    const stage = wt.paymentPlan?.stages?.find(s => s.id === stageId)
+    if (!stage) return
+    const docId = paymentPlanStageDocId(wt, stage)
+    const amount = stageAmountOf(wt, stage)
+    const today = new Date().toISOString().slice(0, 10)
+
+    const newStages = wt.paymentPlan.stages.map(s => s.id === stageId ? { ...s, status: 'done' } : s)
+    const newVendorPayments = [...(wt.vendorPayments || []), {
+        id: `vp_${Date.now()}`,
+        amount,
+        paidDate: today,
+        note: stage.name,
+    }]
+    const updated = [...workTypes.value]
+    updated[idx] = { ...wt, paymentPlan: { ...wt.paymentPlan, stages: newStages }, vendorPayments: newVendorPayments }
+    await casesStore.updateCase(props.caseId, { workTypes: updated })
+    syncFormStageStatus(stageId, 'done')
+
+    if (await remindersStore.reminderExists(docId)) {
+        try { await remindersStore.markDone(docId) } catch (_) {}
+    }
+    toast('已標記完成，付款記錄已自動補上')
 }
 
 async function deleteVendorPayment(vpId) {
