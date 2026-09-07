@@ -1237,7 +1237,7 @@ function openEdit(idx) {
         vendorCostItems: normalizeItems(wt.vendorCostItems, wt.vendorCost, 'vc'),
         vendorCostFree: wt.vendorCostFree || false,
         costIncludesTax: wt.costIncludesTax ?? null,
-        paymentPlan: wt.paymentPlan ?? null,
+        paymentPlan: wt.paymentPlan ? { ...wt.paymentPlan, stages: wt.paymentPlan.stages.map(s => ({ ...s })) } : null,
         locations: (wt.locations || []).map(l => ({ ...l })),
         customName: wt.customName || false,
     }
@@ -1327,6 +1327,15 @@ async function submitForm() {
             for (const removedItem of removedItems) {
                 try {
                     await remindersStore.deleteAutoReminder(vendorItemReminderDocId(removedItem, existing))
+                } catch {
+                    // 提醒文件清理失敗不擋主流程，工種本身已經存成功
+                }
+            }
+            const newStageIds = new Set((entry.paymentPlan?.stages || []).map(s => s.id))
+            const removedStages = (existing.paymentPlan?.stages || []).filter(s => !newStageIds.has(s.id))
+            for (const removedStage of removedStages) {
+                try {
+                    await remindersStore.deleteAutoReminder(paymentPlanStageDocId(existing, removedStage))
                 } catch {
                     // 提醒文件清理失敗不擋主流程，工種本身已經存成功
                 }
