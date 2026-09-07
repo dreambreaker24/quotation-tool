@@ -417,6 +417,44 @@
               合計 ${{ formVendorCostTotal.toLocaleString() }}
             </div>
           </div>
+
+          <div v-if="form.paymentPlan" class="mt-3 pt-3 border-t border-dashed border-gray-200">
+            <label class="text-xs text-gray-500 font-medium mb-1.5 block">付款計畫</label>
+
+            <div v-if="form.paymentPlan.mode === 'cash'" class="border border-indigo-100 rounded-lg p-3 bg-indigo-50/40 flex items-center justify-between gap-3">
+              <div>
+                <div class="text-xs font-semibold text-indigo-700">現金給付</div>
+                <div class="text-[10px] text-indigo-400 mt-0.5">總額 ≤ 1 萬，完工當天現金付清，不建立付款提醒</div>
+              </div>
+              <div>
+                <label class="text-[10px] text-indigo-400 block mb-0.5">完工/付款日期</label>
+                <input v-model="form.paymentPlan.cashDate" type="date"
+                  class="text-xs border border-indigo-200 rounded px-2 py-1 bg-white focus:outline-none focus:ring-1">
+              </div>
+            </div>
+
+            <div v-else-if="form.paymentPlan.mode === 'plan'" class="flex flex-col gap-1.5">
+              <div v-for="(stage, si) in form.paymentPlan.stages" :key="stage.id"
+                class="flex items-center gap-2 border border-gray-100 rounded-lg p-2 bg-gray-50/60">
+                <input v-model="stage.name" type="text" @input="markPlanCustomized"
+                  class="w-20 text-xs border border-gray-200 rounded px-1.5 py-1 bg-white focus:outline-none focus:ring-1">
+                <input v-model.number="stage.pct" type="number" min="0" max="100" @input="markPlanCustomized"
+                  class="w-14 text-xs border border-gray-200 rounded px-1.5 py-1 bg-white focus:outline-none focus:ring-1 text-center">
+                <span class="text-[10px] text-gray-400">%</span>
+                <input v-model="stage.dueDate" type="date" @change="markPlanCustomized"
+                  class="text-[10px] border border-gray-200 rounded px-1.5 py-1 bg-white focus:outline-none focus:ring-1 w-28">
+                <button type="button" @click="removePlanStage(si)"
+                  class="text-[10px] text-red-400 hover:text-red-600 px-1 flex-shrink-0 ml-auto">✕</button>
+              </div>
+              <button type="button" @click="addPlanStage"
+                class="text-[11px] border border-dashed border-gray-200 rounded-lg py-1.5 text-gray-400 hover:border-gray-400 hover:text-gray-600 transition-colors w-full">
+                ＋ 新增階段
+              </button>
+              <div v-if="planPctSum !== 100" class="text-[11px] text-red-500 mt-0.5">
+                付款計畫的比例加總要是 100%（目前 {{ planPctSum }}%）
+              </div>
+            </div>
+          </div>
         </div>
         <div>
           <label class="text-xs text-gray-500 font-medium mb-1 block">施作位置（選填）</label>
@@ -642,6 +680,7 @@ import { isLegacyCategoryName } from '@/utils/workTypeCategory'
 import { getVendorSpecialties, filterVendorsByCategory } from '@/utils/vendorSpecialty'
 import { wtVendorCostTotal, totalVendorPaid, vendorInvoiceStatus } from '@/utils/workTypeInvoice'
 import { calcVendorDueDate, vendorReminderPlan } from '@/utils/paymentDueDate'
+import { suggestPaymentPlan } from '@/utils/paymentPlan'
 import { useVendorsStore } from '@/stores/vendors'
 import { useCasesStore } from '@/stores/cases'
 import { useAuthStore } from '@/stores/auth'
@@ -687,6 +726,7 @@ const form = ref({
     hasQuote: false, hasSchedule: false,
     vendorCostItems: [], vendorCostFree: false,
     costIncludesTax: null, locations: [], customName: false,
+    paymentPlan: suggestPaymentPlan(0),
 })
 
 const showVendorPayForm = ref(false)
@@ -932,6 +972,37 @@ const formVendorCostTotal = computed(() =>
     form.value.vendorCostItems.reduce((s, i) => s + (i.amount || 0), 0)
 )
 
+watch(formVendorCostTotal, (total) => {
+    if (!form.value.paymentPlan) return
+    if (!form.value.paymentPlan.autoSuggested) return
+    form.value.paymentPlan = suggestPaymentPlan(total)
+})
+
+function markPlanCustomized() {
+    if (form.value.paymentPlan) form.value.paymentPlan.autoSuggested = false
+}
+
+function addPlanStage() {
+    if (!form.value.paymentPlan?.stages) return
+    markPlanCustomized()
+    form.value.paymentPlan.stages.push({
+        id: `stage_${Date.now()}`,
+        name: '訂金',
+        pct: 0,
+        dueDate: '',
+        status: 'pending',
+    })
+}
+
+function removePlanStage(i) {
+    markPlanCustomized()
+    form.value.paymentPlan.stages.splice(i, 1)
+}
+
+const planPctSum = computed(() =>
+    (form.value.paymentPlan?.stages || []).reduce((s, st) => s + Number(st.pct || 0), 0)
+)
+
 const selectedCategory = ref('')
 function onCategoryChange() {
     if (selectedCategory.value) form.value.name = selectedCategory.value
@@ -1136,6 +1207,7 @@ function openAdd() {
         hasQuote: false, hasSchedule: false,
         vendorCostItems: [], vendorCostFree: false,
         costIncludesTax: null, locations: [], customName: false,
+        paymentPlan: suggestPaymentPlan(0),
     }
     showForm.value = true
 }
@@ -1155,6 +1227,7 @@ function openEdit(idx) {
         vendorCostItems: normalizeItems(wt.vendorCostItems, wt.vendorCost, 'vc'),
         vendorCostFree: wt.vendorCostFree || false,
         costIncludesTax: wt.costIncludesTax ?? null,
+        paymentPlan: wt.paymentPlan ?? null,
         locations: (wt.locations || []).map(l => ({ ...l })),
         customName: wt.customName || false,
     }
@@ -1192,6 +1265,10 @@ async function submitForm() {
         toast('請選擇含稅或未稅', 'error')
         return
     }
+    if (form.value.paymentPlan?.mode === 'plan' && planPctSum.value !== 100) {
+        toast('付款計畫的比例加總要是 100%', 'error')
+        return
+    }
     const vendor = vendorsStore.vendors.find(v => v.id === form.value.vendorId)
     const existing = editingIdx.value !== null ? workTypes.value[editingIdx.value] : null
     const entry = {
@@ -1211,6 +1288,7 @@ async function submitForm() {
         done: existing?.done ?? false,
         invoiceTarget: existing?.invoiceTarget ?? null,
         invoiceFile: existing?.invoiceFile ?? null,
+        paymentPlan: form.value.paymentPlan,
         locations: form.value.locations.filter(l => l.label),
         customName: existing?.customName ?? false,
     }
