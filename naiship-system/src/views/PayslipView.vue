@@ -716,8 +716,8 @@ async function refreshAutoItems() {
             if (form.value.empName !== targetName || form.value.payMonth !== targetMonth) return
             items.push(...buildBonusAutoItems(quarterData.entries, user.id))
         } catch {
-            toast('季度獎金查詢失敗，請重試', 'error')
             if (form.value.empName !== targetName || form.value.payMonth !== targetMonth) return
+            toast('季度獎金查詢失敗，請重試', 'error')
         }
     }
     form.value.autoItems = items
