@@ -10,12 +10,12 @@ function nextMonthOf(payMonth) {
 
 export function computeBirthdayGift(user, payMonth) {
     if (!user?.birthDate) return null
-    const birth = new Date(user.birthDate)
+    const [, bm, bd] = user.birthDate.split('-').map(Number)
     const { month: giftMonth } = nextMonthOf(payMonth)
-    if (birth.getMonth() + 1 !== giftMonth) return null
+    if (bm !== giftMonth) return null
     return {
         id: 'birthday',
-        label: `生日禮金（${birth.getMonth() + 1}/${birth.getDate()}）`,
+        label: `生日禮金（${bm}/${bd}）`,
         amount: 3000,
         source: 'birthday',
     }
@@ -26,11 +26,13 @@ export function computeFestivalGifts(payMonth, festivalSettings) {
     const yearData = festivalSettings?.[giftYear]
     if (!yearData) return []
     const results = []
-    if (yearData.dragonBoat && new Date(yearData.dragonBoat).getMonth() + 1 === giftMonth) {
-        results.push({ id: 'festival_dragonBoat', label: '端午禮金', amount: 2000, source: 'festival' })
+    if (yearData.dragonBoat) {
+        const [, dm] = yearData.dragonBoat.split('-').map(Number)
+        if (dm === giftMonth) results.push({ id: 'festival_dragonBoat', label: '端午禮金', amount: 2000, source: 'festival' })
     }
-    if (yearData.midAutumn && new Date(yearData.midAutumn).getMonth() + 1 === giftMonth) {
-        results.push({ id: 'festival_midAutumn', label: '中秋禮金', amount: 2000, source: 'festival' })
+    if (yearData.midAutumn) {
+        const [, mm] = yearData.midAutumn.split('-').map(Number)
+        if (mm === giftMonth) results.push({ id: 'festival_midAutumn', label: '中秋禮金', amount: 2000, source: 'festival' })
     }
     return results
 }
