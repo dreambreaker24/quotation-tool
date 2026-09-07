@@ -452,7 +452,8 @@ import { useCalendarEventsStore } from '@/stores/calendarEvents'
 import { useToast } from '@/composables/useToast'
 import { memberColor } from '@/utils/memberColor'
 import { hoursToDays } from '@/utils/leaveConversion'
-import { computeBirthdayGift, computeFestivalGifts } from '@/utils/payslipAutoItems'
+import { computeBirthdayGift, computeFestivalGifts, payMonthToBonusQuarter, buildBonusAutoItems } from '@/utils/payslipAutoItems'
+import { useBonusQuartersStore } from '@/stores/bonusQuarters'
 import { doc, getDoc } from 'firebase/firestore'
 import { db } from '@/firebase'
 
@@ -462,6 +463,7 @@ const autoIns = ref(false)
 const auth = useAuthStore()
 const leaveStore = useLeaveRecordsStore()
 const usersStore = useUsersStore()
+const bonusQuartersStore = useBonusQuartersStore()
 const workLogsStore = useWorkLogsStore()
 const calendarEventsStore = useCalendarEventsStore()
 const { toast } = useToast()
@@ -674,7 +676,7 @@ async function switchMonthContext() {
     resetMonthlyFields()
     if (form.value.empName && form.value.payMonth) {
         await fetchPayrollData()
-        refreshGiftAutoItems()
+        await refreshAutoItems()
     } else {
         compute()
     }
@@ -690,13 +692,13 @@ async function loadFestivalSettings() {
 }
 
 // loadFestivalSettings() 是 fire-and-forget，若使用者手速夠快在資料回來前就選好員工/月份，
-// refreshGiftAutoItems() 當下會讀到空的 festivalSettings 而漏算節慶禮金；
+// refreshAutoItems() 當下會讀到空的 festivalSettings 而漏算節慶禮金；
 // 這裡補一個 watch，資料真的到位時如果已經選好員工+月份就重算一次
 watch(festivalSettings, () => {
-    if (form.value.empName && form.value.payMonth) refreshGiftAutoItems()
+    if (form.value.empName && form.value.payMonth) refreshAutoItems()
 })
 
-function refreshGiftAutoItems() {
+async function refreshAutoItems() {
     if (!form.value.empName || !form.value.payMonth) return
     const user = usersStore.users.find(u => u.name === form.value.empName)
     const items = []
@@ -705,6 +707,11 @@ function refreshGiftAutoItems() {
         if (bday) items.push(bday)
     }
     items.push(...computeFestivalGifts(form.value.payMonth, festivalSettings.value))
+    if (user) {
+        const quarterKey = payMonthToBonusQuarter(form.value.payMonth)
+        const quarterData = await bonusQuartersStore.fetchQuarter(quarterKey)
+        items.push(...buildBonusAutoItems(quarterData.entries, user.id))
+    }
     form.value.autoItems = items
     compute()
 }
