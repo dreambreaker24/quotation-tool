@@ -97,6 +97,14 @@
           <input type="number" v-model.number="form.attend" min="0" @input="compute" placeholder="0">
           <span v-if="form.attend > 0" class="ps-hint">{{ fmtNum(form.attend) }}</span>
         </div>
+        <div v-for="(item, idx) in form.autoItems" :key="item.id" class="ps-field">
+          <label>
+            <input type="text" v-model="item.label" :disabled="item.paidConfirmed" @input="compute" class="ps-name-input">
+          </label>
+          <input type="number" v-model.number="item.amount" min="0" :disabled="item.paidConfirmed" @input="compute" placeholder="0">
+          <span v-if="item.paidConfirmed" class="ps-hint" style="color:#3f7d5c">已標記發放</span>
+          <button v-else @click="form.autoItems.splice(idx, 1); compute()" type="button" class="ps-hint" style="color:#ef4444;cursor:pointer;background:none;border:none;padding:0">✕</button>
+        </div>
         <div class="ps-field">
           <label><input type="text" v-model="form.addName1" placeholder="其他加項名稱" @input="compute" class="ps-name-input"></label>
           <input type="number" v-model.number="form.addAmt1" min="0" @input="compute" placeholder="0">
@@ -322,6 +330,10 @@
             <span class="sl-row-name">{{ form.addName2 || '其他加項' }}</span>
             <span class="sl-row-amt">{{ fmt(form.addAmt2) }}</span>
           </div>
+          <div v-for="item in form.autoItems" :key="item.id" class="sl-row">
+            <span class="sl-row-name">{{ item.label }}</span>
+            <span class="sl-row-amt">{{ fmt(item.amount) }}</span>
+          </div>
 
           <div class="sl-subtotal">
             <span>應付小計</span><span>{{ fmt(totalAdd) }}</span>
@@ -439,6 +451,9 @@ import { useCalendarEventsStore } from '@/stores/calendarEvents'
 import { useToast } from '@/composables/useToast'
 import { memberColor } from '@/utils/memberColor'
 import { hoursToDays } from '@/utils/leaveConversion'
+import { computeBirthdayGift, computeFestivalGifts } from '@/utils/payslipAutoItems'
+import { doc, getDoc } from 'firebase/firestore'
+import { db } from '@/firebase'
 
 const slipEl = ref(null)
 const downloading = ref(false)
@@ -465,6 +480,7 @@ const alreadyRecordedThisMonth = ref(false)
 let restoringDraft = true
 onMounted(() => {
     usersStore.subscribe()
+    loadFestivalSettings()
     loadForm()
     restoringDraft = false
     compute()
@@ -494,7 +510,7 @@ const INIT_FORM = () => ({
     labor: 0, health: 0,
     personalDays: 0, sickDays: 0, typhoonDays: 0,
     deductName1: '', deductAmt1: 0, deductName2: '', deductAmt2: 0,
-    remark: ''
+    remark: '', autoItems: []
 })
 const form = ref(INIT_FORM())
 
@@ -650,12 +666,38 @@ function resetMonthlyFields() {
     form.value.remark = ''
     otSnapshotMonth.value = null
     pendingLeaveEntries.value = []
+    form.value.autoItems = []
 }
 
 async function switchMonthContext() {
     resetMonthlyFields()
-    if (form.value.empName && form.value.payMonth) await fetchPayrollData()
-    else compute()
+    if (form.value.empName && form.value.payMonth) {
+        await fetchPayrollData()
+        refreshGiftAutoItems()
+    } else {
+        compute()
+    }
+}
+
+/* ── 自動生日/節慶禮金 ── */
+const festivalSettings = ref({})
+
+async function loadFestivalSettings() {
+    const snap = await getDoc(doc(db, 'settings', 'payslipFestivals'))
+    festivalSettings.value = snap.exists() ? snap.data() : {}
+}
+
+function refreshGiftAutoItems() {
+    if (!form.value.empName || !form.value.payMonth) return
+    const user = usersStore.users.find(u => u.name === form.value.empName)
+    const items = []
+    if (user) {
+        const bday = computeBirthdayGift(user, form.value.payMonth)
+        if (bday) items.push(bday)
+    }
+    items.push(...computeFestivalGifts(form.value.payMonth, festivalSettings.value))
+    form.value.autoItems = items
+    compute()
 }
 
 async function fetchPayrollData() {
@@ -810,6 +852,7 @@ const totalAdd = computed(() =>
     (form.value.base || 0) + (form.value.otWeekday || 0) + (form.value.otHoliday || 0)
     + (form.value.fuel || 0) + (form.value.attend || 0)
     + (form.value.addAmt1 || 0) + (form.value.addAmt2 || 0)
+    + form.value.autoItems.reduce((s, i) => s + (i.amount || 0), 0)
 )
 const totalDeduct = computed(() =>
     (form.value.labor || 0) + (form.value.health || 0)
