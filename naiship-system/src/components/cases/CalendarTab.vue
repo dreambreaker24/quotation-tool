@@ -404,6 +404,7 @@ import { useUsersStore } from '@/stores/users'
 import { useNotificationsStore } from '@/stores/notifications'
 import { useToast } from '@/composables/useToast'
 import { hoursToDays } from '@/utils/leaveConversion'
+import { consumeFIFO, refundConsumption, sumRemainingHours } from '@/utils/compLedger'
 import CompensatoryPanel from './CompensatoryPanel.vue'
 import { TAIWAN_HOLIDAY_NAMES } from '@/constants/holidays'
 
@@ -423,35 +424,44 @@ function findUserByName(name) {
     return usersStore.users.find(u => u.name === name)
 }
 
-async function applyLeaveDelta(leaveType, name, deltaHours) {
+// 補休核銷/歸還走 compLedger：deltaHours>=0 是歸還（consumption 必須提供，指定歸還哪些分錄，
+// 呼叫端從行事曆事件的 compConsumption 欄位取得）；deltaHours<0 是核銷（回傳這次核銷動用到的分錄
+// 清單 [{id,hours}]，呼叫端要把這個清單存進行事曆事件的 compConsumption 欄位，供之後編輯/刪除精確歸還）
+async function applyLeaveDelta(leaveType, name, deltaHours, consumption = null) {
     const user = findUserByName(name)
-    if (!user) return
+    if (!user) return null
     if (leaveType === '補休') {
-        await usersStore.ensureMonthClosed(user.id)
-        const meta = { leaveType, adjustedBy: authStore.name ?? '' }
         if (deltaHours >= 0) {
-            // 還回補休（移除請假）：還入平日補休
-            await usersStore.adjustCompensatoryHours(user.id, deltaHours, meta)
-        } else {
-            // 扣除補休：先扣平日，不夠再扣休息日。用月結後的最新餘額算，
-            // 不能用函式一開始拿到的 user 物件（可能是月結歸零前的舊快照）
-            const fresh = await usersStore.getUser(user.id)
-            const weekday = fresh?.compensatoryHours ?? 0
-            const fromWeekday = Math.max(deltaHours, -weekday)
-            const fromHoliday = deltaHours - fromWeekday
-            if (fromWeekday !== 0) await usersStore.adjustCompensatoryHours(user.id, fromWeekday, meta)
-            if (fromHoliday !== 0) await usersStore.adjustCompensatoryHolidayHours(user.id, fromHoliday, meta)
+            if (consumption?.length) {
+                const entries = await usersStore.fetchCompLedger(user.id)
+                const refunded = refundConsumption(entries, consumption)
+                await usersStore.applyLedgerConsumption(user.id, refunded)
+            }
+            return null
         }
-    } else if (leaveType === '特休') await usersStore.adjustAnnualLeaveHours(user.id, hoursToDays(deltaHours))
+        const entries = await usersStore.fetchCompLedger(user.id)
+        entries.sort((a, b) => (a.createdAt?.toMillis?.() ?? 0) - (b.createdAt?.toMillis?.() ?? 0))
+        const needed = -deltaHours
+        const weekday = consumeFIFO(entries, '平日', needed)
+        const holiday = weekday.shortfall > 0
+            ? consumeFIFO(weekday.updatedEntries, '休息日', weekday.shortfall)
+            : { consumptions: [], updatedEntries: weekday.updatedEntries }
+        const allConsumptions = [...weekday.consumptions, ...holiday.consumptions]
+        const touchedIds = new Set(allConsumptions.map(c => c.id))
+        await usersStore.applyLedgerConsumption(user.id, holiday.updatedEntries.filter(e => touchedIds.has(e.id)))
+        return allConsumptions
+    } else if (leaveType === '特休') {
+        await usersStore.adjustAnnualLeaveHours(user.id, hoursToDays(deltaHours))
+    }
+    return null
 }
 
 async function getLeaveBalance(leaveType, name) {
     const user = findUserByName(name)
     if (!user) return 0
     if (leaveType === '補休') {
-        await usersStore.ensureMonthClosed(user.id)
-        const fresh = await usersStore.getUser(user.id)
-        return (fresh?.compensatoryHours ?? 0) + (fresh?.compensatoryHolidayHours ?? 0)
+        const entries = await usersStore.fetchCompLedger(user.id)
+        return sumRemainingHours(entries, '平日') + sumRemainingHours(entries, '休息日')
     }
     if (leaveType === '特休') return user.annualLeaveHours ?? 0
     return 0
@@ -557,6 +567,7 @@ function openEditEvent(event) {
     _origHours: event.hours || 0,
     _origPersonName: event.personName || '',
     _origDate: tsToDateStr(event.date),
+    _origCompConsumption: event.compConsumption || [],
   }
   showEditEvent.value = true
 }
@@ -621,12 +632,13 @@ async function saveEditEvent() {
       const wasTracked = TRACKED_LEAVE_TYPES.includes(editForm.value._origLeaveType)
       const isTracked = TRACKED_LEAVE_TYPES.includes(editForm.value.leaveType)
       if (wasTracked && editForm.value._origPersonName)
-        await applyLeaveDelta(editForm.value._origLeaveType, editForm.value._origPersonName, editForm.value._origHours)
+        await applyLeaveDelta(editForm.value._origLeaveType, editForm.value._origPersonName, editForm.value._origHours, editForm.value._origCompConsumption)
       if (isTracked && editForm.value.personName) {
         const hours = editForm.value.hours || 0
         const balance = await getLeaveBalance(editForm.value.leaveType, editForm.value.personName)
         if (balance < leaveNeeded(editForm.value.leaveType, hours)) { toast(leaveInsufficientMsg(editForm.value.leaveType), 'error'); return }
-        await applyLeaveDelta(editForm.value.leaveType, editForm.value.personName, -hours)
+        const consumption = await applyLeaveDelta(editForm.value.leaveType, editForm.value.personName, -hours)
+        if (editForm.value.leaveType === '補休') payload.compConsumption = consumption || []
       }
     }
 
@@ -650,7 +662,7 @@ async function removeEvent() {
         ? `${editForm.value.personName} ${editForm.value.leaveType || '請假'}${editForm.value.hours ? ` ${editForm.value.hours}h` : ''}`
         : editForm.value.label
     if (TRACKED_LEAVE_TYPES.includes(editForm.value._origLeaveType) && editForm.value._origPersonName && editForm.value._origDate >= todayStr) {
-      await applyLeaveDelta(editForm.value._origLeaveType, editForm.value._origPersonName, editForm.value._origHours)
+      await applyLeaveDelta(editForm.value._origLeaveType, editForm.value._origPersonName, editForm.value._origHours, editForm.value._origCompConsumption)
     }
     await eventsStore.deleteEvent(editingEventId.value)
     notifStore.notifyAll(authStore.name ?? '', `刪除了行程「${delLabel}」（${fmtNotifDate(delEvtDate)}）`, '', '', props.region ?? '', '', 'cal', delEvtDate, true)
@@ -949,8 +961,9 @@ async function submitEvent() {
       const hours = eventForm.value.hours || 0
       const balance = await getLeaveBalance(eventForm.value.leaveType, eventForm.value.personName)
       if (balance < leaveNeeded(eventForm.value.leaveType, hours)) { toast(leaveInsufficientMsg(eventForm.value.leaveType), 'error'); return }
+      const consumption = await applyLeaveDelta(eventForm.value.leaveType, eventForm.value.personName, -hours)
+      if (eventForm.value.leaveType === '補休') payload.compConsumption = consumption || []
       await eventsStore.addEvent(payload)
-      await applyLeaveDelta(eventForm.value.leaveType, eventForm.value.personName, -hours)
     } else {
       await eventsStore.addEvent(payload)
     }
