@@ -145,7 +145,6 @@
 import { ref, computed, watch } from 'vue'
 import { useUsersStore, prevMonthStr, prevMonthOf, monthStr } from '@/stores/users'
 import { useAuthStore } from '@/stores/auth'
-import { useWorkLogsStore } from '@/stores/workLogs'
 import { useToast } from '@/composables/useToast'
 import { getAnnualLeaveCycleInfo } from '@/utils/annualLeaveSchedule'
 import { consumeFIFO, sumRemainingHours, expiredEntries, valueForConsumption } from '@/utils/compLedger'
@@ -195,7 +194,6 @@ function expiredSummary(name) {
 const AUDITED_FIELDS = ['annualLeaveHours']
 
 const authStore = useAuthStore()
-const logsStore = useWorkLogsStore()
 const { toast } = useToast()
 
 const editingName = ref(null)
@@ -292,7 +290,14 @@ async function confirmReset(name, field, label) {
     try {
         if (compType) {
             const entries = ledgerFor(name).filter(e => e.type === compType && e.remainingHours > 0)
+            const totalRemaining = entries.reduce((s, e) => s + e.remainingHours, 0)
             await usersStore.applyLedgerConsumption(user.id, entries.map(e => ({ id: e.id, remainingHours: 0 })))
+            if (totalRemaining > 0) {
+                await addDoc(collection(db, 'users', user.id, 'compAdjustments'), {
+                    field: compType, delta: -totalRemaining,
+                    adjustedBy: authStore.name ?? '', adjustedAt: serverTimestamp(),
+                })
+            }
             await refreshLedgers()
         } else if (AUDITED_FIELDS.includes(field)) {
             const prevValue = getHours(name, field)
@@ -316,13 +321,17 @@ async function adjustCompLedger(uid, type, delta, reason) {
             type, hours: delta, remainingHours: delta,
             value: 0, baseRateAtAccrual: 0,
             expireDate: cycleInfo?.nextCycleStart ?? null,
-            sourceLogId: null, source: 'adjustment',
+            sourceLogId: null, source: 'adjustment', note: reason,
         })
     } else {
         const entries = ledgerFor(usersStore.users.find(u => u.id === uid)?.name).filter(e => e.type === type)
         const { updatedEntries } = consumeFIFO(entries, type, -delta)
         const touched = updatedEntries.filter(e => entries.find(orig => orig.id === e.id && orig.remainingHours !== e.remainingHours))
         await usersStore.applyLedgerConsumption(uid, touched)
+        await addDoc(collection(db, 'users', uid, 'compAdjustments'), {
+            field: type, delta,
+            adjustedBy: authStore.name ?? '', adjustedAt: serverTimestamp(),
+        })
     }
     await refreshLedgers()
 }
@@ -369,14 +378,14 @@ function openCashout(name, type) {
     cashoutHours.value = 0
 }
 
-async function performCashout(name, type, hours, entries, reason) {
+async function performCashout(name, type, consumptions, entries, reason) {
     const user = usersStore.users.find(u => u.name === name)
     if (!user) { toast('找不到此員工', 'error'); return }
-    const consumptions = entries.map(e => ({ id: e.id, hours: e.remainingHours }))
     const amount = valueForConsumption(entries, consumptions)
-    const { updatedEntries } = consumeFIFO(ledgerFor(name).filter(e => e.type === type), type, hours)
-    const touched = updatedEntries.filter(e => e.remainingHours !== (ledgerFor(name).find(orig => orig.id === e.id)?.remainingHours))
-    await usersStore.applyLedgerConsumption(user.id, touched)
+    const hours = consumptions.reduce((s, c) => s + c.hours, 0)
+    const byId = new Map(entries.map(e => [e.id, e]))
+    const updated = consumptions.map(c => ({ id: c.id, remainingHours: byId.get(c.id).remainingHours - c.hours }))
+    await usersStore.applyLedgerConsumption(user.id, updated)
     await addDoc(collection(db, 'users', user.id, 'compCashouts'), {
         type, hours, amount,
         payMonth: monthStr(new Date()),
@@ -396,8 +405,7 @@ async function submitCashout() {
     if (hours > available) { toast('時數超過目前餘額', 'error'); return }
     const entries = ledgerFor(cashoutName.value).filter(e => e.type === cashoutType.value && e.remainingHours > 0)
     const { consumptions } = consumeFIFO(entries, cashoutType.value, hours)
-    const touchedEntries = entries.filter(e => consumptions.some(c => c.id === e.id))
-    await performCashout(cashoutName.value, cashoutType.value, hours, touchedEntries, 'manual')
+    await performCashout(cashoutName.value, cashoutType.value, consumptions, entries, 'manual')
     cashoutName.value = null
 }
 
@@ -407,7 +415,13 @@ async function confirmExpiredCashout(name) {
     if (!confirm(`確定要把 ${name} 已到期的補休（平日${summary.weekdayHours}h／休息日${summary.holidayHours}h，共NT$${summary.amount}）換成現金嗎？`)) return
     const weekdayEntries = summary.entries.filter(e => e.type === '平日')
     const holidayEntries = summary.entries.filter(e => e.type === '休息日')
-    if (weekdayEntries.length) await performCashout(name, '平日', summary.weekdayHours, weekdayEntries, 'expired')
-    if (holidayEntries.length) await performCashout(name, '休息日', summary.holidayHours, holidayEntries, 'expired')
+    if (weekdayEntries.length) {
+        const weekdayConsumptions = weekdayEntries.map(e => ({ id: e.id, hours: e.remainingHours }))
+        await performCashout(name, '平日', weekdayConsumptions, weekdayEntries, 'expired')
+    }
+    if (holidayEntries.length) {
+        const holidayConsumptions = holidayEntries.map(e => ({ id: e.id, hours: e.remainingHours }))
+        await performCashout(name, '休息日', holidayConsumptions, holidayEntries, 'expired')
+    }
 }
 </script>

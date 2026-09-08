@@ -6,6 +6,7 @@ import CompensatoryPanel from '@/components/cases/CompensatoryPanel.vue'
 import { useUsersStore } from '@/stores/users'
 import { useAuthStore } from '@/stores/auth'
 import { getAnnualLeaveCycleInfo } from '@/utils/annualLeaveSchedule'
+import { addDoc } from 'firebase/firestore'
 
 vi.mock('@/firebase', () => ({ auth: {}, db: {} }))
 vi.mock('firebase/auth', () => ({
@@ -208,5 +209,34 @@ describe('CompensatoryPanel — 補休分錄化', () => {
     await flushPromises()
 
     expect(wrapper.text()).not.toContain('已到期未用完')
+  })
+
+  it('換現金部分消耗最後一筆分錄時，金額依實際消耗比例計算（不會多算成整筆分錄的比例）', async () => {
+    const usersStore = useUsersStore()
+    const authStore = useAuthStore()
+    authStore.role = 'admin'
+    authStore.name = '柏'
+    usersStore.users = [{ id: 'u1', name: '蚌', annualLeaveHours: 5, compensatoryHours: 0, compensatoryHolidayHours: 0 }]
+    vi.spyOn(usersStore, 'fetchCompLedger').mockResolvedValue([
+      { id: 'e1', type: '平日', hours: 3, remainingHours: 3, value: 600, createdAt: null },
+      { id: 'e2', type: '平日', hours: 2, remainingHours: 1.5, value: 400, createdAt: null },
+    ])
+    vi.spyOn(usersStore, 'applyLedgerConsumption').mockResolvedValue()
+    addDoc.mockClear()
+
+    const wrapper = mount(CompensatoryPanel)
+    await flushPromises()
+
+    const cashoutButtons = wrapper.findAll('button').filter(b => b.text() === '換現金')
+    await cashoutButtons[0].trigger('click') // 平日補休的換現金按鈕
+
+    await wrapper.find('input[type="number"]').setValue(4) // 只換4小時：e1全消耗3h、e2只消耗1h（不是1.5h全部）
+    await wrapper.find('button.rounded-xl').trigger('click') // 換現金 Modal 的送出按鈕
+    await flushPromises()
+
+    const payload = addDoc.mock.calls.map(c => c[1]).find(p => p && p.amount !== undefined)
+    expect(payload).toBeTruthy()
+    expect(payload.amount).toBe(800) // 600 + (1/2)*400，不是600 + (1.5/2)*400=900
+    expect(payload.hours).toBe(4)
   })
 })
