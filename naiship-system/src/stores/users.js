@@ -154,6 +154,22 @@ export const useUsersStore = defineStore('users', () => {
             }))
     }
 
+    async function fetchCompLedger(uid) {
+        const snap = await getDocs(collection(db, 'users', uid, 'compLedger'))
+        return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+    }
+
+    async function addLedgerEntry(uid, entry) {
+        const ref = await addDoc(collection(db, 'users', uid, 'compLedger'), { ...entry, createdAt: serverTimestamp() })
+        return ref.id
+    }
+
+    async function applyLedgerConsumption(uid, updatedEntries) {
+        await Promise.all(updatedEntries.map(e =>
+            updateDoc(doc(db, 'users', uid, 'compLedger', e.id), { remainingHours: e.remainingHours })
+        ))
+    }
+
     async function getUser(uid) {
         const snap = await getDoc(doc(db, 'users', uid))
         return snap.exists() ? { id: snap.id, ...snap.data() } : null
@@ -163,5 +179,5 @@ export const useUsersStore = defineStore('users', () => {
         if (unsubscribe) { unsubscribe(); unsubscribe = null }
     }
 
-    return { users, subscribe, updateUser, adjustCompensatoryHours, adjustCompensatoryHolidayHours, adjustAnnualLeaveHours, ensureMonthClosed, getClosingBalance, listClosingMonths, adjustCompensatoryField, applyAnnualLeaveCycle, fetchCompAdjustments, getUser, cleanup }
+    return { users, subscribe, updateUser, adjustCompensatoryHours, adjustCompensatoryHolidayHours, adjustAnnualLeaveHours, ensureMonthClosed, getClosingBalance, listClosingMonths, adjustCompensatoryField, applyAnnualLeaveCycle, fetchCompAdjustments, getUser, cleanup, fetchCompLedger, addLedgerEntry, applyLedgerConsumption }
 })
