@@ -435,7 +435,9 @@ async function applyLeaveDelta(leaveType, name, deltaHours, consumption = null) 
             if (consumption?.length) {
                 const entries = await usersStore.fetchCompLedger(user.id)
                 const refunded = refundConsumption(entries, consumption)
-                await usersStore.applyLedgerConsumption(user.id, refunded)
+                const before = new Map(entries.map(e => [e.id, e.remainingHours]))
+                const changed = refunded.filter(e => before.get(e.id) !== e.remainingHours)
+                await usersStore.applyLedgerConsumption(user.id, changed)
             }
             return null
         }
