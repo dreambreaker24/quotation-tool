@@ -3,6 +3,8 @@ import { ref } from 'vue'
 import { collection, query, where, orderBy, onSnapshot, addDoc, updateDoc, getDocs, doc, serverTimestamp, Timestamp, arrayUnion, increment } from 'firebase/firestore'
 import { db } from '@/firebase'
 import { useUsersStore } from '@/stores/users'
+import { buildLedgerEntry } from '@/utils/compLedger'
+import { getAnnualLeaveCycleInfo } from '@/utils/annualLeaveSchedule'
 
 export const useWorkLogsStore = defineStore('workLogs', () => {
     const logs = ref([])
@@ -93,10 +95,6 @@ export const useWorkLogsStore = defineStore('workLogs', () => {
             i === itemIndex ? { ...item, approved: isApproved, approvedAt: Timestamp.now() } : item
         )
         const allDecided = updatedItems.every(i => i.approved != null)
-        // 只在首次核准時累加補休時數，動手加之前先確保上個月的餘額已經結算凍結
-        if (log.userId && isApproved && prevItem?.approved == null) {
-            await useUsersStore().ensureMonthClosed(log.userId)
-        }
         const ops = [
             updateDoc(doc(db, 'workLogs', log.id), {
                 overtimeItems: updatedItems,
@@ -106,10 +104,20 @@ export const useWorkLogsStore = defineStore('workLogs', () => {
             })
         ]
         if (log.userId && isApproved && prevItem?.approved == null) {
-            const field = prevItem.type === '休息日' ? 'compensatoryHolidayHours' : 'compensatoryHours'
-            ops.push(updateDoc(doc(db, 'users', log.userId), {
-                [field]: increment(prevItem.hours || 0)
-            }))
+            const usersStore = useUsersStore()
+            const user = await usersStore.getUser(log.userId)
+            if (user) {
+                const cycleInfo = getAnnualLeaveCycleInfo(user.hireDate)
+                const entry = buildLedgerEntry({
+                    type: prevItem.type === '休息日' ? '休息日' : '平日',
+                    hours: prevItem.hours || 0,
+                    baseSalary: user.salary || 0,
+                    expireDate: cycleInfo?.nextCycleStart ?? null,
+                    sourceLogId: log.id,
+                    source: 'overtime',
+                })
+                ops.push(usersStore.addLedgerEntry(log.userId, entry))
+            }
         }
         await Promise.all(ops)
     }
