@@ -81,8 +81,9 @@ describe('CompensatoryPanel — 特休人工調整稽核', () => {
     expect(updateSpy).not.toHaveBeenCalled()
   })
 
-  it('調整平日補休時數時，行為維持不變（仍走稽核路徑）', async () => {
+  it('調整平日補休時數時，改為寫入compLedger分錄，不再走adjustCompensatoryField', async () => {
     const { wrapper, usersStore } = await mountWithAdminUser()
+    const addLedgerSpy = vi.spyOn(usersStore, 'addLedgerEntry').mockResolvedValue('e1')
     const adjustSpy = vi.spyOn(usersStore, 'adjustCompensatoryField')
 
     const weekdayButtons = wrapper.findAll('button').filter(b => b.text() === '調整')
@@ -92,7 +93,8 @@ describe('CompensatoryPanel — 特休人工調整稽核', () => {
     await wrapper.find('button.rounded-xl').trigger('click')
     await flushPromises()
 
-    expect(adjustSpy).toHaveBeenCalledWith('u1', 'compensatoryHours', 8, 2, '柏')
+    expect(addLedgerSpy).toHaveBeenCalledWith('u1', expect.objectContaining({ type: '平日', hours: 8, remainingHours: 8 }))
+    expect(adjustSpy).not.toHaveBeenCalled()
   })
 })
 
@@ -152,5 +154,59 @@ describe('CompensatoryPanel — 特休依到職日試算套用', () => {
     await flushPromises()
 
     expect(wrapper.findAll('button').find(b => b.text() === '套用')).toBeUndefined()
+  })
+})
+
+describe('CompensatoryPanel — 補休分錄化', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    vi.stubGlobal('confirm', vi.fn(() => true))
+  })
+
+  it('補休時數顯示為compLedger裡remainingHours的加總', async () => {
+    const usersStore = useUsersStore()
+    const authStore = useAuthStore()
+    authStore.role = 'admin'
+    authStore.name = '柏'
+    usersStore.users = [{ id: 'u1', name: '蚌', annualLeaveHours: 5, compensatoryHours: 0, compensatoryHolidayHours: 0 }]
+    vi.spyOn(usersStore, 'fetchCompLedger').mockResolvedValue([
+      { id: 'e1', type: '平日', hours: 3, remainingHours: 3, value: 600, createdAt: null },
+      { id: 'e2', type: '平日', hours: 2, remainingHours: 1.5, value: 400, createdAt: null },
+    ])
+    const wrapper = mount(CompensatoryPanel)
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('4.5')
+  })
+
+  it('已到期分錄顯示提醒與確認換現金按鈕', async () => {
+    const usersStore = useUsersStore()
+    const authStore = useAuthStore()
+    authStore.role = 'admin'
+    authStore.name = '柏'
+    usersStore.users = [{ id: 'u1', name: '蚌', annualLeaveHours: 5, compensatoryHours: 0, compensatoryHolidayHours: 0 }]
+    vi.spyOn(usersStore, 'fetchCompLedger').mockResolvedValue([
+      { id: 'e1', type: '平日', hours: 3, remainingHours: 3, value: 600, expireDate: '2020-01-01', createdAt: null },
+    ])
+    const wrapper = mount(CompensatoryPanel)
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('已到期未用完')
+    expect(wrapper.findAll('button').find(b => b.text() === '確認到期換現金')).toBeTruthy()
+  })
+
+  it('沒有到期分錄時不顯示提醒', async () => {
+    const usersStore = useUsersStore()
+    const authStore = useAuthStore()
+    authStore.role = 'admin'
+    authStore.name = '柏'
+    usersStore.users = [{ id: 'u1', name: '蚌', annualLeaveHours: 5, compensatoryHours: 0, compensatoryHolidayHours: 0 }]
+    vi.spyOn(usersStore, 'fetchCompLedger').mockResolvedValue([
+      { id: 'e1', type: '平日', hours: 3, remainingHours: 3, value: 600, expireDate: '2099-01-01', createdAt: null },
+    ])
+    const wrapper = mount(CompensatoryPanel)
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('已到期未用完')
   })
 })
