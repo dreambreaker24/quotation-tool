@@ -31,7 +31,6 @@ export function computePendingInvoiceGroups(cases) {
         for (const wt of (c.workTypes || [])) {
             const status = vendorInvoiceStatus(wt)
             if (status?.label !== '未收發票') continue
-            if (wtVendorCostTotal(wt) <= 0) continue
             if (totalVendorPaid(wt) < wtVendorCostTotal(wt)) continue
             const paidDates = (wt.vendorPayments || []).map(vp => vp.paidDate).filter(Boolean)
             if (!paidDates.length) continue
