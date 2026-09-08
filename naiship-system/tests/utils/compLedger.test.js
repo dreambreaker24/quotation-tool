@@ -19,6 +19,14 @@ describe('computeOvertimeValue', () => {
         expect(computeOvertimeValue(0, '平日', 36000)).toBe(0)
         expect(computeOvertimeValue(3, '平日', 0)).toBe(0)
     })
+
+    it('type非"平日"時按休息日費率計算（例如打錯字或未知值）', () => {
+        // type 傳 '平日外' 會走 else 分支，使用休息日費率
+        // 底薪36000 → 時薪150；2h*150*4/3=400
+        expect(computeOvertimeValue(2, '平日外', 36000)).toBe(400)
+        // 傳其他字串也是一樣走休息日路線
+        expect(computeOvertimeValue(9, '國定假日', 36000)).toBe(2300)
+    })
 })
 
 describe('buildLedgerEntry', () => {
@@ -84,6 +92,13 @@ describe('valueForConsumption', () => {
         const total = valueForConsumption(entries, [{ id: 'e1', hours: 2 }, { id: 'e2', hours: 1 }])
         expect(total).toBe(650)
     })
+
+    it('consumptions裡有找不到的id時靜默略過', () => {
+        const entries = [{ id: 'e1', hours: 3, value: 600 }]
+        // e2不存在，應該被略過，只計算e1的250
+        const total = valueForConsumption(entries, [{ id: 'e1', hours: 1 }, { id: 'e2', hours: 2 }])
+        expect(total).toBe(200)
+    })
 })
 
 describe('refundConsumption', () => {
@@ -97,6 +112,14 @@ describe('refundConsumption', () => {
         const entries = [{ id: 'e1', hours: 3, remainingHours: 2 }]
         const refunded = refundConsumption(entries, [{ id: 'e1', hours: 5 }])
         expect(refunded.find(e => e.id === 'e1').remainingHours).toBe(3)
+    })
+
+    it('consumptions裡有找不到的id時靜默略過', () => {
+        const entries = [{ id: 'e1', hours: 3, remainingHours: 1 }]
+        // e2不存在，應該被略過，只歸還e1
+        const refunded = refundConsumption(entries, [{ id: 'e1', hours: 1 }, { id: 'e2', hours: 1 }])
+        expect(refunded.find(e => e.id === 'e1').remainingHours).toBe(2)
+        expect(refunded.length).toBe(1)
     })
 })
 
@@ -125,5 +148,56 @@ describe('isExpired / expiredEntries', () => {
             { id: 'e2', expireDate: '2026-10-01', remainingHours: 2 },
         ]
         expect(expiredEntries(entries, '2026-09-08').map(e => e.id)).toEqual(['e1'])
+    })
+})
+
+describe('浮點精度測試', () => {
+    it('反覆 consume/refund 多次後 remainingHours 精確回到原始值', () => {
+        // 建立初始分錄，type='平日'
+        let entries = [{ id: 'e1', type: '平日', hours: 5.5, remainingHours: 5.5, value: 1000 }]
+
+        // 第1次消耗2.3小時
+        let { consumptions: c1, updatedEntries: u1 } = consumeFIFO(entries, '平日', 2.3)
+        entries = u1
+        expect(entries[0].remainingHours).toBe(3.2)
+
+        // 第1次歸還
+        entries = refundConsumption(entries, c1)
+        expect(entries[0].remainingHours).toBe(5.5)
+
+        // 第2次消耗1.7小時
+        let { consumptions: c2, updatedEntries: u2 } = consumeFIFO(entries, '平日', 1.7)
+        entries = u2
+        expect(entries[0].remainingHours).toBe(3.8)
+
+        // 第2次歸還
+        entries = refundConsumption(entries, c2)
+        expect(entries[0].remainingHours).toBe(5.5)
+
+        // 第3次消耗0.8小時
+        let { consumptions: c3, updatedEntries: u3 } = consumeFIFO(entries, '平日', 0.8)
+        entries = u3
+        expect(entries[0].remainingHours).toBe(4.7)
+
+        // 第3次歸還
+        entries = refundConsumption(entries, c3)
+        expect(entries[0].remainingHours).toBe(5.5)
+
+        // 第4次消耗1.2小時
+        let { consumptions: c4, updatedEntries: u4 } = consumeFIFO(entries, '平日', 1.2)
+        entries = u4
+        expect(entries[0].remainingHours).toBe(4.3)
+
+        // 第4次歸還
+        entries = refundConsumption(entries, c4)
+        expect(entries[0].remainingHours).toBe(5.5)
+
+        // 最後驗證：完全消耗並歸還全部5.5小時
+        let { consumptions: cAll, updatedEntries: uAll } = consumeFIFO(entries, '平日', 5.5)
+        entries = uAll
+        expect(entries[0].remainingHours).toBe(0)
+
+        entries = refundConsumption(entries, cAll)
+        expect(entries[0].remainingHours).toBe(5.5)
     })
 })

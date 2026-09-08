@@ -44,6 +44,11 @@ export function consumeFIFO(entries, type, hoursNeeded) {
 }
 
 // 依比例算出某次消耗紀錄對應的金額（用於換現金金額計算）
+// 重要：呼叫端必須把同一批 consumptions 一次傳完（不能分批呼叫多次再加總），
+// 否則每次呼叫各自 round 會導致累加金額跟分錄實際總值有落差
+// 金額計算採線性比例分攤（消耗時數佔比 × 分錄總金額），不是重新套階梯公式。
+// 這是刻意設計：分錄已在建立當下用完整時數鎖定正確的階梯金額，之後只做比例分攤
+// 才能保證「全部消耗完＝分錄總值」的守恆；若每次消耗都重新套階梯公式會因分段費率而算錯。
 export function valueForConsumption(entries, consumptions) {
     const byId = new Map(entries.map(e => [e.id, e]))
     return Math.round(consumptions.reduce((sum, c) => {
@@ -71,6 +76,7 @@ export function sumRemainingHours(entries, type) {
         .reduce((s, e) => s + (e.remainingHours || 0), 0)
 }
 
+// expireDate 與 todayStr 必須都是 'YYYY-MM-DD' 格式字串（字典序比較才會正確），不能是 Date 物件
 export function isExpired(entry, todayStr) {
     return !!entry.expireDate && entry.expireDate < todayStr && entry.remainingHours > 0
 }
