@@ -23,6 +23,12 @@
       </select>
     </div>
 
+    <!-- 補登支出提示：本月餘額裡含有其他月份補登記的支出 -->
+    <div v-if="backfilledIntoThisMonth.total > 0"
+      class="text-[11px] text-amber-600 bg-amber-50 rounded-lg px-3 py-2 mb-3">
+      ⚠ {{ filterMonth }} 的餘額包含 {{ backfilledIntoThisMonth.count }} 筆其他月份補登的支出，共 ${{ backfilledIntoThisMonth.total.toLocaleString() }}（實際發生日期不在本月，但登記當下扣的是本月額度）
+    </div>
+
     <!-- 空狀態 -->
     <div v-if="filtered.length === 0" class="text-center text-sm text-gray-400 py-12">
       {{ filterMonth }} 無記錄
@@ -203,6 +209,26 @@ const filtered = computed(() => {
     if (filterMonth.value) list = list.filter(e => e.date?.startsWith(filterMonth.value))
     if (filterType.value) list = list.filter(e => e.type === filterType.value)
     return list.sort((a, b) => (b.date || '').localeCompare(a.date || ''))
+})
+
+// 補登支出：實際發生日期（date）不在目前篩選的月份，但登記時間（createdAt）落在目前篩選的月份——
+// 因為 bunBalance/laiBalance 是不分月份的連續累計，這種補登記的支出會扣到「登記當下」那個月的額度，
+// 不是扣到「實際發生」那個月，容易讓人誤會這個月怎麼突然變少。只算支出（expense），且要跟目前的
+// 人員/類型篩選一致，才不會提示跟畫面上看到的清單對不起來。
+const backfilledIntoThisMonth = computed(() => {
+    const matches = store.entries.filter(e => {
+        if (e.type !== 'expense') return false
+        if (filterPayer.value && e.payerName !== filterPayer.value) return false
+        if (filterType.value && filterType.value !== 'expense') return false
+        const entryMonth = e.date?.slice(0, 7)
+        const createdMonth = e.createdAt?.toDate?.().toISOString().slice(0, 7)
+        if (!entryMonth || !createdMonth) return false
+        return createdMonth === filterMonth.value && entryMonth !== filterMonth.value
+    })
+    return {
+        count: matches.length,
+        total: matches.reduce((s, e) => s + (e.amount || 0), 0),
+    }
 })
 
 const filteredStats = computed(() => {
