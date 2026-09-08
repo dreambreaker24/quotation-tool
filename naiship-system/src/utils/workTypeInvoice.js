@@ -24,3 +24,30 @@ export function vendorInvoiceStatus(wt) {
         ? { label: '已收發票', cls: 'bg-green-100 text-green-700' }
         : { label: '未收發票', cls: 'bg-gray-100 text-gray-400' }
 }
+
+export function computePendingInvoiceGroups(cases) {
+    const flat = []
+    for (const c of cases) {
+        for (const wt of (c.workTypes || [])) {
+            const status = vendorInvoiceStatus(wt)
+            if (status?.label !== '未收發票') continue
+            if (wtVendorCostTotal(wt) <= 0) continue
+            if (totalVendorPaid(wt) < wtVendorCostTotal(wt)) continue
+            const paidDates = (wt.vendorPayments || []).map(vp => vp.paidDate).filter(Boolean)
+            if (!paidDates.length) continue
+            const lastPaidDate = paidDates.sort().at(-1)
+            flat.push({ caseId: c.id, caseName: c.name, companyId: c.companyId, wt, lastPaidDate })
+        }
+    }
+    flat.sort((a, b) => a.lastPaidDate.localeCompare(b.lastPaidDate))
+    const caseOrder = []
+    const caseMap = {}
+    for (const item of flat) {
+        if (!caseMap[item.caseId]) {
+            caseMap[item.caseId] = { caseId: item.caseId, caseName: item.caseName, items: [] }
+            caseOrder.push(item.caseId)
+        }
+        caseMap[item.caseId].items.push(item)
+    }
+    return caseOrder.map(id => caseMap[id])
+}
