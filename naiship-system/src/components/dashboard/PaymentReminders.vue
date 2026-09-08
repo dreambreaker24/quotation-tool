@@ -121,6 +121,37 @@
       </div>
 
     </div>
+
+      <!-- 第三塊：待催發票 -->
+      <div v-if="pendingInvoiceGroups.length > 0" id="invoice-pending" class="mt-4">
+        <div class="text-xs font-semibold text-purple-600 mb-2 pl-2 border-l-2 border-purple-300">待催發票</div>
+        <div class="flex flex-col gap-3">
+          <div v-for="group in pendingInvoiceGroups" :key="group.caseId"
+            class="bg-white rounded-xl px-3 py-2.5 shadow-sm">
+            <div class="flex items-center gap-1.5 mb-2">
+              <div class="w-1 h-3.5 rounded-full flex-shrink-0 bg-purple-400"></div>
+              <span class="text-xs font-bold text-gray-800">{{ group.caseName }}</span>
+            </div>
+            <div class="flex flex-col gap-1.5 pl-2.5">
+              <div v-for="item in group.items" :key="item.wt.id" class="flex items-center gap-2">
+                <div class="flex-1 min-w-0 text-[11px]">
+                  <span class="font-semibold text-gray-700">{{ item.wt.name }}</span>
+                  <span class="text-gray-300"> · </span>
+                  <span class="text-gray-400">{{ item.wt.vendorName }}</span>
+                  <div class="text-xs font-bold text-gray-800 mt-0.5">
+                    已付 ${{ totalVendorPaid(item.wt).toLocaleString() }}
+                    <span class="text-[10px] text-gray-400 font-normal ml-1">{{ formatDate(item.lastPaidDate) }} 付清</span>
+                  </div>
+                </div>
+                <button v-if="authStore.isManager" @click="markInvoiceReceived(item.caseId, item.wt.id)"
+                  class="flex-shrink-0 text-[10px] px-2 py-1 rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 transition-colors whitespace-nowrap">
+                  發票已收到
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
   </div>
 </template>
 <script setup>
@@ -129,6 +160,7 @@ import { useRouter } from 'vue-router'
 import { usePaymentRemindersStore } from '@/stores/paymentReminders'
 import { useAuthStore } from '@/stores/auth'
 import { useCasesStore } from '@/stores/cases'
+import { totalVendorPaid, computePendingInvoiceGroups } from '@/utils/workTypeInvoice'
 
 const router = useRouter()
 const remindersStore = usePaymentRemindersStore()
@@ -243,7 +275,9 @@ const ownerItems = computed(() => sortByOverdueThenDate([
     ...remindersStore.upcomingOwnerSoon,
 ].filter(r => (r.amount || 0) > 0)))
 
-const hasAny = computed(() => groupedSegments.value.length > 0 || ownerItems.value.length > 0)
+const pendingInvoiceGroups = computed(() => computePendingInvoiceGroups(casesStore.cases))
+
+const hasAny = computed(() => groupedSegments.value.length > 0 || ownerItems.value.length > 0 || pendingInvoiceGroups.value.length > 0)
 
 function jumpToCase(r) {
     const q = { caseId: r.caseId }
@@ -254,5 +288,12 @@ function jumpToCase(r) {
 async function markDone(id) {
     doneFeedback.value = { ...doneFeedback.value, [id]: true }
     await remindersStore.markDone(id)
+}
+
+async function markInvoiceReceived(caseId, workTypeId) {
+    const c = casesStore.cases.find(c => c.id === caseId)
+    if (!c) return
+    const updated = c.workTypes.map(wt => wt.id === workTypeId ? { ...wt, invoiceReceived: true } : wt)
+    await casesStore.updateCase(caseId, { workTypes: updated })
 }
 </script>
