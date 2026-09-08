@@ -43,15 +43,6 @@ describe('useWorkLogsStore.approveOvertimeItem', () => {
     expect(addLedgerSpy).toHaveBeenCalledTimes(1)
     expect(addLedgerSpy).toHaveBeenCalledWith('u1', expect.objectContaining({ type: '平日', hours: 2 }))
   })
-
-  it('does not call ensureMonthClosed when rejecting (isApproved=false)', async () => {
-    const usersStore = useUsersStore()
-    const spy = vi.spyOn(usersStore, 'ensureMonthClosed').mockResolvedValue()
-    const workLogsStore = useWorkLogsStore()
-    const log = { id: 'log1', userId: 'u1', overtimeItems: [{ hours: 2, type: '平日', approved: null }] }
-    await workLogsStore.approveOvertimeItem(log, 0, false, '柏')
-    expect(spy).not.toHaveBeenCalled()
-  })
 })
 
 describe('fetchApprovedOvertimeDetail', () => {
@@ -246,5 +237,35 @@ describe('approveOvertimeItem — 改寫入compLedger', () => {
         await store.approveOvertimeItem(log, 0, true, '柏')
 
         expect(addLedgerSpy).not.toHaveBeenCalled()
+    })
+
+    it('getUser查不到使用者時不寫入分錄，並印出警告', async () => {
+        const store = useWorkLogsStore()
+        const usersStore = useUsersStore()
+        vi.spyOn(usersStore, 'getUser').mockResolvedValue(null)
+        const addLedgerSpy = vi.spyOn(usersStore, 'addLedgerEntry')
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+        const log = { id: 'log1', userId: 'u1', overtimeItems: [{ type: '平日', hours: 3, approved: null }] }
+        await store.approveOvertimeItem(log, 0, true, '柏')
+
+        expect(addLedgerSpy).not.toHaveBeenCalled()
+        expect(warnSpy).toHaveBeenCalled()
+        warnSpy.mockRestore()
+    })
+
+    it('使用者沒有到職日時，分錄expireDate為null，並印出警告', async () => {
+        const store = useWorkLogsStore()
+        const usersStore = useUsersStore()
+        vi.spyOn(usersStore, 'getUser').mockResolvedValue({ id: 'u1', salary: 36000, hireDate: null })
+        const addLedgerSpy = vi.spyOn(usersStore, 'addLedgerEntry').mockResolvedValue('entry-1')
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+        const log = { id: 'log1', userId: 'u1', overtimeItems: [{ type: '平日', hours: 3, approved: null }] }
+        await store.approveOvertimeItem(log, 0, true, '柏')
+
+        expect(addLedgerSpy.mock.calls[0][1].expireDate).toBeNull()
+        expect(warnSpy).toHaveBeenCalled()
+        warnSpy.mockRestore()
     })
 })

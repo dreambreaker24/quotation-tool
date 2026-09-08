@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { collection, query, where, orderBy, onSnapshot, addDoc, updateDoc, getDocs, doc, serverTimestamp, Timestamp, arrayUnion, increment } from 'firebase/firestore'
+import { collection, query, where, orderBy, onSnapshot, addDoc, updateDoc, getDocs, doc, serverTimestamp, Timestamp, arrayUnion } from 'firebase/firestore'
 import { db } from '@/firebase'
 import { useUsersStore } from '@/stores/users'
 import { buildLedgerEntry } from '@/utils/compLedger'
@@ -108,6 +108,8 @@ export const useWorkLogsStore = defineStore('workLogs', () => {
             const user = await usersStore.getUser(log.userId)
             if (user) {
                 const cycleInfo = getAnnualLeaveCycleInfo(user.hireDate)
+                if (!cycleInfo) console.warn(`approveOvertimeItem: 使用者 ${log.userId} 沒有到職日，補休分錄將永不到期`)
+                if (!user.salary) console.warn(`approveOvertimeItem: 使用者 ${log.userId} 沒有底薪資料，這筆補休分錄金額會是0`)
                 const entry = buildLedgerEntry({
                     type: prevItem.type === '休息日' ? '休息日' : '平日',
                     hours: prevItem.hours || 0,
@@ -117,6 +119,8 @@ export const useWorkLogsStore = defineStore('workLogs', () => {
                     source: 'overtime',
                 })
                 ops.push(usersStore.addLedgerEntry(log.userId, entry))
+            } else {
+                console.warn(`approveOvertimeItem: 找不到使用者 ${log.userId}，跳過補休分錄建立`)
             }
         }
         await Promise.all(ops)
