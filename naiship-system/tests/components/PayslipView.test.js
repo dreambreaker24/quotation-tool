@@ -198,21 +198,26 @@ describe('PayslipView — 取消折抵', () => {
     setActivePinia(createPinia())
   })
 
-  it('已折抵事件顯示在復原清單，點取消折抵後補休退回、leaveType改回原假別', async () => {
+  // 三個新測試（重複點擊/stale-write/部分失敗鎖定）都需要「已經有一筆折抵過的事件」這個起手狀態，
+  // 這裡抽成共用 helper，避免重複貼一樣的 mount 樣板。
+  async function mountUndoTest({
+    ledgerEntries = [
+      { id: 'led-1', type: '平日', remainingHours: 2.5, hours: 10.5, value: 3507, createdAt: { toMillis: () => 1 } },
+    ],
+    leaveEntries = [
+      {
+        id: 'leave-1', date: new Date('2026-08-07'), leaveType: '補休', hours: 8,
+        leaveTypeLocked: true, convertedFromLeaveType: '事假', compConsumption: [{ id: 'led-1', hours: 8 }],
+      },
+    ],
+  } = {}) {
     const usersStore = useUsersStore()
     const authStore = useAuthStore()
     const eventsStore = useCalendarEventsStore()
     authStore.role = 'admin'
     authStore.name = '柏'
-    vi.spyOn(usersStore, 'fetchCompLedger').mockResolvedValue([
-      { id: 'led-1', type: '平日', remainingHours: 2.5, hours: 10.5, value: 3507, createdAt: { toMillis: () => 1 } },
-    ])
-    vi.spyOn(eventsStore, 'fetchMonthlyLeaveDetail').mockResolvedValue([
-      {
-        id: 'leave-1', date: new Date('2026-08-07'), leaveType: '補休', hours: 8,
-        leaveTypeLocked: true, convertedFromLeaveType: '事假', compConsumption: [{ id: 'led-1', hours: 8 }],
-      },
-    ])
+    const fetchLedgerSpy = vi.spyOn(usersStore, 'fetchCompLedger').mockResolvedValue(ledgerEntries)
+    const fetchLeaveSpy = vi.spyOn(eventsStore, 'fetchMonthlyLeaveDetail').mockResolvedValue(leaveEntries)
     const wrapper = mount(PayslipView)
     await flushPromises()
     // subscribe() 的 mock onSnapshot 會同步觸發 cb 把 users.value 蓋成 []，
@@ -222,6 +227,11 @@ describe('PayslipView — 取消折抵', () => {
     wrapper.vm.form.payMonth = '2026-08'
     await wrapper.vm.fetchPayrollData()
     await flushPromises()
+    return { wrapper, usersStore, eventsStore, fetchLedgerSpy, fetchLeaveSpy }
+  }
+
+  it('已折抵事件顯示在復原清單，點取消折抵後補休退回、leaveType改回原假別', async () => {
+    const { wrapper, usersStore, eventsStore } = await mountUndoTest()
 
     expect(wrapper.vm.convertedEntries.map(e => e.id)).toEqual(['leave-1'])
 
@@ -236,5 +246,88 @@ describe('PayslipView — 取消折抵', () => {
       leaveTypeLocked: false,
       convertedFromLeaveType: '',
     }))
+  })
+
+  it('連續（不等待）觸發兩次 undoOffset 對同一筆，第二次會被擋下，不會重複退款或重複更新事件', async () => {
+    const { wrapper, usersStore, eventsStore } = await mountUndoTest()
+    let resolveApply
+    const applySpy = vi.spyOn(usersStore, 'applyLedgerConsumption')
+      .mockImplementation(() => new Promise(resolve => { resolveApply = resolve }))
+    const updateSpy = vi.spyOn(eventsStore, 'updateEvent').mockResolvedValue()
+
+    const ev = wrapper.vm.convertedEntries[0]
+    // undoOffset() 一開始就同步把 undoingId 設成 ev.id（第一個 await 之前），
+    // 所以這裡完全不用等 tick，第二次呼叫在同一輪同步程式碼裡就會被擋下，
+    // 剛好對應使用者手快連點兩下的真實情境。
+    const p1 = wrapper.vm.undoOffset(ev)
+    const p2 = wrapper.vm.undoOffset(ev)
+    // p1 內部要先 await fetchCompLedger 才會走到 applyLedgerConsumption，
+    // 這裡先 flush microtask 讓它真的呼叫到 applyLedgerConsumption（設好 resolveApply）為止，
+    // 再手動 resolve 讓它繼續往下跑到 updateEvent
+    await flushPromises()
+    resolveApply()
+    await Promise.all([p1, p2])
+    await flushPromises()
+
+    expect(applySpy).toHaveBeenCalledTimes(1)
+    expect(updateSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('applyLedgerConsumption resolve 的當下使用者切換員工/月份，updateEvent仍要完整寫入，但refreshCompBalance/fetchPayrollData不會對切走後的員工重跑', async () => {
+    const { wrapper, eventsStore, fetchLedgerSpy, fetchLeaveSpy } = await mountUndoTest()
+    const ev = wrapper.vm.convertedEntries[0]
+    const updateSpy = vi.spyOn(eventsStore, 'updateEvent').mockResolvedValue()
+    const usersStore = useUsersStore()
+    // 模擬 applyLedgerConsumption 這一步剛 resolve、下一步 updateEvent 還沒開始之前，
+    // 使用者已經切走員工/月份——這一步已經是「進行中的寫入」，不能用 stale 檢查提早 return，
+    // 否則事件會停留在「補休已退回、但還鎖定顯示補休」的靜默資料不一致。
+    vi.spyOn(usersStore, 'applyLedgerConsumption').mockImplementation(async () => {
+      wrapper.vm.form.empName = '別人'
+      wrapper.vm.form.payMonth = '2026-07'
+    })
+
+    const ledgerCallsBefore = fetchLedgerSpy.mock.calls.length
+    const leaveCallsBefore = fetchLeaveSpy.mock.calls.length
+
+    await wrapper.vm.undoOffset(ev)
+    await flushPromises()
+
+    // 寫入本身要完整完成，不受切走影響
+    expect(updateSpy).toHaveBeenCalledWith('leave-1', expect.objectContaining({
+      leaveType: '事假',
+      leaveTypeLocked: false,
+      convertedFromLeaveType: '',
+    }))
+    // undoOffset() 內部一定會為了算退款先呼叫一次 fetchCompLedger（+1），
+    // 但因為切走了，後面 refreshCompBalance()/fetchPayrollData() 不應該再對新員工重跑，
+    // 所以 ledger 呼叫次數只多 1，leave 詳情呼叫次數完全不變
+    expect(fetchLedgerSpy.mock.calls.length).toBe(ledgerCallsBefore + 1)
+    expect(fetchLeaveSpy.mock.calls.length).toBe(leaveCallsBefore)
+  })
+
+  it('applyLedgerConsumption 本身失敗（可能是內部Promise.all部分寫入後才reject）時，要鎖住這筆事件避免重試造成重複退款', async () => {
+    const { wrapper, usersStore, eventsStore } = await mountUndoTest()
+    const ev = wrapper.vm.convertedEntries[0]
+    const applySpy = vi.spyOn(usersStore, 'applyLedgerConsumption').mockRejectedValue(new Error('partial write'))
+    const updateSpy = vi.spyOn(eventsStore, 'updateEvent').mockResolvedValue()
+
+    await wrapper.vm.undoOffset(ev)
+    await flushPromises()
+
+    expect(applySpy).toHaveBeenCalledTimes(1)
+    // applyLedgerConsumption 失敗就不該再往下呼叫 updateEvent
+    expect(updateSpy).not.toHaveBeenCalled()
+    expect(wrapper.vm.compromisedUndoIds.has('leave-1')).toBe(true)
+    expect(wrapper.vm.undoingId).toBe(null)
+
+    // 對應按鈕要被鎖住 disabled，不能再被點擊
+    await wrapper.vm.$nextTick()
+    const btn = wrapper.findAll('button').find(b => b.text().includes('取消折抵'))
+    expect(btn.attributes('disabled')).toBeDefined()
+
+    // 即使再呼叫一次 undoOffset，也要被擋下，不會再對同一筆重複退款
+    await wrapper.vm.undoOffset(ev)
+    await flushPromises()
+    expect(applySpy).toHaveBeenCalledTimes(1)
   })
 })

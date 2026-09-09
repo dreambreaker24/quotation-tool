@@ -986,17 +986,24 @@ async function undoOffset(ev) {
     const user = usersStore.users.find(u => u.name === targetName)
     if (!user) return
     undoingId.value = ev.id
-    let refunded = false
+    // 標記時機是「即將呼叫 applyLedgerConsumption」之前，不是它 resolve 之後——因為它內部是
+    // Promise.all 平行寫入多筆分錄，不是原子操作，就算整個 Promise 最後 reject，也可能已經有
+    // 部分分錄的 updateDoc 真的成功寫入了。所以只要這個呼叫「已經發出去」，不管它回報成功或失敗，
+    // 只要接下來任何一步（包含它自己）拋錯，都要當作可能已經部分寫入、無法安全重試，一律鎖住。
+    // undoOffset() 跟 confirmOffset() 不同：confirmOffset() 每次都是從當下真實餘額重新算，
+    // 部分失敗後重試是安全的；undoOffset() 是拿事件上固定的 ev.compConsumption 快照去反推，
+    // 同一份快照重算兩次會對已經退過的分錄再退一次，這才是真正要防的重複退款風險。
+    let refundCallIssued = false
     try {
         const entries = await usersStore.fetchCompLedger(user.id)
         const before = new Map(entries.map(e => [e.id, e.remainingHours]))
         const refundedEntries = refundConsumption(entries, ev.compConsumption || [])
         const changed = refundedEntries.filter(e => before.get(e.id) !== e.remainingHours)
+        refundCallIssued = true
         await usersStore.applyLedgerConsumption(user.id, changed)
         // 這一步成功之後，Firestore 端的補休餘額就真的被退回了——不能再用 stale 檢查提早 return，
         // 否則下面 updateEvent 就不會被呼叫，事件會停留在「補休已退回、但還鎖定顯示補休」的
         // 靜默資料不一致狀態。跟 confirmOffset() 的寫入完整跑完、只有畫面更新才判斷 stale 同一原則。
-        refunded = true
         await calendarEventsStore.updateEvent(ev.id, {
             leaveType: ev.convertedFromLeaveType || '事假',
             convertedFromLeaveType: '',
@@ -1010,8 +1017,11 @@ async function undoOffset(ev) {
             toast('已取消折抵，補休已退回')
         }
     } catch {
-        if (refunded) {
+        if (refundCallIssued) {
             compromisedUndoIds.value.add(ev.id)
+            // 這則警告代表可能已經產生資料不一致（補休退了但事件沒改回來，或退款本身部分成功），
+            // 比一般的畫面情境更重要，刻意不做 stale 檢查——不管使用者有沒有切走員工/月份都要跳出來，
+            // 才能確保操作者當下就看到「不要重複點擊」的提示，不會因為畫面已經切走而錯過警告。
             toast('補休已退回，但事件狀態更新失敗，請重新整理頁面確認狀態後再操作，不要重複點擊取消折抵', 'error')
         } else if (form.value.empName === targetName && form.value.payMonth === targetMonth) {
             toast('取消折抵失敗，請重試', 'error')
