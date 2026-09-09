@@ -155,6 +155,20 @@
           <div v-if="ytdTotal && auth.isAdmin" class="ps-leave-ytd" :class="{ 'ps-leave-ytd-over': ytdTotal.personalDays > 14 }">
             本年累計 {{ ytdTotal.personalDays }} / 14 天<span v-if="ytdTotal.personalDays > 14"> ⚠ 超出上限</span>
           </div>
+          <div v-if="offsetCandidates.length && auth.isAdmin" class="ps-offset-block">
+            <div class="ps-offset-title">補休折抵事假（目前補休餘額 {{ compBalance }}h）</div>
+            <label v-for="e in offsetCandidates" :key="e.id" class="ps-offset-row">
+              <input type="checkbox" :value="e.id" :checked="offsetSelectedIds.includes(e.id)" @change="toggleOffsetSelect(e.id)">
+              <span>{{ e.date.getMonth()+1 }}/{{ e.date.getDate() }} {{ e.leaveType }} {{ e.hours }}h</span>
+            </label>
+            <div class="ps-offset-summary">
+              已選 {{ offsetSelectedHours }}h / 補休餘額 {{ compBalance }}h
+              <span v-if="offsetSelectedHours > compBalance" class="ps-offset-warn">補休不足，最多可折抵 {{ compBalance }} 小時</span>
+            </div>
+            <button @click="confirmOffset" :disabled="!canConfirmOffset || offsetting" class="ps-offset-btn">
+              {{ offsetting ? '折抵中…' : '確認折抵' }}
+            </button>
+          </div>
           <div class="ps-leave-row">
             <span>病假（半薪扣）</span>
             <input type="number" v-model.number="form.sickDays" min="0" step="0.5" @input="calcLeave" placeholder="0">
@@ -471,6 +485,7 @@ import { useToast } from '@/composables/useToast'
 import { memberColor } from '@/utils/memberColor'
 import { hoursToDays } from '@/utils/leaveConversion'
 import { computeBirthdayGift, computeFestivalGifts, payMonthToBonusQuarter, buildBonusAutoItems, buildCompCashoutAutoItems } from '@/utils/payslipAutoItems'
+import { consumeFIFO, sumRemainingHours } from '@/utils/compLedger'
 import { useBonusQuartersStore } from '@/stores/bonusQuarters'
 import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore'
 import { db } from '@/firebase'
@@ -494,6 +509,9 @@ const histRecord = ref(null)
 const histLoading = ref(false)
 const bridgeLoading = ref(false)
 const pendingLeaveEntries = ref([])
+const compBalance = ref(0)
+const offsetSelectedIds = ref([])
+const offsetting = ref(false)
 const showConfirmRecord = ref(false)
 const alreadyRecordedThisMonth = ref(false)
 const showConfirmBonusPaid = ref(false)
@@ -785,6 +803,9 @@ async function fetchPayrollData() {
         form.value.sickDays = hoursToDays(sickHours)
         calcLeave()
         pendingLeaveEntries.value = leaveEntries
+        offsetSelectedIds.value = []
+        await refreshCompBalance()
+        if (form.value.empName !== targetName || form.value.payMonth !== targetMonth) return
         buildAutoRemark(leaveEntries, [], [])
         compute()
         toast('已自動帶入請假/油資資料（加班費請見左側自動項目「補休換現金」，補休不再自動變加班費）')
@@ -824,6 +845,86 @@ const ytdTotal = computed(() => {
 const hasLeave = computed(() =>
     (form.value.personalDays || 0) > 0 || (form.value.sickDays || 0) > 0 || (form.value.typhoonDays || 0) > 0
 )
+
+/* ── 補休折抵事假 ── */
+const offsetCandidates = computed(() =>
+    pendingLeaveEntries.value.filter(e => ['事假', '臨請'].includes(e.leaveType) && !e.leaveTypeLocked)
+)
+const offsetSelectedHours = computed(() =>
+    offsetCandidates.value.filter(e => offsetSelectedIds.value.includes(e.id)).reduce((s, e) => s + e.hours, 0)
+)
+const canConfirmOffset = computed(() => offsetSelectedHours.value > 0 && offsetSelectedHours.value <= compBalance.value)
+
+async function refreshCompBalance() {
+    const user = usersStore.users.find(u => u.name === form.value.empName)
+    if (!user) { compBalance.value = 0; return }
+    const entries = await usersStore.fetchCompLedger(user.id)
+    compBalance.value = sumRemainingHours(entries, '平日') + sumRemainingHours(entries, '休息日')
+}
+
+function toggleOffsetSelect(id) {
+    const idx = offsetSelectedIds.value.indexOf(id)
+    if (idx === -1) offsetSelectedIds.value.push(id)
+    else offsetSelectedIds.value.splice(idx, 1)
+}
+
+async function confirmOffset() {
+    const user = usersStore.users.find(u => u.name === form.value.empName)
+    if (!user || !canConfirmOffset.value || offsetting.value) return
+    offsetting.value = true
+    const selectedEvents = offsetCandidates.value.filter(e => offsetSelectedIds.value.includes(e.id))
+    const doneIds = []
+    try {
+        const entries = await usersStore.fetchCompLedger(user.id)
+        entries.sort((a, b) => (a.createdAt?.toMillis?.() ?? 0) - (b.createdAt?.toMillis?.() ?? 0))
+        const needed = offsetSelectedHours.value
+        const weekday = consumeFIFO(entries, '平日', needed)
+        const holiday = weekday.shortfall > 0
+            ? consumeFIFO(weekday.updatedEntries, '休息日', weekday.shortfall)
+            : { consumptions: [], updatedEntries: weekday.updatedEntries }
+        const allConsumptions = [...weekday.consumptions, ...holiday.consumptions]
+        const touchedIds = new Set(allConsumptions.map(c => c.id))
+        // 先一次扣掉補休餘額，這一步是單一 Promise.all 呼叫，成功就是全部成功。
+        // 扣完之後才逐筆改請假事件——如果中途某一筆 updateEvent 失敗，補休已經扣了、
+        // 但只有部分事件被改成補休，doneIds 記下已成功的部分，catch 裡才能明確告知
+        // 使用者「已折抵 X 筆、剩下 Y 筆沒成功」，不會讓人誤以為完全沒生效而重複點擊。
+        await usersStore.applyLedgerConsumption(user.id, holiday.updatedEntries.filter(e => touchedIds.has(e.id)))
+
+        const pool = allConsumptions.map(c => ({ ...c }))
+        for (const ev of selectedEvents) {
+            const evConsumptions = []
+            let remaining = ev.hours
+            while (remaining > 0 && pool.length) {
+                const c = pool[0]
+                const take = Math.min(c.hours, remaining)
+                evConsumptions.push({ id: c.id, hours: take })
+                c.hours -= take
+                remaining -= take
+                if (c.hours <= 0) pool.shift()
+            }
+            await calendarEventsStore.updateEvent(ev.id, {
+                leaveType: '補休',
+                label: `${form.value.empName} 補休 ${ev.hours}h（原事假，已折抵）`,
+                convertedFromLeaveType: '事假',
+                leaveTypeLocked: true,
+                compConsumption: evConsumptions,
+            })
+            doneIds.push(ev.id)
+        }
+        offsetSelectedIds.value = []
+        await refreshCompBalance()
+        await fetchPayrollData()
+        toast(`已用補休折抵 ${needed} 小時事假`)
+    } catch {
+        if (doneIds.length > 0) {
+            toast(`折抵部分成功（已折抵 ${doneIds.length}/${selectedEvents.length} 筆），請重新整理確認後再處理剩下的`, 'error')
+        } else {
+            toast('折抵失敗，請重試', 'error')
+        }
+    } finally {
+        offsetting.value = false
+    }
+}
 
 async function fetchYtd() {
     if (!form.value.empName) { ytdRecord.value = null; return }
@@ -1169,6 +1270,16 @@ async function downloadJpg() {
 .ps-leave-unit   { font-size:11px; color:#9ca3af; }
 .ps-leave-result { font-size:11px; color:#c9a96e; flex:1; text-align:right; }
 .ps-leave-total  { font-size:12px; color:#c9a96e; font-weight:600; text-align:right; margin-top:6px; padding-top:6px; border-top:1px dashed #eeebe4; }
+.ps-offset-block { border-top: 1px dashed #e5e7eb; margin-top: 8px; padding-top: 8px; }
+.ps-offset-title { font-size: 11px; color: #6b7280; margin-bottom: 6px; }
+.ps-offset-row { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #374151; margin-bottom: 4px; }
+.ps-offset-summary { font-size: 10px; color: #9ca3af; margin: 4px 0; }
+.ps-offset-warn { color: #ef4444; margin-left: 6px; }
+.ps-offset-btn {
+  font-size: 12px; color: #fff; background: #c9a96e; border-radius: 8px;
+  padding: 6px 14px; margin-top: 4px;
+}
+.ps-offset-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* ── 名稱 input（inline label） ── */
 .ps-name-input {
