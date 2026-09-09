@@ -290,7 +290,7 @@ describe('CalendarTab — leaveTypeLocked 鎖定', () => {
 
   const FUTURE_DATE = fmtDate(addDays(30))
 
-  it('openEditEvent 讀到 leaveTypeLocked 事件時，saveEditEvent 不會改動假別跟時數', async () => {
+  it('openEditEvent 讀到 leaveTypeLocked 事件時，saveEditEvent 不會改動假別/時數，也不會動到 compConsumption', async () => {
     const usersStore = useUsersStore()
     const authStore = useAuthStore()
     const eventsStore = useCalendarEventsStore()
@@ -309,12 +309,10 @@ describe('CalendarTab — leaveTypeLocked 鎖定', () => {
 
     wrapper.vm.editForm.leaveType = '事假' // 模擬繞過 disable 屬性直接改
     wrapper.vm.editForm.hours = 100
-    // finalizeEditEvent 既有邏輯：即使假別/時數被鎖定重設回原值，因為假別維持補休（wasTracked===isTracked），
-    // 還是會跑一次退回再核銷的餘額檢查，這裡補足 mock 讓餘額足夠，才不會卡在「補休時數不足」而擋住 updateEvent
-    vi.spyOn(usersStore, 'fetchCompLedger').mockResolvedValue([
-      { id: 'led-1', type: '平日', hours: 8, remainingHours: 8, createdAt: { toMillis: () => 1 } },
-    ])
-    vi.spyOn(usersStore, 'applyLedgerConsumption').mockResolvedValue()
+    // 假別/時數被鎖定重設回原值後，跟原值完全相同（noChange），finalizeEditEvent 應該整段跳過
+    // 退回/重新核銷邏輯，不應該呼叫 fetchCompLedger／applyLedgerConsumption
+    const fetchLedgerSpy = vi.spyOn(usersStore, 'fetchCompLedger').mockResolvedValue([])
+    const applyLedgerSpy = vi.spyOn(usersStore, 'applyLedgerConsumption').mockResolvedValue()
     const updateSpy = vi.spyOn(eventsStore, 'updateEvent').mockResolvedValue()
     await wrapper.vm.saveEditEvent()
     await flushPromises()
@@ -322,6 +320,42 @@ describe('CalendarTab — leaveTypeLocked 鎖定', () => {
     const savedPayload = updateSpy.mock.calls[0][1]
     expect(savedPayload.leaveType).toBe('補休')
     expect(savedPayload.hours).toBe(8)
+    // compConsumption 沒有被設定：updateDoc 是部分合併，原本存的 compConsumption 會維持不變
+    expect(savedPayload.compConsumption).toBeUndefined()
+    expect(fetchLedgerSpy).not.toHaveBeenCalled()
+    expect(applyLedgerSpy).not.toHaveBeenCalled()
+  })
+
+  it('鎖定事件如果被繞過改了 personName，saveEditEvent 存檔後會還原回原本的人員', async () => {
+    const usersStore = useUsersStore()
+    const authStore = useAuthStore()
+    const eventsStore = useCalendarEventsStore()
+    authStore.role = 'admin'
+    authStore.name = '柏'
+    usersStore.users = [{ id: 'u-bang', name: '蚌' }, { id: 'u-qh', name: '其宏' }]
+    const wrapper = mount(CalendarTab, { props: { region: 'south' } })
+    await flushPromises()
+
+    wrapper.vm.openEditEvent({
+      id: 'ev-1', type: 'leave', personName: '蚌', leaveType: '補休', hours: 8,
+      date: { toDate: () => new Date(FUTURE_DATE) },
+      leaveTypeLocked: true, compConsumption: [{ id: 'led-1', hours: 8 }],
+    })
+    expect(wrapper.vm.editForm._leaveTypeLocked).toBe(true)
+
+    wrapper.vm.editForm.personName = '其宏' // 模擬繞過 disable 屬性直接改指派對象
+    const fetchLedgerSpy = vi.spyOn(usersStore, 'fetchCompLedger').mockResolvedValue([])
+    const applyLedgerSpy = vi.spyOn(usersStore, 'applyLedgerConsumption').mockResolvedValue()
+    const updateSpy = vi.spyOn(eventsStore, 'updateEvent').mockResolvedValue()
+    await wrapper.vm.saveEditEvent()
+    await flushPromises()
+
+    expect(wrapper.vm.editForm.personName).toBe('蚌')
+    const savedPayload = updateSpy.mock.calls[0][1]
+    expect(savedPayload.personName).toBe('蚌')
+    expect(savedPayload.compConsumption).toBeUndefined()
+    expect(fetchLedgerSpy).not.toHaveBeenCalled()
+    expect(applyLedgerSpy).not.toHaveBeenCalled()
   })
 
   it('leaveTypeLocked 事件呼叫 removeEvent 會被擋下', async () => {

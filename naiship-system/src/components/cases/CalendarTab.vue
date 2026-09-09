@@ -268,8 +268,11 @@
         </div>
         <template v-if="editForm.type === 'leave'">
           <div>
-            <label class="text-xs text-gray-500 mb-1 block">請假人員</label>
-            <select v-model="editForm.personName" :disabled="!authStore.isManager"
+            <label class="text-xs text-gray-500 mb-1 block">
+              請假人員
+              <span v-if="editForm._leaveTypeLocked" class="ml-1 text-[10px] text-red-400">（已透過薪資單折抵補休，請至薪資單取消折抵後再編輯）</span>
+            </label>
+            <select v-model="editForm.personName" :disabled="!authStore.isManager || editForm._leaveTypeLocked"
               class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1 disabled:bg-gray-50 disabled:text-gray-500">
               <option value="">— 請選擇 —</option>
               <option v-for="u in usersStore.users" :key="u.id" :value="u.name">{{ u.name }}</option>
@@ -720,11 +723,12 @@ async function saveEditEvent() {
     toast('只有蚌、其宏、柏可以修改別人的請假紀錄', 'error')
     return
   }
-  // 已透過薪資單折抵補休的事件（leaveTypeLocked）：假別/時數欄位在畫面上已 disable，
+  // 已透過薪資單折抵補休的事件（leaveTypeLocked）：假別/時數/人員欄位在畫面上已 disable，
   // 這裡再擋一層，避免使用者繞過 disabled 屬性直接改 v-model 值
   if (editForm.value._leaveTypeLocked) {
     editForm.value.leaveType = editForm.value._origLeaveType
     editForm.value.hours = editForm.value._origHours
+    editForm.value.personName = editForm.value._origPersonName
   }
   if (isLeave) {
     const conflicts = await checkLeaveConflict(editForm.value.personName, editForm.value.date, editForm.value.endDate, editingEventId.value)
@@ -779,18 +783,26 @@ async function finalizeEditEvent() {
       payload.endDate = null
     }
 
-    // 補休/特休時數：只對今日（含）以後的事件調整
+    // 補休/特休時數：只對今日（含）以後的事件調整；假別/時數/人員三者都沒變時整段跳過，
+    // 避免不必要的「退回再重新核銷」把 compConsumption 換成不同分錄組合（總時數不變但分錄id可能不同），
+    // 影響後續取消折抵功能需要精確反向操作 compConsumption 的能力。updateEvent 底層是 Firestore
+    // 的 updateDoc（部分合併），沒設定的欄位不會被動到，原本存的 compConsumption 會維持不變
     if (isLeave && editForm.value._origDate >= todayStr) {
-      const wasTracked = TRACKED_LEAVE_TYPES.includes(editForm.value._origLeaveType)
-      const isTracked = TRACKED_LEAVE_TYPES.includes(editForm.value.leaveType)
-      if (wasTracked && editForm.value._origPersonName)
-        await applyLeaveDelta(editForm.value._origLeaveType, editForm.value._origPersonName, editForm.value._origHours, editForm.value._origCompConsumption)
-      if (isTracked && editForm.value.personName) {
-        const hours = editForm.value.hours || 0
-        const balance = await getLeaveBalance(editForm.value.leaveType, editForm.value.personName)
-        if (balance < leaveNeeded(editForm.value.leaveType, hours)) { toast(leaveInsufficientMsg(editForm.value.leaveType), 'error'); return false }
-        const consumption = await applyLeaveDelta(editForm.value.leaveType, editForm.value.personName, -hours)
-        if (editForm.value.leaveType === '補休') payload.compConsumption = consumption || []
+      const noChange = editForm.value.leaveType === editForm.value._origLeaveType &&
+        editForm.value.hours === editForm.value._origHours &&
+        editForm.value.personName === editForm.value._origPersonName
+      if (!noChange) {
+        const wasTracked = TRACKED_LEAVE_TYPES.includes(editForm.value._origLeaveType)
+        const isTracked = TRACKED_LEAVE_TYPES.includes(editForm.value.leaveType)
+        if (wasTracked && editForm.value._origPersonName)
+          await applyLeaveDelta(editForm.value._origLeaveType, editForm.value._origPersonName, editForm.value._origHours, editForm.value._origCompConsumption)
+        if (isTracked && editForm.value.personName) {
+          const hours = editForm.value.hours || 0
+          const balance = await getLeaveBalance(editForm.value.leaveType, editForm.value.personName)
+          if (balance < leaveNeeded(editForm.value.leaveType, hours)) { toast(leaveInsufficientMsg(editForm.value.leaveType), 'error'); return false }
+          const consumption = await applyLeaveDelta(editForm.value.leaveType, editForm.value.personName, -hours)
+          if (editForm.value.leaveType === '補休') payload.compConsumption = consumption || []
+        }
       }
     }
 
