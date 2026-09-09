@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { collection, query, where, orderBy, onSnapshot, updateDoc, getDoc, getDocs, addDoc, doc, increment, runTransaction, serverTimestamp } from 'firebase/firestore'
+import { collection, query, where, orderBy, onSnapshot, updateDoc, getDoc, getDocs, addDoc, doc, increment, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/firebase'
 
 // 用 sv-SE locale 取得 'YYYY-MM-DD' 格式字串、強制鎖定 Asia/Taipei 時區，
@@ -36,72 +36,8 @@ export const useUsersStore = defineStore('users', () => {
         return updateDoc(doc(db, 'users', uid), data)
     }
 
-    async function logLeaveAdjustment(uid, field, delta, meta) {
-        if (!meta || delta === 0) return
-        await addDoc(collection(db, 'users', uid, 'compAdjustments'), {
-            field, delta, source: 'leave',
-            leaveType: meta.leaveType || '',
-            adjustedBy: meta.adjustedBy || '',
-            adjustedAt: serverTimestamp(),
-        })
-    }
-
-    async function adjustCompensatoryHours(uid, delta, meta = null) {
-        await updateDoc(doc(db, 'users', uid), { compensatoryHours: increment(delta) })
-        await logLeaveAdjustment(uid, 'compensatoryHours', delta, meta)
-    }
-
-    async function adjustCompensatoryHolidayHours(uid, delta, meta = null) {
-        await updateDoc(doc(db, 'users', uid), { compensatoryHolidayHours: increment(delta) })
-        await logLeaveAdjustment(uid, 'compensatoryHolidayHours', delta, meta)
-    }
-
     async function adjustAnnualLeaveHours(uid, delta) {
         return updateDoc(doc(db, 'users', uid), { annualLeaveHours: increment(delta) })
-    }
-
-    // 補休月結：把「上個月」的補休/休息日補休餘額凍結成快照後歸零。
-    // 因為系統沒有排程後端，這個函式被設計成在任何會讀取/修改補休欄位的操作
-    // 「之前」都先呼叫一次，等於把結算動作塞進操作的必經路徑上——新月份的
-    // 第一筆異動一定會先觸發結算，用的是「異動發生前一刻」的餘額，不可能
-    // 有跨月混算。第一次呼叫（compClosedMonth 不存在）只設定基準月份，不
-    // 做任何快照/歸零，避免部署當下把還沒過完的當月餘額誤判成「上個月」結清。
-    // 已知限制：若在月底最後一天才第一次部署上線，當月餘額不會被首次呼叫
-    // 捕捉到（下個月才會補上，但那個月的餘額會被跳過不結算）。
-    async function ensureMonthClosed(uid, now = new Date()) {
-        const userRef = doc(db, 'users', uid)
-        const monthToClose = prevMonthStr(now)
-        return runTransaction(db, async (tx) => {
-            const snap = await tx.get(userRef)
-            const data = snap.data() ?? {}
-            const closedMonth = data.compClosedMonth ?? null
-            if (closedMonth === null) {
-                tx.set(userRef, { compClosedMonth: monthToClose }, { merge: true })
-                return
-            }
-            if (closedMonth >= monthToClose) return
-            const weekdayHours = data.compensatoryHours || 0
-            const holidayHours = data.compensatoryHolidayHours || 0
-            const snapshotRef = doc(db, 'users', uid, 'compClosingBalances', monthToClose)
-            tx.set(snapshotRef, { weekdayHours, holidayHours, closedAt: serverTimestamp() })
-            tx.update(userRef, {
-                compensatoryHours: 0,
-                compensatoryHolidayHours: 0,
-                compClosedMonth: monthToClose,
-            })
-        })
-    }
-
-    async function getClosingBalance(uid, month) {
-        const snap = await getDoc(doc(db, 'users', uid, 'compClosingBalances', month))
-        return snap.exists() ? snap.data() : null
-    }
-
-    // 補休結算快照依月份分開存，回傳這個人所有已結算過的月份（新到舊排序），
-    // 讓明細視窗可以列出來給使用者挑選查看歷史月份
-    async function listClosingMonths(uid) {
-        const snap = await getDocs(collection(db, 'users', uid, 'compClosingBalances'))
-        return snap.docs.map(d => d.id).sort().reverse()
     }
 
     // 手動調整補休/休息日補休時數（「調整」「歸零」按鈕）：這條路徑不經過加班核准流程，
@@ -179,5 +115,10 @@ export const useUsersStore = defineStore('users', () => {
         if (unsubscribe) { unsubscribe(); unsubscribe = null }
     }
 
-    return { users, subscribe, updateUser, adjustCompensatoryHours, adjustCompensatoryHolidayHours, adjustAnnualLeaveHours, ensureMonthClosed, getClosingBalance, listClosingMonths, adjustCompensatoryField, applyAnnualLeaveCycle, fetchCompAdjustments, getUser, cleanup, fetchCompLedger, addLedgerEntry, applyLedgerConsumption }
+    return {
+        users, subscribe, updateUser, adjustAnnualLeaveHours,
+        adjustCompensatoryField, applyAnnualLeaveCycle,
+        fetchCompAdjustments, getUser, cleanup,
+        fetchCompLedger, addLedgerEntry, applyLedgerConsumption,
+    }
 })
