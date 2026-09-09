@@ -195,7 +195,7 @@ describe('allocatePayment', () => {
         expect(result).toEqual([{ itemId: 'i2', amount: 5000 }, { itemId: 'i1', amount: 7000 }])
     })
 
-    it('圖付：金額不夠付清所有勾選項目時，前面的項目先付清，後面的項目只分到剩餘部分', () => {
+    it('部分付款：金額不夠付清所有勾選項目時，前面的項目先付清，後面的項目只分到剩餘部分', () => {
         const wt = { vendorPayments: [] }
         const items = makeItems()
         const result = allocatePayment(12000, items, wt)
@@ -225,5 +225,22 @@ describe('allocatePayment', () => {
 
     it('沒有勾選任何項目時回傳空陣列', () => {
         expect(allocatePayment(5000, [], { vendorPayments: [] })).toEqual([])
+    })
+
+    it('（已知行為，非防呆）selectedItems若重複同一項目會被雙重分攤，呼叫端必須自行保證不傳重複項目', () => {
+        const wt = { vendorPayments: [] }
+        const item = { id: 'i1', description: '項目', amount: 10000 }
+        const result = allocatePayment(15000, [item, item], wt)
+        // 第一輪分攤10000（付清），第二輪owed又重算成10000（因為itemPaid只看wt.vendorPayments裡已存的歷史紀錄，
+        // 不會扣掉本次迴圈前面步驟還沒寫回wt的分攤），所以總共分攤到15000，超過item自己的10000欠款
+        expect(result).toEqual([{ itemId: 'i1', amount: 10000 }, { itemId: 'i1', amount: 5000 }])
+    })
+
+    it('項目已經超額付款（owed為負）時，不會產生負數分攤金額', () => {
+        // 已付12000，但項目金額只有10000（理論上不該發生，但要確認行為安全）
+        const wt = { vendorPayments: [{ amount: 12000, itemAllocations: [{ itemId: 'i1', amount: 12000 }] }] }
+        const items = [{ id: 'i1', description: '項目', amount: 10000 }]
+        const result = allocatePayment(5000, items, wt)
+        expect(result).toEqual([])
     })
 })
