@@ -158,7 +158,7 @@
           <div v-if="offsetCandidates.length && auth.isAdmin" class="ps-offset-block">
             <div class="ps-offset-title">補休折抵事假（目前補休餘額 {{ compBalance }}h）</div>
             <label v-for="e in offsetCandidates" :key="e.id" class="ps-offset-row">
-              <input type="checkbox" :value="e.id" :checked="offsetSelectedIds.includes(e.id)" @change="toggleOffsetSelect(e.id)">
+              <input type="checkbox" :value="e.id" :checked="offsetSelectedIds.includes(e.id)" :disabled="offsetting" @change="toggleOffsetSelect(e.id)">
               <span>{{ e.date.getMonth()+1 }}/{{ e.date.getDate() }} {{ e.leaveType }} {{ e.hours }}h</span>
             </label>
             <div class="ps-offset-summary">
@@ -873,26 +873,40 @@ function toggleOffsetSelect(id) {
 }
 
 async function confirmOffset() {
-    const user = usersStore.users.find(u => u.name === form.value.empName)
+    const targetName = form.value.empName
+    const targetMonth = form.value.payMonth
+    const user = usersStore.users.find(u => u.name === targetName)
     if (!user || !canConfirmOffset.value || offsetting.value) return
     offsetting.value = true
-    const selectedEvents = offsetCandidates.value.filter(e => offsetSelectedIds.value.includes(e.id))
+    // selectedEvents/needed 在這裡（等待任何 await 之前）就同步快照定案，不要在 await 之後才從
+    // reactive 的 offsetSelectedIds/offsetSelectedHours 重新讀——不然等待期間如果使用者改變勾選
+    // （勾選框此時還沒被 disabled 之前的狀態），needed 會跟 selectedEvents 兜不起來，
+    // 導致補休扣款金額跟實際被標記折抵的事件對不上，餘額憑空消失。
+    // 依日期排序純粹是為了讓 compConsumption 的分配順序跟查帳習慣一致（先發生的假先分配到分錄），
+    // 不影響總扣款時數。
+    const selectedEvents = offsetCandidates.value
+        .filter(e => offsetSelectedIds.value.includes(e.id))
+        .sort((a, b) => (a.date ?? 0) - (b.date ?? 0))
+    const needed = selectedEvents.reduce((s, e) => s + e.hours, 0)
     const doneIds = []
     try {
         const entries = await usersStore.fetchCompLedger(user.id)
+        if (form.value.empName !== targetName || form.value.payMonth !== targetMonth) return
         entries.sort((a, b) => (a.createdAt?.toMillis?.() ?? 0) - (b.createdAt?.toMillis?.() ?? 0))
-        const needed = offsetSelectedHours.value
         const weekday = consumeFIFO(entries, '平日', needed)
         const holiday = weekday.shortfall > 0
             ? consumeFIFO(weekday.updatedEntries, '休息日', weekday.shortfall)
             : { consumptions: [], updatedEntries: weekday.updatedEntries }
         const allConsumptions = [...weekday.consumptions, ...holiday.consumptions]
         const touchedIds = new Set(allConsumptions.map(c => c.id))
-        // 先一次扣掉補休餘額，這一步是單一 Promise.all 呼叫，成功就是全部成功。
-        // 扣完之後才逐筆改請假事件——如果中途某一筆 updateEvent 失敗，補休已經扣了、
-        // 但只有部分事件被改成補休，doneIds 記下已成功的部分，catch 裡才能明確告知
-        // 使用者「已折抵 X 筆、剩下 Y 筆沒成功」，不會讓人誤以為完全沒生效而重複點擊。
+        // applyLedgerConsumption 內部是 Promise.all 平行寫入多筆分錄，不是資料庫層級的原子操作——
+        // 如果其中一筆 updateDoc 失敗，前面已成功的分錄不會自動回滾。之後逐筆改請假事件也是同樣道理，
+        // 中途失敗時已成功的那幾筆不會回滾。重新呼叫 confirmOffset 本身是安全的，因為每次都會重新
+        // fetchCompLedger 抓取當下真實餘額；但重試前必須先讓本地狀態（offsetCandidates/compBalance）
+        // 同步過伺服器最新狀態，這是下面 catch 區塊要做的事，不然舊的 offsetCandidates 還會包含
+        // 已經成功折抵、伺服器端 leaveTypeLocked 已經是 true 的事件，重試會對它們重複扣款。
         await usersStore.applyLedgerConsumption(user.id, holiday.updatedEntries.filter(e => touchedIds.has(e.id)))
+        if (form.value.empName !== targetName || form.value.payMonth !== targetMonth) return
 
         const pool = allConsumptions.map(c => ({ ...c }))
         for (const ev of selectedEvents) {
@@ -908,7 +922,7 @@ async function confirmOffset() {
             }
             await calendarEventsStore.updateEvent(ev.id, {
                 leaveType: '補休',
-                label: `${form.value.empName} 補休 ${ev.hours}h（原事假，已折抵）`,
+                label: `${targetName} 補休 ${ev.hours}h（原事假，已折抵）`,
                 convertedFromLeaveType: '事假',
                 leaveTypeLocked: true,
                 compConsumption: evConsumptions,
@@ -916,10 +930,20 @@ async function confirmOffset() {
             doneIds.push(ev.id)
         }
         offsetSelectedIds.value = []
-        await refreshCompBalance()
-        await fetchPayrollData()
-        toast(`已用補休折抵 ${needed} 小時事假`)
+        if (form.value.empName === targetName && form.value.payMonth === targetMonth) {
+            await refreshCompBalance()
+            await fetchPayrollData()
+            toast(`已用補休折抵 ${needed} 小時事假`)
+        }
     } catch {
+        // 不管有沒有部分成功，都要清空選取並重新從伺服器同步一次，避免使用者對著已經不存在於
+        // 候選清單的舊 id、或已經被扣過的補休餘額重複點擊確認折抵。只有在使用者中途沒有切走
+        // 員工/月份時才實際重抓資料寫回畫面，不然會把不相關的新畫面弄亂。
+        offsetSelectedIds.value = []
+        if (form.value.empName === targetName && form.value.payMonth === targetMonth) {
+            await refreshCompBalance()
+            await fetchPayrollData()
+        }
         if (doneIds.length > 0) {
             toast(`折抵部分成功（已折抵 ${doneIds.length}/${selectedEvents.length} 筆），請重新整理確認後再處理剩下的`, 'error')
         } else {
@@ -1274,16 +1298,16 @@ async function downloadJpg() {
 .ps-leave-unit   { font-size:11px; color:#9ca3af; }
 .ps-leave-result { font-size:11px; color:#c9a96e; flex:1; text-align:right; }
 .ps-leave-total  { font-size:12px; color:#c9a96e; font-weight:600; text-align:right; margin-top:6px; padding-top:6px; border-top:1px dashed #eeebe4; }
-.ps-offset-block { border-top: 1px dashed #e5e7eb; margin-top: 8px; padding-top: 8px; }
-.ps-offset-title { font-size: 11px; color: #6b7280; margin-bottom: 6px; }
-.ps-offset-row { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #374151; margin-bottom: 4px; }
-.ps-offset-summary { font-size: 10px; color: #9ca3af; margin: 4px 0; }
-.ps-offset-warn { color: #ef4444; margin-left: 6px; }
+.ps-offset-block { border-top:1px dashed #e5e7eb; margin-top:8px; padding-top:8px; }
+.ps-offset-title { font-size:11px; color:#6b7280; margin-bottom:6px; }
+.ps-offset-row { display:flex; align-items:center; gap:6px; font-size:11px; color:#374151; margin-bottom:4px; }
+.ps-offset-summary { font-size:10px; color:#9ca3af; margin:4px 0; }
+.ps-offset-warn { color:#ef4444; margin-left:6px; }
 .ps-offset-btn {
-  font-size: 12px; color: #fff; background: #c9a96e; border-radius: 8px;
-  padding: 6px 14px; margin-top: 4px;
+    font-size:12px; color:#fff; background:#c9a96e; border-radius:8px;
+    padding:6px 14px; margin-top:4px;
 }
-.ps-offset-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.ps-offset-btn:disabled { opacity:0.4; cursor:not-allowed; }
 
 /* ── 名稱 input（inline label） ── */
 .ps-name-input {
