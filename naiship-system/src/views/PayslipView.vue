@@ -740,13 +740,18 @@ async function refreshAutoItems() {
             if (form.value.empName !== targetName || form.value.payMonth !== targetMonth) return
             toast('季度獎金查詢失敗，請重試', 'error')
         }
-        const cashoutSnap = await getDocs(query(
-            collection(db, 'users', user.id, 'compCashouts'),
-            where('payMonth', '==', targetMonth)
-        ))
-        if (form.value.empName !== targetName || form.value.payMonth !== targetMonth) return
-        const cashouts = cashoutSnap.docs.map(d => ({ id: d.id, ...d.data() }))
-        items.push(...buildCompCashoutAutoItems(cashouts))
+        try {
+            const cashoutSnap = await getDocs(query(
+                collection(db, 'users', user.id, 'compCashouts'),
+                where('payMonth', '==', targetMonth)
+            ))
+            if (form.value.empName !== targetName || form.value.payMonth !== targetMonth) return
+            const cashouts = cashoutSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+            items.push(...buildCompCashoutAutoItems(cashouts))
+        } catch {
+            if (form.value.empName !== targetName || form.value.payMonth !== targetMonth) return
+            toast('補休換現金查詢失敗，請重試', 'error')
+        }
     }
     form.value.autoItems = items
     compute()
