@@ -485,7 +485,7 @@ import { useToast } from '@/composables/useToast'
 import { memberColor } from '@/utils/memberColor'
 import { hoursToDays } from '@/utils/leaveConversion'
 import { computeBirthdayGift, computeFestivalGifts, payMonthToBonusQuarter, buildBonusAutoItems, buildCompCashoutAutoItems } from '@/utils/payslipAutoItems'
-import { consumeFIFO, sumRemainingHours } from '@/utils/compLedger'
+import { consumeFIFO, refundConsumption, sumRemainingHours } from '@/utils/compLedger'
 import { useBonusQuartersStore } from '@/stores/bonusQuarters'
 import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore'
 import { db } from '@/firebase'
@@ -849,6 +849,10 @@ const hasLeave = computed(() =>
 /* ── 補休折抵事假 ── */
 const offsetCandidates = computed(() =>
     pendingLeaveEntries.value.filter(e => ['事假', '臨請'].includes(e.leaveType) && !e.leaveTypeLocked)
+)
+// 給後續「取消折抵」功能用：列出這個月已經折抵成補休的事件，undoOffset() 會從這裡取得清單
+const convertedEntries = computed(() =>
+    pendingLeaveEntries.value.filter(e => e.leaveTypeLocked)
 )
 const offsetSelectedHours = computed(() =>
     offsetCandidates.value.filter(e => offsetSelectedIds.value.includes(e.id)).reduce((s, e) => s + e.hours, 0)
