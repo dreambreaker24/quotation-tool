@@ -282,3 +282,66 @@ describe('CalendarTab — 請假衝突偵測', () => {
     expect(addSpy).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('CalendarTab — leaveTypeLocked 鎖定', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+  })
+
+  const FUTURE_DATE = fmtDate(addDays(30))
+
+  it('openEditEvent 讀到 leaveTypeLocked 事件時，saveEditEvent 不會改動假別跟時數', async () => {
+    const usersStore = useUsersStore()
+    const authStore = useAuthStore()
+    const eventsStore = useCalendarEventsStore()
+    authStore.role = 'admin'
+    authStore.name = '柏'
+    usersStore.users = [{ id: 'u-bang', name: '蚌' }]
+    const wrapper = mount(CalendarTab, { props: { region: 'south' } })
+    await flushPromises()
+
+    wrapper.vm.openEditEvent({
+      id: 'ev-1', type: 'leave', personName: '蚌', leaveType: '補休', hours: 8,
+      date: { toDate: () => new Date(FUTURE_DATE) },
+      leaveTypeLocked: true, convertedFromLeaveType: '事假', compConsumption: [{ id: 'led-1', hours: 8 }],
+    })
+    expect(wrapper.vm.editForm._leaveTypeLocked).toBe(true)
+
+    wrapper.vm.editForm.leaveType = '事假' // 模擬繞過 disable 屬性直接改
+    wrapper.vm.editForm.hours = 100
+    // finalizeEditEvent 既有邏輯：即使假別/時數被鎖定重設回原值，因為假別維持補休（wasTracked===isTracked），
+    // 還是會跑一次退回再核銷的餘額檢查，這裡補足 mock 讓餘額足夠，才不會卡在「補休時數不足」而擋住 updateEvent
+    vi.spyOn(usersStore, 'fetchCompLedger').mockResolvedValue([
+      { id: 'led-1', type: '平日', hours: 8, remainingHours: 8, createdAt: { toMillis: () => 1 } },
+    ])
+    vi.spyOn(usersStore, 'applyLedgerConsumption').mockResolvedValue()
+    const updateSpy = vi.spyOn(eventsStore, 'updateEvent').mockResolvedValue()
+    await wrapper.vm.saveEditEvent()
+    await flushPromises()
+
+    const savedPayload = updateSpy.mock.calls[0][1]
+    expect(savedPayload.leaveType).toBe('補休')
+    expect(savedPayload.hours).toBe(8)
+  })
+
+  it('leaveTypeLocked 事件呼叫 removeEvent 會被擋下', async () => {
+    const usersStore = useUsersStore()
+    const authStore = useAuthStore()
+    const eventsStore = useCalendarEventsStore()
+    authStore.role = 'admin'
+    authStore.name = '柏'
+    usersStore.users = [{ id: 'u-bang', name: '蚌' }]
+    const wrapper = mount(CalendarTab, { props: { region: 'south' } })
+    await flushPromises()
+
+    wrapper.vm.openEditEvent({
+      id: 'ev-1', type: 'leave', personName: '蚌', leaveType: '補休', hours: 8,
+      date: { toDate: () => new Date(FUTURE_DATE) },
+      leaveTypeLocked: true,
+    })
+    const deleteSpy = vi.spyOn(eventsStore, 'deleteEvent')
+    await wrapper.vm.removeEvent()
+
+    expect(deleteSpy).not.toHaveBeenCalled()
+  })
+})

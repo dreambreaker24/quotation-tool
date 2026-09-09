@@ -281,15 +281,17 @@
               <span v-if="editForm.startTime && editForm.endTime" class="ml-1 text-[10px] text-amber-500">（已自動計算）</span>
             </label>
             <input v-model.number="editForm.hours" type="number" min="0" step="0.5"
-              class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1">
+              :disabled="editForm._leaveTypeLocked"
+              class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 disabled:opacity-50 disabled:cursor-not-allowed">
           </div>
           <div>
             <label class="text-xs text-gray-500 mb-1 block">
               假別
               <span v-if="editForm._origDate < todayStr" class="ml-1 text-[10px] text-red-400">（過去日期不可變更）</span>
+              <span v-else-if="editForm._leaveTypeLocked" class="ml-1 text-[10px] text-red-400">（已透過薪資單折抵補休，請至薪資單取消折抵後再編輯）</span>
             </label>
             <select v-model="editForm.leaveType"
-              :disabled="editForm._origDate < todayStr"
+              :disabled="editForm._origDate < todayStr || editForm._leaveTypeLocked"
               class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1 disabled:opacity-50 disabled:cursor-not-allowed">
               <option value="">— 請選擇 —</option>
               <option v-for="t in LEAVE_TYPES" :key="t" :value="t">{{ t }}</option>
@@ -358,7 +360,9 @@
         </template>
       </div>
       <div class="flex justify-between mt-5">
-        <button @click="removeEvent" class="text-sm text-red-400 hover:text-red-600 px-3 py-2">刪除</button>
+        <button @click="removeEvent" :disabled="editForm._leaveTypeLocked"
+          :title="editForm._leaveTypeLocked ? '已透過薪資單折抵補休，請至薪資單取消折抵後再刪除' : ''"
+          class="text-sm text-red-400 hover:text-red-600 px-3 py-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-red-400">刪除</button>
         <div class="flex gap-2">
           <button @click="showEditEvent = false" class="text-sm text-gray-400 px-4 py-2">取消</button>
           <button @click="saveEditEvent" :disabled="!canSubmitEditEvent"
@@ -696,6 +700,7 @@ function openEditEvent(event) {
     _origPersonName: event.personName || '',
     _origDate: tsToDateStr(event.date),
     _origCompConsumption: event.compConsumption || [],
+    _leaveTypeLocked: event.leaveTypeLocked || false,
   }
   showEditEvent.value = true
 }
@@ -715,8 +720,8 @@ async function saveEditEvent() {
     toast('只有蚌、其宏、柏可以修改別人的請假紀錄', 'error')
     return
   }
-  // _leaveTypeLocked 由後續「補休折抵事假」功能寫入 editForm（openEditEvent 讀取 event.leaveTypeLocked），
-  // 這個防呆先加在這裡；目前 editForm 還不會有這個欄位，此段是無害的空跑
+  // 已透過薪資單折抵補休的事件（leaveTypeLocked）：假別/時數欄位在畫面上已 disable，
+  // 這裡再擋一層，避免使用者繞過 disabled 屬性直接改 v-model 值
   if (editForm.value._leaveTypeLocked) {
     editForm.value.leaveType = editForm.value._origLeaveType
     editForm.value.hours = editForm.value._origHours
@@ -801,6 +806,10 @@ async function finalizeEditEvent() {
 }
 
 async function removeEvent() {
+  if (editForm.value._leaveTypeLocked) {
+    toast('已透過薪資單折抵補休，請至薪資單取消折抵後再刪除', 'error')
+    return
+  }
   if (editForm.value.type === 'leave' && !authStore.isManager && editForm.value._origPersonName !== authStore.name) {
     toast('只有蚌、其宏、柏可以刪除別人的請假紀錄', 'error')
     return
