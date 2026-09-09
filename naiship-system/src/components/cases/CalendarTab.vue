@@ -368,6 +368,30 @@
     </div>
   </div>
 
+  <!-- 請假衝突比對 Modal -->
+  <div v-if="conflictModal" class="fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.5)">
+    <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm mx-4 border-t-4 border-amber-400">
+      <h3 class="text-base font-bold text-gray-800 mb-1">偵測到請假重疊</h3>
+      <p class="text-xs text-gray-400 mb-3">同一人同時段已經有其他請假紀錄，請選擇要怎麼處理：</p>
+      <div class="bg-gray-50 rounded-lg p-3 mb-3">
+        <div v-for="c in conflictModal.conflicts" :key="c.id" class="text-xs text-gray-600 mb-1 last:mb-0">
+          現有：<span class="font-semibold">{{ c.leaveType }} {{ c.hours }}h</span>（{{ c.dateLabel }}）
+        </div>
+      </div>
+      <div v-if="conflictModal.suggestion" class="text-xs text-amber-600 mb-3">
+        ⭐ 補休餘額足夠，建議改用補休
+      </div>
+      <div class="flex flex-col gap-2">
+        <button @click="resolveConflict('keep')" class="text-sm border border-gray-200 rounded-lg py-2 hover:border-gray-400">保留現有</button>
+        <button @click="resolveConflict('comp')" class="text-sm rounded-lg py-2 text-white" style="background:#1e2533">
+          改用新增（補休）<span v-if="conflictModal.suggestion === '補休'">⭐</span>
+        </button>
+        <button @click="resolveConflict('personal')" class="text-sm border border-gray-200 rounded-lg py-2 hover:border-gray-400">改用新增（事假）</button>
+        <button @click="resolveConflict('cancel')" class="text-sm text-gray-400 py-2">取消</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 當天詳情 Modal -->
   <div v-if="showDayDetail" class="fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.4)">
     <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm mx-4 border-t-4 max-h-[80vh] flex flex-col" style="border-top-color:#c9a96e">
@@ -405,6 +429,7 @@ import { useNotificationsStore } from '@/stores/notifications'
 import { useToast } from '@/composables/useToast'
 import { hoursToDays } from '@/utils/leaveConversion'
 import { consumeFIFO, refundConsumption, sumRemainingHours } from '@/utils/compLedger'
+import { findOverlappingLeave } from '@/utils/leaveConflict'
 import CompensatoryPanel from './CompensatoryPanel.vue'
 import { TAIWAN_HOLIDAY_NAMES } from '@/constants/holidays'
 
@@ -478,6 +503,76 @@ function leaveInsufficientMsg(leaveType) {
 }
 
 const TRACKED_LEAVE_TYPES = ['補休', '特休']
+
+async function checkLeaveConflict(personName, dateStr, endDateStr, excludeId) {
+    if (!personName || !dateStr) return []
+    const raw = await eventsStore.fetchLeaveEventsByPerson(personName)
+    const normalized = raw.map(e => ({
+        id: e.id,
+        personName: e.personName,
+        date: tsToDateStr(e.date),
+        endDate: e.endDate ? tsToDateStr(e.endDate) : '',
+        leaveType: e.leaveType || '',
+        hours: e.hours || 0,
+        compConsumption: e.compConsumption || [],
+    }))
+    return findOverlappingLeave(normalized, { personName, date: dateStr, endDate: endDateStr, excludeId })
+}
+
+async function openConflictModal(mode, conflicts) {
+    const personName = mode === 'add' ? eventForm.value.personName : editForm.value.personName
+    const newLeaveType = mode === 'add' ? eventForm.value.leaveType : editForm.value.leaveType
+    const newHours = mode === 'add' ? eventForm.value.hours : editForm.value.hours
+    let suggestion = null
+    if (newLeaveType === '事假') {
+        const balance = await getLeaveBalance('補休', personName)
+        if (balance >= (newHours || 0)) suggestion = '補休'
+    }
+    conflictModal.value = {
+        mode,
+        suggestion,
+        conflicts: conflicts.map(c => ({
+            id: c.id,
+            leaveType: c.leaveType,
+            hours: c.hours,
+            dateLabel: c.endDate && c.endDate !== c.date ? `${c.date} ~ ${c.endDate}` : c.date,
+            compConsumption: c.compConsumption,
+        })),
+    }
+}
+
+function closeConflictModal() {
+    conflictModal.value = null
+}
+
+async function removeConflictingEvents(conflicts, mode) {
+    const personName = mode === 'add' ? eventForm.value.personName : editForm.value.personName
+    for (const c of conflicts) {
+        if (TRACKED_LEAVE_TYPES.includes(c.leaveType)) {
+            await applyLeaveDelta(c.leaveType, personName, c.hours, c.compConsumption)
+        }
+        await eventsStore.deleteEvent(c.id)
+    }
+}
+
+async function resolveConflict(choice) {
+    if (!conflictModal.value) return
+    const { mode, conflicts } = conflictModal.value
+    if (choice === 'cancel') { closeConflictModal(); return }
+    if (choice === 'keep') {
+        closeConflictModal()
+        if (mode === 'add') { eventForm.value = blankEvent(); showAddEvent.value = false }
+        else { showEditEvent.value = false }
+        return
+    }
+    const newLeaveType = choice === 'comp' ? '補休' : '事假'
+    if (mode === 'add') eventForm.value.leaveType = newLeaveType
+    else editForm.value.leaveType = newLeaveType
+    await removeConflictingEvents(conflicts, mode)
+    closeConflictModal()
+    if (mode === 'add') await finalizeAddEvent()
+    else await finalizeEditEvent()
+}
 const currentYear = ref(today.getFullYear())
 const currentMonth = ref(today.getMonth())
 const highlightDate = ref(null)
@@ -521,6 +616,9 @@ const eventForm = ref(blankEvent())
 const showEditEvent = ref(false)
 const editingEventId = ref(null)
 const editForm = ref({ type: 'note', date: '', endDate: '', label: '', personName: '', hours: 0, leaveType: '', caseIds: [], personNames: [], startTime: '', endTime: '' })
+
+const conflictModal = ref(null)
+// conflictModal 結構：{ mode: 'add' | 'edit', conflicts: [{id, leaveType, hours, dateLabel, compConsumption}], suggestion: '補休' | null }
 
 // 非管理者（蚌/其宏/柏以外）新增請假時，只能填自己的名字，選單直接鎖定
 watch(() => eventForm.value.type, (t) => {
@@ -589,6 +687,23 @@ async function saveEditEvent() {
     toast('只有蚌、其宏、柏可以修改別人的請假紀錄', 'error')
     return
   }
+  if (editForm.value._leaveTypeLocked) {
+    editForm.value.leaveType = editForm.value._origLeaveType
+    editForm.value.hours = editForm.value._origHours
+  }
+  if (isLeave) {
+    const conflicts = await checkLeaveConflict(editForm.value.personName, editForm.value.date, editForm.value.endDate, editingEventId.value)
+    if (conflicts.length) {
+      await openConflictModal('edit', conflicts)
+      return
+    }
+  }
+  await finalizeEditEvent()
+}
+
+async function finalizeEditEvent() {
+  const isLeave = editForm.value.type === 'leave'
+  const isMilestone = editForm.value.type === 'milestone'
   try {
     const caseNames = isMilestone
       ? editForm.value.caseIds.map(id => activeCases.value.find(c => c.id === id)?.name).filter(Boolean)
@@ -923,6 +1038,19 @@ async function submitEvent() {
     toast('只有蚌、其宏、柏可以新增別人的請假紀錄', 'error')
     return
   }
+  if (isLeave) {
+    const conflicts = await checkLeaveConflict(eventForm.value.personName, eventForm.value.date, eventForm.value.endDate, null)
+    if (conflicts.length) {
+      await openConflictModal('add', conflicts)
+      return
+    }
+  }
+  await finalizeAddEvent()
+}
+
+async function finalizeAddEvent() {
+  const isLeave = eventForm.value.type === 'leave'
+  const isMilestone = eventForm.value.type === 'milestone'
   try {
     const caseNames = isMilestone
       ? eventForm.value.caseIds.map(id => activeCases.value.find(c => c.id === id)?.name).filter(Boolean)
