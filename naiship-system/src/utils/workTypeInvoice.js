@@ -50,3 +50,29 @@ export function computePendingInvoiceGroups(cases) {
     }
     return caseOrder.map(id => caseMap[id])
 }
+
+// 這個項目累計已經分攤到多少付款金額（跨所有付款紀錄加總）
+export function itemPaid(wt, itemId) {
+    return (wt.vendorPayments || [])
+        .flatMap(vp => vp.itemAllocations || [])
+        .filter(a => a.itemId === itemId)
+        .reduce((sum, a) => sum + (a.amount || 0), 0)
+}
+
+// 把一筆付款金額依序分攤到 selectedItems（依傳入陣列順序，呼叫端負責保證這個順序是
+// vendorCostItems 原本的順序），每個項目最多分到「還欠的金額」，分完還有剩餘就繼續分給下一個項目，
+// 金額超過所有選定項目欠款加總時，多餘部分不分攤（不算錯誤，付款總額本身仍完整記錄在vp.amount）
+export function allocatePayment(amount, selectedItems, wt) {
+    let remaining = amount
+    const allocations = []
+    for (const item of selectedItems) {
+        if (remaining <= 0) break
+        const owed = item.amount - itemPaid(wt, item.id)
+        const take = Math.min(owed, remaining)
+        if (take > 0) {
+            allocations.push({ itemId: item.id, amount: take })
+            remaining -= take
+        }
+    }
+    return allocations
+}
