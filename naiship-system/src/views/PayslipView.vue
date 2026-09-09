@@ -891,6 +891,7 @@ async function confirmOffset() {
     const doneIds = []
     try {
         const entries = await usersStore.fetchCompLedger(user.id)
+        // 這個檢查在任何 Firestore 寫入開始之前，可以直接放棄整個操作，不會留下半套資料。
         if (form.value.empName !== targetName || form.value.payMonth !== targetMonth) return
         entries.sort((a, b) => (a.createdAt?.toMillis?.() ?? 0) - (b.createdAt?.toMillis?.() ?? 0))
         const weekday = consumeFIFO(entries, '平日', needed)
@@ -906,8 +907,12 @@ async function confirmOffset() {
         // 同步過伺服器最新狀態，這是下面 catch 區塊要做的事，不然舊的 offsetCandidates 還會包含
         // 已經成功折抵、伺服器端 leaveTypeLocked 已經是 true 的事件，重試會對它們重複扣款。
         await usersStore.applyLedgerConsumption(user.id, holiday.updatedEntries.filter(e => touchedIds.has(e.id)))
-        if (form.value.empName !== targetName || form.value.payMonth !== targetMonth) return
-
+        // 這一步呼叫下去，Firestore 端的補休餘額就真的被扣了——從這裡開始「已經是進行中的寫入」，
+        // 不能再用 stale 檢查提早 return。那樣會讓補休永久被扣、卻沒有任何事假事件被標記折抵，
+        // 是完全靜默的資料不一致（比重複扣款更糟：重複扣款至少會走到 catch 跳出錯誤）。所以底下
+        // 標記事件的迴圈跟 doneIds 記錄要不管使用者切走與否都照常跑完，只有最後「要不要把結果
+        // 寫回畫面」（refreshCompBalance/fetchPayrollData/toast）才用 stale 檢查決定要不要執行，
+        // 跟 confirmBonusPaid() 既有寫法（迴圈裡用 continue 跳過畫面更新、Firestore 寫入照跑）同一原則。
         const pool = allConsumptions.map(c => ({ ...c }))
         for (const ev of selectedEvents) {
             const evConsumptions = []
@@ -936,18 +941,19 @@ async function confirmOffset() {
             toast(`已用補休折抵 ${needed} 小時事假`)
         }
     } catch {
-        // 不管有沒有部分成功，都要清空選取並重新從伺服器同步一次，避免使用者對著已經不存在於
-        // 候選清單的舊 id、或已經被扣過的補休餘額重複點擊確認折抵。只有在使用者中途沒有切走
-        // 員工/月份時才實際重抓資料寫回畫面，不然會把不相關的新畫面弄亂。
+        // 不管有沒有部分成功，都要清空選取，避免使用者對著已經不存在於候選清單的舊 id、
+        // 或已經被扣過的補休餘額重複點擊確認折抵。只有在使用者中途沒有切走員工/月份時，
+        // 才實際重抓資料寫回畫面、跳錯誤 toast——不然會把不相關的新畫面弄亂，也可能讓人誤以為
+        // 剛選好的新員工出了錯（比照 confirmBonusPaid() 的 stale 檢查原則）。
         offsetSelectedIds.value = []
         if (form.value.empName === targetName && form.value.payMonth === targetMonth) {
             await refreshCompBalance()
             await fetchPayrollData()
-        }
-        if (doneIds.length > 0) {
-            toast(`折抵部分成功（已折抵 ${doneIds.length}/${selectedEvents.length} 筆），請重新整理確認後再處理剩下的`, 'error')
-        } else {
-            toast('折抵失敗，請重試', 'error')
+            if (doneIds.length > 0) {
+                toast(`折抵部分成功（已折抵 ${doneIds.length}/${selectedEvents.length} 筆），請重新整理確認後再處理剩下的`, 'error')
+            } else {
+                toast('折抵失敗，請重試', 'error')
+            }
         }
     } finally {
         offsetting.value = false

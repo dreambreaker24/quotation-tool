@@ -95,6 +95,29 @@ describe('PayslipView — 補休折抵事假', () => {
     }))
   })
 
+  it('applyLedgerConsumption 成功之後、標記事件迴圈開始前使用者切換員工，事件迴圈仍要完整跑完（避免補休已扣但沒有任何事件被標記的靜默資料不一致）', async () => {
+    const { wrapper, eventsStore, usersStore } = await mountWithData()
+    const updateSpy = vi.spyOn(eventsStore, 'updateEvent').mockResolvedValue()
+    // applyLedgerConsumption 這一步一旦成功，Firestore 端的補休餘額就真的被扣了。
+    // 這裡模擬使用者剛好在這個 await 完成的那一刻切走員工/月份，驗證後面標記事件的迴圈
+    // 不會因為 stale-write 檢查而被跳過——不然會出現「補休扣了、卻沒有任何事假事件被折抵」
+    // 這種完全靜默的資料不一致。
+    vi.spyOn(usersStore, 'applyLedgerConsumption').mockImplementation(async () => {
+      wrapper.vm.form.empName = '別人'
+      wrapper.vm.form.payMonth = '2026-07'
+    })
+
+    wrapper.vm.offsetSelectedIds = ['leave-1']
+    await wrapper.vm.confirmOffset()
+    await flushPromises()
+
+    expect(updateSpy).toHaveBeenCalledWith('leave-1', expect.objectContaining({
+      leaveType: '補休',
+      leaveTypeLocked: true,
+      convertedFromLeaveType: '事假',
+    }))
+  })
+
   it('勾選時數超過補休餘額時，不能確認折抵', async () => {
     const { wrapper, usersStore } = await mountWithData()
     usersStore.fetchCompLedger.mockResolvedValue([
