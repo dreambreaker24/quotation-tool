@@ -426,9 +426,6 @@
           <div>病假：{{ form.sickDays }} 天</div>
           <div>颱風假：{{ form.typhoonDays }} 天</div>
         </div>
-        <div v-if="otSnapshotMonth !== form.payMonth" class="text-[11px] text-amber-600 bg-amber-50 rounded-lg px-3 py-2 mb-3">
-          ⚠ 這個月的加班尚未結算（月結機制要等到下個月才會產生快照），加班費可能不完整
-        </div>
         <div v-if="alreadyRecordedThisMonth" class="text-[11px] text-red-500 bg-red-50 rounded-lg px-3 py-2 mb-3">
           ⚠ 這個月已經記錄過，確認會覆蓋原本的記錄
         </div>
@@ -497,7 +494,6 @@ const histRecord = ref(null)
 const histLoading = ref(false)
 const bridgeLoading = ref(false)
 const pendingLeaveEntries = ref([])
-const otSnapshotMonth = ref(null)
 const showConfirmRecord = ref(false)
 const alreadyRecordedThisMonth = ref(false)
 const showConfirmBonusPaid = ref(false)
@@ -690,7 +686,6 @@ function resetMonthlyFields() {
     form.value.deductName2 = ''
     form.value.deductAmt2 = 0
     form.value.remark = ''
-    otSnapshotMonth.value = null
     pendingLeaveEntries.value = []
     form.value.autoItems = []
 }
