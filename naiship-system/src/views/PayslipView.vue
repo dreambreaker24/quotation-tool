@@ -169,6 +169,16 @@
               {{ offsetting ? '折抵中…' : '確認折抵' }}
             </button>
           </div>
+          <div v-if="convertedEntries.length" class="ps-offset-block">
+            <div class="ps-offset-title">本月已折抵</div>
+            <div v-for="e in convertedEntries" :key="e.id" class="ps-offset-row">
+              <span>{{ e.date.getMonth()+1 }}/{{ e.date.getDate() }} 補休 {{ e.hours }}h（原{{ e.convertedFromLeaveType }}）</span>
+              <button @click="undoOffset(e)" :disabled="undoingId !== null || compromisedUndoIds.has(e.id)"
+                class="text-[11px] text-red-400 hover:text-red-600 ml-auto">
+                {{ undoingId === e.id ? '處理中…' : '取消折抵' }}
+              </button>
+            </div>
+          </div>
           <div class="ps-leave-row">
             <span>病假（半薪扣）</span>
             <input type="number" v-model.number="form.sickDays" min="0" step="0.5" @input="calcLeave" placeholder="0">
@@ -957,6 +967,57 @@ async function confirmOffset() {
         }
     } finally {
         offsetting.value = false
+    }
+}
+
+// undoingId 非空時整個「取消折抵」按鈕全部 disable（比照 offsetting 擋確認折抵按鈕的做法），
+// 防止手快連點兩次觸發同一筆（或不同筆同時觸發）重複退補休。
+const undoingId = ref(null)
+// 記錄「補休已經退回、但事件狀態改回事假失敗」的事件 id：這種中間狀態下 ev.compConsumption
+// 還是舊值，若允許使用者對同一筆重新點擊 undoOffset，refundConsumption 會拿同一份 compConsumption
+// 再退一次，造成補休被重複退回。所以這裡永久鎖住按鈕（直到重新整理頁面重新讀取真實狀態為止），
+// 不讓同一筆再被觸發。
+const compromisedUndoIds = ref(new Set())
+
+async function undoOffset(ev) {
+    if (undoingId.value || compromisedUndoIds.value.has(ev.id)) return
+    const targetName = form.value.empName
+    const targetMonth = form.value.payMonth
+    const user = usersStore.users.find(u => u.name === targetName)
+    if (!user) return
+    undoingId.value = ev.id
+    let refunded = false
+    try {
+        const entries = await usersStore.fetchCompLedger(user.id)
+        const before = new Map(entries.map(e => [e.id, e.remainingHours]))
+        const refundedEntries = refundConsumption(entries, ev.compConsumption || [])
+        const changed = refundedEntries.filter(e => before.get(e.id) !== e.remainingHours)
+        await usersStore.applyLedgerConsumption(user.id, changed)
+        // 這一步成功之後，Firestore 端的補休餘額就真的被退回了——不能再用 stale 檢查提早 return，
+        // 否則下面 updateEvent 就不會被呼叫，事件會停留在「補休已退回、但還鎖定顯示補休」的
+        // 靜默資料不一致狀態。跟 confirmOffset() 的寫入完整跑完、只有畫面更新才判斷 stale 同一原則。
+        refunded = true
+        await calendarEventsStore.updateEvent(ev.id, {
+            leaveType: ev.convertedFromLeaveType || '事假',
+            convertedFromLeaveType: '',
+            leaveTypeLocked: false,
+            compConsumption: [],
+            label: `${targetName} ${ev.convertedFromLeaveType || '事假'} ${ev.hours}h`,
+        })
+        if (form.value.empName === targetName && form.value.payMonth === targetMonth) {
+            await refreshCompBalance()
+            await fetchPayrollData()
+            toast('已取消折抵，補休已退回')
+        }
+    } catch {
+        if (refunded) {
+            compromisedUndoIds.value.add(ev.id)
+            toast('補休已退回，但事件狀態更新失敗，請重新整理頁面確認狀態後再操作，不要重複點擊取消折抵', 'error')
+        } else if (form.value.empName === targetName && form.value.payMonth === targetMonth) {
+            toast('取消折抵失敗，請重試', 'error')
+        }
+    } finally {
+        undoingId.value = null
     }
 }
 

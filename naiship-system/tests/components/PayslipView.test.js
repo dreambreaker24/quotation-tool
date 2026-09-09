@@ -192,3 +192,49 @@ describe('PayslipView — 補休折抵事假', () => {
     }))
   })
 })
+
+describe('PayslipView — 取消折抵', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+  })
+
+  it('已折抵事件顯示在復原清單，點取消折抵後補休退回、leaveType改回原假別', async () => {
+    const usersStore = useUsersStore()
+    const authStore = useAuthStore()
+    const eventsStore = useCalendarEventsStore()
+    authStore.role = 'admin'
+    authStore.name = '柏'
+    vi.spyOn(usersStore, 'fetchCompLedger').mockResolvedValue([
+      { id: 'led-1', type: '平日', remainingHours: 2.5, hours: 10.5, value: 3507, createdAt: { toMillis: () => 1 } },
+    ])
+    vi.spyOn(eventsStore, 'fetchMonthlyLeaveDetail').mockResolvedValue([
+      {
+        id: 'leave-1', date: new Date('2026-08-07'), leaveType: '補休', hours: 8,
+        leaveTypeLocked: true, convertedFromLeaveType: '事假', compConsumption: [{ id: 'led-1', hours: 8 }],
+      },
+    ])
+    const wrapper = mount(PayslipView)
+    await flushPromises()
+    // subscribe() 的 mock onSnapshot 會同步觸發 cb 把 users.value 蓋成 []，
+    // 所以要等 mount + flushPromises 之後才塞測試資料（沿用上面 mountWithData 的做法）
+    usersStore.users = [{ id: 'u-bang', name: '蚌', salary: 50000 }]
+    wrapper.vm.form.empName = '蚌'
+    wrapper.vm.form.payMonth = '2026-08'
+    await wrapper.vm.fetchPayrollData()
+    await flushPromises()
+
+    expect(wrapper.vm.convertedEntries.map(e => e.id)).toEqual(['leave-1'])
+
+    const applySpy = vi.spyOn(usersStore, 'applyLedgerConsumption').mockResolvedValue()
+    const updateSpy = vi.spyOn(eventsStore, 'updateEvent').mockResolvedValue()
+    await wrapper.vm.undoOffset(wrapper.vm.convertedEntries[0])
+    await flushPromises()
+
+    expect(applySpy).toHaveBeenCalledWith('u-bang', [expect.objectContaining({ id: 'led-1', remainingHours: 10.5 })])
+    expect(updateSpy).toHaveBeenCalledWith('leave-1', expect.objectContaining({
+      leaveType: '事假',
+      leaveTypeLocked: false,
+      convertedFromLeaveType: '',
+    }))
+  })
+})
