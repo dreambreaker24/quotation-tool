@@ -585,10 +585,14 @@ async function resolveConflict(choice) {
             toast('新申請未成功，原本的請假紀錄未變動', 'error')
             return
         }
+        // 新紀錄已經寫入成功（success === true），不能再讓任何路徑重新呼叫 finalizeAddEvent/
+        // finalizeEditEvent（add 模式表單已被清空、edit 模式重打會重複扣一次餘額）。所以這裡失敗
+        // 一律視為「新紀錄已生效，舊紀錄清理留給使用者手動處理」，直接關閉視窗，不保留給使用者重試整個流程
         try {
             await removeConflictingEvents(conflicts, personName)
         } catch {
-            toast('處理失敗，請重試', 'error')
+            toast('新的請假紀錄已建立，但舊紀錄清理失敗，請至行事曆手動確認並刪除重複的舊紀錄', 'error')
+            closeConflictModal()
             return
         }
         closeConflictModal()

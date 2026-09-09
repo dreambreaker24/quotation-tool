@@ -252,4 +252,33 @@ describe('CalendarTab — 請假衝突偵測', () => {
 
     expect(adjustSpy).toHaveBeenCalledTimes(1)
   })
+
+  it('新紀錄寫入成功但刪除舊衝突紀錄失敗時，直接關閉視窗、不留給使用者重試（避免重複寫入/重複扣款）', async () => {
+    const { wrapper, eventsStore, usersStore } = await mountWithManager()
+    const addSpy = vi.spyOn(eventsStore, 'addEvent').mockResolvedValue({ id: 'new-1' })
+    // 模擬刪除舊衝突紀錄時網路斷線失敗
+    const deleteSpy = vi.spyOn(eventsStore, 'deleteEvent').mockRejectedValue(new Error('network error'))
+    vi.spyOn(usersStore, 'adjustAnnualLeaveHours').mockResolvedValue()
+
+    wrapper.vm.eventForm.type = 'leave'
+    wrapper.vm.eventForm.date = OVERLAP_DATE
+    wrapper.vm.eventForm.personName = '蚌'
+    wrapper.vm.eventForm.hours = 8
+    wrapper.vm.eventForm.leaveType = '事假'
+    await wrapper.vm.submitEvent()
+    await wrapper.vm.resolveConflict('personal')
+    await flushPromises()
+
+    // 新紀錄已經寫入成功，視窗直接關閉，不保留給使用者重試整個流程
+    expect(addSpy).toHaveBeenCalledTimes(1)
+    expect(deleteSpy).toHaveBeenCalledWith('existing-1')
+    expect(wrapper.vm.conflictModal).toBeNull()
+
+    // 使用者若在畫面上又點了一次（例如殘留的按鈕事件），也不會觸發任何新的呼叫，
+    // 因為 conflictModal 已經是 null，resolveConflict 一開頭就會直接 return
+    await wrapper.vm.resolveConflict('personal')
+    await flushPromises()
+
+    expect(addSpy).toHaveBeenCalledTimes(1)
+  })
 })
