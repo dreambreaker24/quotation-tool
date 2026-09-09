@@ -95,8 +95,8 @@
                       <span class="text-gray-500 truncate">{{ item.description || '未命名項目' }}</span>
                       <span class="text-gray-400 flex-shrink-0 ml-1">
                         {{ Math.round(item.amount / wtVendorCostTotal(wt) * 100) }}%
-                        <span :class="itemPaid(wt, item.id) >= item.amount ? 'text-green-500' : 'text-orange-400'">
-                          {{ itemPaid(wt, item.id) >= item.amount ? '✓已付清' : `已付$${itemPaid(wt, item.id).toLocaleString()}` }}
+                        <span :class="isItemFullyPaid(wt, item) ? 'text-green-500' : 'text-orange-400'">
+                          {{ isItemFullyPaid(wt, item) ? '✓已付清' : `已付$${itemPaid(wt, item.id).toLocaleString()}` }}
                         </span>
                       </span>
                     </div>
@@ -807,6 +807,10 @@ function toggleSelectedPaymentItem(itemId) {
     } else {
         selectedPaymentItemIds.value = [...selectedPaymentItemIds.value, itemId]
     }
+}
+
+function isItemFullyPaid(wt, item) {
+    return itemPaid(wt, item.id) >= item.amount || totalVendorPaid(wt) >= wtVendorCostTotal(wt)
 }
 const savingPlanStage = ref(false)
 

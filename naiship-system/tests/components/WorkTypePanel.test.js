@@ -164,4 +164,13 @@ describe('WorkTypePanel — 廠商付款項目分攤', () => {
         expect(markDoneSpy).toHaveBeenCalledWith('auto_vendor_item_wt1_i1')
         expect(markDoneSpy).not.toHaveBeenCalledWith('auto_vendor_item_wt1_i2')
     })
+
+    it('整個工種已經全部付清時，即使個別項目沒有itemAllocations紀錄，也視為已付清', async () => {
+        const wt = makeWt({
+            vendorPayments: [{ id: 'vp_old', amount: 38210, paidDate: '2026-08-31', note: '舊資料無分攤' }],
+        })
+        const { wrapper } = await mountWithWorkType(wt)
+
+        expect(wrapper.vm.isItemFullyPaid(wt, wt.vendorCostItems[0])).toBe(true)
+    })
 })
