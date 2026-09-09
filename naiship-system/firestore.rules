@@ -77,8 +77,13 @@ service cloud.firestore {
     }
     match /calendarEvents/{eventId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn() && isSameRegion(request.resource.data.companyId);
-      allow update, delete: if isSignedIn() && isSameRegion(resource.data.companyId);
+      allow create: if isSignedIn() && isSameRegion(request.resource.data.companyId) &&
+        (request.resource.data.type != 'leave' || isManager() || request.resource.data.personName == getUser().name);
+      allow update: if isSignedIn() && isSameRegion(resource.data.companyId) &&
+        (resource.data.type != 'leave' || isManager() ||
+         (resource.data.personName == getUser().name && request.resource.data.personName == getUser().name));
+      allow delete: if isSignedIn() && isSameRegion(resource.data.companyId) &&
+        (resource.data.type != 'leave' || isManager() || resource.data.personName == getUser().name);
     }
     match /vendors/{vendorId} {
       allow read: if isSignedIn();
