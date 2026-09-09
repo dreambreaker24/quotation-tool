@@ -92,11 +92,12 @@
   </div>
 </template>
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useCasesStore } from '@/stores/cases'
 import { useWorkLogsStore } from '@/stores/workLogs'
 import { useCalendarEventsStore } from '@/stores/calendarEvents'
 import { useUsersStore } from '@/stores/users'
+import { sumRemainingHours } from '@/utils/compLedger'
 
 const props = defineProps({ year: Number })
 const casesStore = useCasesStore()
@@ -171,9 +172,18 @@ async function refreshData() {
     refreshing.value = false
 }
 
+const compLedgerCache = ref({})
+watch(() => usersStore.users.map(u => u.id).join(','), async () => {
+    for (const u of usersStore.users) {
+        compLedgerCache.value[u.id] = await usersStore.fetchCompLedger(u.id)
+    }
+}, { immediate: true })
+
 function compensatoryHours(name) {
     const user = usersStore.users.find(u => u.name === name)
-    return (user?.compensatoryHours || 0) + (user?.compensatoryHolidayHours || 0)
+    if (!user) return 0
+    const entries = compLedgerCache.value[user.id] || []
+    return sumRemainingHours(entries, '平日') + sumRemainingHours(entries, '休息日')
 }
 
 function fuelAmount(km) {

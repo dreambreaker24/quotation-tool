@@ -56,3 +56,12 @@ export function buildBonusAutoItems(entries, personId) {
             bonusRef: { role: e.role, personId: e.personId, caseId: e.caseId || '' },
         }))
 }
+
+export function buildCompCashoutAutoItems(cashouts) {
+    return (cashouts || []).map(c => ({
+        id: `compCashout_${c.id}`,
+        label: `補休換現金（${c.type}）`,
+        amount: c.amount,
+        source: 'compCashout',
+    }))
+}

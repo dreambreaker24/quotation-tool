@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeBirthdayGift, computeFestivalGifts, payMonthToBonusQuarter, buildBonusAutoItems } from '@/utils/payslipAutoItems'
+import { computeBirthdayGift, computeFestivalGifts, payMonthToBonusQuarter, buildBonusAutoItems, buildCompCashoutAutoItems } from '@/utils/payslipAutoItems'
 
 describe('computeBirthdayGift', () => {
     it('沒有 birthDate 時回傳 null', () => {
@@ -92,5 +92,24 @@ describe('buildBonusAutoItems', () => {
 
     it('沒有符合的 personId 時回傳空陣列', () => {
         expect(buildBonusAutoItems(entries, 'uid_none')).toEqual([])
+    })
+})
+
+describe('buildCompCashoutAutoItems', () => {
+    it('把換現金紀錄轉成自動項目，金額加總相同type', () => {
+        const cashouts = [
+            { id: 'c1', type: '平日', amount: 2000, reason: 'manual' },
+            { id: 'c2', type: '休息日', amount: 1500, reason: 'expired' },
+        ]
+        const items = buildCompCashoutAutoItems(cashouts)
+        expect(items).toEqual([
+            { id: 'compCashout_c1', label: '補休換現金（平日）', amount: 2000, source: 'compCashout' },
+            { id: 'compCashout_c2', label: '補休換現金（休息日）', amount: 1500, source: 'compCashout' },
+        ])
+    })
+
+    it('沒有換現金紀錄時回傳空陣列', () => {
+        expect(buildCompCashoutAutoItems([])).toEqual([])
+        expect(buildCompCashoutAutoItems(null)).toEqual([])
     })
 })

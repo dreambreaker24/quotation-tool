@@ -467,15 +467,15 @@ import { ref, computed, onMounted, watch } from 'vue'
 import html2canvas from 'html2canvas'
 import { useLeaveRecordsStore } from '@/stores/leaveRecords'
 import { useAuthStore } from '@/stores/auth'
-import { useUsersStore, prevMonthOf } from '@/stores/users'
+import { useUsersStore } from '@/stores/users'
 import { useWorkLogsStore } from '@/stores/workLogs'
 import { useCalendarEventsStore } from '@/stores/calendarEvents'
 import { useToast } from '@/composables/useToast'
 import { memberColor } from '@/utils/memberColor'
 import { hoursToDays } from '@/utils/leaveConversion'
-import { computeBirthdayGift, computeFestivalGifts, payMonthToBonusQuarter, buildBonusAutoItems } from '@/utils/payslipAutoItems'
+import { computeBirthdayGift, computeFestivalGifts, payMonthToBonusQuarter, buildBonusAutoItems, buildCompCashoutAutoItems } from '@/utils/payslipAutoItems'
 import { useBonusQuartersStore } from '@/stores/bonusQuarters'
-import { doc, getDoc } from 'firebase/firestore'
+import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore'
 import { db } from '@/firebase'
 
 const slipEl = ref(null)
@@ -745,6 +745,13 @@ async function refreshAutoItems() {
             if (form.value.empName !== targetName || form.value.payMonth !== targetMonth) return
             toast('季度獎金查詢失敗，請重試', 'error')
         }
+        const cashoutSnap = await getDocs(query(
+            collection(db, 'users', user.id, 'compCashouts'),
+            where('payMonth', '==', targetMonth)
+        ))
+        if (form.value.empName !== targetName || form.value.payMonth !== targetMonth) return
+        const cashouts = cashoutSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+        items.push(...buildCompCashoutAutoItems(cashouts))
     }
     form.value.autoItems = items
     compute()
@@ -765,23 +772,11 @@ async function fetchPayrollData() {
     try {
         const uid = usersStore.users.find(u => u.name === form.value.empName)?.id
         if (!uid) { toast('找不到對應的員工帳號', 'error'); return }
-        await usersStore.ensureMonthClosed(uid)
-        const closing = await usersStore.getClosingBalance(uid, form.value.payMonth)
-        const periodEnd = closing?.closedAt?.toDate?.() ?? null
-        const prevClosing = await usersStore.getClosingBalance(uid, prevMonthOf(form.value.payMonth))
-        const periodStart = prevClosing?.closedAt?.toDate?.() ?? null
-        const [kmMap, leaveEntries, otWeekdayEntries, otHolidayEntries] = await Promise.all([
+        const [kmMap, leaveEntries] = await Promise.all([
             workLogsStore.fetchMonthlyKm(y, monthIdx),
             calendarEventsStore.fetchMonthlyLeaveDetail(y, monthIdx, form.value.empName),
-            workLogsStore.fetchApprovedOvertimeDetail(uid, 'weekday', periodStart, periodEnd),
-            workLogsStore.fetchApprovedOvertimeDetail(uid, 'holiday', periodStart, periodEnd),
         ])
         if (form.value.empName !== targetName || form.value.payMonth !== targetMonth) return
-        otSnapshotMonth.value = closing ? form.value.payMonth : null
-        form.value.otWeekdayHours = Math.round((closing?.weekdayHours || 0) * 10) / 10
-        form.value.otHolidayHours = Math.round((closing?.holidayHours || 0) * 10) / 10
-        calcOTFromHours('weekday')
-        calcOTFromHours('restday')
         form.value.fuelKm = kmMap[form.value.empName] || 0
         calcFuel()
         const personalHours = leaveEntries.filter(e => ['事假', '臨請'].includes(e.leaveType)).reduce((s, e) => s + e.hours, 0)
@@ -790,9 +785,9 @@ async function fetchPayrollData() {
         form.value.sickDays = hoursToDays(sickHours)
         calcLeave()
         pendingLeaveEntries.value = leaveEntries
-        buildAutoRemark(leaveEntries, otWeekdayEntries, otHolidayEntries)
+        buildAutoRemark(leaveEntries, [], [])
         compute()
-        toast(closing ? '已自動帶入加班/請假/油資資料' : '已帶入請假/油資，該月加班尚未結算（下個月才會有數字）')
+        toast('已自動帶入請假/油資資料（加班費請見左側自動項目「補休換現金」，補休不再自動變加班費）')
     } catch {
         toast('自動帶入失敗，請重試', 'error')
     } finally {
