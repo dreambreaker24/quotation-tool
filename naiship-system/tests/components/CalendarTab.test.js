@@ -5,6 +5,7 @@ import CalendarTab from '@/components/cases/CalendarTab.vue'
 import { useUsersStore } from '@/stores/users'
 import { useAuthStore } from '@/stores/auth'
 import { useCalendarEventsStore } from '@/stores/calendarEvents'
+import { hoursToDays } from '@/utils/leaveConversion'
 
 vi.mock('@/firebase', () => ({ auth: {}, db: {} }))
 vi.mock('firebase/auth', () => ({
@@ -29,12 +30,34 @@ vi.mock('firebase/firestore', () => ({
   Timestamp: { fromDate: vi.fn(d => ({ toDate: () => d, toMillis: () => d.getTime() })) },
 }))
 
+// 動態算日期（都相對「現在」計算），避免硬編日期隨時間推移變成過去、跟 removeConflictingEvents
+// 的「過去日期不退款」規則互相打架
+function pad2(n) { return String(n).padStart(2, '0') }
+function fmtDate(d) { return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}` }
+function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d }
+
+const EXISTING_START = fmtDate(addDays(5))   // 未來日期，衝突紀錄應該要退款
+const EXISTING_END = fmtDate(addDays(7))
+const OVERLAP_DATE = fmtDate(addDays(6))     // 落在 EXISTING_START~EXISTING_END 之間
+const NO_OVERLAP_DATE = fmtDate(addDays(60)) // 遠離衝突區間，不重疊
+const PAST_START = fmtDate(addDays(-10))     // 過去日期，衝突紀錄不應該退款
+const PAST_END = fmtDate(addDays(-8))
+const PAST_OVERLAP_DATE = fmtDate(addDays(-9))
+
+function defaultExistingLeave() {
+  return {
+    id: 'existing-1', type: 'leave', personName: '蚌', leaveType: '特休', hours: 24,
+    date: { toDate: () => new Date(EXISTING_START) },
+    endDate: { toDate: () => new Date(EXISTING_END) },
+  }
+}
+
 describe('CalendarTab — 請假衝突偵測', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
   })
 
-  async function mountWithManager() {
+  async function mountWithManager(existingEvents = [defaultExistingLeave()]) {
     const usersStore = useUsersStore()
     const authStore = useAuthStore()
     const eventsStore = useCalendarEventsStore()
@@ -43,13 +66,7 @@ describe('CalendarTab — 請假衝突偵測', () => {
     usersStore.users = [
       { id: 'u-bang', name: '蚌', annualLeaveHours: 0 },
     ]
-    vi.spyOn(eventsStore, 'fetchLeaveEventsByPerson').mockResolvedValue([
-      {
-        id: 'existing-1', type: 'leave', personName: '蚌', leaveType: '特休', hours: 24,
-        date: { toDate: () => new Date('2026-08-24') },
-        endDate: { toDate: () => new Date('2026-08-26') },
-      },
-    ])
+    vi.spyOn(eventsStore, 'fetchLeaveEventsByPerson').mockResolvedValue(existingEvents)
     const wrapper = mount(CalendarTab, { props: { region: 'south' } })
     await flushPromises()
     return { wrapper, usersStore, eventsStore, authStore }
@@ -61,7 +78,7 @@ describe('CalendarTab — 請假衝突偵測', () => {
 
     await wrapper.vm.$nextTick()
     wrapper.vm.eventForm.type = 'leave'
-    wrapper.vm.eventForm.date = '2026-08-24'
+    wrapper.vm.eventForm.date = OVERLAP_DATE
     wrapper.vm.eventForm.personName = '蚌'
     wrapper.vm.eventForm.hours = 8
     wrapper.vm.eventForm.leaveType = '事假'
@@ -78,7 +95,7 @@ describe('CalendarTab — 請假衝突偵測', () => {
     const addSpy = vi.spyOn(eventsStore, 'addEvent').mockResolvedValue({ id: 'new-1' })
 
     wrapper.vm.eventForm.type = 'leave'
-    wrapper.vm.eventForm.date = '2026-09-01'
+    wrapper.vm.eventForm.date = NO_OVERLAP_DATE
     wrapper.vm.eventForm.personName = '蚌'
     wrapper.vm.eventForm.hours = 8
     wrapper.vm.eventForm.leaveType = '事假'
@@ -95,7 +112,7 @@ describe('CalendarTab — 請假衝突偵測', () => {
     const deleteSpy = vi.spyOn(eventsStore, 'deleteEvent')
 
     wrapper.vm.eventForm.type = 'leave'
-    wrapper.vm.eventForm.date = '2026-08-24'
+    wrapper.vm.eventForm.date = OVERLAP_DATE
     wrapper.vm.eventForm.personName = '蚌'
     wrapper.vm.eventForm.hours = 8
     wrapper.vm.eventForm.leaveType = '事假'
@@ -108,14 +125,14 @@ describe('CalendarTab — 請假衝突偵測', () => {
     expect(wrapper.vm.conflictModal).toBeNull()
   })
 
-  it('選擇「改用新增（事假）」時刪除原本衝突的那筆並寫入新的事假', async () => {
-    const { wrapper, eventsStore } = await mountWithManager()
+  it('選擇「改用新增（事假）」時，先確認新紀錄寫入成功才刪除並精確退回原本衝突的特休時數', async () => {
+    const { wrapper, eventsStore, usersStore } = await mountWithManager()
     const addSpy = vi.spyOn(eventsStore, 'addEvent').mockResolvedValue({ id: 'new-1' })
     const deleteSpy = vi.spyOn(eventsStore, 'deleteEvent').mockResolvedValue()
-    const adjustSpy = vi.spyOn(useUsersStore(), 'adjustAnnualLeaveHours').mockResolvedValue()
+    const adjustSpy = vi.spyOn(usersStore, 'adjustAnnualLeaveHours').mockResolvedValue()
 
     wrapper.vm.eventForm.type = 'leave'
-    wrapper.vm.eventForm.date = '2026-08-24'
+    wrapper.vm.eventForm.date = OVERLAP_DATE
     wrapper.vm.eventForm.personName = '蚌'
     wrapper.vm.eventForm.hours = 8
     wrapper.vm.eventForm.leaveType = '事假'
@@ -124,9 +141,115 @@ describe('CalendarTab — 請假衝突偵測', () => {
     await flushPromises()
 
     expect(deleteSpy).toHaveBeenCalledWith('existing-1')
-    expect(adjustSpy).toHaveBeenCalled() // 舊的特休24h要先退回
+    // 舊的特休 24h（未來日期）要精確退回：hoursToDays(24) = 3 天
+    expect(adjustSpy).toHaveBeenCalledWith('u-bang', hoursToDays(24))
     expect(addSpy).toHaveBeenCalled()
     const addedPayload = addSpy.mock.calls[0][0]
     expect(addedPayload.leaveType).toBe('事假')
+  })
+
+  it('選擇「改用新增（補休）」時，寫入補休並刪除原本衝突的那筆', async () => {
+    const { wrapper, eventsStore, usersStore } = await mountWithManager()
+    const addSpy = vi.spyOn(eventsStore, 'addEvent').mockResolvedValue({ id: 'new-1' })
+    const deleteSpy = vi.spyOn(eventsStore, 'deleteEvent').mockResolvedValue()
+    vi.spyOn(usersStore, 'adjustAnnualLeaveHours').mockResolvedValue()
+    vi.spyOn(usersStore, 'fetchCompLedger').mockResolvedValue([
+      { id: 'e1', type: '平日', hours: 8, remainingHours: 8, createdAt: { toMillis: () => 1 } },
+    ])
+    const applyLedgerSpy = vi.spyOn(usersStore, 'applyLedgerConsumption').mockResolvedValue()
+
+    wrapper.vm.eventForm.type = 'leave'
+    wrapper.vm.eventForm.date = OVERLAP_DATE
+    wrapper.vm.eventForm.personName = '蚌'
+    wrapper.vm.eventForm.hours = 8
+    wrapper.vm.eventForm.leaveType = '事假'
+    await wrapper.vm.submitEvent()
+    await wrapper.vm.resolveConflict('comp')
+    await flushPromises()
+
+    expect(deleteSpy).toHaveBeenCalledWith('existing-1')
+    expect(applyLedgerSpy).toHaveBeenCalled()
+    expect(addSpy).toHaveBeenCalled()
+    const addedPayload = addSpy.mock.calls[0][0]
+    expect(addedPayload.leaveType).toBe('補休')
+  })
+
+  it('編輯模式下跟既有請假重疊時，也會跳出衝突視窗，選擇「改用新增（事假）」後改用 updateEvent 寫入', async () => {
+    const { wrapper, eventsStore, usersStore } = await mountWithManager()
+    const updateSpy = vi.spyOn(eventsStore, 'updateEvent').mockResolvedValue()
+    const deleteSpy = vi.spyOn(eventsStore, 'deleteEvent').mockResolvedValue()
+    const adjustSpy = vi.spyOn(usersStore, 'adjustAnnualLeaveHours').mockResolvedValue()
+
+    wrapper.vm.editingEventId = 'edit-target-1'
+    wrapper.vm.editForm = {
+      type: 'leave', date: OVERLAP_DATE, endDate: '', label: '',
+      personName: '蚌', hours: 8, leaveType: '事假', caseIds: [], personNames: [],
+      startTime: '', endTime: '',
+      _origLeaveType: '', _origHours: 0, _origPersonName: '蚌',
+      _origDate: OVERLAP_DATE, _origCompConsumption: [],
+    }
+    await wrapper.vm.saveEditEvent()
+    await flushPromises()
+
+    expect(updateSpy).not.toHaveBeenCalled()
+    expect(wrapper.vm.conflictModal).not.toBeNull()
+    expect(wrapper.vm.conflictModal.mode).toBe('edit')
+    expect(wrapper.vm.conflictModal.conflicts.map(c => c.id)).toEqual(['existing-1'])
+
+    await wrapper.vm.resolveConflict('personal')
+    await flushPromises()
+
+    expect(deleteSpy).toHaveBeenCalledWith('existing-1')
+    expect(adjustSpy).toHaveBeenCalledWith('u-bang', hoursToDays(24))
+    expect(updateSpy).toHaveBeenCalledWith('edit-target-1', expect.objectContaining({ leaveType: '事假' }))
+    expect(wrapper.vm.conflictModal).toBeNull()
+  })
+
+  it('衝突紀錄日期是過去日期時，刪除但不退回餘額', async () => {
+    const { wrapper, eventsStore, usersStore } = await mountWithManager([
+      {
+        id: 'existing-past', type: 'leave', personName: '蚌', leaveType: '特休', hours: 24,
+        date: { toDate: () => new Date(PAST_START) },
+        endDate: { toDate: () => new Date(PAST_END) },
+      },
+    ])
+    const addSpy = vi.spyOn(eventsStore, 'addEvent').mockResolvedValue({ id: 'new-1' })
+    const deleteSpy = vi.spyOn(eventsStore, 'deleteEvent').mockResolvedValue()
+    const adjustSpy = vi.spyOn(usersStore, 'adjustAnnualLeaveHours').mockResolvedValue()
+
+    wrapper.vm.eventForm.type = 'leave'
+    wrapper.vm.eventForm.date = PAST_OVERLAP_DATE
+    wrapper.vm.eventForm.personName = '蚌'
+    wrapper.vm.eventForm.hours = 8
+    wrapper.vm.eventForm.leaveType = '事假'
+    await wrapper.vm.submitEvent()
+    await wrapper.vm.resolveConflict('personal')
+    await flushPromises()
+
+    expect(deleteSpy).toHaveBeenCalledWith('existing-past')
+    expect(adjustSpy).not.toHaveBeenCalled()
+    expect(addSpy).toHaveBeenCalled()
+  })
+
+  it('resolveConflict 連續呼叫兩次（模擬手快連點）時，第二次不會重複退回餘額', async () => {
+    const { wrapper, eventsStore, usersStore } = await mountWithManager()
+    vi.spyOn(eventsStore, 'addEvent').mockResolvedValue({ id: 'new-1' })
+    vi.spyOn(eventsStore, 'deleteEvent').mockResolvedValue()
+    const adjustSpy = vi.spyOn(usersStore, 'adjustAnnualLeaveHours').mockResolvedValue()
+
+    wrapper.vm.eventForm.type = 'leave'
+    wrapper.vm.eventForm.date = OVERLAP_DATE
+    wrapper.vm.eventForm.personName = '蚌'
+    wrapper.vm.eventForm.hours = 8
+    wrapper.vm.eventForm.leaveType = '事假'
+    await wrapper.vm.submitEvent()
+
+    // 不 await 第一次呼叫就立刻觸發第二次，模擬使用者連點兩次
+    const first = wrapper.vm.resolveConflict('personal')
+    const second = wrapper.vm.resolveConflict('personal')
+    await Promise.all([first, second])
+    await flushPromises()
+
+    expect(adjustSpy).toHaveBeenCalledTimes(1)
   })
 })

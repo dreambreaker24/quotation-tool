@@ -382,12 +382,12 @@
         ⭐ 補休餘額足夠，建議改用補休
       </div>
       <div class="flex flex-col gap-2">
-        <button @click="resolveConflict('keep')" class="text-sm border border-gray-200 rounded-lg py-2 hover:border-gray-400">保留現有</button>
-        <button @click="resolveConflict('comp')" class="text-sm rounded-lg py-2 text-white" style="background:#1e2533">
+        <button @click="resolveConflict('keep')" :disabled="resolvingConflict" class="text-sm border border-gray-200 rounded-lg py-2 hover:border-gray-400 disabled:opacity-40 disabled:cursor-not-allowed">保留現有</button>
+        <button @click="resolveConflict('comp')" :disabled="resolvingConflict" class="text-sm rounded-lg py-2 text-white disabled:opacity-40 disabled:cursor-not-allowed" style="background:#1e2533">
           改用新增（補休）<span v-if="conflictModal.suggestion === '補休'">⭐</span>
         </button>
-        <button @click="resolveConflict('personal')" class="text-sm border border-gray-200 rounded-lg py-2 hover:border-gray-400">改用新增（事假）</button>
-        <button @click="resolveConflict('cancel')" class="text-sm text-gray-400 py-2">取消</button>
+        <button @click="resolveConflict('personal')" :disabled="resolvingConflict" class="text-sm border border-gray-200 rounded-lg py-2 hover:border-gray-400 disabled:opacity-40 disabled:cursor-not-allowed">改用新增（事假）</button>
+        <button @click="resolveConflict('cancel')" :disabled="resolvingConflict" class="text-sm text-gray-400 py-2 disabled:opacity-40 disabled:cursor-not-allowed">取消</button>
       </div>
     </div>
   </div>
@@ -536,6 +536,8 @@ async function openConflictModal(mode, conflicts) {
             leaveType: c.leaveType,
             hours: c.hours,
             dateLabel: c.endDate && c.endDate !== c.date ? `${c.date} ~ ${c.endDate}` : c.date,
+            date: c.date,
+            endDate: c.endDate,
             compConsumption: c.compConsumption,
         })),
     }
@@ -545,10 +547,13 @@ function closeConflictModal() {
     conflictModal.value = null
 }
 
-async function removeConflictingEvents(conflicts, mode) {
-    const personName = mode === 'add' ? eventForm.value.personName : editForm.value.personName
+// 比照 removeEvent()/finalizeEditEvent() 既有規則：只有今日（含）以後的紀錄才調整餘額，
+// 過去日期的餘額不退回；但不管日期新舊，衝突紀錄本身都要刪除。
+// personName 由呼叫端在 finalizeAddEvent/finalizeEditEvent 執行之前先取好傳進來——
+// finalizeAddEvent 成功後會把 eventForm 重置為空白表單，這裡不能再從 eventForm 現讀取
+async function removeConflictingEvents(conflicts, personName) {
     for (const c of conflicts) {
-        if (TRACKED_LEAVE_TYPES.includes(c.leaveType)) {
+        if (TRACKED_LEAVE_TYPES.includes(c.leaveType) && c.date >= todayStr) {
             await applyLeaveDelta(c.leaveType, personName, c.hours, c.compConsumption)
         }
         await eventsStore.deleteEvent(c.id)
@@ -557,21 +562,39 @@ async function removeConflictingEvents(conflicts, mode) {
 
 async function resolveConflict(choice) {
     if (!conflictModal.value) return
-    const { mode, conflicts } = conflictModal.value
-    if (choice === 'cancel') { closeConflictModal(); return }
-    if (choice === 'keep') {
+    if (resolvingConflict.value) return
+    resolvingConflict.value = true
+    try {
+        const { mode, conflicts } = conflictModal.value
+        if (choice === 'cancel') { closeConflictModal(); return }
+        if (choice === 'keep') {
+            closeConflictModal()
+            if (mode === 'add') { eventForm.value = blankEvent(); showAddEvent.value = false }
+            else { showEditEvent.value = false }
+            return
+        }
+        // personName 要在呼叫 finalizeAddEvent/finalizeEditEvent 之前先取好：
+        // finalizeAddEvent 成功後會把 eventForm 重置成空白表單，之後才讀會拿到空字串
+        const personName = mode === 'add' ? eventForm.value.personName : editForm.value.personName
+        const newLeaveType = choice === 'comp' ? '補休' : '事假'
+        if (mode === 'add') eventForm.value.leaveType = newLeaveType
+        else editForm.value.leaveType = newLeaveType
+        // 先確保新紀錄寫入成功，才刪除舊的衝突紀錄，避免「舊的刪了、新的沒寫成功」造成資料遺失
+        const success = mode === 'add' ? await finalizeAddEvent() : await finalizeEditEvent()
+        if (!success) {
+            toast('新申請未成功，原本的請假紀錄未變動', 'error')
+            return
+        }
+        try {
+            await removeConflictingEvents(conflicts, personName)
+        } catch {
+            toast('處理失敗，請重試', 'error')
+            return
+        }
         closeConflictModal()
-        if (mode === 'add') { eventForm.value = blankEvent(); showAddEvent.value = false }
-        else { showEditEvent.value = false }
-        return
+    } finally {
+        resolvingConflict.value = false
     }
-    const newLeaveType = choice === 'comp' ? '補休' : '事假'
-    if (mode === 'add') eventForm.value.leaveType = newLeaveType
-    else editForm.value.leaveType = newLeaveType
-    await removeConflictingEvents(conflicts, mode)
-    closeConflictModal()
-    if (mode === 'add') await finalizeAddEvent()
-    else await finalizeEditEvent()
 }
 const currentYear = ref(today.getFullYear())
 const currentMonth = ref(today.getMonth())
@@ -618,7 +641,8 @@ const editingEventId = ref(null)
 const editForm = ref({ type: 'note', date: '', endDate: '', label: '', personName: '', hours: 0, leaveType: '', caseIds: [], personNames: [], startTime: '', endTime: '' })
 
 const conflictModal = ref(null)
-// conflictModal 結構：{ mode: 'add' | 'edit', conflicts: [{id, leaveType, hours, dateLabel, compConsumption}], suggestion: '補休' | null }
+// conflictModal 結構：{ mode: 'add' | 'edit', conflicts: [{id, leaveType, hours, dateLabel, date, endDate, compConsumption}], suggestion: '補休' | null }
+const resolvingConflict = ref(false)
 
 // 非管理者（蚌/其宏/柏以外）新增請假時，只能填自己的名字，選單直接鎖定
 watch(() => eventForm.value.type, (t) => {
@@ -687,6 +711,8 @@ async function saveEditEvent() {
     toast('只有蚌、其宏、柏可以修改別人的請假紀錄', 'error')
     return
   }
+  // _leaveTypeLocked 由後續「補休折抵事假」功能寫入 editForm（openEditEvent 讀取 event.leaveTypeLocked），
+  // 這個防呆先加在這裡；目前 editForm 還不會有這個欄位，此段是無害的空跑
   if (editForm.value._leaveTypeLocked) {
     editForm.value.leaveType = editForm.value._origLeaveType
     editForm.value.hours = editForm.value._origHours
@@ -753,7 +779,7 @@ async function finalizeEditEvent() {
       if (isTracked && editForm.value.personName) {
         const hours = editForm.value.hours || 0
         const balance = await getLeaveBalance(editForm.value.leaveType, editForm.value.personName)
-        if (balance < leaveNeeded(editForm.value.leaveType, hours)) { toast(leaveInsufficientMsg(editForm.value.leaveType), 'error'); return }
+        if (balance < leaveNeeded(editForm.value.leaveType, hours)) { toast(leaveInsufficientMsg(editForm.value.leaveType), 'error'); return false }
         const consumption = await applyLeaveDelta(editForm.value.leaveType, editForm.value.personName, -hours)
         if (editForm.value.leaveType === '補休') payload.compConsumption = consumption || []
       }
@@ -763,8 +789,10 @@ async function finalizeEditEvent() {
     const editEvtDate = editForm.value.date
     notifStore.notifyAll(authStore.name ?? '', `修改了行程「${payload.label}」（${fmtNotifDate(editEvtDate)}）`, '', '', props.region ?? '', '', 'cal', editEvtDate, false)
     showEditEvent.value = false
+    return true
   } catch {
     toast('儲存失敗，請重試', 'error')
+    return false
   }
 }
 
@@ -1090,7 +1118,7 @@ async function finalizeAddEvent() {
     if (isLeave && TRACKED_LEAVE_TYPES.includes(eventForm.value.leaveType) && eventForm.value.personName) {
       const hours = eventForm.value.hours || 0
       const balance = await getLeaveBalance(eventForm.value.leaveType, eventForm.value.personName)
-      if (balance < leaveNeeded(eventForm.value.leaveType, hours)) { toast(leaveInsufficientMsg(eventForm.value.leaveType), 'error'); return }
+      if (balance < leaveNeeded(eventForm.value.leaveType, hours)) { toast(leaveInsufficientMsg(eventForm.value.leaveType), 'error'); return false }
       const consumption = await applyLeaveDelta(eventForm.value.leaveType, eventForm.value.personName, -hours)
       if (eventForm.value.leaveType === '補休') payload.compConsumption = consumption || []
       await eventsStore.addEvent(payload)
@@ -1101,8 +1129,10 @@ async function finalizeAddEvent() {
     notifStore.notifyAll(authStore.name ?? '', `新增了行程「${payload.label}」（${fmtNotifDate(newEvtDate)}）`, '', '', payload.companyId, '', 'cal', newEvtDate, false)
     eventForm.value = blankEvent()
     showAddEvent.value = false
+    return true
   } catch {
     toast('新增失敗，請重試', 'error')
+    return false
   }
 }
 </script>
