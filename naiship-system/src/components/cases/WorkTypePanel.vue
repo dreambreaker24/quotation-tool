@@ -79,12 +79,26 @@
                     已付 ${{ totalVendorPaid(wt).toLocaleString() }}
                     <span v-if="totalVendorPaid(wt) >= wtVendorCostTotal(wt)" class="ml-0.5">✓</span>
                   </div>
+                  <div v-if="wtVendorCostTotal(wt) > totalVendorPaid(wt)" class="text-[10px] text-red-400">
+                    還未付 ${{ (wtVendorCostTotal(wt) - totalVendorPaid(wt)).toLocaleString() }}
+                  </div>
                   <div class="w-full h-1 rounded-full bg-gray-100 mt-1 overflow-hidden">
                     <div class="h-full rounded-full transition-all"
                       :style="`width:${Math.min(100, Math.round(totalVendorPaid(wt) / wtVendorCostTotal(wt) * 100))}%`"
                       :class="totalVendorPaid(wt) >= wtVendorCostTotal(wt) ? 'bg-green-500'
                             : totalVendorPaid(wt) > 0 ? 'bg-orange-400'
                             : 'bg-gray-300'">
+                    </div>
+                  </div>
+                  <div v-if="wt.vendorCostItems?.length > 1" class="mt-1.5 flex flex-col gap-1">
+                    <div v-for="item in wt.vendorCostItems" :key="item.id" class="flex items-center justify-between text-[10px]">
+                      <span class="text-gray-500 truncate">{{ item.description || '未命名項目' }}</span>
+                      <span class="text-gray-400 flex-shrink-0 ml-1">
+                        {{ Math.round(item.amount / wtVendorCostTotal(wt) * 100) }}%
+                        <span :class="itemPaid(wt, item.id) >= item.amount ? 'text-green-500' : 'text-orange-400'">
+                          {{ itemPaid(wt, item.id) >= item.amount ? '✓已付清' : `已付$${itemPaid(wt, item.id).toLocaleString()}` }}
+                        </span>
+                      </span>
                     </div>
                   </div>
                 </template>
@@ -1706,6 +1720,9 @@ async function removeWorkType(idx) {
         const updated = workTypes.value.filter((_, i) => i !== idx)
         await casesStore.updateCase(props.caseId, { workTypes: updated })
         await remindersStore.deleteAutoReminder(`auto_vendor_${wt.id}`)
+        for (const item of (wt.vendorCostItems || [])) {
+            try { await remindersStore.deleteAutoReminder(vendorItemReminderDocId(item, wt)) } catch (_) {}
+        }
     } catch {
         toast('刪除失敗，請重試', 'error')
     }
