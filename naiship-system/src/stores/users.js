@@ -100,9 +100,11 @@ export const useUsersStore = defineStore('users', () => {
         return ref.id
     }
 
-    async function applyLedgerConsumption(uid, updatedEntries) {
-        await Promise.all(updatedEntries.map(e =>
-            updateDoc(doc(db, 'users', uid, 'compLedger', e.id), { remainingHours: e.remainingHours })
+    // deltas: [{id, delta}]，delta 是這次要對 remainingHours 做的加減量（核銷傳負數、退回傳正數），
+    // 用 Firestore increment() 做原子寫入，不管幾個操作同時寫都是伺服器端做加減，不會互相覆蓋
+    async function applyLedgerConsumption(uid, deltas) {
+        await Promise.all(deltas.map(d =>
+            updateDoc(doc(db, 'users', uid, 'compLedger', d.id), { remainingHours: increment(d.delta) })
         ))
     }
 

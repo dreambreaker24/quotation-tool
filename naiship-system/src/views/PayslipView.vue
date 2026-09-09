@@ -907,16 +907,16 @@ async function confirmOffset() {
         const weekday = consumeFIFO(entries, '平日', needed)
         const holiday = weekday.shortfall > 0
             ? consumeFIFO(weekday.updatedEntries, '休息日', weekday.shortfall)
-            : { consumptions: [], updatedEntries: weekday.updatedEntries }
+            : { consumptions: [] }
         const allConsumptions = [...weekday.consumptions, ...holiday.consumptions]
-        const touchedIds = new Set(allConsumptions.map(c => c.id))
         // applyLedgerConsumption 內部是 Promise.all 平行寫入多筆分錄，不是資料庫層級的原子操作——
         // 如果其中一筆 updateDoc 失敗，前面已成功的分錄不會自動回滾。之後逐筆改請假事件也是同樣道理，
         // 中途失敗時已成功的那幾筆不會回滾。重新呼叫 confirmOffset 本身是安全的，因為每次都會重新
         // fetchCompLedger 抓取當下真實餘額；但重試前必須先讓本地狀態（offsetCandidates/compBalance）
         // 同步過伺服器最新狀態，這是下面 catch 區塊要做的事，不然舊的 offsetCandidates 還會包含
         // 已經成功折抵、伺服器端 leaveTypeLocked 已經是 true 的事件，重試會對它們重複扣款。
-        await usersStore.applyLedgerConsumption(user.id, holiday.updatedEntries.filter(e => touchedIds.has(e.id)))
+        const deltas = allConsumptions.map(c => ({ id: c.id, delta: -c.hours }))
+        await usersStore.applyLedgerConsumption(user.id, deltas)
         // 這一步呼叫下去，Firestore 端的補休餘額就真的被扣了——從這裡開始「已經是進行中的寫入」，
         // 不能再用 stale 檢查提早 return。那樣會讓補休永久被扣、卻沒有任何事假事件被標記折抵，
         // 是完全靜默的資料不一致（比重複扣款更糟：重複扣款至少會走到 catch 跳出錯誤）。所以底下
@@ -998,9 +998,11 @@ async function undoOffset(ev) {
         const entries = await usersStore.fetchCompLedger(user.id)
         const before = new Map(entries.map(e => [e.id, e.remainingHours]))
         const refundedEntries = refundConsumption(entries, ev.compConsumption || [])
-        const changed = refundedEntries.filter(e => before.get(e.id) !== e.remainingHours)
+        const deltas = refundedEntries
+            .filter(e => before.get(e.id) !== e.remainingHours)
+            .map(e => ({ id: e.id, delta: e.remainingHours - before.get(e.id) }))
         refundCallIssued = true
-        await usersStore.applyLedgerConsumption(user.id, changed)
+        await usersStore.applyLedgerConsumption(user.id, deltas)
         // 這一步成功之後，Firestore 端的補休餘額就真的被退回了——不能再用 stale 檢查提早 return，
         // 否則下面 updateEvent 就不會被呼叫，事件會停留在「補休已退回、但還鎖定顯示補休」的
         // 靜默資料不一致狀態。跟 confirmOffset() 的寫入完整跑完、只有畫面更新才判斷 stale 同一原則。

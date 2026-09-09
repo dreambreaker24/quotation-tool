@@ -12,7 +12,13 @@ vi.mock('firebase/firestore', () => ({
   onSnapshot: vi.fn((q, cb) => { cb({ docs: [] }); return () => {} }),
   updateDoc: vi.fn(async (ref, data) => {
     const existing = docs.get(ref.__path) || {}
-    docs.set(ref.__path, { ...existing, ...data })
+    const resolved = {}
+    for (const [key, value] of Object.entries(data)) {
+        resolved[key] = (value && typeof value === 'object' && '__increment' in value)
+            ? (existing[key] || 0) + value.__increment
+            : value
+    }
+    docs.set(ref.__path, { ...existing, ...resolved })
   }),
   getDoc: vi.fn(),
   doc: vi.fn((...args) => ({ __path: args.slice(1).join('/') })),
@@ -75,12 +81,25 @@ describe('useUsersStore', () => {
       expect(entries).toHaveLength(2)
     })
 
-    it('applyLedgerConsumption 依entries陣列各自更新remainingHours', async () => {
+    it('applyLedgerConsumption 用差異值原子更新remainingHours', async () => {
       const store = useUsersStore()
       const id1 = await store.addLedgerEntry('u1', { type: '平日', hours: 3, remainingHours: 3, value: 600 })
-      await store.applyLedgerConsumption('u1', [{ id: id1, remainingHours: 1 }])
+      await store.applyLedgerConsumption('u1', [{ id: id1, delta: -2 }])
       const entries = await store.fetchCompLedger('u1')
       expect(entries.find(e => e.id === id1).remainingHours).toBe(1)
+    })
+
+    it('兩個並發的核銷操作各自扣款，用差異值寫入不會互相覆蓋（這是這次修復要解決的問題）', async () => {
+      const store = useUsersStore()
+      const id1 = await store.addLedgerEntry('u1', { type: '平日', hours: 10, remainingHours: 10, value: 2000 })
+      // 模擬兩個操作幾乎同時發生：都不等對方完成，各自送出扣款
+      await Promise.all([
+        store.applyLedgerConsumption('u1', [{ id: id1, delta: -3 }]),
+        store.applyLedgerConsumption('u1', [{ id: id1, delta: -2 }]),
+      ])
+      const entries = await store.fetchCompLedger('u1')
+      // 兩筆扣款都要有算到：10 - 3 - 2 = 5，不是只扣到其中一筆
+      expect(entries.find(e => e.id === id1).remainingHours).toBe(5)
     })
   })
 })
