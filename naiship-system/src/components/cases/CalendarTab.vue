@@ -383,6 +383,7 @@
       <div class="bg-gray-50 rounded-lg p-3 mb-3">
         <div v-for="c in conflictModal.conflicts" :key="c.id" class="text-xs text-gray-600 mb-1 last:mb-0">
           現有：<span class="font-semibold">{{ c.leaveType }} {{ c.hours }}h</span>（{{ c.dateLabel }}）
+          <span v-if="c.leaveTypeLocked" class="block text-[10px] text-red-400 mt-0.5">（已透過薪資單折抵，請先至薪資單取消折抵後再處理這筆衝突）</span>
         </div>
       </div>
       <div v-if="conflictModal.suggestion" class="text-xs text-amber-600 mb-3">
@@ -390,10 +391,10 @@
       </div>
       <div class="flex flex-col gap-2">
         <button @click="resolveConflict('keep')" :disabled="resolvingConflict" class="text-sm border border-gray-200 rounded-lg py-2 hover:border-gray-400 disabled:opacity-40 disabled:cursor-not-allowed">保留現有</button>
-        <button @click="resolveConflict('comp')" :disabled="resolvingConflict" class="text-sm rounded-lg py-2 text-white disabled:opacity-40 disabled:cursor-not-allowed" style="background:#1e2533">
+        <button @click="resolveConflict('comp')" :disabled="resolvingConflict || hasLockedConflict" class="text-sm rounded-lg py-2 text-white disabled:opacity-40 disabled:cursor-not-allowed" style="background:#1e2533">
           改用新增（補休）<span v-if="conflictModal.suggestion === '補休'">⭐</span>
         </button>
-        <button @click="resolveConflict('personal')" :disabled="resolvingConflict" class="text-sm border border-gray-200 rounded-lg py-2 hover:border-gray-400 disabled:opacity-40 disabled:cursor-not-allowed">改用新增（事假）</button>
+        <button @click="resolveConflict('personal')" :disabled="resolvingConflict || hasLockedConflict" class="text-sm border border-gray-200 rounded-lg py-2 hover:border-gray-400 disabled:opacity-40 disabled:cursor-not-allowed">改用新增（事假）</button>
         <button @click="resolveConflict('cancel')" :disabled="resolvingConflict" class="text-sm text-gray-400 py-2 disabled:opacity-40 disabled:cursor-not-allowed">取消</button>
       </div>
     </div>
@@ -522,6 +523,7 @@ async function checkLeaveConflict(personName, dateStr, endDateStr, excludeId) {
         leaveType: e.leaveType || '',
         hours: e.hours || 0,
         compConsumption: e.compConsumption || [],
+        leaveTypeLocked: e.leaveTypeLocked || false,
     }))
     return findOverlappingLeave(normalized, { personName, date: dateStr, endDate: endDateStr, excludeId })
 }
@@ -546,6 +548,7 @@ async function openConflictModal(mode, conflicts) {
             date: c.date,
             endDate: c.endDate,
             compConsumption: c.compConsumption,
+            leaveTypeLocked: c.leaveTypeLocked,
         })),
     }
 }
@@ -560,6 +563,9 @@ function closeConflictModal() {
 // finalizeAddEvent 成功後會把 eventForm 重置為空白表單，這裡不能再從 eventForm 現讀取
 async function removeConflictingEvents(conflicts, personName) {
     for (const c of conflicts) {
+        // 已透過薪資單折抵鎖定的事件不該被這裡刪除——正常操作應該已經在 resolveConflict()
+        // 跟畫面 disabled 擋掉這條路徑，這裡是最後一道防線，不退款也不刪除
+        if (c.leaveTypeLocked) continue
         if (TRACKED_LEAVE_TYPES.includes(c.leaveType) && c.date >= todayStr) {
             await applyLeaveDelta(c.leaveType, personName, c.hours, c.compConsumption)
         }
@@ -578,6 +584,12 @@ async function resolveConflict(choice) {
             closeConflictModal()
             if (mode === 'add') { eventForm.value = blankEvent(); showAddEvent.value = false }
             else { showEditEvent.value = false }
+            return
+        }
+        // 函式層面再擋一次「改用新增」對已鎖定衝突事件的操作，不只靠畫面 disabled——
+        // 這條路徑最終會刪除鎖定事件，繞過薪資單的取消折抵正規流程
+        if ((choice === 'comp' || choice === 'personal') && conflicts.some(c => c.leaveTypeLocked)) {
+            toast('這筆衝突紀錄已透過薪資單折抵，請先至薪資單取消折抵後再處理', 'error')
             return
         }
         // personName 要在呼叫 finalizeAddEvent/finalizeEditEvent 之前先取好：
@@ -652,8 +664,14 @@ const editingEventId = ref(null)
 const editForm = ref({ type: 'note', date: '', endDate: '', label: '', personName: '', hours: 0, leaveType: '', caseIds: [], personNames: [], startTime: '', endTime: '' })
 
 const conflictModal = ref(null)
-// conflictModal 結構：{ mode: 'add' | 'edit', conflicts: [{id, leaveType, hours, dateLabel, date, endDate, compConsumption}], suggestion: '補休' | null }
+// conflictModal 結構：{ mode: 'add' | 'edit', conflicts: [{id, leaveType, hours, dateLabel, date, endDate, compConsumption, leaveTypeLocked}], suggestion: '補休' | null }
 const resolvingConflict = ref(false)
+
+// 衝突紀錄裡只要有一筆已經透過薪資單折抵鎖定，「改用新增」就要整組擋掉——
+// 那條路徑最終會刪除鎖定事件，繞過薪資單的取消折抵正規流程
+const hasLockedConflict = computed(() =>
+    (conflictModal.value?.conflicts ?? []).some(c => c.leaveTypeLocked)
+)
 
 // 非管理者（蚌/其宏/柏以外）新增請假時，只能填自己的名字，選單直接鎖定
 watch(() => eventForm.value.type, (t) => {

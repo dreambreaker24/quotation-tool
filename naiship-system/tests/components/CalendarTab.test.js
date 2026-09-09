@@ -281,6 +281,53 @@ describe('CalendarTab — 請假衝突偵測', () => {
 
     expect(addSpy).toHaveBeenCalledTimes(1)
   })
+
+  it('衝突紀錄裡有一筆已透過薪資單折抵鎖定時，「改用新增」按鈕disable，且resolveConflict函式層面也擋下刪除', async () => {
+    const { wrapper, eventsStore } = await mountWithManager([
+      {
+        id: 'existing-locked', type: 'leave', personName: '蚌', leaveType: '補休', hours: 8,
+        date: { toDate: () => new Date(EXISTING_START) },
+        endDate: { toDate: () => new Date(EXISTING_END) },
+        leaveTypeLocked: true,
+      },
+    ])
+    const deleteSpy = vi.spyOn(eventsStore, 'deleteEvent')
+    const addSpy = vi.spyOn(eventsStore, 'addEvent').mockResolvedValue({ id: 'new-1' })
+
+    wrapper.vm.eventForm.type = 'leave'
+    wrapper.vm.eventForm.date = OVERLAP_DATE
+    wrapper.vm.eventForm.personName = '蚌'
+    wrapper.vm.eventForm.hours = 8
+    wrapper.vm.eventForm.leaveType = '事假'
+    await wrapper.vm.submitEvent()
+    await flushPromises()
+
+    expect(wrapper.vm.conflictModal).not.toBeNull()
+    expect(wrapper.vm.conflictModal.conflicts[0].leaveTypeLocked).toBe(true)
+
+    // 畫面層面：「改用新增（補休）」「改用新增（事假）」按鈕要 disabled，「保留現有」「取消」維持可點
+    const buttons = wrapper.findAll('button')
+    const compBtn = buttons.find(b => b.text().includes('改用新增（補休）'))
+    const personalBtn = buttons.find(b => b.text().includes('改用新增（事假）'))
+    const keepBtn = buttons.find(b => b.text() === '保留現有')
+    expect(compBtn.attributes('disabled')).toBeDefined()
+    expect(personalBtn.attributes('disabled')).toBeDefined()
+    expect(keepBtn.attributes('disabled')).toBeUndefined()
+
+    // 函式層面：即使直接呼叫 resolveConflict('comp') / ('personal') 模擬繞過 disabled 屬性，
+    // 也不應該寫入新紀錄或刪除鎖定事件
+    await wrapper.vm.resolveConflict('comp')
+    await flushPromises()
+    expect(addSpy).not.toHaveBeenCalled()
+    expect(deleteSpy).not.toHaveBeenCalled()
+    expect(wrapper.vm.conflictModal).not.toBeNull()
+
+    await wrapper.vm.resolveConflict('personal')
+    await flushPromises()
+    expect(addSpy).not.toHaveBeenCalled()
+    expect(deleteSpy).not.toHaveBeenCalled()
+    expect(wrapper.vm.conflictModal).not.toBeNull()
+  })
 })
 
 describe('CalendarTab — leaveTypeLocked 鎖定', () => {
