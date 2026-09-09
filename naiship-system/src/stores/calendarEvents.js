@@ -78,12 +78,29 @@ export const useCalendarEventsStore = defineStore('calendarEvents', () => {
             const data = d.data()
             if (data.type !== 'leave' || data.personName !== name) return
             entries.push({
+                id: d.id,
                 date: data.date?.toDate?.() ?? null,
                 leaveType: data.leaveType || '',
                 hours: data.hours || 0,
+                leaveTypeLocked: data.leaveTypeLocked || false,
+                convertedFromLeaveType: data.convertedFromLeaveType || '',
+                compConsumption: data.compConsumption || [],
             })
         })
         return entries.sort((a, b) => (a.date ?? 0) - (b.date ?? 0))
+    }
+
+    // 查詢某人「所有」請假事件（不限月份），供 CalendarTab.vue 新增/編輯請假前的重疊檢查使用。
+    // 之所以不限月份範圍：請假的 date 欄位可能落在跟目前行事曆檢視畫面不同的月份（例如編輯6月建立、
+    // 8月生效的請假），只用 personName 過濾、日期重疊判斷交給呼叫端的 findOverlappingLeave 處理。
+    async function fetchLeaveEventsByPerson(personName) {
+        const q = query(
+            collection(db, 'calendarEvents'),
+            where('type', '==', 'leave'),
+            where('personName', '==', personName)
+        )
+        const snap = await getDocs(q)
+        return snap.docs.map(d => ({ id: d.id, ...d.data() }))
     }
 
     function cleanup() {
@@ -94,5 +111,5 @@ export const useCalendarEventsStore = defineStore('calendarEvents', () => {
         events.value = []
     }
 
-    return { events, subscribe, addEvent, updateEvent, deleteEvent, fetchMonthlyLeave, fetchMonthlyLeaveDetail, cleanup }
+    return { events, subscribe, addEvent, updateEvent, deleteEvent, fetchMonthlyLeave, fetchMonthlyLeaveDetail, fetchLeaveEventsByPerson, cleanup }
 })
