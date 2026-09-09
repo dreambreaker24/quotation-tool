@@ -1687,7 +1687,7 @@ async function addVendorPayment() {
         for (const alloc of allocations) {
             const item = wt.vendorCostItems.find(i => i.id === alloc.itemId)
             if (item && itemPaid(wt, alloc.itemId) >= item.amount) {
-                try { await remindersStore.markDone(`auto_vendor_item_${wt.id}_${alloc.itemId}`) } catch (_) {}
+                try { await remindersStore.markDone(vendorItemReminderDocId(item, wt)) } catch (_) {}
             }
         }
 
