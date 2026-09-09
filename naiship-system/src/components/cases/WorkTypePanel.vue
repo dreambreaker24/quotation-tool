@@ -570,11 +570,28 @@
       </div>
 
       <div class="text-[11px] text-gray-500 font-semibold mb-2">新增付款</div>
+      <div v-if="unpaidVendorItems.length" class="mb-3">
+        <div class="text-[11px] text-gray-500 mb-1.5">這筆付款對應項目（可複選，不選則不關聯任何項目）</div>
+        <div class="flex flex-col gap-1">
+          <label v-for="item in unpaidVendorItems" :key="item.id"
+            class="flex items-center gap-2 text-xs border border-gray-100 rounded-lg px-3 py-2 bg-gray-50 cursor-pointer">
+            <input type="checkbox" :checked="selectedPaymentItemIds.includes(item.id)"
+              @change="toggleSelectedPaymentItem(item.id)" class="rounded">
+            <span class="flex-1 truncate">{{ item.description || '未命名項目' }}</span>
+            <span class="text-gray-500 flex-shrink-0">還欠 ${{ itemOwed(item).toLocaleString() }}</span>
+          </label>
+        </div>
+      </div>
       <div class="flex flex-col gap-3">
         <div>
           <div class="flex items-center justify-between mb-1">
             <label class="text-xs text-gray-500">付款金額（元）</label>
-            <button v-if="remainingVendorAmount > 0" type="button"
+            <button v-if="selectedPaymentItemIds.length > 0" type="button"
+              @click="vendorPayForm.amount = selectedItemsOwedTotal"
+              class="text-[11px] px-2 py-0.5 rounded-lg border border-amber-200 text-amber-700 hover:bg-amber-50">
+              全付選定項目 ${{ selectedItemsOwedTotal.toLocaleString() }}
+            </button>
+            <button v-else-if="remainingVendorAmount > 0" type="button"
               @click="vendorPayForm.amount = remainingVendorAmount"
               class="text-[11px] px-2 py-0.5 rounded-lg border border-amber-200 text-amber-700 hover:bg-amber-50">
               全付 ${{ remainingVendorAmount.toLocaleString() }}
@@ -693,7 +710,7 @@ import { WORK_CATEGORIES } from '@/constants/workCategories'
 import { WT_COLORS } from '@/constants/workTypeColors'
 import { isLegacyCategoryName } from '@/utils/workTypeCategory'
 import { getVendorSpecialties, filterVendorsByCategory } from '@/utils/vendorSpecialty'
-import { wtVendorCostTotal, totalVendorPaid, vendorInvoiceStatus } from '@/utils/workTypeInvoice'
+import { wtVendorCostTotal, totalVendorPaid, vendorInvoiceStatus, itemPaid, allocatePayment } from '@/utils/workTypeInvoice'
 import { calcVendorDueDate, vendorReminderPlan } from '@/utils/paymentDueDate'
 import { suggestPaymentPlan, makeStage } from '@/utils/paymentPlan'
 import { useVendorsStore } from '@/stores/vendors'
@@ -748,6 +765,35 @@ const showVendorPayForm = ref(false)
 const savingVendorPay = ref(false)
 const vendorPayingIdx = ref(null)
 const vendorPayForm = ref({ amount: 0, paidDate: '', note: '' })
+const selectedPaymentItemIds = ref([])
+
+const unpaidVendorItems = computed(() => {
+    if (vendorPayingIdx.value === null) return []
+    const wt = workTypes.value[vendorPayingIdx.value]
+    if (!wt) return []
+    return (wt.vendorCostItems || []).filter(item => itemPaid(wt, item.id) < item.amount)
+})
+
+function itemOwed(item) {
+    if (vendorPayingIdx.value === null) return 0
+    const wt = workTypes.value[vendorPayingIdx.value]
+    if (!wt) return 0
+    return Math.max(0, item.amount - itemPaid(wt, item.id))
+}
+
+const selectedItemsOwedTotal = computed(() => {
+    return unpaidVendorItems.value
+        .filter(item => selectedPaymentItemIds.value.includes(item.id))
+        .reduce((sum, item) => sum + itemOwed(item), 0)
+})
+
+function toggleSelectedPaymentItem(itemId) {
+    if (selectedPaymentItemIds.value.includes(itemId)) {
+        selectedPaymentItemIds.value = selectedPaymentItemIds.value.filter(id => id !== itemId)
+    } else {
+        selectedPaymentItemIds.value = [...selectedPaymentItemIds.value, itemId]
+    }
+}
 const savingPlanStage = ref(false)
 
 const vendorPhotos = reactive({})
@@ -1257,6 +1303,7 @@ function openEdit(idx) {
 function openVendorPay(idx) {
     vendorPayingIdx.value = idx
     vendorPayForm.value = { amount: 0, paidDate: '', note: '' }
+    selectedPaymentItemIds.value = []
     showVendorPayForm.value = true
 }
 
@@ -1592,14 +1639,19 @@ async function addVendorPayment() {
     try {
         const updated = [...workTypes.value]
         const wt = { ...updated[vendorPayingIdx.value] }
+        const selectedItems = (wt.vendorCostItems || []).filter(item => selectedPaymentItemIds.value.includes(item.id))
+        const allocations = allocatePayment(vendorPayForm.value.amount, selectedItems, wt)
         wt.vendorPayments = [...(wt.vendorPayments || []), {
             id: `vp_${Date.now()}`,
             amount: vendorPayForm.value.amount,
             paidDate: vendorPayForm.value.paidDate,
             note: vendorPayForm.value.note,
+            itemAllocations: allocations,
         }]
         updated[vendorPayingIdx.value] = wt
         await casesStore.updateCase(props.caseId, { workTypes: updated })
+
+        // 舊制：整個工種的合約總額全部付清才關閉（維持既有邏輯不動，正式資料裡仍有案件在用這條路徑）
         const totalPaid = totalVendorPaid(wt)
         const totalCost = wtVendorCostTotal(wt)
         if (totalCost > 0 && totalPaid >= totalCost) {
@@ -1630,6 +1682,15 @@ async function addVendorPayment() {
                 }
             } catch (_) {}
         }
+
+        // 新制：這次分攤到的項目，各自檢查是否已經付清，付清就關閉該項目自己的提醒（這次的根因修復）
+        for (const alloc of allocations) {
+            const item = wt.vendorCostItems.find(i => i.id === alloc.itemId)
+            if (item && itemPaid(wt, alloc.itemId) >= item.amount) {
+                try { await remindersStore.markDone(`auto_vendor_item_${wt.id}_${alloc.itemId}`) } catch (_) {}
+            }
+        }
+
         showVendorPayForm.value = false
     } catch {
         toast('儲存失敗，請重試', 'error')
