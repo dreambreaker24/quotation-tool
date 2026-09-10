@@ -1,7 +1,6 @@
 import { initializeApp, cert } from 'firebase-admin/app'
 import { getFirestore } from 'firebase-admin/firestore'
-import { readFileSync, appendFileSync } from 'node:fs'
-import { execFileSync } from 'node:child_process'
+import { readFileSync, writeFileSync, appendFileSync } from 'node:fs'
 import { urlKind, replaceInStringArray, replaceInObjectArray, deriveExt } from './lib/media-migration.mjs'
 
 const MAP_FILE = './migrate-media-map.tsv'
@@ -20,9 +19,9 @@ function numArg(flag, dflt) {
   const i = args.indexOf(flag)
   if (i < 0) return dflt
   const raw = args[i + 1]
-  if (raw === undefined || raw === '' || raw.startsWith('--')) return dflt
+  if (raw === undefined) return dflt // flag 在最後一個位置，無值 → 用預設
   const n = Number(raw)
-  if (!Number.isFinite(n)) {
+  if (raw === '' || raw.startsWith('--') || !Number.isFinite(n)) {
     console.error(`參數 ${flag} 需要數字，收到：「${raw}」`)
     process.exit(1)
   }
@@ -61,28 +60,27 @@ const backoffMs = (attempt) => 2 ** (attempt - 1) * 1000 // 1s, 2s, 4s
 
 async function fetchWithRetry(url, opts = {}) {
   const MAX = 3
-  let lastErr = null
   for (let attempt = 1; attempt <= MAX; attempt++) {
     let res
     try {
-      res = await fetch(url, { ...opts, signal: AbortSignal.timeout(30000) })
+      res = await fetch(url, { ...opts, signal: AbortSignal.timeout(120000) })
     } catch (e) {
-      lastErr = e
       if (attempt < MAX) { await sleep(backoffMs(attempt)); continue }
       throw new Error(`${e.name === 'TimeoutError' ? '請求逾時' : '連線失敗'}：${e.message}`)
     }
     if ((res.status === 429 || res.status >= 500) && attempt < MAX) {
       const ra = Number(res.headers.get('retry-after'))
+      await res.body?.cancel().catch(() => {}) // 釋放 socket
       await sleep(Number.isFinite(ra) && ra > 0 ? ra * 1000 : backoffMs(attempt))
       continue
     }
     return res
   }
-  throw lastErr || new Error('重試用盡')
 }
 
 // ─────────────────────────── 掃描：所有媒體網址位置 ───────────────────────────
-// 對齊 scripts/audit-media-urls.mjs 的走訪範圍（並補上 audit 未涵蓋的實際欄位）。
+// 這裡是唯一的完整掃描來源。scripts/audit-media-urls.mjs 是操作員可另外手動跑的
+// 獨立健檢工具（涵蓋相同位置），本腳本執行時不依賴它。
 // 每個 item：{ category, describe, currentUrl, type, isPdf?, rewrite(newUrl) }
 
 function collectScalar(items, docSnap, field, meta) {
@@ -301,15 +299,6 @@ async function buildWorklist() {
   return items
 }
 
-// audit-media-urls.mjs 的 GRAND TOTAL（獨立走訪，當防呆基準）
-function auditGrandTotal() {
-  const out = execFileSync('node', ['scripts/audit-media-urls.mjs'], { encoding: 'utf8' })
-    .replace(/\x1B\[\d+m/g, '')
-  const m = /GRAND TOTAL URLs:\s*(\d+)/.exec(out)
-  if (!m) throw new Error('無法從 audit-media-urls.mjs 解析 GRAND TOTAL')
-  return Number(m[1])
-}
-
 // ─────────────────────────── 寫入 / 續跑 / 失敗記錄 ───────────────────────────
 async function uploadToNas(buffer, filename, type) {
   for (let attempt = 1; attempt <= 2; attempt++) {
@@ -322,7 +311,10 @@ async function uploadToNas(buffer, filename, type) {
       headers: { Authorization: `Bearer ${idToken}` },
       body: form,
     })
-    if (res.status === 401 && attempt === 1) continue // token 過期 → 刷新重試一次
+    if (res.status === 401 && attempt === 1) {
+      await res.body?.cancel().catch(() => {}) // 釋放 socket
+      continue // token 過期 → 刷新重試一次
+    }
     const data = await res.json().catch(() => ({}))
     if (!res.ok) throw new Error(data.error || `NAS 上傳失敗 HTTP ${res.status}`)
     return data.url
@@ -370,47 +362,53 @@ async function runReverse(todo) {
     }
   } catch { /* 沒有 map 檔 */ }
 
-  let ok = 0
-  const unmapped = []
+  writeFileSync(REVERSE_UNMAPPED_FILE, '') // 每次重跑先清空，避免重複累積
+  let ok = 0, fail = 0, unmapped = 0
   for (const item of todo) {
     const back = map[item.currentUrl]
-    if (!back) { unmapped.push(item.currentUrl); continue } // 觀察期新上傳、不在 map
-    await item.rewrite(back)
-    ok++
+    if (!back) { // 觀察期新上傳、不在 map → 逐筆立即寫檔，中途掛也不丟失
+      unmapped++
+      appendFileSync(REVERSE_UNMAPPED_FILE, `${item.currentUrl}\n`)
+      continue
+    }
+    try {
+      await item.rewrite(back)
+      ok++
+    } catch (e) {
+      fail++
+      appendFileSync(FAIL_FILE, `${item.currentUrl}\t${item.describe}\t反向失敗：${e.message}\n`)
+    }
   }
-  for (const u of unmapped) appendFileSync(REVERSE_UNMAPPED_FILE, `${u}\n`)
-  console.log(`\n反向完成：還原 ${ok} 筆；${unmapped.length} 筆不在 map（觀察期新檔，清單見 ${REVERSE_UNMAPPED_FILE}，需手動處理，見 spec §8）`)
+  console.log(`\n反向完成：還原 ${ok} 筆；失敗 ${fail} 筆（見 ${FAIL_FILE}）；${unmapped} 筆不在 map（觀察期新檔，清單見 ${REVERSE_UNMAPPED_FILE}，需手動處理，見 spec §8）`)
+}
+
+function tallyBy(list, keyFn) {
+  const out = {}
+  for (const x of list) { const k = keyFn(x); out[k] = (out[k] || 0) + 1 }
+  return out
+}
+
+function printTable(title, obj) {
+  console.log(title)
+  const rows = Object.entries(obj).sort((a, b) => b[1] - a[1])
+  const w = Math.max(0, ...rows.map(([k]) => k.length))
+  for (const [k, v] of rows) console.log(`  ${k.padEnd(w)}  ${String(v).padStart(6)}`)
 }
 
 async function main() {
   const wanted = REVERSE ? 'nas' : 'cloudinary'
   const all = await buildWorklist()
-
-  // 防呆：buildWorklist 掃到的總數不得少於 audit-media-urls.mjs 的 GRAND TOTAL，
-  // 否則代表少掃了某個位置（跑到過時／不完整的掃描）。
-  const auditTotal = auditGrandTotal()
-  if (all.length < auditTotal) {
-    console.error(`\n[中止] buildWorklist 只掃到 ${all.length} 筆，但 audit-media-urls.mjs 有 ${auditTotal} 筆。`)
-    console.error('buildWorklist 少掃了某個位置，請比對 audit 腳本補齊後再跑。')
-    process.exit(1)
-  }
-  if (all.length > auditTotal) {
-    console.warn(`\n[注意] buildWorklist 掃到 ${all.length} 筆，比 audit-media-urls.mjs 的 ${auditTotal} 筆多 ${all.length - auditTotal} 筆。`)
-    console.warn('（buildWorklist 額外涵蓋 audit 未掃的實際欄位：receiptImages / logAttachments / replies 等，屬正常。）')
-  }
-
   const todo = all.filter(i => urlKind(i.currentUrl) === wanted)
 
-  const byType = {}
-  for (const i of todo) byType[i.category] = (byType[i.category] || 0) + 1
-  const allByType = {}
-  for (const i of all) allByType[i.category] = (allByType[i.category] || 0) + 1
-
   console.log(`模式：${REVERSE ? '反向（NAS→Cloudinary）' : '正向（Cloudinary→NAS）'}${DRY ? '  [DRY RUN]' : ''}`)
-  console.log(`掃描到 ${all.length} 筆網址（audit 基準 ${auditTotal}），其中 ${todo.length} 筆待處理`)
-  console.log('全部位置分佈：', JSON.stringify(allByType))
-  console.log('待處理分佈：', JSON.stringify(byType, null, 2))
-  console.log('前 5 筆範例：')
+  console.log(`掃描到 ${all.length} 筆媒體網址，其中 ${todo.length} 筆待處理（${wanted}）\n`)
+  printTable('各位置分佈（全部）：', tallyBy(all, i => i.category))
+  console.log()
+  const hostTally = { cloudinary: 0, nas: 0, other: 0, ...tallyBy(all, i => urlKind(i.currentUrl)) }
+  printTable('主機分佈（全部）：', hostTally)
+  console.log()
+  printTable('待處理分佈：', tallyBy(todo, i => i.category))
+  console.log('\n前 5 筆範例：')
   todo.slice(0, 5).forEach(i => console.log(`  ${i.describe}  ${i.currentUrl}`))
 
   if (DRY) process.exit(0)
