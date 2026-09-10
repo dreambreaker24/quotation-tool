@@ -36,5 +36,24 @@ export async function uploadPhoto(file, type) {
         return url
     }
 
+    if (backend === 'nas') {
+        const { auth } = await import('@/firebase')
+        const user = auth.currentUser
+        if (!user) throw new Error('尚未登入，無法上傳檔案')
+        const idToken = await user.getIdToken()
+        const base = import.meta.env.VITE_NAS_BASE_URL
+        const form = new FormData()
+        form.append('file', file)
+        form.append('type', type)
+        const res = await fetch(`${base}/upload`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${idToken}` },
+            body: form,
+        })
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(data.error || 'Upload failed')
+        return data.url
+    }
+
     throw new Error(`Storage backend "${backend}" not implemented`)
 }
