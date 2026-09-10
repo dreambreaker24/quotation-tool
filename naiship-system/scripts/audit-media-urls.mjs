@@ -22,6 +22,10 @@ function note(bucket, url) {
 // cases/{id}/photos
 for (const p of (await db.collectionGroup('photos').get()).docs) note('cases/*/photos.url', p.data().url)
 
+// cases/{id}.workTypes[].invoiceFile.url（存在案件文件本身）
+for (const c of (await db.collection('cases').get()).docs)
+    (c.data().workTypes || []).forEach(wt => note('cases.workTypes[].invoiceFile.url', wt?.invoiceFile?.url))
+
 // cases/{id}/tasks .attachments[]
 for (const t of (await db.collectionGroup('tasks').get()).docs)
     (t.data().attachments || []).forEach(a => note('cases/*/tasks.attachments[].url', a?.url))

@@ -19,6 +19,18 @@ export function replaceInObjectArray(arr, key, oldUrl, newUrl) {
   return arr.map(o => (o && o[key] === oldUrl ? { ...o, [key]: newUrl } : o))
 }
 
+// 附件陣列（{ url, isPdf, pdfUrl }）專用：換 url，且 fixPdfUrl 為真、元素本來就有
+// pdfUrl 欄位時，pdfUrl 一併指到新網址。NAS 的 PDF 網址結尾一定是 .pdf，
+// 所以正確的 pdfUrl 永遠等於 url；不修的話 pdfUrl 會留在 Cloudinary → 退場後 404。
+export function rewriteAttachmentUrl(arr, key, oldUrl, newUrl, fixPdfUrl = false) {
+  return arr.map(el => {
+    if (!el || el[key] !== oldUrl) return el
+    const patched = { ...el, [key]: newUrl }
+    if (fixPdfUrl && 'pdfUrl' in el) patched.pdfUrl = newUrl
+    return patched
+  })
+}
+
 const CT_MAP = {
   'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/png': 'png', 'image/webp': 'webp',
   'image/gif': 'gif', 'application/pdf': 'pdf', 'video/mp4': 'mp4', 'video/quicktime': 'mov',

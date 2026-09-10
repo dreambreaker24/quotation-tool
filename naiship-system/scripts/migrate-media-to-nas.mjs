@@ -1,7 +1,7 @@
 import { initializeApp, cert } from 'firebase-admin/app'
 import { getFirestore } from 'firebase-admin/firestore'
 import { readFileSync, writeFileSync, appendFileSync } from 'node:fs'
-import { urlKind, replaceInStringArray, replaceInObjectArray, deriveExt } from './lib/media-migration.mjs'
+import { urlKind, replaceInStringArray, rewriteAttachmentUrl, deriveExt } from './lib/media-migration.mjs'
 
 const MAP_FILE = './migrate-media-map.tsv'
 const FAIL_FILE = './migrate-media-failures.log'
@@ -111,7 +111,7 @@ function collectObjectArray(items, docSnap, field, urlKey, meta) {
       rewrite: (newUrl) => db.runTransaction(async (tx) => {
         const snap = await tx.get(docSnap.ref)
         const cur = snap.data()[field] || []
-        tx.update(docSnap.ref, { [field]: replaceInObjectArray(cur, urlKey, oldUrl, newUrl) })
+        tx.update(docSnap.ref, { [field]: rewriteAttachmentUrl(cur, urlKey, oldUrl, newUrl, meta.fixPdfUrl) })
       }),
     })
   }
@@ -184,7 +184,7 @@ async function buildWorklist() {
   for (const t of (await db.collectionGroup('tasks').get()).docs) {
     if (!underParent(t, 'cases')) continue
     collectObjectArray(items, t, 'attachments', 'url', {
-      category: 'tasks', type: 'task', isPdfOf: (a) => a.isPdf === true,
+      category: 'tasks', type: 'task', isPdfOf: (a) => a.isPdf === true, fixPdfUrl: true,
     })
   }
 
@@ -203,7 +203,7 @@ async function buildWorklist() {
     if (!underParent(r, 'cases')) continue
     collectScalar(items, r, 'url', { category: 'reviews', type: 'review' })
     collectObjectArray(items, r, 'attachments', 'url', {
-      category: 'reviews', type: 'review', isPdfOf: (a) => a.isPdf === true,
+      category: 'reviews', type: 'review', isPdfOf: (a) => a.isPdf === true, fixPdfUrl: true,
     })
     collectImageLikeArray(items, r, 'images', { category: 'reviews', type: 'review' })
   }
@@ -236,11 +236,11 @@ async function buildWorklist() {
     }
     // 6c) logAttachments[].url  → type 'log'
     collectObjectArray(items, l, 'logAttachments', 'url', {
-      category: 'workLogs-attachments', type: 'log', isPdfOf: (a) => a.isPdf === true,
+      category: 'workLogs-attachments', type: 'log', isPdfOf: (a) => a.isPdf === true, fixPdfUrl: true,
     })
     // 6d) attachments[].url（audit 有掃，實際欄位是 logAttachments，這裡一併涵蓋舊資料）
     collectObjectArray(items, l, 'attachments', 'url', {
-      category: 'workLogs-attachments', type: 'log', isPdfOf: (a) => a.isPdf === true,
+      category: 'workLogs-attachments', type: 'log', isPdfOf: (a) => a.isPdf === true, fixPdfUrl: true,
     })
     // 6e) replies[].attachments[].url  → type 'reply'
     const replies = l.data().replies
@@ -261,7 +261,7 @@ async function buildWorklist() {
               const cur = snap.data().replies || []
               tx.update(l.ref, {
                 replies: cur.map(x => (x && Array.isArray(x.attachments))
-                  ? { ...x, attachments: replaceInObjectArray(x.attachments, 'url', oldUrl, newUrl) }
+                  ? { ...x, attachments: rewriteAttachmentUrl(x.attachments, 'url', oldUrl, newUrl, true) }
                   : x),
               })
             }),
@@ -294,6 +294,31 @@ async function buildWorklist() {
       category: 'clientNotes', type: 'progress-notes', isPdfOf: (a) => a.isPdf === true || a.type === 'pdf',
     })
     collectImageLikeArray(items, n, 'images', { category: 'clientNotes', type: 'progress-notes' })
+  }
+
+  // 10) cases/{id}.workTypes[].invoiceFile.url（存在案件文件本身，不是 photos 子集合）→ type 'invoice'
+  for (const c of (await db.collection('cases').get()).docs) {
+    const wts = c.data().workTypes
+    if (!Array.isArray(wts)) continue
+    for (const wt of wts) {
+      const oldUrl = wt && wt.invoiceFile && wt.invoiceFile.url
+      if (typeof oldUrl !== 'string' || !oldUrl) continue
+      items.push({
+        category: 'workTypes-invoiceFile',
+        describe: `${c.ref.path}.workTypes[].invoiceFile.url`,
+        currentUrl: oldUrl,
+        type: 'invoice',
+        isPdf: /\.pdf$/i.test(oldUrl), // 前端只有純 <a href>，無 pdfUrl 邏輯
+        rewrite: (newUrl) => db.runTransaction(async (tx) => {
+          const snap = await tx.get(c.ref)
+          const cur = (snap.data().workTypes || []).map(w =>
+            (w && w.invoiceFile && w.invoiceFile.url === oldUrl)
+              ? { ...w, invoiceFile: { ...w.invoiceFile, url: newUrl } }
+              : w)
+          tx.update(c.ref, { workTypes: cur })
+        }),
+      })
+    }
   }
 
   return items

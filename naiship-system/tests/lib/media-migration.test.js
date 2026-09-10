@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  urlKind, replaceInStringArray, replaceInObjectArray, deriveExt,
+  urlKind, replaceInStringArray, replaceInObjectArray, rewriteAttachmentUrl, deriveExt,
 } from '../../scripts/lib/media-migration.mjs'
 
 describe('urlKind', () => {
@@ -53,6 +53,34 @@ describe('replaceInObjectArray', () => {
     const a = [{ url: 'a' }, { url: 'b' }]
     const out = replaceInObjectArray(a, 'url', 'x', 'z')
     expect(out).toEqual([{ url: 'a' }, { url: 'b' }])
+    expect(out).not.toBe(a)
+  })
+})
+
+describe('rewriteAttachmentUrl', () => {
+  it('fixPdfUrl 時，有 pdfUrl 欄位的元素 pdfUrl 一併換成新網址', () => {
+    const a = [
+      { url: 'https://res.cloudinary.com/x/a.pdf', isPdf: true, pdfUrl: 'https://res.cloudinary.com/x/a.pdf' },
+      { url: 'https://res.cloudinary.com/x/b.jpg', isPdf: false },
+    ]
+    const out = rewriteAttachmentUrl(a, 'url', 'https://res.cloudinary.com/x/a.pdf', 'https://nas/x/a.pdf', true)
+    expect(out[0]).toEqual({ url: 'https://nas/x/a.pdf', isPdf: true, pdfUrl: 'https://nas/x/a.pdf' })
+    expect(out[1]).toBe(a[1]) // 不相符的元素原封不動
+    expect(a[0].url).toBe('https://res.cloudinary.com/x/a.pdf') // 不改原陣列
+  })
+  it('元素沒有 pdfUrl 欄位時不會硬塞一個', () => {
+    const out = rewriteAttachmentUrl([{ url: 'x', isPdf: true }], 'url', 'x', 'z', true)
+    expect(out[0]).toEqual({ url: 'z', isPdf: true })
+    expect('pdfUrl' in out[0]).toBe(false)
+  })
+  it('fixPdfUrl 為 false 時只換 url，pdfUrl 保留舊值', () => {
+    const out = rewriteAttachmentUrl([{ url: 'x', pdfUrl: 'x.pdf' }], 'url', 'x', 'z', false)
+    expect(out[0]).toEqual({ url: 'z', pdfUrl: 'x.pdf' })
+  })
+  it('容忍 null 元素、不相符時回內容相等的新陣列', () => {
+    const a = [null, { url: 'b' }]
+    const out = rewriteAttachmentUrl(a, 'url', 'x', 'z', true)
+    expect(out).toEqual([null, { url: 'b' }])
     expect(out).not.toBe(a)
   })
 })
