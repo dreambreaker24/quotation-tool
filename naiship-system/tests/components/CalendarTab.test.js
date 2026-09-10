@@ -404,6 +404,47 @@ describe('CalendarTab — 請假衝突偵測', () => {
 
     expect(addSpy).toHaveBeenCalled()
   })
+
+  it('新增請假時 addEvent 會帶入穩定的 dedupe doc ID', async () => {
+    const { wrapper, eventsStore } = await mountWithManager([])
+    const addSpy = vi.spyOn(eventsStore, 'addEvent').mockResolvedValue({ id: 'new-1' })
+
+    const fill = () => {
+      wrapper.vm.eventForm.type = 'leave'
+      wrapper.vm.eventForm.date = '2026-10-15'
+      wrapper.vm.eventForm.personName = '蚌'
+      wrapper.vm.eventForm.hours = 8
+      wrapper.vm.eventForm.leaveType = '事假'
+      wrapper.vm.eventForm.startTime = '09:00'
+      wrapper.vm.eventForm.endTime = '18:00'
+    }
+
+    fill()
+    await wrapper.vm.submitEvent()
+    await flushPromises()
+    fill()
+    await wrapper.vm.submitEvent()
+    await flushPromises()
+
+    const ids = addSpy.mock.calls.map(c => c[1])
+    expect(ids[0]).toBe('leave-south-蚌-20261015-single-事假-0900')
+    expect(ids[0]).toBe(ids[1])
+  })
+
+  it('非請假事件 addEvent 第二參數為 null（維持自動 ID）', async () => {
+    const { wrapper, eventsStore } = await mountWithManager([])
+    const addSpy = vi.spyOn(eventsStore, 'addEvent').mockResolvedValue({ id: 'new-1' })
+
+    wrapper.vm.eventForm.type = 'note'
+    wrapper.vm.eventForm.date = '2026-10-15'
+    wrapper.vm.eventForm.label = '測試記事'
+    wrapper.vm.eventForm.startTime = '09:00'
+    wrapper.vm.eventForm.endTime = '10:00'
+    await wrapper.vm.submitEvent()
+    await flushPromises()
+
+    expect(addSpy.mock.calls[0][1] ?? null).toBeNull()
+  })
 })
 
 describe('CalendarTab — leaveTypeLocked 鎖定', () => {

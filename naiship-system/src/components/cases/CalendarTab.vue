@@ -1147,6 +1147,16 @@ async function finalizeAddEvent() {
           : eventForm.value.label,
       createdBy: authStore.user?.uid ?? '',
     }
+    const dedupeId = isLeave
+      ? leaveDedupeId({
+          companyId: payload.companyId,
+          personName: eventForm.value.personName,
+          date: eventForm.value.date,
+          endDate: eventForm.value.endDate,
+          leaveType: eventForm.value.leaveType,
+          startTime: eventForm.value.startTime,
+        })
+      : null
     if (isLeave) {
       payload.personName = eventForm.value.personName
       payload.hours = eventForm.value.hours || 0
@@ -1174,9 +1184,9 @@ async function finalizeAddEvent() {
       if (balance < leaveNeeded(eventForm.value.leaveType, hours)) { toast(leaveInsufficientMsg(eventForm.value.leaveType), 'error'); return false }
       const consumption = await applyLeaveDelta(eventForm.value.leaveType, eventForm.value.personName, -hours)
       if (eventForm.value.leaveType === '補休') payload.compConsumption = consumption || []
-      await eventsStore.addEvent(payload)
+      await eventsStore.addEvent(payload, dedupeId)
     } else {
-      await eventsStore.addEvent(payload)
+      await eventsStore.addEvent(payload, dedupeId)
     }
     const newEvtDate = eventForm.value.date
     notifStore.notifyAll(authStore.name ?? '', `新增了行程「${payload.label}」（${fmtNotifDate(newEvtDate)}）`, '', '', payload.companyId, '', 'cal', newEvtDate, false)
