@@ -185,6 +185,34 @@ describe('CalendarTab — 請假衝突偵測', () => {
     expect(addedPayload.leaveType).toBe('補休')
   })
 
+  it('改用新增時，若既有衝突事件的 id 剛好等於新紀錄的固定 doc ID，不會把新紀錄刪掉', async () => {
+    const collidingId = `leave-south-蚌-${SAFE_WEEKDAY.replace(/-/g, '')}-single-事假-0900`
+    const existing = {
+      id: collidingId, type: 'leave', personName: '蚌', leaveType: '事假', hours: 8,
+      date: { toDate: () => new Date(SAFE_WEEKDAY) },
+    }
+    const { wrapper, eventsStore } = await mountWithManager([existing])
+    const addSpy = vi.spyOn(eventsStore, 'addEvent').mockResolvedValue({ id: collidingId })
+    const deleteSpy = vi.spyOn(eventsStore, 'deleteEvent').mockResolvedValue()
+
+    wrapper.vm.eventForm.type = 'leave'
+    wrapper.vm.eventForm.date = SAFE_WEEKDAY
+    wrapper.vm.eventForm.personName = '蚌'
+    wrapper.vm.eventForm.hours = 8
+    wrapper.vm.eventForm.leaveType = '事假'
+    wrapper.vm.eventForm.startTime = '09:00'
+    wrapper.vm.eventForm.endTime = '18:00'
+    await wrapper.vm.submitEvent()        // conflict modal opens
+    await flushPromises()
+    expect(wrapper.vm.conflictModal).not.toBeNull()
+    await wrapper.vm.resolveConflict('personal')
+    await flushPromises()
+
+    expect(addSpy).toHaveBeenCalled()
+    expect(addSpy.mock.calls[0][1]).toBe(collidingId)
+    expect(deleteSpy).not.toHaveBeenCalledWith(collidingId)
+  })
+
   it('編輯模式下跟既有請假重疊時，也會跳出衝突視窗，選擇「改用新增（事假）」後改用 updateEvent 寫入', async () => {
     const { wrapper, eventsStore, usersStore } = await mountWithManager()
     const updateSpy = vi.spyOn(eventsStore, 'updateEvent').mockResolvedValue()

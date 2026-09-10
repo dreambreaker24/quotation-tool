@@ -6,7 +6,7 @@ const clean = (s) => String(s ?? '').replace(/[^\w一-鿿]/g, '')
 
 export function leaveDedupeId({ companyId, personName, date, endDate, leaveType, startTime } = {}) {
     const dateKey = clean(date)
-    const endKey = endDate ? clean(endDate) : 'single'
+    const endKey = (endDate && date && endDate > date) ? clean(endDate) : 'single'
     const typeKey = clean(leaveType) || 'na'
     const startKey = clean(startTime) || 'allday'
     return `leave-${clean(companyId)}-${clean(personName)}-${dateKey}-${endKey}-${typeKey}-${startKey}`

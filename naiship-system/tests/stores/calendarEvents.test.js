@@ -11,15 +11,17 @@ vi.mock('firebase/firestore', () => ({
   orderBy: vi.fn(),
   onSnapshot: vi.fn((q, cb) => { cb({ docs: [] }); return () => {} }),
   addDoc: vi.fn(() => Promise.resolve({ id: 'new-id' })),
+  setDoc: vi.fn(() => Promise.resolve()),
   updateDoc: vi.fn(() => Promise.resolve()),
   deleteDoc: vi.fn(() => Promise.resolve()),
-  doc: vi.fn(),
+  doc: vi.fn((db, coll, id) => ({ __path: `${coll}/${id}` })),
   serverTimestamp: vi.fn(() => 'ts'),
   Timestamp: { fromDate: vi.fn(d => ({ toDate: () => d })) },
   getDocs: vi.fn(),
 }))
 
 import { getDocs } from 'firebase/firestore'
+import { addDoc, setDoc, doc } from 'firebase/firestore'
 
 function fakeDoc(data) {
   return { data: () => data }
@@ -47,5 +49,24 @@ describe('useCalendarEventsStore.fetchMonthlyLeaveDetail', () => {
     const store = useCalendarEventsStore()
     const result = await store.fetchMonthlyLeaveDetail(2026, 6, '蚌')
     expect(result).toEqual([])
+  })
+})
+
+describe('useCalendarEventsStore.addEvent', () => {
+  beforeEach(() => { setActivePinia(createPinia()); vi.clearAllMocks() })
+
+  it('無 dedupeId 時用 addDoc（自動 ID）', async () => {
+    const store = useCalendarEventsStore()
+    await store.addEvent({ type: 'note', label: 'x' })
+    expect(addDoc).toHaveBeenCalledTimes(1)
+    expect(setDoc).not.toHaveBeenCalled()
+  })
+
+  it('有 dedupeId 時用 setDoc 寫到 calendarEvents/<dedupeId>', async () => {
+    const store = useCalendarEventsStore()
+    await store.addEvent({ type: 'leave', personName: '蚌' }, 'leave-south-蚌-20261015-single-事假-0900')
+    expect(setDoc).toHaveBeenCalledTimes(1)
+    expect(doc).toHaveBeenCalledWith(expect.anything(), 'calendarEvents', 'leave-south-蚌-20261015-single-事假-0900')
+    expect(addDoc).not.toHaveBeenCalled()
   })
 })

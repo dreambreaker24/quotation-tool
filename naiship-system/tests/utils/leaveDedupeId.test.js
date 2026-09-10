@@ -40,6 +40,11 @@ describe('leaveDedupeId', () => {
         expect(id).not.toContain('/')
     })
 
+    it('endDate 不晚於 date 時視為單日（與 getBusinessDays 一致）', () => {
+        expect(leaveDedupeId({ ...base, endDate: '2026-09-23' })).toBe('leave-south-蚌-20260923-single-事假-0900')
+        expect(leaveDedupeId({ ...base, endDate: '2026-09-20' })).toBe('leave-south-蚌-20260923-single-事假-0900')
+    })
+
     it('缺欄位不丟錯', () => {
         expect(() => leaveDedupeId({})).not.toThrow()
     })

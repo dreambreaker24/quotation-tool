@@ -563,7 +563,7 @@ function closeConflictModal() {
 // 過去日期的餘額不退回；但不管日期新舊，衝突紀錄本身都要刪除。
 // personName 由呼叫端在 finalizeAddEvent/finalizeEditEvent 執行之前先取好傳進來——
 // finalizeAddEvent 成功後會把 eventForm 重置為空白表單，這裡不能再從 eventForm 現讀取
-async function removeConflictingEvents(conflicts, personName) {
+async function removeConflictingEvents(conflicts, personName, writtenLeaveId = null) {
     for (const c of conflicts) {
         // 已透過薪資單折抵鎖定的事件不該被這裡刪除——正常操作應該已經在 resolveConflict()
         // 跟畫面 disabled 擋掉這條路徑，這裡是最後一道防線，不退款也不刪除
@@ -571,6 +571,7 @@ async function removeConflictingEvents(conflicts, personName) {
         if (TRACKED_LEAVE_TYPES.includes(c.leaveType) && c.date >= todayStr) {
             await applyLeaveDelta(c.leaveType, personName, c.hours, c.compConsumption)
         }
+        if (c.id === writtenLeaveId) continue // 這筆衝突已被新紀錄用同一個固定 doc ID 覆蓋，別再刪掉
         await eventsStore.deleteEvent(c.id)
     }
 }
@@ -610,7 +611,7 @@ async function resolveConflict(choice) {
         // finalizeEditEvent（add 模式表單已被清空、edit 模式重打會重複扣一次餘額）。所以這裡失敗
         // 一律視為「新紀錄已生效，舊紀錄清理留給使用者手動處理」，直接關閉視窗，不保留給使用者重試整個流程
         try {
-            await removeConflictingEvents(conflicts, personName)
+            await removeConflictingEvents(conflicts, personName, mode === 'add' ? lastLeaveWriteId.value : null)
         } catch {
             toast('新的請假紀錄已建立，但舊紀錄清理失敗，請至行事曆手動確認並刪除重複的舊紀錄', 'error')
             closeConflictModal()
@@ -669,6 +670,7 @@ const conflictModal = ref(null)
 // conflictModal 結構：{ mode: 'add' | 'edit', conflicts: [{id, leaveType, hours, dateLabel, date, endDate, compConsumption, leaveTypeLocked}], suggestion: '補休' | null }
 const resolvingConflict = ref(false)
 const submitting = ref(false)
+const lastLeaveWriteId = ref(null)
 
 // 衝突紀錄裡只要有一筆已經透過薪資單折抵鎖定，「改用新增」就要整組擋掉——
 // 那條路徑最終會刪除鎖定事件，繞過薪資單的取消折抵正規流程
@@ -1130,6 +1132,7 @@ async function submitEvent() {
 }
 
 async function finalizeAddEvent() {
+  lastLeaveWriteId.value = null
   const isLeave = eventForm.value.type === 'leave'
   const isMilestone = eventForm.value.type === 'milestone'
   try {
@@ -1192,6 +1195,7 @@ async function finalizeAddEvent() {
     notifStore.notifyAll(authStore.name ?? '', `新增了行程「${payload.label}」（${fmtNotifDate(newEvtDate)}）`, '', '', payload.companyId, '', 'cal', newEvtDate, false)
     eventForm.value = blankEvent()
     showAddEvent.value = false
+    lastLeaveWriteId.value = dedupeId
     return true
   } catch {
     toast('新增失敗，請重試', 'error')
