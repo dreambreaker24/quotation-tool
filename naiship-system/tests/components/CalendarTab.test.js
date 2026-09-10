@@ -357,6 +357,53 @@ describe('CalendarTab — 請假衝突偵測', () => {
 
     expect(addSpy).toHaveBeenCalledTimes(1)
   })
+
+  it('請假日期是國定假日（2026-09-28 教師節）時擋下，不寫入', async () => {
+    const { wrapper, eventsStore } = await mountWithManager([])
+    const addSpy = vi.spyOn(eventsStore, 'addEvent').mockResolvedValue({ id: 'new-1' })
+
+    wrapper.vm.eventForm.type = 'leave'
+    wrapper.vm.eventForm.date = '2026-09-28'
+    wrapper.vm.eventForm.personName = '蚌'
+    wrapper.vm.eventForm.hours = 8
+    wrapper.vm.eventForm.leaveType = '事假'
+    await wrapper.vm.submitEvent()
+    await flushPromises()
+
+    expect(addSpy).not.toHaveBeenCalled()
+    expect(wrapper.vm.conflictModal).toBeNull()
+  })
+
+  it('請假日期是週六時擋下，不寫入', async () => {
+    const { wrapper, eventsStore } = await mountWithManager([])
+    const addSpy = vi.spyOn(eventsStore, 'addEvent').mockResolvedValue({ id: 'new-1' })
+
+    wrapper.vm.eventForm.type = 'leave'
+    wrapper.vm.eventForm.date = '2026-10-17' // 週六
+    wrapper.vm.eventForm.personName = '蚌'
+    wrapper.vm.eventForm.hours = 8
+    wrapper.vm.eventForm.leaveType = '事假'
+    await wrapper.vm.submitEvent()
+    await flushPromises()
+
+    expect(addSpy).not.toHaveBeenCalled()
+  })
+
+  it('跨假日的區間假（含上班日）仍可送出', async () => {
+    const { wrapper, eventsStore } = await mountWithManager([])
+    const addSpy = vi.spyOn(eventsStore, 'addEvent').mockResolvedValue({ id: 'new-1' })
+
+    wrapper.vm.eventForm.type = 'leave'
+    wrapper.vm.eventForm.date = '2026-10-15'
+    wrapper.vm.eventForm.endDate = '2026-10-19' // 含週末，但有 10/15、10/16、10/19 上班日
+    wrapper.vm.eventForm.personName = '蚌'
+    wrapper.vm.eventForm.hours = 24
+    wrapper.vm.eventForm.leaveType = '事假'
+    await wrapper.vm.submitEvent()
+    await flushPromises()
+
+    expect(addSpy).toHaveBeenCalled()
+  })
 })
 
 describe('CalendarTab — leaveTypeLocked 鎖定', () => {
@@ -364,7 +411,7 @@ describe('CalendarTab — leaveTypeLocked 鎖定', () => {
     setActivePinia(createPinia())
   })
 
-  const FUTURE_DATE = fmtDate(addDays(30))
+  const FUTURE_DATE = firstWorkdayFrom(30) // 保證為上班日，避免撞到週末/國定假日硬擋
 
   it('openEditEvent 讀到 leaveTypeLocked 事件時，saveEditEvent 不會改動假別/時數，也不會動到 compConsumption', async () => {
     const usersStore = useUsersStore()

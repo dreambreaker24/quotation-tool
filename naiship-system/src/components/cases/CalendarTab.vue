@@ -752,6 +752,11 @@ async function saveEditEvent() {
     editForm.value.hours = editForm.value._origHours
     editForm.value.personName = editForm.value._origPersonName
   }
+  if (isLeave && getBusinessDays(editForm.value.date, editForm.value.endDate).length === 0) {
+    const hol = TAIWAN_HOLIDAY_NAMES[editForm.value.date]
+    toast(hol ? `${editForm.value.date} 是國定假日（${hol}），不用請假` : '週末不用請假', 'error')
+    return
+  }
   submitting.value = true
   try {
     if (isLeave) {
@@ -1102,6 +1107,11 @@ async function submitEvent() {
   if (!isLeave && !eventForm.value.label && !isMilestone) return
   if (isLeave && !authStore.isManager && eventForm.value.personName !== authStore.name) {
     toast('只有蚌、其宏、柏可以新增別人的請假紀錄', 'error')
+    return
+  }
+  if (isLeave && getBusinessDays(eventForm.value.date, eventForm.value.endDate).length === 0) {
+    const hol = TAIWAN_HOLIDAY_NAMES[eventForm.value.date]
+    toast(hol ? `${eventForm.value.date} 是國定假日（${hol}），不用請假` : '週末不用請假', 'error')
     return
   }
   submitting.value = true
