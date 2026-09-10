@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { collection, query, where, orderBy, onSnapshot, addDoc, updateDoc, deleteDoc, doc, getDocs, serverTimestamp, Timestamp } from 'firebase/firestore'
+import { collection, query, where, orderBy, onSnapshot, addDoc, setDoc, updateDoc, deleteDoc, doc, getDocs, serverTimestamp, Timestamp } from 'firebase/firestore'
 import { db } from '@/firebase'
 
 export const useCalendarEventsStore = defineStore('calendarEvents', () => {
@@ -28,8 +28,12 @@ export const useCalendarEventsStore = defineStore('calendarEvents', () => {
         })
     }
 
-    async function addEvent(data) {
-        return addDoc(collection(db, 'calendarEvents'), { ...data, createdAt: serverTimestamp() })
+    async function addEvent(data, dedupeId = null) {
+        const payload = { ...data, createdAt: serverTimestamp() }
+        if (dedupeId) {
+            return setDoc(doc(db, 'calendarEvents', dedupeId), payload)
+        }
+        return addDoc(collection(db, 'calendarEvents'), payload)
     }
 
     async function updateEvent(id, data) {
