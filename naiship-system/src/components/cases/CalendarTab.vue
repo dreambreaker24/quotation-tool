@@ -440,6 +440,7 @@ import { consumeFIFO, refundConsumption, sumRemainingHours } from '@/utils/compL
 import { findOverlappingLeave } from '@/utils/leaveConflict'
 import CompensatoryPanel from './CompensatoryPanel.vue'
 import { TAIWAN_HOLIDAY_NAMES } from '@/constants/holidays'
+import { getBusinessDays } from '@/utils/businessDays'
 
 const props = defineProps({ region: String, jumpEventDate: String })
 const emit = defineEmits(['jumped-date'])
@@ -872,21 +873,6 @@ function calcHours(start, end) {
     let diff = (endMin - startMin) / 60
     if (startMin < 13 * 60 && endMin > 12 * 60) diff -= 1
     return diff > 0 ? diff : null
-}
-
-function getBusinessDays(dateStr, endDateStr) {
-    if (!dateStr) return []
-    const start = new Date(dateStr)
-    const end = endDateStr && endDateStr > dateStr ? new Date(endDateStr) : new Date(dateStr)
-    const days = []
-    const cur = new Date(start)
-    while (cur <= end) {
-        const dow = cur.getDay()
-        const ds = `${cur.getFullYear()}-${String(cur.getMonth()+1).padStart(2,'0')}-${String(cur.getDate()).padStart(2,'0')}`
-        if (dow !== 0 && dow !== 6 && !TAIWAN_HOLIDAY_NAMES[ds]) days.push(ds)
-        cur.setDate(cur.getDate() + 1)
-    }
-    return days
 }
 
 // 首尾兩天若有填時間，只算部分時數（用上下班時間09:00-18:00當滿天基準）；中間的平日一律算整天8小時
