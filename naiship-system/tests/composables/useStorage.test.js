@@ -1,5 +1,5 @@
 // naiship-system/tests/composables/useStorage.test.js
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 describe('useStorage (local backend)', () => {
   beforeEach(() => {
@@ -26,17 +26,18 @@ describe('useStorage (local backend)', () => {
 })
 
 describe('useStorage (nas backend)', () => {
+  let currentUser
   beforeEach(() => {
+    currentUser = { getIdToken: vi.fn().mockResolvedValue('tok-abc') }
     vi.resetModules()
     import.meta.env.VITE_STORAGE_BACKEND = 'nas'
     import.meta.env.VITE_NAS_BASE_URL = 'https://nas.example/media'
-    vi.doMock('@/firebase', () => ({
-      auth: { currentUser: { getIdToken: vi.fn().mockResolvedValue('tok-abc') } },
-    }))
+    vi.doMock('@/firebase', () => ({ auth: { get currentUser() { return currentUser } } }))
     global.fetch = vi.fn(() =>
       Promise.resolve({ ok: true, json: () => Promise.resolve({ url: 'https://nas.example/media/naiship/survey/x.jpg' }) }),
     )
   })
+  afterEach(() => { vi.doUnmock('@/firebase') })
 
   it('帶 Bearer token 上傳並回傳 url', async () => {
     const { uploadPhoto } = await import('@/composables/useStorage')
@@ -52,8 +53,7 @@ describe('useStorage (nas backend)', () => {
   })
 
   it('未登入時丟錯', async () => {
-    vi.doMock('@/firebase', () => ({ auth: { currentUser: null } }))
-    vi.resetModules()
+    currentUser = null
     const { uploadPhoto } = await import('@/composables/useStorage')
     await expect(uploadPhoto(new File(['d'], 't.jpg'), 'survey')).rejects.toThrow(/登入/)
   })
