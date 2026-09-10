@@ -6,6 +6,7 @@ import { useUsersStore } from '@/stores/users'
 import { useAuthStore } from '@/stores/auth'
 import { useCalendarEventsStore } from '@/stores/calendarEvents'
 import { hoursToDays } from '@/utils/leaveConversion'
+import { TAIWAN_HOLIDAY_NAMES } from '@/constants/holidays'
 
 vi.mock('@/firebase', () => ({ auth: {}, db: {} }))
 vi.mock('firebase/auth', () => ({
@@ -40,10 +41,19 @@ function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d
 const EXISTING_START = fmtDate(addDays(5))   // 未來日期，衝突紀錄應該要退款
 const EXISTING_END = fmtDate(addDays(7))
 const OVERLAP_DATE = fmtDate(addDays(6))     // 落在 EXISTING_START~EXISTING_END 之間
-const NO_OVERLAP_DATE = fmtDate(addDays(60)) // 遠離衝突區間，不重疊
 const PAST_START = fmtDate(addDays(-10))     // 過去日期，衝突紀錄不應該退款
 const PAST_END = fmtDate(addDays(-8))
 const PAST_OVERLAP_DATE = fmtDate(addDays(-9))
+
+function firstWorkdayFrom(offset) {
+  const d = addDays(offset)
+  while (d.getDay() === 0 || d.getDay() === 6 || TAIWAN_HOLIDAY_NAMES[fmtDate(d)]) {
+    d.setDate(d.getDate() + 1)
+  }
+  return fmtDate(d)
+}
+const SAFE_WEEKDAY = firstWorkdayFrom(45)
+const NO_OVERLAP_DATE = firstWorkdayFrom(60) // 遠離衝突區間，不重疊（且保證為上班日）
 
 function defaultExistingLeave() {
   return {
@@ -328,6 +338,24 @@ describe('CalendarTab — 請假衝突偵測', () => {
     expect(addSpy).not.toHaveBeenCalled()
     expect(deleteSpy).not.toHaveBeenCalled()
     expect(wrapper.vm.conflictModal).not.toBeNull()
+  })
+
+  it('連續兩次 submitEvent（不 await 第一次）只會寫入一筆', async () => {
+    const { wrapper, eventsStore } = await mountWithManager([])
+    const addSpy = vi.spyOn(eventsStore, 'addEvent').mockResolvedValue({ id: 'new-1' })
+
+    wrapper.vm.eventForm.type = 'leave'
+    wrapper.vm.eventForm.date = SAFE_WEEKDAY
+    wrapper.vm.eventForm.personName = '蚌'
+    wrapper.vm.eventForm.hours = 8
+    wrapper.vm.eventForm.leaveType = '事假'
+
+    const p1 = wrapper.vm.submitEvent()
+    const p2 = wrapper.vm.submitEvent()
+    await Promise.all([p1, p2])
+    await flushPromises()
+
+    expect(addSpy).toHaveBeenCalledTimes(1)
   })
 })
 

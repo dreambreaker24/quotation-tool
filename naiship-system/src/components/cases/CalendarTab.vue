@@ -215,7 +215,7 @@
       </div>
       <div class="flex justify-end gap-2 mt-5">
         <button @click="showAddEvent = false" class="text-sm text-gray-400 px-4 py-2">取消</button>
-        <button @click="submitEvent" :disabled="!canSubmitAddEvent"
+        <button @click="submitEvent" :disabled="!canSubmitAddEvent || submitting"
           class="text-sm text-white px-5 py-2 rounded-xl disabled:opacity-40 disabled:cursor-not-allowed" style="background:#1e2533">新增</button>
       </div>
     </div>
@@ -368,7 +368,7 @@
           class="text-sm text-red-400 hover:text-red-600 px-3 py-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-red-400">刪除</button>
         <div class="flex gap-2">
           <button @click="showEditEvent = false" class="text-sm text-gray-400 px-4 py-2">取消</button>
-          <button @click="saveEditEvent" :disabled="!canSubmitEditEvent"
+          <button @click="saveEditEvent" :disabled="!canSubmitEditEvent || submitting"
             class="text-sm text-white px-5 py-2 rounded-xl disabled:opacity-40 disabled:cursor-not-allowed" style="background:#1e2533">儲存</button>
         </div>
       </div>
@@ -441,6 +441,7 @@ import { findOverlappingLeave } from '@/utils/leaveConflict'
 import CompensatoryPanel from './CompensatoryPanel.vue'
 import { TAIWAN_HOLIDAY_NAMES } from '@/constants/holidays'
 import { getBusinessDays } from '@/utils/businessDays'
+import { leaveDedupeId } from '@/utils/leaveDedupeId'
 
 const props = defineProps({ region: String, jumpEventDate: String })
 const emit = defineEmits(['jumped-date'])
@@ -667,6 +668,7 @@ const editForm = ref({ type: 'note', date: '', endDate: '', label: '', personNam
 const conflictModal = ref(null)
 // conflictModal 結構：{ mode: 'add' | 'edit', conflicts: [{id, leaveType, hours, dateLabel, date, endDate, compConsumption, leaveTypeLocked}], suggestion: '補休' | null }
 const resolvingConflict = ref(false)
+const submitting = ref(false)
 
 // 衝突紀錄裡只要有一筆已經透過薪資單折抵鎖定，「改用新增」就要整組擋掉——
 // 那條路徑最終會刪除鎖定事件，繞過薪資單的取消折抵正規流程
@@ -728,6 +730,7 @@ function openEditEvent(event) {
 }
 
 async function saveEditEvent() {
+  if (submitting.value) return
   if (!editForm.value.date) return
   if (!hasRequiredDateTime(editForm.value)) {
     toast('請填寫日期與開始/結束時間', 'error')
@@ -749,14 +752,19 @@ async function saveEditEvent() {
     editForm.value.hours = editForm.value._origHours
     editForm.value.personName = editForm.value._origPersonName
   }
-  if (isLeave) {
-    const conflicts = await checkLeaveConflict(editForm.value.personName, editForm.value.date, editForm.value.endDate, editingEventId.value)
-    if (conflicts.length) {
-      await openConflictModal('edit', conflicts)
-      return
+  submitting.value = true
+  try {
+    if (isLeave) {
+      const conflicts = await checkLeaveConflict(editForm.value.personName, editForm.value.date, editForm.value.endDate, editingEventId.value)
+      if (conflicts.length) {
+        await openConflictModal('edit', conflicts)
+        return
+      }
     }
+    await finalizeEditEvent()
+  } finally {
+    submitting.value = false
   }
-  await finalizeEditEvent()
 }
 
 async function finalizeEditEvent() {
@@ -1082,6 +1090,7 @@ const dayDetailLabel = computed(() => {
 const dayDetailHoliday = computed(() => TAIWAN_HOLIDAY_NAMES[dayDetailDate.value] ?? null)
 
 async function submitEvent() {
+  if (submitting.value) return
   if (!eventForm.value.date) return
   if (!hasRequiredDateTime(eventForm.value)) {
     toast('請填寫日期與開始/結束時間', 'error')
@@ -1095,14 +1104,19 @@ async function submitEvent() {
     toast('只有蚌、其宏、柏可以新增別人的請假紀錄', 'error')
     return
   }
-  if (isLeave) {
-    const conflicts = await checkLeaveConflict(eventForm.value.personName, eventForm.value.date, eventForm.value.endDate, null)
-    if (conflicts.length) {
-      await openConflictModal('add', conflicts)
-      return
+  submitting.value = true
+  try {
+    if (isLeave) {
+      const conflicts = await checkLeaveConflict(eventForm.value.personName, eventForm.value.date, eventForm.value.endDate, null)
+      if (conflicts.length) {
+        await openConflictModal('add', conflicts)
+        return
+      }
     }
+    await finalizeAddEvent()
+  } finally {
+    submitting.value = false
   }
-  await finalizeAddEvent()
 }
 
 async function finalizeAddEvent() {
