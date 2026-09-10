@@ -7,6 +7,7 @@
   </template>
   <template v-else>
     <NavBar />
+    <StorageStatusBanner />
     <div class="flex pt-14 min-h-screen" style="background:#f5f4f1">
       <router-view />
     </div>
@@ -28,6 +29,7 @@
 import { watch } from 'vue'
 import { useRoute } from 'vue-router'
 import NavBar from '@/components/layout/NavBar.vue'
+import StorageStatusBanner from '@/components/common/StorageStatusBanner.vue'
 import AppShellSkeleton from '@/components/layout/AppShellSkeleton.vue'
 import { useToast } from '@/composables/useToast'
 import { useAuthStore } from '@/stores/auth'
