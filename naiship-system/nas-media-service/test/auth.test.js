@@ -1,20 +1,22 @@
 import { describe, it, expect, beforeAll } from 'vitest'
-import { generateKeyPair, exportJWK, SignJWT } from 'jose'
+import { generateKeyPair, exportJWK, SignJWT, createLocalJWKSet } from 'jose'
 import { createVerifier } from '../src/auth.js'
 
 const PROJECT = 'quotation-system-ddc5c'
 const ISS = `https://securetoken.google.com/${PROJECT}`
-let privateKey, publicKey, resolver
+let privateKey, otherPrivateKey, resolver
 
 beforeAll(async () => {
   const kp = await generateKeyPair('RS256')
   privateKey = kp.privateKey
-  publicKey = kp.publicKey
-  const jwk = await exportJWK(publicKey)
+  const jwk = await exportJWK(kp.publicKey)
   jwk.kid = 'test-key'
   jwk.alg = 'RS256'
-  // jose jwtVerify 第二參數可為 (header, token) => key 的解析函式
-  resolver = async () => publicKey
+  // 用本機 JWK set 當解析器，貼近正式的 remote JWK set 行為（依 kid 找 key）
+  resolver = createLocalJWKSet({ keys: [jwk] })
+
+  const other = await generateKeyPair('RS256')
+  otherPrivateKey = other.privateKey
 })
 
 async function makeToken(overrides = {}, opts = {}) {
@@ -25,7 +27,11 @@ async function makeToken(overrides = {}, opts = {}) {
     .setAudience(opts.aud ?? PROJECT)
     .setIssuedAt(now)
     .setExpirationTime(opts.exp ?? now + 3600)
-    .sign(privateKey)
+    .sign(opts.key ?? privateKey)
+}
+
+function b64url(obj) {
+  return Buffer.from(JSON.stringify(obj)).toString('base64url')
 }
 
 describe('createVerifier', () => {
@@ -64,5 +70,18 @@ describe('createVerifier', () => {
   it('亂七八糟的字串丟錯', async () => {
     const verify = createVerifier({ projectId: PROJECT, jwksResolver: resolver })
     await expect(verify('not-a-jwt')).rejects.toThrow()
+  })
+
+  it('偽造的 alg:none token 丟錯', async () => {
+    const verify = createVerifier({ projectId: PROJECT, jwksResolver: resolver })
+    const now = Math.floor(Date.now() / 1000)
+    const forged = `${b64url({ alg: 'none', typ: 'JWT' })}.`
+      + `${b64url({ sub: 'uid-123', iss: ISS, aud: PROJECT, iat: now, exp: now + 3600 })}.`
+    await expect(verify(forged)).rejects.toThrow()
+  })
+
+  it('用別把金鑰簽的 token 丟錯', async () => {
+    const verify = createVerifier({ projectId: PROJECT, jwksResolver: resolver })
+    await expect(verify(await makeToken({}, { key: otherPrivateKey }))).rejects.toThrow()
   })
 })

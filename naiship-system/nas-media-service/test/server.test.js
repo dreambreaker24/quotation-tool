@@ -1,9 +1,19 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import request from 'supertest'
 import { createApp } from '../src/server.js'
+
+// 只有在測試需要時才把 randomBytes 固定住（製造檔名碰撞），其餘走真隨機
+const { rbState } = vi.hoisted(() => ({ rbState: { fixed: null } }))
+vi.mock('node:crypto', async (importOriginal) => {
+  const actual = await importOriginal()
+  return {
+    ...actual,
+    randomBytes: (...args) => (rbState.fixed ? Buffer.from(rbState.fixed) : actual.randomBytes(...args)),
+  }
+})
 
 let mediaRoot
 const config = () => ({
@@ -16,7 +26,10 @@ const config = () => ({
 const fakeVerify = async (t) => { if (t !== 'good') throw new Error('bad'); return { sub: 'u1' } }
 
 beforeEach(() => { mediaRoot = mkdtempSync(join(tmpdir(), 'media-')) })
-afterEach(() => rmSync(mediaRoot, { recursive: true, force: true }))
+afterEach(() => {
+  rmSync(mediaRoot, { recursive: true, force: true })
+  rbState.fixed = null
+})
 
 describe('GET /media/health', () => {
   it('回 { ok: true }，不需認證', async () => {
@@ -79,6 +92,48 @@ describe('POST /media/upload', () => {
       .field('type', 'survey').attach('file', big, 'big.jpg')
     expect(res.status).toBe(413)
   })
+
+  it('Authorization 帶裸 token（無 Bearer 前綴）→ 401', async () => {
+    const res = await request(createApp(config(), fakeVerify))
+      .post('/media/upload').set('Authorization', 'good')
+      .field('type', 'survey').attach('file', Buffer.from('x'), 'a.jpg')
+    expect(res.status).toBe(401)
+  })
+
+  it('type 送兩次（欄位污染成陣列）→ 400', async () => {
+    const res = await request(createApp(config(), fakeVerify))
+      .post('/media/upload').set('Authorization', 'Bearer good')
+      .field('type', 'survey').field('type', 'x')
+      .attach('file', Buffer.from('x'), 'a.jpg')
+    expect(res.status).toBe(400)
+  })
+
+  it('伺服器內部錯誤 → 500 且回應不外洩 stack', async () => {
+    // 讓 naiship 變成檔案而非資料夾，mkdir 會丟 ENOTDIR
+    writeFileSync(join(mediaRoot, 'naiship'), 'not a dir')
+    const res = await request(createApp(config(), fakeVerify))
+      .post('/media/upload').set('Authorization', 'Bearer good')
+      .field('type', 'survey').attach('file', Buffer.from('x'), 'a.jpg')
+    expect(res.status).toBe(500)
+    expect(res.body).toEqual({ error: '伺服器錯誤' })
+    expect(JSON.stringify(res.body)).not.toMatch(/stack|\.js:\d+|ENOTDIR/i)
+  })
+
+  it('檔名碰撞時不會靜默覆寫既有檔案', async () => {
+    rbState.fixed = Buffer.from('aabbccdd', 'hex')
+    const app = createApp(config(), fakeVerify)
+    const first = await request(app)
+      .post('/media/upload').set('Authorization', 'Bearer good')
+      .field('type', 'survey').attach('file', Buffer.from('original'), 'a.jpg')
+    expect(first.status).toBe(200)
+    const rel = first.body.url.replace('https://nas.example/media/', '')
+
+    const second = await request(app)
+      .post('/media/upload').set('Authorization', 'Bearer good')
+      .field('type', 'survey').attach('file', Buffer.from('overwrite-attempt'), 'a.jpg')
+    expect(second.status).toBe(500)
+    expect(readFileSync(join(mediaRoot, rel), 'utf8')).toBe('original')
+  })
 })
 
 describe('GET 靜態供檔', () => {
@@ -90,5 +145,23 @@ describe('GET 靜態供檔', () => {
     expect(res.status).toBe(200)
     expect(res.body.toString('utf8')).toBe('imgdata')
     expect(res.headers['content-disposition']).toMatch(/inline/)
+    expect(res.headers['x-content-type-options']).toBe('nosniff')
+  })
+
+  it('路徑穿越（..）拿不到 naiship 以外的檔案', async () => {
+    mkdirSync(join(mediaRoot, 'naiship'), { recursive: true })
+    writeFileSync(join(mediaRoot, 'secret.txt'), 'top-secret')
+    const res = await request(createApp(config(), fakeVerify))
+      .get('/media/naiship/%2e%2e/secret.txt')
+    expect(res.status).not.toBe(200)
+    expect(res.text || '').not.toContain('top-secret')
+  })
+
+  it('點檔案（dotfile）被擋下', async () => {
+    const dir = join(mediaRoot, 'naiship')
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(join(dir, '.secret'), 'nope')
+    const res = await request(createApp(config(), fakeVerify)).get('/media/naiship/.secret')
+    expect([403, 404]).toContain(res.status)
   })
 })

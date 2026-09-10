@@ -13,8 +13,9 @@ export function createVerifier({ projectId, jwksResolver }) {
     const { payload } = await jwtVerify(token, jwksResolver, {
       issuer,
       audience: projectId,
+      algorithms: ['RS256'],
     })
-    if (!payload.sub) throw new Error('token 缺少 sub')
+    if (typeof payload.sub !== 'string' || !payload.sub) throw new Error('token 缺少 sub')
     return payload
   }
 }
