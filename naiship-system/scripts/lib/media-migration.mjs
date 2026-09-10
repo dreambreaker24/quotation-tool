@@ -24,10 +24,13 @@ const CT_MAP = {
   'image/gif': 'gif', 'application/pdf': 'pdf', 'video/mp4': 'mp4', 'video/quicktime': 'mov',
 }
 
+// 認得的媒體副檔名；網址結尾若不是這些（例如 report.final），不當副檔名用
+export const MEDIA_EXT = new Set(['jpg', 'jpeg', 'png', 'webp', 'gif', 'pdf', 'mp4', 'mov'])
+
 export function deriveExt(url, contentType) {
   try {
     const m = /\.([a-zA-Z0-9]+)$/.exec(new URL(url).pathname)
-    if (m) return m[1].toLowerCase()
+    if (m && MEDIA_EXT.has(m[1].toLowerCase())) return m[1].toLowerCase()
   } catch { /* ignore */ }
   const key = String(contentType || '').split(';')[0].trim().toLowerCase()
   return CT_MAP[key] || 'jpg'

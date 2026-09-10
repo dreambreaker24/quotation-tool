@@ -28,6 +28,10 @@ dist-ssr
 uploads/
 firebase-admin-key.json
 
+# 搬家腳本產物（含 2,600+ 筆正式站網址對照，切勿進版控）
+migrate-media-map.tsv
+migrate-media-*.log
+
 # Local E2E test scaffolding (contains saved Google/Firebase auth tokens — never commit)
 tests/e2e/
 

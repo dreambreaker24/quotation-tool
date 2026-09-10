@@ -24,6 +24,18 @@ describe('replaceInStringArray', () => {
   it('沒相符時原樣回傳內容', () => {
     expect(replaceInStringArray(['a'], 'x', 'z')).toEqual(['a'])
   })
+  it('oldUrl 不存在時回傳內容相等的陣列（交易 no-op）', () => {
+    const a = ['a', 'b']
+    const out = replaceInStringArray(a, 'x', 'z')
+    expect(out).toEqual(['a', 'b'])
+    expect(out).not.toBe(a)
+  })
+  it('連續替換兩個不同網址', () => {
+    const step1 = replaceInStringArray(['a', 'b'], 'a', 'na')
+    expect(step1).toEqual(['na', 'b'])
+    const step2 = replaceInStringArray(step1, 'b', 'nb')
+    expect(step2).toEqual(['na', 'nb'])
+  })
 })
 
 describe('replaceInObjectArray', () => {
@@ -37,6 +49,12 @@ describe('replaceInObjectArray', () => {
     expect(replaceInObjectArray([null, { url: 'x' }], 'url', 'x', 'z'))
       .toEqual([null, { url: 'z' }])
   })
+  it('oldUrl 不存在時回傳內容相等的陣列（交易 no-op）', () => {
+    const a = [{ url: 'a' }, { url: 'b' }]
+    const out = replaceInObjectArray(a, 'url', 'x', 'z')
+    expect(out).toEqual([{ url: 'a' }, { url: 'b' }])
+    expect(out).not.toBe(a)
+  })
 })
 
 describe('deriveExt', () => {
@@ -48,5 +66,12 @@ describe('deriveExt', () => {
   })
   it('都沒有時回 jpg 當保底', () => {
     expect(deriveExt('https://res.cloudinary.com/x/abc', 'application/octet-stream')).toBe('jpg')
+  })
+  it('網址結尾不是已知媒體副檔名時，改用 content-type', () => {
+    expect(deriveExt('https://res.cloudinary.com/x/naiship/review/report.final', 'application/pdf')).toBe('pdf')
+  })
+  it('content-type 空、網址也無有效副檔名時回 jpg', () => {
+    expect(deriveExt('https://res.cloudinary.com/x/naiship/review/report.final', null)).toBe('jpg')
+    expect(deriveExt('https://res.cloudinary.com/x/abc', '')).toBe('jpg')
   })
 })
