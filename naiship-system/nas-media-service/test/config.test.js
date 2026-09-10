@@ -41,6 +41,7 @@ describe('loadConfig', () => {
     expect(ALLOWED_EXT.has('exe')).toBe(false)
     expect(ALLOWED_TYPES.has('survey')).toBe(true)
     expect(ALLOWED_TYPES.has('vendor_quote')).toBe(true)
+    expect(ALLOWED_TYPES.has('contract')).toBe(true)
     expect(ALLOWED_TYPES.has('../etc')).toBe(false)
   })
 })

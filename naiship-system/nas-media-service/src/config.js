@@ -2,7 +2,7 @@ export const ALLOWED_EXT = new Set(['jpg', 'jpeg', 'png', 'webp', 'gif', 'pdf', 
 
 // 對應現有 Cloudinary 資料夾 / useStorage 的 type 參數 / server.js 的 TYPES
 export const ALLOWED_TYPES = new Set([
-  'survey', '3d', 'construction', 'completion', 'commercial', 'floorplan', 'blueprint',
+  'survey', 'contract', '3d', 'construction', 'completion', 'commercial', 'floorplan', 'blueprint',
   'vendor_quote', 'invoice', 'wt_construction', 'bid_quote',
   'reply', 'log', 'fuel', 'task', 'review', 'announcement',
   'progress-notes', 'dashboard-notes', 'petty-cash',
