@@ -47,6 +47,8 @@ describe('useStorage (nas backend)', () => {
     expect(calledUrl).toBe('https://nas.example/media/upload')
     expect(opts.method).toBe('POST')
     expect(opts.headers.Authorization).toBe('Bearer tok-abc')
+    expect(opts.body.get('type')).toBe('survey')
+    expect(opts.body.get('file')).toBeTruthy()
   })
 
   it('未登入時丟錯', async () => {

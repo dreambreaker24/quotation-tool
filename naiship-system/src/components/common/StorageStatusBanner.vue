@@ -1,5 +1,5 @@
 <template>
-  <div v-if="offline" data-test="storage-offline"
+  <div v-if="offline" data-test="storage-offline" role="alert"
     class="fixed top-14 inset-x-0 z-40 bg-amber-500 text-white text-sm text-center py-1.5 px-4 shadow">
     ⚠️ 檔案伺服器目前連線異常，照片可能無法顯示或上傳，其他功能不受影響
   </div>
@@ -13,19 +13,23 @@ const backend = import.meta.env.VITE_STORAGE_BACKEND
 const base = import.meta.env.VITE_NAS_BASE_URL
 let failCount = 0
 let timer = null
+let disposed = false
 
 async function check() {
+  const ctl = new AbortController()
+  const t = setTimeout(() => ctl.abort(), 5000)
   try {
-    const ctl = new AbortController()
-    const t = setTimeout(() => ctl.abort(), 5000)
     const res = await fetch(`${base}/health`, { signal: ctl.signal })
-    clearTimeout(t)
+    if (disposed) return
     if (!res.ok) throw new Error('bad status')
     failCount = 0
     offline.value = false
   } catch {
+    if (disposed) return
     failCount += 1
     if (failCount >= 2) offline.value = true
+  } finally {
+    clearTimeout(t)
   }
 }
 
@@ -34,5 +38,8 @@ onMounted(() => {
   check()
   timer = setInterval(check, 60000)
 })
-onUnmounted(() => { if (timer) clearInterval(timer) })
+onUnmounted(() => {
+  disposed = true
+  if (timer) clearInterval(timer)
+})
 </script>
