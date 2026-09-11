@@ -648,4 +648,48 @@ describe('CalendarTab — 事件移動 / 複製', () => {
     expect(payload.createdBy).toBe('u-bo')
     expect(tsYMD(payload.date)).toBe('2026-09-20')
   })
+
+  it('startPendingAction → pickTargetDate 會執行 move 並清掉 pendingAction', async () => {
+    const { wrapper, eventsStore } = await mountPlain()
+    const spy = vi.spyOn(eventsStore, 'updateEvent').mockResolvedValue()
+    wrapper.vm.startPendingAction('move', milestoneEvent())
+    expect(wrapper.vm.pendingAction).not.toBeNull()
+    await wrapper.vm.pickTargetDate('2026-09-15')
+    await flushPromises()
+    expect(spy).toHaveBeenCalledTimes(1)
+    expect(wrapper.vm.pendingAction).toBeNull()
+  })
+
+  it('startPendingAction(copy) → pickTargetDate 會執行 copy', async () => {
+    const { wrapper, eventsStore } = await mountPlain()
+    const addSpy = vi.spyOn(eventsStore, 'addEvent').mockResolvedValue({ id: 'new' })
+    wrapper.vm.startPendingAction('copy', milestoneEvent())
+    await wrapper.vm.pickTargetDate('2026-09-21')
+    await flushPromises()
+    expect(addSpy).toHaveBeenCalledTimes(1)
+    expect(wrapper.vm.pendingAction).toBeNull()
+  })
+
+  it('cancelPendingAction 清掉 pendingAction', async () => {
+    const { wrapper } = await mountPlain()
+    wrapper.vm.startPendingAction('move', milestoneEvent())
+    wrapper.vm.cancelPendingAction()
+    expect(wrapper.vm.pendingAction).toBeNull()
+  })
+
+  it('選日模式中 onCellClick 選到目標日、不開當天詳情', async () => {
+    const { wrapper, eventsStore } = await mountPlain()
+    const spy = vi.spyOn(eventsStore, 'updateEvent').mockResolvedValue()
+    wrapper.vm.startPendingAction('move', milestoneEvent())
+    await wrapper.vm.onCellClick({ currentMonth: true, dateStr: '2026-09-15' })
+    await flushPromises()
+    expect(spy).toHaveBeenCalledTimes(1)
+    expect(wrapper.vm.showDayDetail).toBe(false)
+  })
+
+  it('非選日模式 onCellClick 照舊開當天詳情', async () => {
+    const { wrapper } = await mountPlain()
+    await wrapper.vm.onCellClick({ currentMonth: true, dateStr: '2026-09-15' })
+    expect(wrapper.vm.showDayDetail).toBe(true)
+  })
 })

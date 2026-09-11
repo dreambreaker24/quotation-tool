@@ -39,6 +39,12 @@
       </div>
     </div>
 
+    <!-- 移動/複製：選目標日期橫幅 -->
+    <div v-if="pendingAction" class="flex items-center justify-between gap-2 px-4 sm:px-5 py-2.5 bg-amber-50 border-b border-amber-200 text-sm text-amber-800">
+      <span>{{ pendingActionLabel }}</span>
+      <button @click="cancelPendingAction" class="text-xs border border-amber-300 rounded-lg px-3 py-1 hover:bg-amber-100 flex-shrink-0">取消</button>
+    </div>
+
     <!-- Calendar grid -->
     <div class="grid grid-cols-7">
       <div v-for="(cell, i) in calendarCells" :key="i"
@@ -47,9 +53,10 @@
           !cell.currentMonth && 'opacity-40',
           cell.isToday ? 'bg-amber-50' : cell.isNonWorking ? 'bg-rose-100' : '',
           cell.currentMonth && 'cursor-pointer hover:bg-gray-50/50 transition-colors',
-          cell.dateStr === highlightDate && cell.currentMonth ? 'ring-2 ring-inset ring-amber-400' : ''
+          cell.dateStr === highlightDate && cell.currentMonth ? 'ring-2 ring-inset ring-amber-400' : '',
+          pendingAction ? 'hover:ring-2 hover:ring-inset hover:ring-amber-400 cursor-pointer' : ''
         ]"
-        @click="cell.currentMonth && openDayDetail(cell.dateStr)">
+        @click="onCellClick(cell)">
         <span v-if="cell.isToday"
           class="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold text-white"
           style="background:#c9a96e">
@@ -427,7 +434,7 @@
   </div>
 </template>
 <script setup>
-import { ref, computed, watch, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { Timestamp } from 'firebase/firestore'
 import { useCasesStore } from '@/stores/cases'
 import { useCalendarEventsStore } from '@/stores/calendarEvents'
@@ -672,6 +679,36 @@ const conflictModal = ref(null)
 const resolvingConflict = ref(false)
 const submitting = ref(false)
 const lastLeaveWriteId = ref(null)
+const eventActionModal = ref(null)
+const pendingAction = ref(null)
+
+function startPendingAction(mode, event) {
+  pendingAction.value = { mode, event }
+  eventActionModal.value = null
+  showDayDetail.value = false
+  showEditEvent.value = false
+}
+
+function cancelPendingAction() {
+  pendingAction.value = null
+}
+
+async function pickTargetDate(dateStr) {
+  const action = pendingAction.value
+  if (!action) return
+  pendingAction.value = null
+  if (action.mode === 'move') await moveEvent(action.event, dateStr)
+  else await copyEvent(action.event, dateStr)
+}
+
+function onCellClick(cell) {
+  if (pendingAction.value) { pickTargetDate(cell.dateStr); return }
+  if (cell.currentMonth) openDayDetail(cell.dateStr)
+}
+
+function onCalendarKeydown(e) {
+  if (e.key === 'Escape' && pendingAction.value) cancelPendingAction()
+}
 
 // 衝突紀錄裡只要有一筆已經透過薪資單折抵鎖定，「改用新增」就要整組擋掉——
 // 那條路徑最終會刪除鎖定事件，繞過薪資單的取消折抵正規流程
@@ -932,9 +969,18 @@ watch([currentYear, currentMonth], () => {
   eventsStore.subscribe(ALL_REGIONS, currentYear.value, currentMonth.value)
 }, { immediate: true })
 
-onUnmounted(() => eventsStore.cleanup())
+onMounted(() => window.addEventListener('keydown', onCalendarKeydown))
+onUnmounted(() => {
+  window.removeEventListener('keydown', onCalendarKeydown)
+  eventsStore.cleanup()
+})
 
 const displayMonth = computed(() => `${currentYear.value}年 ${currentMonth.value + 1}月`)
+const pendingActionLabel = computed(() => {
+  if (!pendingAction.value) return ''
+  const verb = pendingAction.value.mode === 'move' ? '移到' : '複製到'
+  return `請點選要把「${pendingAction.value.event.label}」${verb}哪一天`
+})
 
 function fmtNotifDate(dateStr) {
   const d = new Date(dateStr)
