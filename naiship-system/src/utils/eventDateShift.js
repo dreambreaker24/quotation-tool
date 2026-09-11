@@ -38,9 +38,13 @@ export function buildCopyDraft(event, origDate, origEndDate, targetDate, { regio
         date,
     }
     if (endDate) draft.endDate = endDate
-    if (Array.isArray(event.caseIds) && event.caseIds.length) draft.caseIds = [...event.caseIds]
+    const caseIds = Array.isArray(event.caseIds) ? event.caseIds : (event.caseId ? [event.caseId] : [])
+    if (caseIds.length) draft.caseIds = [...caseIds]
     if (Array.isArray(event.caseNames) && event.caseNames.length) draft.caseNames = [...event.caseNames]
-    if (Array.isArray(event.personNames) && event.personNames.length) draft.personNames = [...event.personNames]
+    const personNames = Array.isArray(event.personNames)
+        ? event.personNames
+        : (event.type === 'milestone' && event.personName ? [event.personName] : [])
+    if (personNames.length) draft.personNames = [...personNames]
     if (event.startTime) {
         draft.startTime = event.startTime
         draft.endTime = event.endTime ?? ''

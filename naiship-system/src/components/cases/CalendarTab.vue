@@ -16,7 +16,7 @@
         <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded" style="background:#0d9488"></span>場勘/施工</div>
         <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-blue-400"></span>員工請假</div>
         <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded" style="background:#a855f7"></span>客戶跟進</div>
-        <button @click="showAddEvent = true" class="text-xs border border-gray-200 rounded-lg px-3 py-1.5 text-gray-500 hover:border-gray-400">+ 新增</button>
+        <button @click="openAddEventModal" class="text-xs border border-gray-200 rounded-lg px-3 py-1.5 text-gray-500 hover:border-gray-400">+ 新增</button>
       </div>
     </div>
 
@@ -41,7 +41,7 @@
 
     <!-- 移動/複製：選目標日期橫幅 -->
     <div v-if="pendingAction" class="flex items-center justify-between gap-2 px-4 sm:px-5 py-2.5 bg-amber-50 border-b border-amber-200 text-sm text-amber-800">
-      <span>{{ pendingActionLabel }}</span>
+      <span class="flex-1 min-w-0 truncate">{{ pendingActionLabel }}</span>
       <button @click="cancelPendingAction" class="text-xs border border-amber-300 rounded-lg px-3 py-1 hover:bg-amber-100 flex-shrink-0">取消</button>
     </div>
 
@@ -707,6 +707,11 @@ function cancelPendingAction() {
   pendingAction.value = null
 }
 
+function openAddEventModal() {
+  cancelPendingAction()
+  showAddEvent.value = true
+}
+
 async function pickTargetDate(dateStr) {
   const action = pendingAction.value
   if (!action) return
@@ -1137,11 +1142,6 @@ const WEEKDAYS_FULL = ['日', '一', '二', '三', '四', '五', '六']
 function openDayDetail(dateStr) {
     dayDetailDate.value = dateStr
     showDayDetail.value = true
-}
-
-function openEventFromDayDetail(event) {
-    showDayDetail.value = false
-    openEditEvent(event)
 }
 
 function addEventFromDayDetail() {

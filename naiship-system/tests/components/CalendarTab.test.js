@@ -722,4 +722,33 @@ describe('CalendarTab — 事件移動 / 複製', () => {
     expect(wrapper.vm.showDayDetail).toBe(true)
     expect(wrapper.vm.eventActionModal).toBeNull()
   })
+
+  it('openAddEventModal 會先取消進行中的 pendingAction', async () => {
+    const { wrapper } = await mountPlain()
+    wrapper.vm.startPendingAction('move', milestoneEvent())
+    expect(wrapper.vm.pendingAction).not.toBeNull()
+    wrapper.vm.openAddEventModal()
+    expect(wrapper.vm.pendingAction).toBeNull()
+    expect(wrapper.vm.showAddEvent).toBe(true)
+  })
+
+  it('Esc 鍵會取消進行中的 pendingAction', async () => {
+    const { wrapper } = await mountPlain()
+    wrapper.vm.startPendingAction('move', milestoneEvent())
+    expect(wrapper.vm.pendingAction).not.toBeNull()
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    expect(wrapper.vm.pendingAction).toBeNull()
+  })
+
+  it('moveEvent 失敗時跳錯誤提示，不丟出例外', async () => {
+    const { wrapper, eventsStore } = await mountPlain()
+    vi.spyOn(eventsStore, 'updateEvent').mockRejectedValue(new Error('boom'))
+    await expect(wrapper.vm.moveEvent(milestoneEvent(), '2026-09-15')).resolves.toBeUndefined()
+  })
+
+  it('copyEvent 失敗時跳錯誤提示，不丟出例外', async () => {
+    const { wrapper, eventsStore } = await mountPlain()
+    vi.spyOn(eventsStore, 'addEvent').mockRejectedValue(new Error('boom'))
+    await expect(wrapper.vm.copyEvent(milestoneEvent(), '2026-09-20')).resolves.toBeUndefined()
+  })
 })

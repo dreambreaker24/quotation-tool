@@ -55,4 +55,17 @@ describe('buildCopyDraft', () => {
         const d = buildCopyDraft({ type: 'followup', label: 'x' }, '2026-09-10', '', '2026-09-20', { region: 'central', uid: '' })
         expect(d.companyId).toBe('central')
     })
+
+    it('舊格式事件（單數 caseId / personName）複製時要 fallback 補回陣列', () => {
+        const legacy = { type: 'milestone', label: '舊格式場勘', caseId: 'c9', personName: '阿蚌' }
+        const d = buildCopyDraft(legacy, '2026-09-10', '', '2026-09-20', { region: 'south', uid: 'u' })
+        expect(d.caseIds).toEqual(['c9'])
+        expect(d.personNames).toEqual(['阿蚌'])
+    })
+
+    it('非 milestone 的舊格式事件：單數 personName 不 fallback（跟 openEditEvent 現有邏輯一致）', () => {
+        const legacy = { type: 'followup', label: '舊格式跟進', personName: '阿蚌' }
+        const d = buildCopyDraft(legacy, '2026-09-10', '', '2026-09-20', { region: 'south', uid: 'u' })
+        expect('personNames' in d).toBe(false)
+    })
 })
