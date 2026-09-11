@@ -692,4 +692,34 @@ describe('CalendarTab — 事件移動 / 複製', () => {
     await wrapper.vm.onCellClick({ currentMonth: true, dateStr: '2026-09-15' })
     expect(wrapper.vm.showDayDetail).toBe(true)
   })
+
+  it('onEventTap 對 milestone → 開小視窗；對 leave → 直接開編輯', async () => {
+    const { wrapper } = await mountPlain()
+    wrapper.vm.onEventTap(milestoneEvent(), '2026-09-10')
+    expect(wrapper.vm.eventActionModal).not.toBeNull()
+    wrapper.vm.eventActionModal = null
+
+    const leave = { id: 'L1', type: 'leave', personName: '柏', leaveType: '事假', label: '柏 事假', date: { toDate: () => new Date('2026-09-10') } }
+    wrapper.vm.onEventTap(leave, '2026-09-10')
+    expect(wrapper.vm.eventActionModal).toBeNull()
+    expect(wrapper.vm.showEditEvent).toBe(true)
+  })
+
+  it('onEventTap 在選日模式中 → 選那一天當目標，不開小視窗', async () => {
+    const { wrapper, eventsStore } = await mountPlain()
+    const spy = vi.spyOn(eventsStore, 'updateEvent').mockResolvedValue()
+    wrapper.vm.startPendingAction('move', milestoneEvent())
+    wrapper.vm.onEventTap(milestoneEvent(), '2026-09-18')
+    await flushPromises()
+    expect(wrapper.vm.eventActionModal).toBeNull()
+    expect(spy).toHaveBeenCalledTimes(1)
+    expect(tsYMD(spy.mock.calls[0][1].date)).toBe('2026-09-18')
+  })
+
+  it('onEventTap 對 _merged → 開當天詳情', async () => {
+    const { wrapper } = await mountPlain()
+    wrapper.vm.onEventTap({ ...milestoneEvent(), _merged: true }, '2026-09-10')
+    expect(wrapper.vm.showDayDetail).toBe(true)
+    expect(wrapper.vm.eventActionModal).toBeNull()
+  })
 })

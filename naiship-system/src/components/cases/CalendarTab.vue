@@ -76,7 +76,7 @@
           {{ cell.holidayName }}
         </div>
         <div v-for="event in cell.events.slice(0, 4)" :key="event.id"
-          @click.stop="event._merged ? openDayDetail(cell.dateStr) : openEditEvent(event)"
+          @click.stop="onEventTap(event, cell.dateStr)"
           class="mt-1 text-[10px] rounded px-1.5 py-0.5 truncate text-white cursor-pointer hover:opacity-80 transition-opacity"
           :class="event.type === 'leave' ? 'bg-blue-400' : event.type === 'note' ? 'bg-red-400' : ''"
           :style="event.type === 'milestone' ? 'background:#0d9488' : event.type === 'followup' ? 'background:#a855f7' : ''">
@@ -407,6 +407,20 @@
     </div>
   </div>
 
+  <!-- 事件操作小視窗（編輯 / 移動 / 複製） -->
+  <div v-if="eventActionModal" class="fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.4)" @click.self="eventActionModal = null">
+    <div class="bg-white rounded-2xl shadow-xl p-5 w-full max-w-xs mx-4 border-t-4" style="border-top-color:#c9a96e">
+      <div class="text-sm font-bold text-gray-800 mb-1 truncate">{{ eventActionModal.label }}</div>
+      <div class="text-xs text-gray-400 mb-4">要對這個事件做什麼？</div>
+      <div class="flex flex-col gap-2">
+        <button @click="openEditEvent(eventActionModal); eventActionModal = null" class="text-sm border border-gray-200 rounded-lg py-2 hover:border-gray-400">✏️ 編輯</button>
+        <button @click="startPendingAction('move', eventActionModal)" class="text-sm rounded-lg py-2 text-white" style="background:#1e2533">⟳ 移動到別天</button>
+        <button @click="startPendingAction('copy', eventActionModal)" class="text-sm border border-gray-200 rounded-lg py-2 hover:border-gray-400">⧉ 複製到別天</button>
+        <button @click="eventActionModal = null" class="text-sm text-gray-400 py-2">取消</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 當天詳情 Modal -->
   <div v-if="showDayDetail" class="fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.4)">
     <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm mx-4 border-t-4 max-h-[80vh] flex flex-col" style="border-top-color:#c9a96e">
@@ -418,7 +432,7 @@
       <div v-else class="mb-3"></div>
       <div class="flex flex-col gap-2 overflow-y-auto flex-1">
         <div v-for="event in dayDetailEvents" :key="event.id"
-          @click="openEventFromDayDetail(event)"
+          @click="onEventTap(event, dayDetailDate)"
           class="flex items-center gap-2 rounded-lg px-3 py-2 border border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors">
           <span class="w-2.5 h-2.5 rounded-full flex-shrink-0"
             :class="event.type === 'leave' ? 'bg-blue-400' : event.type === 'note' ? 'bg-red-400' : ''"
@@ -704,6 +718,14 @@ async function pickTargetDate(dateStr) {
 function onCellClick(cell) {
   if (pendingAction.value) { pickTargetDate(cell.dateStr); return }
   if (cell.currentMonth) openDayDetail(cell.dateStr)
+}
+
+function onEventTap(event, dateStr) {
+  if (pendingAction.value) { pickTargetDate(dateStr); return }
+  showDayDetail.value = false
+  if (event._merged) { openDayDetail(dateStr); return }
+  if (event.type === 'leave') { openEditEvent(event); return }
+  eventActionModal.value = event
 }
 
 function onCalendarKeydown(e) {
