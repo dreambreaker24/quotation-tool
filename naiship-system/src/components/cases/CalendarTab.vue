@@ -442,6 +442,7 @@ import CompensatoryPanel from './CompensatoryPanel.vue'
 import { TAIWAN_HOLIDAY_NAMES } from '@/constants/holidays'
 import { getBusinessDays } from '@/utils/businessDays'
 import { leaveDedupeId } from '@/utils/leaveDedupeId'
+import { shiftedRange, buildCopyDraft } from '@/utils/eventDateShift'
 
 const props = defineProps({ region: String, jumpEventDate: String })
 const emit = defineEmits(['jumped-date'])
@@ -1200,6 +1201,37 @@ async function finalizeAddEvent() {
   } catch {
     toast('新增失敗，請重試', 'error')
     return false
+  }
+}
+
+async function moveEvent(event, targetDateStr) {
+  const origDate = tsToDateStr(event.date)
+  if (targetDateStr === origDate) return
+  const origEnd = event.endDate ? tsToDateStr(event.endDate) : ''
+  const { date, endDate } = shiftedRange(origDate, origEnd, targetDateStr)
+  const payload = {
+    date: Timestamp.fromDate(new Date(date)),
+    endDate: endDate ? Timestamp.fromDate(new Date(endDate)) : null,
+  }
+  try {
+    await eventsStore.updateEvent(event.id, payload)
+    notifStore.notifyAll(authStore.name ?? '', `將行程「${event.label}」從 ${fmtNotifDate(origDate)} 移至 ${fmtNotifDate(date)}`, '', '', event.companyId ?? props.region ?? '', '', 'cal', date, false)
+  } catch {
+    toast('移動失敗，請重試', 'error')
+  }
+}
+
+async function copyEvent(event, targetDateStr) {
+  const origDate = tsToDateStr(event.date)
+  const origEnd = event.endDate ? tsToDateStr(event.endDate) : ''
+  const draft = buildCopyDraft(event, origDate, origEnd, targetDateStr, { region: props.region, uid: authStore.user?.uid })
+  const payload = { ...draft, date: Timestamp.fromDate(new Date(draft.date)) }
+  if (draft.endDate) payload.endDate = Timestamp.fromDate(new Date(draft.endDate))
+  try {
+    await eventsStore.addEvent(payload)
+    notifStore.notifyAll(authStore.name ?? '', `複製行程「${event.label}」到 ${fmtNotifDate(draft.date)}`, '', '', payload.companyId, '', 'cal', draft.date, false)
+  } catch {
+    toast('複製失敗，請重試', 'error')
   }
 }
 </script>

@@ -571,3 +571,81 @@ describe('CalendarTab — leaveTypeLocked 鎖定', () => {
     expect(deleteSpy).not.toHaveBeenCalled()
   })
 })
+
+describe('CalendarTab — 事件移動 / 複製', () => {
+  beforeEach(() => setActivePinia(createPinia()))
+
+  function tsYMD(ts) {
+    const d = ts.toDate()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  }
+
+  async function mountPlain() {
+    const usersStore = useUsersStore()
+    const authStore = useAuthStore()
+    const eventsStore = useCalendarEventsStore()
+    authStore.role = 'admin'
+    authStore.name = '柏'
+    authStore.user = { uid: 'u-bo' }
+    usersStore.users = [{ id: 'u-bang', name: '蚌' }]
+    const wrapper = mount(CalendarTab, { props: { region: 'south' } })
+    await flushPromises()
+    return { wrapper, eventsStore }
+  }
+
+  function milestoneEvent(overrides = {}) {
+    return {
+      id: 'm1', type: 'milestone', label: '大同 場勘', companyId: 'south',
+      caseIds: ['c1'], caseNames: ['大同區辦公室'], personNames: ['蚌'],
+      startTime: '09:00', endTime: '12:00',
+      date: { toDate: () => new Date('2026-09-10') },
+      ...overrides,
+    }
+  }
+
+  it('moveEvent 單日：updateEvent 帶新日期、endDate 為 null', async () => {
+    const { wrapper, eventsStore } = await mountPlain()
+    const spy = vi.spyOn(eventsStore, 'updateEvent').mockResolvedValue()
+    await wrapper.vm.moveEvent(milestoneEvent(), '2026-09-15')
+    expect(spy).toHaveBeenCalledTimes(1)
+    const [id, payload] = spy.mock.calls[0]
+    expect(id).toBe('m1')
+    expect(tsYMD(payload.date)).toBe('2026-09-15')
+    expect(payload.endDate).toBeNull()
+  })
+
+  it('moveEvent 區間：整段平移保持天數', async () => {
+    const { wrapper, eventsStore } = await mountPlain()
+    const spy = vi.spyOn(eventsStore, 'updateEvent').mockResolvedValue()
+    const evt = milestoneEvent({ endDate: { toDate: () => new Date('2026-09-12') } })
+    await wrapper.vm.moveEvent(evt, '2026-09-20')
+    const [, payload] = spy.mock.calls[0]
+    expect(tsYMD(payload.date)).toBe('2026-09-20')
+    expect(tsYMD(payload.endDate)).toBe('2026-09-22')
+  })
+
+  it('moveEvent 移到原本同一天：不呼叫 updateEvent', async () => {
+    const { wrapper, eventsStore } = await mountPlain()
+    const spy = vi.spyOn(eventsStore, 'updateEvent').mockResolvedValue()
+    await wrapper.vm.moveEvent(milestoneEvent(), '2026-09-10')
+    expect(spy).not.toHaveBeenCalled()
+  })
+
+  it('copyEvent：addEvent 帶照抄的欄位 + 新日期，不動原事件', async () => {
+    const { wrapper, eventsStore } = await mountPlain()
+    const addSpy = vi.spyOn(eventsStore, 'addEvent').mockResolvedValue({ id: 'new' })
+    const updateSpy = vi.spyOn(eventsStore, 'updateEvent').mockResolvedValue()
+    await wrapper.vm.copyEvent(milestoneEvent(), '2026-09-20')
+    expect(updateSpy).not.toHaveBeenCalled()
+    expect(addSpy).toHaveBeenCalledTimes(1)
+    const [payload, dedupeId] = addSpy.mock.calls[0]
+    expect(dedupeId ?? null).toBeNull()           // 複製不帶固定 doc ID
+    expect(payload.type).toBe('milestone')
+    expect(payload.label).toBe('大同 場勘')
+    expect(payload.caseIds).toEqual(['c1'])
+    expect(payload.personNames).toEqual(['蚌'])
+    expect(payload.startTime).toBe('09:00')
+    expect(payload.createdBy).toBe('u-bo')
+    expect(tsYMD(payload.date)).toBe('2026-09-20')
+  })
+})
