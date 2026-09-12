@@ -40,6 +40,22 @@ describe('GET /media/health', () => {
 })
 
 describe('POST /media/upload', () => {
+  it('OPTIONS 預檢帶白名單來源 → 回 CORS 標頭（不然瀏覽器會擋下後續的真實 POST）', async () => {
+    const res = await request(createApp(config(), fakeVerify))
+      .options('/media/upload')
+      .set('Origin', 'https://app.example')
+      .set('Access-Control-Request-Method', 'POST')
+    expect(res.headers['access-control-allow-origin']).toBe('https://app.example')
+  })
+
+  it('OPTIONS 預檢帶非白名單來源 → 不回 CORS 標頭', async () => {
+    const res = await request(createApp(config(), fakeVerify))
+      .options('/media/upload')
+      .set('Origin', 'https://evil.example')
+      .set('Access-Control-Request-Method', 'POST')
+    expect(res.headers['access-control-allow-origin']).toBeUndefined()
+  })
+
   it('沒帶 token → 401', async () => {
     const res = await request(createApp(config(), fakeVerify))
       .post('/media/upload').field('type', 'survey').attach('file', Buffer.from('x'), 'a.jpg')

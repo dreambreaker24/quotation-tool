@@ -37,6 +37,10 @@ export function createApp(config, verifyIdToken) {
     limits: { fileSize: config.maxFileBytes },
   })
 
+  // Express 的路由比對不會把 OPTIONS 導進上面的 POST-only 處理器，
+  // 沒有這行預檢請求會被內建的預設 OPTIONS 處理器攔走、缺 CORS 標頭，
+  // 瀏覽器會擋下真正的 POST。
+  app.options('/media/upload', uploadCors)
   app.post('/media/upload', uploadCors, (req, res) => {
     upload.single('file')(req, res, async (err) => {
       if (err && err.code === 'LIMIT_FILE_SIZE') return res.status(413).json({ error: '檔案過大' })
