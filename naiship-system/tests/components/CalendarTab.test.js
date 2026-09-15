@@ -752,3 +752,58 @@ describe('CalendarTab — 事件移動 / 複製', () => {
     await expect(wrapper.vm.copyEvent(milestoneEvent(), '2026-09-20')).resolves.toBe(null)
   })
 })
+
+describe('CalendarTab — 拖曳可拖曳判斷', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+  })
+
+  async function mountAsManager() {
+    const authStore = useAuthStore()
+    authStore.role = 'admin'
+    authStore.name = '柏'
+    const wrapper = mount(CalendarTab, { props: { region: 'south' } })
+    await flushPromises()
+    return { wrapper, authStore }
+  }
+
+  it('合併色塊（_merged）不可拖曳', async () => {
+    const { wrapper } = await mountAsManager()
+    const merged = { id: 'merged_x', type: 'milestone', _merged: true, date: { toDate: () => new Date(2026, 8, 10) } }
+    expect(wrapper.vm.canDragEvent(merged, '2026-09-10')).toBe(false)
+  })
+
+  it('跨天事件只有起始日格子可拖曳', async () => {
+    const { wrapper } = await mountAsManager()
+    const event = { id: 'e1', type: 'note', label: '跨天', date: { toDate: () => new Date(2026, 8, 10) }, endDate: { toDate: () => new Date(2026, 8, 12) } }
+    expect(wrapper.vm.canDragEvent(event, '2026-09-10')).toBe(true)
+    expect(wrapper.vm.canDragEvent(event, '2026-09-11')).toBe(false)
+    expect(wrapper.vm.canDragEvent(event, '2026-09-12')).toBe(false)
+  })
+
+  it('非本人非主管的請假事件不可拖曳', async () => {
+    const authStore = useAuthStore()
+    authStore.role = 'staff'
+    authStore.name = '阿蚌'
+    const wrapper = mount(CalendarTab, { props: { region: 'south' } })
+    await flushPromises()
+    const event = { id: 'e2', type: 'leave', personName: '柏', date: { toDate: () => new Date(2026, 8, 10) } }
+    expect(wrapper.vm.canDragEvent(event, '2026-09-10')).toBe(false)
+  })
+
+  it('已透過薪資單折抵的請假事件不可拖曳', async () => {
+    const { wrapper, authStore } = await mountAsManager()
+    const event = { id: 'e3', type: 'leave', personName: authStore.name, leaveTypeLocked: true, date: { toDate: () => new Date(2026, 8, 10) } }
+    expect(wrapper.vm.canDragEvent(event, '2026-09-10')).toBe(false)
+  })
+
+  it('重要記事/場勘施工/客戶跟進沒有權限限制，任何人可拖曳', async () => {
+    const authStore = useAuthStore()
+    authStore.role = 'staff'
+    authStore.name = '阿蚌'
+    const wrapper = mount(CalendarTab, { props: { region: 'south' } })
+    await flushPromises()
+    const event = { id: 'e4', type: 'followup', label: '跟進', date: { toDate: () => new Date(2026, 8, 10) } }
+    expect(wrapper.vm.canDragEvent(event, '2026-09-10')).toBe(true)
+  })
+})

@@ -53,10 +53,12 @@
           !cell.currentMonth && 'opacity-40',
           cell.isToday ? 'bg-amber-50' : cell.isNonWorking ? 'bg-rose-100' : '',
           cell.currentMonth && 'cursor-pointer hover:bg-gray-50/50 transition-colors',
-          cell.dateStr === highlightDate && cell.currentMonth ? 'ring-2 ring-inset ring-amber-400' : '',
+          (cell.dateStr === highlightDate && cell.currentMonth) || (dragState && dragOverDateStr === cell.dateStr) ? 'ring-2 ring-inset ring-amber-400' : '',
           pendingAction ? 'hover:ring-2 hover:ring-inset hover:ring-amber-400 cursor-pointer' : ''
         ]"
-        @click="onCellClick(cell)">
+        @click="onCellClick(cell)"
+        @dragover.prevent="onCellDragOver(cell, $event)"
+        @drop="onCellDrop(cell)">
         <span v-if="cell.isToday"
           class="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold text-white"
           style="background:#c9a96e">
@@ -77,8 +79,11 @@
         </div>
         <div v-for="event in cell.events.slice(0, 4)" :key="event.id"
           @click.stop="onEventTap(event, cell.dateStr)"
+          :draggable="canDragEvent(event, cell.dateStr)"
+          @dragstart="onEventDragStart(event, cell.dateStr, $event)"
+          @dragend="onEventDragEnd"
           class="mt-1 text-[10px] rounded px-1.5 py-0.5 truncate text-white cursor-pointer hover:opacity-80 transition-opacity"
-          :class="event.type === 'leave' ? 'bg-blue-400' : event.type === 'note' ? 'bg-red-400' : ''"
+          :class="[event.type === 'leave' ? 'bg-blue-400' : event.type === 'note' ? 'bg-red-400' : '', dragState && dragState.event.id === event.id ? 'opacity-50' : '']"
           :style="event.type === 'milestone' ? 'background:#0d9488' : event.type === 'followup' ? 'background:#a855f7' : ''">
           {{ event.startTime ? `${event.startTime}${event.endTime ? '-' + event.endTime : ''} ` : '' }}{{ event.label }}
         </div>
@@ -695,6 +700,44 @@ const submitting = ref(false)
 const lastLeaveWriteId = ref(null)
 const eventActionModal = ref(null)
 const pendingAction = ref(null)
+const dragState = ref(null)        // { event, origDateStr, mode: 'move' | 'copy' }
+const dragOverDateStr = ref('')
+
+function canDragEvent(event, cellDateStr) {
+  if (event._merged) return false
+  if (event.endDate) {
+    const startDateStr = tsToDateStr(event.date)
+    if (startDateStr !== cellDateStr) return false
+  }
+  if (event.type === 'leave') {
+    if (event.leaveTypeLocked) return false
+    if (!authStore.isManager && event.personName !== authStore.name) return false
+  }
+  return true
+}
+
+function onEventDragStart(event, dateStr, e) {
+  dragState.value = { event, origDateStr: dateStr, mode: 'move' }
+  e.dataTransfer.setData('text/plain', event.id)
+  e.dataTransfer.effectAllowed = 'copyMove'
+}
+
+function onCellDragOver(cell, e) {
+  if (!dragState.value) return
+  dragOverDateStr.value = cell.dateStr
+  dragState.value.mode = e.ctrlKey ? 'copy' : 'move'
+  e.dataTransfer.dropEffect = dragState.value.mode
+}
+
+function onEventDragEnd() {
+  dragState.value = null
+  dragOverDateStr.value = ''
+}
+
+function onCellDrop(cell) {
+  dragState.value = null
+  dragOverDateStr.value = ''
+}
 
 function startPendingAction(mode, event) {
   pendingAction.value = { mode, event }
