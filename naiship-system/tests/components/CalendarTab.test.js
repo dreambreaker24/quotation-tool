@@ -743,12 +743,12 @@ describe('CalendarTab — 事件移動 / 複製', () => {
   it('moveEvent 失敗時跳錯誤提示，不丟出例外', async () => {
     const { wrapper, eventsStore } = await mountPlain()
     vi.spyOn(eventsStore, 'updateEvent').mockRejectedValue(new Error('boom'))
-    await expect(wrapper.vm.moveEvent(milestoneEvent(), '2026-09-15')).resolves.toBeUndefined()
+    await expect(wrapper.vm.moveEvent(milestoneEvent(), '2026-09-15')).resolves.toBe(false)
   })
 
   it('copyEvent 失敗時跳錯誤提示，不丟出例外', async () => {
     const { wrapper, eventsStore } = await mountPlain()
     vi.spyOn(eventsStore, 'addEvent').mockRejectedValue(new Error('boom'))
-    await expect(wrapper.vm.copyEvent(milestoneEvent(), '2026-09-20')).resolves.toBeUndefined()
+    await expect(wrapper.vm.copyEvent(milestoneEvent(), '2026-09-20')).resolves.toBe(null)
   })
 })

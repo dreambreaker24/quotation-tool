@@ -768,11 +768,7 @@ function tsToDateStr(ts) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
 }
 
-function openEditEvent(event) {
-  if (event.type === 'leave' && !authStore.isManager && event.personName !== authStore.name) {
-    toast('只有蚌、其宏、柏可以編輯別人的請假紀錄', 'error')
-    return
-  }
+function populateEditForm(event) {
   editingEventId.value = event.id
   const casePrefix = event.type === 'milestone' ? (event.caseNames || []).join(' ') : ''
   let label = event.label || ''
@@ -793,6 +789,14 @@ function openEditEvent(event) {
     _origCompConsumption: event.compConsumption || [],
     _leaveTypeLocked: event.leaveTypeLocked || false,
   }
+}
+
+function openEditEvent(event) {
+  if (event.type === 'leave' && !authStore.isManager && event.personName !== authStore.name) {
+    toast('只有蚌、其宏、柏可以編輯別人的請假紀錄', 'error')
+    return
+  }
+  populateEditForm(event)
   showEditEvent.value = true
 }
 
@@ -833,7 +837,7 @@ async function saveEditEvent() {
         return
       }
     }
-    await finalizeEditEvent()
+    return await finalizeEditEvent()
   } finally {
     submitting.value = false
   }
@@ -1194,7 +1198,7 @@ async function submitEvent() {
         return
       }
     }
-    await finalizeAddEvent()
+    return await finalizeAddEvent()
   } finally {
     submitting.value = false
   }
@@ -1274,7 +1278,7 @@ async function finalizeAddEvent() {
 
 async function moveEvent(event, targetDateStr) {
   const origDate = tsToDateStr(event.date)
-  if (targetDateStr === origDate) return
+  if (targetDateStr === origDate) return false
   const origEnd = event.endDate ? tsToDateStr(event.endDate) : ''
   const { date, endDate } = shiftedRange(origDate, origEnd, targetDateStr)
   const payload = {
@@ -1284,8 +1288,10 @@ async function moveEvent(event, targetDateStr) {
   try {
     await eventsStore.updateEvent(event.id, payload)
     notifStore.notifyAll(authStore.name ?? '', `將行程「${event.label}」從 ${fmtNotifDate(origDate)} 移至 ${fmtNotifDate(date)}`, '', '', event.companyId ?? props.region ?? '', '', 'cal', date, false)
+    return true
   } catch {
     toast('移動失敗，請重試', 'error')
+    return false
   }
 }
 
@@ -1296,10 +1302,12 @@ async function copyEvent(event, targetDateStr) {
   const payload = { ...draft, date: Timestamp.fromDate(new Date(draft.date)) }
   if (draft.endDate) payload.endDate = Timestamp.fromDate(new Date(draft.endDate))
   try {
-    await eventsStore.addEvent(payload)
+    const ref = await eventsStore.addEvent(payload)
     notifStore.notifyAll(authStore.name ?? '', `複製行程「${event.label}」到 ${fmtNotifDate(draft.date)}`, '', '', payload.companyId, '', 'cal', draft.date, false)
+    return ref?.id ?? null
   } catch {
     toast('複製失敗，請重試', 'error')
+    return null
   }
 }
 </script>
