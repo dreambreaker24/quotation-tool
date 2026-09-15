@@ -40,7 +40,12 @@ export function createApp(config, verifyIdToken) {
   // respond 定義旁的說明）。
   // 已知邊角案例（接受不處理）：如果程序在 link() 成功之後、respond() 的 unlink() 執行之前當掉，
   // 暫存檔會永久孤兒化在 .uploading 底下——這台是低流量內部工具，機率極低，先不建立額外的清理機制。
-  const uploadTmpDir = join(config.mediaRoot, '.uploading')
+  // 重要：暫存資料夾一定要放在 naiship/ 子樹底下，不能放在 mediaRoot 頂層——
+  // 正式環境只有 mediaRoot/naiship 這個子目錄真的掛載到 NAS 硬碟（見 docker-compose.yml 的 volumes），
+  // mediaRoot 本身只是容器自己的檔案系統。link() 是硬連結，來源目的地必須同一顆硬碟，
+  // 放在 mediaRoot 頂層會跨裝置導致每筆上傳都丟 EXDEV（2026-09-15 造成全站上傳中斷的真實事故，
+  // 已用 dotfiles:'deny' 確保 .uploading 底下的暫存檔不會被上面的 express.static 意外供出去）。
+  const uploadTmpDir = join(config.mediaRoot, 'naiship', '.uploading')
   const upload = multer({
     storage: multer.diskStorage({
       destination: async (req, file, cb) => {

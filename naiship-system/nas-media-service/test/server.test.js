@@ -124,14 +124,17 @@ describe('POST /media/upload', () => {
     expect(res.status).toBe(400)
   })
 
-  it('伺服器內部錯誤 → 500 且回應不外洩 stack', async () => {
-    // 讓 naiship 變成檔案而非資料夾，mkdir 會丟 ENOTDIR
+  it('naiship 子樹壞掉（暫存資料夾建立失敗）→ 安全的錯誤回應，不外洩 stack', async () => {
+    // 讓 naiship 變成檔案而非資料夾。暫存資料夾現在也在 naiship/ 底下（修 EXDEV 的必要條件，
+    // 見 uploadTmpDir 旁的說明），所以這會讓 multer 自己的 destination callback 先失敗，
+    // 屬於 multer 解析錯誤（400），不是我們自己路由邏輯裡的伺服器錯誤（500）——
+    // 兩種都是安全、不洩漏內部細節的錯誤回應，差別只是分類。
     writeFileSync(join(mediaRoot, 'naiship'), 'not a dir')
     const res = await request(createApp(config(), fakeVerify))
       .post('/media/upload').set('Authorization', 'Bearer good')
       .field('type', 'survey').attach('file', Buffer.from('x'), 'a.jpg')
-    expect(res.status).toBe(500)
-    expect(res.body).toEqual({ error: '伺服器錯誤' })
+    expect(res.status).toBe(400)
+    expect(res.body).toEqual({ error: '上傳解析失敗' })
     expect(JSON.stringify(res.body)).not.toMatch(/stack|\.js:\d+|ENOTDIR/i)
   })
 
@@ -187,7 +190,7 @@ describe('磁碟暫存不殘留', () => {
   // 舊的 memoryStorage 實作永遠不會建立 .uploading 資料夾，如果只斷言「沒有殘留檔案」，
   // 舊實作會因為資料夾根本不存在而讓這幾個測試「假綠燈」，測不出真的有改用磁碟暫存。
   function tmpDirState() {
-    const tmpDir = join(mediaRoot, '.uploading')
+    const tmpDir = join(mediaRoot, 'naiship', '.uploading')
     const exists = existsSync(tmpDir)
     return { exists, leftover: exists ? readdirSync(tmpDir) : null }
   }
