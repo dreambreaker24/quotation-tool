@@ -745,6 +745,60 @@ function showUndoToast(message, onUndo) {
   })
 }
 
+async function dragMoveLeaveEvent(event, targetDateStr) {
+  if (event.leaveTypeLocked) {
+    toast('已透過薪資單折抵補休，請至薪資單取消折抵後再拖曳', 'error')
+    return
+  }
+  if (!authStore.isManager && event.personName !== authStore.name) {
+    toast('只有蚌、其宏、柏可以移動別人的請假紀錄', 'error')
+    return
+  }
+  const origDateStr = tsToDateStr(event.date)
+  populateEditForm(event)
+  const shifted = shiftedRange(editForm.value.date, editForm.value.endDate, targetDateStr)
+  editForm.value.date = shifted.date
+  editForm.value.endDate = shifted.endDate || ''
+  const ok = await saveEditEvent()
+  if (ok) {
+    showUndoToast(`已將「${event.label}」移到 ${targetDateStr}`, async () => {
+      const latest = eventsStore.events.find(ev => ev.id === event.id)
+      if (latest) await dragMoveLeaveEvent(latest, origDateStr)
+    })
+  }
+}
+
+async function dragCopyLeaveEvent(event, targetDateStr) {
+  if (!authStore.isManager && event.personName !== authStore.name) {
+    toast('只有蚌、其宏、柏可以複製別人的請假紀錄', 'error')
+    return
+  }
+  const origDateStr = tsToDateStr(event.date)
+  const origEndDateStr = event.endDate ? tsToDateStr(event.endDate) : ''
+  const shifted = shiftedRange(origDateStr, origEndDateStr, targetDateStr)
+  eventForm.value = {
+    ...blankEvent(),
+    type: 'leave',
+    date: shifted.date,
+    endDate: shifted.endDate || '',
+    personName: event.personName || '',
+    hours: event.hours || 0,
+    leaveType: event.leaveType || '',
+    startTime: event.startTime || '',
+    endTime: event.endTime || '',
+  }
+  const ok = await submitEvent()
+  if (!ok) return
+  const newId = lastLeaveWriteId.value
+  if (!newId) return
+  showUndoToast(`已複製「${event.label}」到 ${shifted.date}`, async () => {
+    const copiedDoc = eventsStore.events.find(ev => ev.id === newId)
+    if (!copiedDoc) return
+    populateEditForm(copiedDoc)
+    await removeEvent()
+  })
+}
+
 async function onCellDrop(cell) {
   const state = dragState.value
   dragState.value = null

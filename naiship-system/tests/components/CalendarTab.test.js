@@ -870,3 +870,123 @@ describe('CalendarTab — 拖放非請假事件', () => {
     expect(eventsStore.updateEvent).not.toHaveBeenCalled()
   })
 })
+
+describe('CalendarTab — 拖放請假事件', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    useToast().toasts.value = []
+  })
+
+  async function mountAsManager(existingEvents = []) {
+    const usersStore = useUsersStore()
+    const authStore = useAuthStore()
+    const eventsStore = useCalendarEventsStore()
+    authStore.role = 'admin'
+    authStore.name = '柏'
+    usersStore.users = [{ id: 'u-bang', name: '蚌', annualLeaveHours: 0 }]
+    vi.spyOn(eventsStore, 'fetchLeaveEventsByPerson').mockResolvedValue(existingEvents)
+    const wrapper = mount(CalendarTab, { props: { region: 'south' } })
+    await flushPromises()
+    return { wrapper, eventsStore, authStore }
+  }
+
+  it('移動請假到週末會擋下，不寫入', async () => {
+    const { wrapper, eventsStore } = await mountAsManager()
+    const updateSpy = vi.spyOn(eventsStore, 'updateEvent')
+    const event = { id: 'leave-1', type: 'leave', personName: '蚌', leaveType: '事假', hours: 8, date: { toDate: () => new Date(SAFE_WEEKDAY) } }
+
+    const d = new Date(SAFE_WEEKDAY)
+    while (d.getDay() !== 6) d.setDate(d.getDate() + 1)
+    const saturday = fmtDate(d)
+
+    wrapper.vm.dragState = { event, origDateStr: SAFE_WEEKDAY, mode: 'move' }
+    await wrapper.vm.onCellDrop({ dateStr: saturday })
+    await flushPromises()
+
+    expect(updateSpy).not.toHaveBeenCalled()
+  })
+
+  it('移動請假到有重疊的日期會開衝突視窗，不直接寫入', async () => {
+    const existing = {
+      id: 'existing-1', type: 'leave', personName: '蚌', leaveType: '特休', hours: 24,
+      date: { toDate: () => new Date(NO_OVERLAP_DATE) },
+      endDate: { toDate: () => new Date(NO_OVERLAP_DATE) },
+    }
+    const { wrapper, eventsStore } = await mountAsManager([existing])
+    const updateSpy = vi.spyOn(eventsStore, 'updateEvent')
+    const event = { id: 'leave-2', type: 'leave', personName: '蚌', leaveType: '事假', hours: 8, date: { toDate: () => new Date(SAFE_WEEKDAY) } }
+
+    wrapper.vm.dragState = { event, origDateStr: SAFE_WEEKDAY, mode: 'move' }
+    await wrapper.vm.onCellDrop({ dateStr: NO_OVERLAP_DATE })
+    await flushPromises()
+
+    expect(updateSpy).not.toHaveBeenCalled()
+    expect(wrapper.vm.conflictModal).not.toBeNull()
+  })
+
+  it('移動沒有衝突的請假：只更新日期，成功後有可復原的 toast', async () => {
+    const { wrapper, eventsStore } = await mountAsManager()
+    const updateSpy = vi.spyOn(eventsStore, 'updateEvent').mockResolvedValue()
+    const event = {
+      id: 'leave-3', type: 'leave', personName: '蚌', leaveType: '事假', hours: 8,
+      date: { toDate: () => new Date(SAFE_WEEKDAY) },
+    }
+    eventsStore.events = [event]
+
+    wrapper.vm.dragState = { event, origDateStr: SAFE_WEEKDAY, mode: 'move' }
+    await wrapper.vm.onCellDrop({ dateStr: NO_OVERLAP_DATE })
+    await flushPromises()
+
+    expect(updateSpy).toHaveBeenCalled()
+    const payload = updateSpy.mock.calls[0][1]
+    expect(payload.leaveType).toBe('事假')
+    expect(payload.hours).toBe(8)
+    const { toasts } = useToast()
+    expect(toasts.value.at(-1)?.action?.label).toBe('復原')
+  })
+
+  it('複製請假事件會走新增流程並核銷餘額', async () => {
+    const { wrapper, eventsStore, authStore } = await mountAsManager()
+    const usersStore = useUsersStore()
+    vi.spyOn(eventsStore, 'addEvent').mockResolvedValue()
+    const adjustSpy = vi.spyOn(usersStore, 'adjustAnnualLeaveHours').mockResolvedValue()
+    const event = { id: 'leave-4', type: 'leave', personName: authStore.name, leaveType: '特休', hours: 8, date: { toDate: () => new Date(SAFE_WEEKDAY) } }
+    usersStore.users.push({ id: 'u-bo', name: authStore.name, annualLeaveHours: 999 })
+
+    wrapper.vm.dragState = { event, origDateStr: SAFE_WEEKDAY, mode: 'copy' }
+    await wrapper.vm.onCellDrop({ dateStr: NO_OVERLAP_DATE })
+    await flushPromises()
+
+    expect(eventsStore.addEvent).toHaveBeenCalled()
+    expect(adjustSpy).toHaveBeenCalled()
+  })
+
+  it('複製請假的「復原」會呼叫 removeEvent 對應的歸還邏輯（deleteEvent 前一定先歸還餘額）', async () => {
+    const { wrapper, eventsStore, authStore } = await mountAsManager()
+    const usersStore = useUsersStore()
+    let createdDoc = null
+    vi.spyOn(eventsStore, 'addEvent').mockImplementation(async (payload, dedupeId) => {
+      createdDoc = { id: dedupeId, ...payload }
+      eventsStore.events = [createdDoc]
+    })
+    vi.spyOn(usersStore, 'adjustAnnualLeaveHours').mockResolvedValue()
+    const deleteSpy = vi.spyOn(eventsStore, 'deleteEvent').mockResolvedValue()
+    usersStore.users.push({ id: 'u-bo', name: authStore.name, annualLeaveHours: 999 })
+    const event = { id: 'leave-5', type: 'leave', personName: authStore.name, leaveType: '特休', hours: 8, date: { toDate: () => new Date(SAFE_WEEKDAY) } }
+
+    wrapper.vm.dragState = { event, origDateStr: SAFE_WEEKDAY, mode: 'copy' }
+    await wrapper.vm.onCellDrop({ dateStr: NO_OVERLAP_DATE })
+    await flushPromises()
+
+    const { toasts } = useToast()
+    const undoToast = toasts.value.at(-1)
+    expect(undoToast?.action?.label).toBe('復原')
+    expect(createdDoc).not.toBeNull()
+
+    await undoToast.action.onClick()
+    await flushPromises()
+
+    expect(usersStore.adjustAnnualLeaveHours).toHaveBeenCalledTimes(2)
+    expect(deleteSpy).toHaveBeenCalledWith(createdDoc.id)
+  })
+})
