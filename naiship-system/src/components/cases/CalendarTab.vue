@@ -772,7 +772,11 @@ async function onCellDrop(cell) {
     const newId = await copyEvent(fresh, targetDateStr)
     if (newId) {
       showUndoToast(`已複製「${fresh.label}」到 ${targetDateStr}`, async () => {
-        await eventsStore.deleteEvent(newId)
+        try {
+          await eventsStore.deleteEvent(newId)
+        } catch {
+          toast('復原失敗，請重試', 'error')
+        }
       })
     }
   }

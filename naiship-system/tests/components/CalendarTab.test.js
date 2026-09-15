@@ -834,7 +834,11 @@ describe('CalendarTab — 拖放非請假事件', () => {
     await wrapper.vm.onCellDrop({ dateStr: '2026-09-12' })
     await flushPromises()
 
-    expect(eventsStore.updateEvent).toHaveBeenCalledWith('note-1', expect.objectContaining({}))
+    const [, payload] = eventsStore.updateEvent.mock.calls[0]
+    expect(payload.date.toDate().getFullYear()).toBe(2026)
+    expect(payload.date.toDate().getMonth()).toBe(8) // 9月，0-indexed
+    expect(payload.date.toDate().getDate()).toBe(12)
+    expect(payload.endDate).toBeNull()
     expect(wrapper.vm.dragState).toBeNull()
     const { toasts } = useToast()
     expect(toasts.value.at(-1)?.action?.label).toBe('復原')
