@@ -21,8 +21,8 @@
         :style="t.type === 'error' ? 'background:#ef4444' : t.type === 'warning' ? 'background:#f59e0b' : 'background:#1e2533'">
         <span>{{ t.type === 'error' ? '✕' : '✓' }}</span>
         <span>{{ t.message }}</span>
-        <button v-if="t.action" @click="t.action.onClick(); toasts.splice(toasts.findIndex(x => x.id === t.id), 1)"
-          class="ml-1 text-xs font-semibold underline underline-offset-2 flex-shrink-0">
+        <button v-if="t.action" @click="handleToastAction(t)"
+          class="ml-1 text-xs font-semibold text-white underline underline-offset-2 flex-shrink-0">
           {{ t.action.label }}
         </button>
       </div>
@@ -49,6 +49,11 @@ const vendorsStore = useVendorsStore()
 const usersStore = useUsersStore()
 const clientsStore = useClientsStore()
 const pettyCashStore = usePettyCashStore()
+
+async function handleToastAction(t) {
+    await t.action.onClick()
+    toasts.value = toasts.value.filter(x => x.id !== t.id)
+}
 
 watch(() => authStore.user, (u) => {
     if (u) {
