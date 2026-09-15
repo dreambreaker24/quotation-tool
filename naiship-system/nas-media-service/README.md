@@ -16,7 +16,7 @@ naiship-system 的媒體收檔／供檔服務，跑在公司 QNAP NAS（TS-453E�
 | `PUBLIC_BASE_URL` | `https://nextdesign.myqnapcloud.com:8444/media` | 回傳網址前綴（= 反向代理對外路徑，去尾斜線；埠號見下方「反向代理」說明） |
 | `ALLOWED_ORIGINS` | `https://quotation-system-ddc5c.web.app` | 允許呼叫 `/media/upload` 的來源，逗號分隔 |
 | `PORT` | `3001` | 容器內部埠（不需對外，只給反向代理用） |
-| `MAX_FILE_MB` | `50` | 單檔上限（預設 50） |
+| `MAX_FILE_MB` | `500` | 單檔上限（預設 500，2026-09-15 為了支援影片上傳從 50 調高；NAS 這台容器的環境變數要跟著手動改，改完整包重建應用程式才會生效，見下方「環境變數改過一次都要整包重建應用程式」） |
 
 ## 允許的類別 / 副檔名
 
@@ -77,7 +77,7 @@ npx vitest run        # 38 個單元測試
    - **關鍵發現，跟原規劃不同**：QNAP 的反向代理是 **domain + port 層級的 vhost 轉發**，沒有 path 路徑轉發功能（進階設定只有逾時、自訂標頭，沒有 path 比對）。原本規劃「跟 QTS 管理後台共用 443、用 `/media` 路徑區分」做不到
    - 改法：開一個新埠 **8444** 專門給這個服務，規則設 `https://*:8444` → `http://localhost:3001`，`PUBLIC_BASE_URL`／前端 `VITE_NAS_BASE_URL` 都要用 `https://nextdesign.myqnapcloud.com:8444/media`
    - **myQNAPcloud Link 不會自動轉發這個新埠**：它只轉發內建認得的服務（QTS 管理後台、WebDAV），自訂新埠要在**路由器**上額外設「連接埠轉發」規則（8444 對外 → NAS 內部 8444），這台辦公室是 TP-Link Deco，設定藏在手機 Deco App 的「進階 → NAT 導向 → 連接埠轉發」，本機網頁版登入看不到這個選項
-   - **在反向代理這一層限制上傳 body 大小與單一 IP 連線數**（QTS 反向代理進階設定或 App Center 防火牆規則）—— 服務端 multer 用 memoryStorage，靠這層擋掉大量並行大檔把 NAS 記憶體吃爆（`src/server.js` 有對應 NOTE 註解）
+   - **在反向代理這一層限制上傳 body 大小與單一 IP 連線數**（QTS 反向代理進階設定或 App Center 防火牆規則）——服務端 multer 從 2026-09-15 起改用磁碟暫存＋原子搬移（不再是 memoryStorage），單靠應用層已經不會整包塞爆記憶體，但反向代理這層若原本是照舊的 50MB 時代設定，會在請求還沒進到 Node 之前就先擋掉大於 50MB 的影片——**改完 `MAX_FILE_MB` 也要記得檢查這層的 body 大小限制有沒有同步放寬到 500MB**，這是這個服務的環境限制，不是應用程式碼能控制的範圍（`src/server.js` 的 `// NOTE` 註解有提到要靠這層擋，但沒寫多大，容易漏改）
 
 6. **驗證**（見主 plan `docs/superpowers/plans/2026-09-10-nas-media-migration.md` 的 Task 13 curl 清單，全部用 curl／真實 Firebase ID token 對外部網址測試過）：
    - `GET https://nextdesign.myqnapcloud.com:8444/media/health` → `{"ok":true}`
