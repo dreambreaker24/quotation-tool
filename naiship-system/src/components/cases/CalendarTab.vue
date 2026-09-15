@@ -735,9 +735,47 @@ function onEventDragEnd() {
   dragOverDateStr.value = ''
 }
 
-function onCellDrop(cell) {
+function showUndoToast(message, onUndo) {
+  toast(message, 'success', 4000, {
+    label: '復原',
+    onClick: async () => {
+      await onUndo()
+    },
+  })
+}
+
+async function onCellDrop(cell) {
+  const state = dragState.value
   dragState.value = null
   dragOverDateStr.value = ''
+  if (!state) return
+  const targetDateStr = cell.dateStr
+  if (targetDateStr === state.origDateStr) return
+  const fresh = eventsStore.events.find(ev => ev.id === state.event.id) ?? state.event
+
+  if (fresh.type === 'leave') {
+    if (state.mode === 'move') await dragMoveLeaveEvent(fresh, targetDateStr)
+    else await dragCopyLeaveEvent(fresh, targetDateStr)
+    return
+  }
+
+  if (state.mode === 'move') {
+    const origDateStr = state.origDateStr
+    const ok = await moveEvent(fresh, targetDateStr)
+    if (ok) {
+      showUndoToast(`已將「${fresh.label}」移到 ${targetDateStr}`, async () => {
+        const latest = eventsStore.events.find(ev => ev.id === fresh.id)
+        if (latest) await moveEvent(latest, origDateStr)
+      })
+    }
+  } else {
+    const newId = await copyEvent(fresh, targetDateStr)
+    if (newId) {
+      showUndoToast(`已複製「${fresh.label}」到 ${targetDateStr}`, async () => {
+        await eventsStore.deleteEvent(newId)
+      })
+    }
+  }
 }
 
 function startPendingAction(mode, event) {

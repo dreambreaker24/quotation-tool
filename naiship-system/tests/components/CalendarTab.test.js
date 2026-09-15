@@ -7,6 +7,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useCalendarEventsStore } from '@/stores/calendarEvents'
 import { hoursToDays } from '@/utils/leaveConversion'
 import { TAIWAN_HOLIDAY_NAMES } from '@/constants/holidays'
+import { useToast } from '@/composables/useToast'
 
 vi.mock('@/firebase', () => ({ auth: {}, db: {} }))
 vi.mock('firebase/auth', () => ({
@@ -805,5 +806,63 @@ describe('CalendarTab — 拖曳可拖曳判斷', () => {
     await flushPromises()
     const event = { id: 'e4', type: 'followup', label: '跟進', date: { toDate: () => new Date(2026, 8, 10) } }
     expect(wrapper.vm.canDragEvent(event, '2026-09-10')).toBe(true)
+  })
+})
+
+describe('CalendarTab — 拖放非請假事件', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    useToast().toasts.value = []
+  })
+
+  async function mountAsManager() {
+    const authStore = useAuthStore()
+    authStore.role = 'admin'
+    authStore.name = '柏'
+    const eventsStore = useCalendarEventsStore()
+    const wrapper = mount(CalendarTab, { props: { region: 'south' } })
+    await flushPromises()
+    return { wrapper, eventsStore }
+  }
+
+  it('直接拖放（move）呼叫 moveEvent 並在成功後顯示可復原的 toast', async () => {
+    const { wrapper, eventsStore } = await mountAsManager()
+    vi.spyOn(eventsStore, 'updateEvent').mockResolvedValue()
+    const event = { id: 'note-1', type: 'note', label: '測試記事', companyId: 'south', date: { toDate: () => new Date(2026, 8, 10) } }
+
+    wrapper.vm.dragState = { event, origDateStr: '2026-09-10', mode: 'move' }
+    await wrapper.vm.onCellDrop({ dateStr: '2026-09-12' })
+    await flushPromises()
+
+    expect(eventsStore.updateEvent).toHaveBeenCalledWith('note-1', expect.objectContaining({}))
+    expect(wrapper.vm.dragState).toBeNull()
+    const { toasts } = useToast()
+    expect(toasts.value.at(-1)?.action?.label).toBe('復原')
+  })
+
+  it('按住 Ctrl 拖放（copy）呼叫 copyEvent 而不是 moveEvent', async () => {
+    const { wrapper, eventsStore } = await mountAsManager()
+    vi.spyOn(eventsStore, 'updateEvent')
+    vi.spyOn(eventsStore, 'addEvent').mockResolvedValue({ id: 'note-copy-1' })
+    const event = { id: 'note-2', type: 'note', label: '測試記事2', companyId: 'south', date: { toDate: () => new Date(2026, 8, 10) } }
+
+    wrapper.vm.dragState = { event, origDateStr: '2026-09-10', mode: 'copy' }
+    await wrapper.vm.onCellDrop({ dateStr: '2026-09-15' })
+    await flushPromises()
+
+    expect(eventsStore.addEvent).toHaveBeenCalled()
+    expect(eventsStore.updateEvent).not.toHaveBeenCalled()
+  })
+
+  it('放到原本那一天不做任何事', async () => {
+    const { wrapper, eventsStore } = await mountAsManager()
+    vi.spyOn(eventsStore, 'updateEvent')
+    const event = { id: 'note-3', type: 'note', label: '不變', companyId: 'south', date: { toDate: () => new Date(2026, 8, 10) } }
+
+    wrapper.vm.dragState = { event, origDateStr: '2026-09-10', mode: 'move' }
+    await wrapper.vm.onCellDrop({ dateStr: '2026-09-10' })
+    await flushPromises()
+
+    expect(eventsStore.updateEvent).not.toHaveBeenCalled()
   })
 })
