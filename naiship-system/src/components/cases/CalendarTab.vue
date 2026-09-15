@@ -58,7 +58,7 @@
         ]"
         @click="onCellClick(cell)"
         @dragover.prevent="onCellDragOver(cell, $event)"
-        @drop="onCellDrop(cell)">
+        @drop.prevent="onCellDrop(cell)">
         <span v-if="cell.isToday"
           class="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold text-white"
           style="background:#c9a96e">
@@ -717,16 +717,17 @@ function canDragEvent(event, cellDateStr) {
 }
 
 function onEventDragStart(event, dateStr, e) {
+  cancelPendingAction()
   dragState.value = { event, origDateStr: dateStr, mode: 'move' }
-  e.dataTransfer.setData('text/plain', event.id)
-  e.dataTransfer.effectAllowed = 'copyMove'
+  e.dataTransfer?.setData('text/plain', event.id)
+  if (e.dataTransfer) e.dataTransfer.effectAllowed = 'copyMove'
 }
 
 function onCellDragOver(cell, e) {
   if (!dragState.value) return
   dragOverDateStr.value = cell.dateStr
   dragState.value.mode = e.ctrlKey ? 'copy' : 'move'
-  e.dataTransfer.dropEffect = dragState.value.mode
+  if (e.dataTransfer) e.dataTransfer.dropEffect = dragState.value.mode
 }
 
 function onEventDragEnd() {
