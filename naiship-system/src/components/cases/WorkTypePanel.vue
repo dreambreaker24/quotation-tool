@@ -264,6 +264,8 @@
                     </div>
                     <div v-if="item.isPdf" @click="handleWtThumbClick(wt.id, item)"
                       class="w-14 h-14 rounded bg-red-100 flex items-center justify-center text-[10px] text-red-600 font-bold hover:bg-red-200 transition-colors cursor-pointer">PDF</div>
+                    <div v-else-if="item.isVideo" @click="handleWtThumbClick(wt.id, item)"
+                      class="w-14 h-14 rounded flex items-center justify-center text-white text-base hover:opacity-80 transition-opacity cursor-pointer" style="background:#1e2533">▶</div>
                     <img v-else :src="item.url"
                       class="w-14 h-14 rounded object-cover cursor-pointer hover:opacity-80"
                       @click="handleWtThumbClick(wt.id, item)">
@@ -287,6 +289,8 @@
                   </div>
                   <div v-if="item.isPdf" @click="handleWtThumbClick(wt.id, item)"
                     class="w-14 h-14 rounded bg-red-100 flex items-center justify-center text-[10px] text-red-600 font-bold hover:bg-red-200 transition-colors cursor-pointer">PDF</div>
+                  <div v-else-if="item.isVideo" @click="handleWtThumbClick(wt.id, item)"
+                    class="w-14 h-14 rounded flex items-center justify-center text-white text-base hover:opacity-80 transition-opacity cursor-pointer" style="background:#1e2533">▶</div>
                   <img v-else :src="item.url"
                     class="w-14 h-14 rounded object-cover cursor-pointer hover:opacity-80"
                     @click="handleWtThumbClick(wt.id, item)">
@@ -312,6 +316,8 @@
                 </div>
                 <div v-if="item.isPdf" @click="handleWtThumbClick(wt.id, item)"
                   class="w-14 h-14 rounded bg-red-100 flex items-center justify-center text-[10px] text-red-600 font-bold hover:bg-red-200 transition-colors cursor-pointer">PDF</div>
+                <div v-else-if="item.isVideo" @click="handleWtThumbClick(wt.id, item)"
+                  class="w-14 h-14 rounded flex items-center justify-center text-white text-base hover:opacity-80 transition-opacity cursor-pointer" style="background:#1e2533">▶</div>
                 <img v-else :src="item.url"
                   class="w-14 h-14 rounded object-cover cursor-pointer hover:opacity-80"
                   @click="handleWtThumbClick(wt.id, item)">
@@ -648,12 +654,14 @@
   </div>
 
   <!-- construction photo file input & lightbox -->
-  <input ref="wtConstructFileInput" type="file" accept="image/jpeg,image/jpg,image/png,image/webp,.pdf" multiple class="hidden" @change="handleWtConstructFiles">
+  <input ref="wtConstructFileInput" type="file" accept="image/jpeg,image/jpg,image/png,image/webp,.pdf,video/mp4,video/quicktime" multiple class="hidden" @change="handleWtConstructFiles">
   <div v-if="previewWtConstructUrl" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50"
     @click.self="previewWtConstructUrl = null">
     <button v-if="previewWtConstructIdx > 0" @click="navigateWtConstruct(-1)"
       class="absolute left-4 text-white text-3xl w-10 h-10 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/70 select-none z-10">‹</button>
-    <img :src="previewWtConstructUrl" class="max-h-[80vh] max-w-[90vw] rounded-xl cursor-default">
+    <video v-if="previewWtConstructIsVideo" :src="previewWtConstructUrl" controls autoplay muted
+      class="max-h-[80vh] max-w-[90vw] rounded-xl cursor-default"></video>
+    <img v-else :src="previewWtConstructUrl" class="max-h-[80vh] max-w-[90vw] rounded-xl cursor-default">
     <button v-if="previewWtConstructIdx < wtConstructImgList.length - 1" @click="navigateWtConstruct(1)"
       class="absolute right-4 text-white text-3xl w-10 h-10 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/70 select-none z-10">›</button>
   </div>
@@ -736,7 +744,7 @@ import { useUsersStore } from '@/stores/users'
 import { useToast } from '@/composables/useToast'
 import { useFileSelection } from '@/composables/useFileSelection'
 import FileSelectionBar from '@/components/ui/FileSelectionBar.vue'
-import { uploadPhoto, validateUploadFile } from '@/composables/useStorage'
+import { uploadPhoto, validateUploadFile, isVideoFile } from '@/composables/useStorage'
 import { addDoc, collection, getDocs, orderBy, query, serverTimestamp, deleteDoc, doc } from 'firebase/firestore'
 import { db } from '@/firebase'
 
@@ -872,6 +880,9 @@ const wtPhotoFolders = computed(() => caseData.value?.wtPhotoFolders ?? [])
 const wtConstructImgList = computed(() =>
     (wtConstructPhotos[previewWtConstructWtId.value] || []).filter(p => !p.isPdf)
 )
+const previewWtConstructIsVideo = computed(() =>
+    wtConstructImgList.value[previewWtConstructIdx.value]?.isVideo ?? false
+)
 
 function wtFoldersForWt(wtId) {
     return wtPhotoFolders.value.filter(f => f.workTypeId === wtId)
@@ -999,17 +1010,18 @@ async function handleWtConstructFiles(e) {
         try {
             const url = await uploadPhoto(file, 'wt_construction')
             const isPdf = file.name.toLowerCase().endsWith('.pdf')
+            const isVideo = isVideoFile(file)
             const pdfUrl = isPdf && !url.toLowerCase().endsWith('.pdf') ? url + '.pdf' : url
             const uploadedBy = authStore.user?.uid ?? 'unknown'
             const docRef = await addDoc(collection(db, 'cases', props.caseId, 'photos'), {
                 type: 'wt_construction', workTypeId: wtId,
                 folderId: folderId ?? null,
-                url, isPdf,
+                url, isPdf, isVideo,
                 uploadedBy,
                 createdAt: serverTimestamp(),
             })
             if (!wtConstructPhotos[wtId]) wtConstructPhotos[wtId] = []
-            wtConstructPhotos[wtId].push({ id: docRef.id, url, isPdf, pdfUrl, folderId: folderId ?? null, createdAt: { toDate: () => new Date() }, uploadedBy })
+            wtConstructPhotos[wtId].push({ id: docRef.id, url, isPdf, isVideo, pdfUrl, folderId: folderId ?? null, createdAt: { toDate: () => new Date() }, uploadedBy })
         } catch {
             toast('上傳失敗，請重試', 'error')
         }
@@ -1213,15 +1225,16 @@ onMounted(async () => {
     const q = query(collection(db, 'cases', props.caseId, 'photos'), orderBy('createdAt'))
     const snap = await getDocs(q)
     snap.docs.forEach(d => {
-        const { type, url, isPdf, workTypeId, folderId, createdAt, uploadedBy } = d.data()
+        const { type, url, isPdf, isVideo, workTypeId, folderId, createdAt, uploadedBy } = d.data()
         const resolvedIsPdf = isPdf ?? url.toLowerCase().endsWith('.pdf')
         const pdfUrl = resolvedIsPdf && !url.toLowerCase().endsWith('.pdf') ? url + '.pdf' : url
         if (type === 'vendor_quote' && workTypeId) {
             if (!vendorPhotos[workTypeId]) vendorPhotos[workTypeId] = []
             vendorPhotos[workTypeId].push({ id: d.id, url, isPdf: resolvedIsPdf, pdfUrl, createdAt, uploadedBy })
         } else if (type === 'wt_construction' && workTypeId) {
+            const resolvedIsVideo = isVideo ?? /\.(mp4|mov)$/i.test(url)
             if (!wtConstructPhotos[workTypeId]) wtConstructPhotos[workTypeId] = []
-            wtConstructPhotos[workTypeId].push({ id: d.id, url, isPdf: resolvedIsPdf, pdfUrl, folderId: folderId ?? null, createdAt, uploadedBy })
+            wtConstructPhotos[workTypeId].push({ id: d.id, url, isPdf: resolvedIsPdf, isVideo: resolvedIsVideo, pdfUrl, folderId: folderId ?? null, createdAt, uploadedBy })
         }
     })
 })
