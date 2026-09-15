@@ -746,6 +746,10 @@ function showUndoToast(message, onUndo) {
 }
 
 async function dragMoveLeaveEvent(event, targetDateStr) {
+  if (submitting.value) {
+    toast('上一筆操作還在處理中，請稍等再拖曳', 'error')
+    return
+  }
   if (event.leaveTypeLocked) {
     toast('已透過薪資單折抵補休，請至薪資單取消折抵後再拖曳', 'error')
     return
@@ -769,6 +773,10 @@ async function dragMoveLeaveEvent(event, targetDateStr) {
 }
 
 async function dragCopyLeaveEvent(event, targetDateStr) {
+  if (submitting.value) {
+    toast('上一筆操作還在處理中，請稍等再拖曳', 'error')
+    return
+  }
   if (!authStore.isManager && event.personName !== authStore.name) {
     toast('只有蚌、其宏、柏可以複製別人的請假紀錄', 'error')
     return
@@ -1062,6 +1070,7 @@ async function finalizeEditEvent() {
 }
 
 async function removeEvent() {
+  if (submitting.value) return
   if (editForm.value._leaveTypeLocked) {
     toast('已透過薪資單折抵補休，請至薪資單取消折抵後再刪除', 'error')
     return
@@ -1070,6 +1079,7 @@ async function removeEvent() {
     toast('只有蚌、其宏、柏可以刪除別人的請假紀錄', 'error')
     return
   }
+  submitting.value = true
   try {
     const delEvtDate = editForm.value.date
     const delLabel = editForm.value.type === 'leave'
@@ -1083,6 +1093,8 @@ async function removeEvent() {
     showEditEvent.value = false
   } catch {
     toast('刪除失敗，請重試', 'error')
+  } finally {
+    submitting.value = false
   }
 }
 
