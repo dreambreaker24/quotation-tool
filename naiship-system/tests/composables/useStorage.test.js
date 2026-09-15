@@ -1,5 +1,6 @@
 // naiship-system/tests/composables/useStorage.test.js
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { validateUploadFile, isVideoFile } from '@/composables/useStorage'
 
 describe('useStorage (local backend)', () => {
   beforeEach(() => {
@@ -64,5 +65,42 @@ describe('useStorage (nas backend)', () => {
     )
     const { uploadPhoto } = await import('@/composables/useStorage')
     await expect(uploadPhoto(new File(['d'], 't.jpg'), 'survey')).rejects.toThrow('憑證無效')
+  })
+})
+
+describe('isVideoFile', () => {
+  it('辨識 .mp4/.mov 為影片，不分大小寫，其他副檔名不算', () => {
+    expect(isVideoFile(new File([], 'site.mp4'))).toBe(true)
+    expect(isVideoFile(new File([], 'SITE.MOV'))).toBe(true)
+    expect(isVideoFile(new File([], 'photo.jpg'))).toBe(false)
+    expect(isVideoFile(new File([], 'quote.pdf'))).toBe(false)
+  })
+})
+
+describe('validateUploadFile', () => {
+  function makeFile(name, sizeBytes) {
+    const file = new File([new Uint8Array(1)], name)
+    Object.defineProperty(file, 'size', { value: sizeBytes })
+    return file
+  }
+
+  it('圖片超過 10MB 擋下', () => {
+    const file = makeFile('photo.jpg', 11 * 1024 * 1024)
+    expect(validateUploadFile(file)).toMatch(/單檔限制 10 MB/)
+  })
+
+  it('圖片 10MB 以內通過', () => {
+    const file = makeFile('photo.jpg', 9 * 1024 * 1024)
+    expect(validateUploadFile(file)).toBeNull()
+  })
+
+  it('影片 200MB 通過（遠超過圖片的 10MB 上限）', () => {
+    const file = makeFile('site.mp4', 200 * 1024 * 1024)
+    expect(validateUploadFile(file)).toBeNull()
+  })
+
+  it('影片超過 500MB 擋下', () => {
+    const file = makeFile('site.mov', 600 * 1024 * 1024)
+    expect(validateUploadFile(file)).toMatch(/單檔限制 500 MB/)
   })
 })

@@ -1,9 +1,17 @@
 const MAX_SIZE = 10 * 1024 * 1024
+const MAX_VIDEO_SIZE = 500 * 1024 * 1024
+const VIDEO_EXT = /\.(mp4|mov)$/i
+
+export function isVideoFile(file) {
+    return VIDEO_EXT.test(file.name)
+}
 
 export function validateUploadFile(file) {
-    if (file.size > MAX_SIZE) {
+    const limit = isVideoFile(file) ? MAX_VIDEO_SIZE : MAX_SIZE
+    if (file.size > limit) {
         const mb = (file.size / 1024 / 1024).toFixed(1)
-        return `「${file.name}」檔案過大（${mb} MB），單檔限制 10 MB`
+        const limitMb = limit / 1024 / 1024
+        return `「${file.name}」檔案過大（${mb} MB），單檔限制 ${limitMb} MB`
     }
     return null
 }
