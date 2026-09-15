@@ -1,9 +1,15 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useToast } from '@/composables/useToast'
 
 describe('useToast', () => {
   beforeEach(() => {
     vi.useFakeTimers()
+    const { toasts } = useToast()
+    toasts.value = []
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   it('不傳 action 時，toast 物件沒有 action 欄位', () => {
