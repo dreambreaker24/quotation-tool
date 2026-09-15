@@ -28,7 +28,7 @@ describe('loadConfig', () => {
   it('port 與 maxFileBytes 有預設值', () => {
     const c = loadConfig({ ...base })
     expect(c.port).toBe(3001)
-    expect(c.maxFileBytes).toBe(50 * 1024 * 1024)
+    expect(c.maxFileBytes).toBe(500 * 1024 * 1024)
   })
 
   it('MAX_FILE_MB 可覆寫上限', () => {

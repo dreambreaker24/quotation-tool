@@ -22,6 +22,6 @@ export function loadConfig(env = process.env) {
     allowedOrigins: (env.ALLOWED_ORIGINS || '')
       .split(',').map(s => s.trim()).filter(Boolean),
     port: Number(env.PORT || 3001),
-    maxFileBytes: Number(env.MAX_FILE_MB || 50) * 1024 * 1024,
+    maxFileBytes: Number(env.MAX_FILE_MB || 500) * 1024 * 1024,
   }
 }
