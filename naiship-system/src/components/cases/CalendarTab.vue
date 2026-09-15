@@ -16,6 +16,7 @@
         <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded" style="background:#0d9488"></span>場勘/施工</div>
         <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-blue-400"></span>員工請假</div>
         <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded" style="background:#a855f7"></span>客戶跟進</div>
+        <span class="hidden sm:inline text-gray-400">拖曳事件可搬到別天，按住 Ctrl 拖曳＝複製</span>
         <button @click="openAddEventModal" class="text-xs border border-gray-200 rounded-lg px-3 py-1.5 text-gray-500 hover:border-gray-400">+ 新增</button>
       </div>
     </div>
