@@ -1278,7 +1278,7 @@ async function finalizeAddEvent() {
 
 async function moveEvent(event, targetDateStr) {
   const origDate = tsToDateStr(event.date)
-  if (targetDateStr === origDate) return false
+  if (targetDateStr === origDate) return true
   const origEnd = event.endDate ? tsToDateStr(event.endDate) : ''
   const { date, endDate } = shiftedRange(origDate, origEnd, targetDateStr)
   const payload = {
