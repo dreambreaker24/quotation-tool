@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync, readFileSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync, readFileSync, existsSync, readdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import request from 'supertest'
@@ -179,5 +179,67 @@ describe('GET 靜態供檔', () => {
     writeFileSync(join(dir, '.secret'), 'nope')
     const res = await request(createApp(config(), fakeVerify)).get('/media/naiship/.secret')
     expect([403, 404]).toContain(res.status)
+  })
+})
+
+describe('磁碟暫存不殘留', () => {
+  // 刻意連「暫存資料夾有沒有被建立」都一起斷言，不是只看「有沒有殘留檔案」——
+  // 舊的 memoryStorage 實作永遠不會建立 .uploading 資料夾，如果只斷言「沒有殘留檔案」，
+  // 舊實作會因為資料夾根本不存在而讓這幾個測試「假綠燈」，測不出真的有改用磁碟暫存。
+  function tmpDirState() {
+    const tmpDir = join(mediaRoot, '.uploading')
+    const exists = existsSync(tmpDir)
+    return { exists, leftover: exists ? readdirSync(tmpDir) : null }
+  }
+
+  it('上傳成功後，暫存資料夾有被使用過、且沒有殘留檔案', async () => {
+    const res = await request(createApp(config(), fakeVerify))
+      .post('/media/upload').set('Authorization', 'Bearer good')
+      .field('type', 'survey').attach('file', Buffer.from('hello'), 'q.jpg')
+    expect(res.status).toBe(200)
+    const state = tmpDirState()
+    expect(state.exists).toBe(true)
+    expect(state.leftover).toEqual([])
+  })
+
+  it('沒帶 token 失敗時，暫存資料夾有被使用過、且沒有殘留檔案', async () => {
+    const res = await request(createApp(config(), fakeVerify))
+      .post('/media/upload').field('type', 'survey').attach('file', Buffer.from('x'), 'a.jpg')
+    expect(res.status).toBe(401)
+    const state = tmpDirState()
+    expect(state.exists).toBe(true)
+    expect(state.leftover).toEqual([])
+  })
+
+  it('type 不在白名單失敗時，暫存資料夾有被使用過、且沒有殘留檔案', async () => {
+    const res = await request(createApp(config(), fakeVerify))
+      .post('/media/upload').set('Authorization', 'Bearer good')
+      .field('type', '../evil').attach('file', Buffer.from('x'), 'a.jpg')
+    expect(res.status).toBe(400)
+    const state = tmpDirState()
+    expect(state.exists).toBe(true)
+    expect(state.leftover).toEqual([])
+  })
+
+  it('5MB 影片檔（走磁碟暫存路徑）也能成功上傳並搬到最終位置', async () => {
+    const big = Buffer.alloc(5 * 1024 * 1024, 7)
+    const res = await request(createApp({ ...config(), maxFileBytes: 10 * 1024 * 1024 }, fakeVerify))
+      .post('/media/upload').set('Authorization', 'Bearer good')
+      .field('type', 'wt_construction').attach('file', big, 'clip.mp4')
+    expect(res.status).toBe(200)
+    const rel = res.body.url.replace('https://nas.example/media/', '')
+    expect(readFileSync(join(mediaRoot, rel)).length).toBe(5 * 1024 * 1024)
+    expect(tmpDirState().leftover).toEqual([])
+  })
+
+  it('超過大小上限（413）時，暫存資料夾也不會殘留檔案', async () => {
+    const big = Buffer.alloc(2 * 1024 * 1024, 1)
+    const res = await request(createApp({ ...config(), maxFileBytes: 1024 * 1024 }, fakeVerify))
+      .post('/media/upload').set('Authorization', 'Bearer good')
+      .field('type', 'survey').attach('file', big, 'big.jpg')
+    expect(res.status).toBe(413)
+    const state = tmpDirState()
+    expect(state.exists).toBe(true)
+    expect(state.leftover).toEqual([])
   })
 })
