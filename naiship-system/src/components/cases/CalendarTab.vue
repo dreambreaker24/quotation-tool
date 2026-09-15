@@ -427,6 +427,33 @@
     </div>
   </div>
 
+  <!-- 場勘/施工案件狀況預覽 -->
+  <div v-if="milestonePreview" class="fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.4)" @click.self="milestonePreview = null">
+    <div class="bg-white rounded-2xl shadow-xl p-5 w-full max-w-xs mx-4 border-t-4" style="border-top-color:#0d9488">
+      <div class="text-sm font-bold text-gray-800 mb-3 truncate">{{ milestonePreview.label }}</div>
+      <div v-if="milestonePreviewCases().length === 0" class="text-xs text-gray-300 mb-4">未關聯案件</div>
+      <div v-else class="flex flex-col gap-2 mb-4">
+        <div v-for="c in milestonePreviewCases()" :key="c.id" class="rounded-lg border border-gray-100 px-3 py-2">
+          <div class="flex items-center justify-between gap-2">
+            <div class="text-sm font-medium text-gray-800 truncate">{{ c.name }}</div>
+            <button data-test="milestone-preview-case-detail" @click="emit('jump-to-case', c.id); milestonePreview = null" class="text-[11px] flex-shrink-0" style="color:#c9a96e">查看詳情</button>
+          </div>
+          <div class="flex items-center gap-1.5 mt-1">
+            <span class="w-2 h-2 rounded-full flex-shrink-0" :style="`background:${caseStatusInfo(c.status).color}`"></span>
+            <span class="text-[11px] text-gray-500">{{ caseStatusInfo(c.status).label }}</span>
+            <span v-if="c.assigneeName" class="text-[11px] text-gray-300">・{{ c.assigneeName }}</span>
+          </div>
+        </div>
+      </div>
+      <div class="flex flex-col gap-2">
+        <button @click="openEditEvent(milestonePreview); milestonePreview = null" class="text-sm border border-gray-200 rounded-lg py-2 hover:border-gray-400">✏️ 編輯行程</button>
+        <button @click="startPendingAction('move', milestonePreview); milestonePreview = null" class="text-sm rounded-lg py-2 text-white" style="background:#1e2533">⟳ 移動到別天</button>
+        <button @click="startPendingAction('copy', milestonePreview); milestonePreview = null" class="text-sm border border-gray-200 rounded-lg py-2 hover:border-gray-400">⧉ 複製到別天</button>
+        <button @click="milestonePreview = null" class="text-sm text-gray-400 py-2">關閉</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 當天詳情 Modal -->
   <div v-if="showDayDetail" class="fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.4)">
     <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm mx-4 border-t-4 max-h-[80vh] flex flex-col" style="border-top-color:#c9a96e">
@@ -470,9 +497,10 @@ import { TAIWAN_HOLIDAY_NAMES } from '@/constants/holidays'
 import { getBusinessDays } from '@/utils/businessDays'
 import { leaveDedupeId } from '@/utils/leaveDedupeId'
 import { shiftedRange, buildCopyDraft } from '@/utils/eventDateShift'
+import { CASE_STATUS_LABELS, CASE_STATUS_COLORS } from '@/constants/caseStatus'
 
 const props = defineProps({ region: String, jumpEventDate: String })
-const emit = defineEmits(['jumped-date'])
+const emit = defineEmits(['jumped-date', 'jump-to-case'])
 const casesStore = useCasesStore()
 const eventsStore = useCalendarEventsStore()
 const authStore = useAuthStore()
@@ -700,6 +728,19 @@ const resolvingConflict = ref(false)
 const submitting = ref(false)
 const lastLeaveWriteId = ref(null)
 const eventActionModal = ref(null)
+const milestonePreview = ref(null)
+
+function caseStatusInfo(status) {
+  const known = statuses.find(s => s.key === status)
+  if (known) return { label: known.label, color: known.border }
+  return { label: CASE_STATUS_LABELS[status] ?? status, color: CASE_STATUS_COLORS[status] ?? '#6b7280' }
+}
+
+function milestonePreviewCases() {
+  const event = milestonePreview.value
+  if (!event) return []
+  return (event.caseIds ?? []).map(id => casesStore.cases.find(c => c.id === id)).filter(Boolean)
+}
 const pendingAction = ref(null)
 const dragState = ref(null)        // { event, origDateStr, mode: 'move' | 'copy' }
 const dragOverDateStr = ref('')
@@ -879,6 +920,7 @@ function onEventTap(event, dateStr) {
   showDayDetail.value = false
   if (event._merged) { openDayDetail(dateStr); return }
   if (event.type === 'leave') { openEditEvent(event); return }
+  if (event.type === 'milestone') { milestonePreview.value = event; return }
   eventActionModal.value = event
 }
 

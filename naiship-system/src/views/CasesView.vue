@@ -20,7 +20,7 @@
       </div>
     </div>
     <div class="flex-1 overflow-auto p-6">
-      <CalendarTab v-if="activeTab === 'cal'" :region="selectedRegion" :jump-event-date="jumpEventDate" @jumped-date="jumpEventDate = null" />
+      <CalendarTab v-if="activeTab === 'cal'" :region="selectedRegion" :jump-event-date="jumpEventDate" @jumped-date="jumpEventDate = null" @jump-to-case="jumpToCase" />
       <GanttTab v-else-if="activeTab === 'gantt'" :region="selectedRegion" :month="selectedMonth" :jump-case-id="jumpCaseId" :jump-case-tab="jumpCaseTab" :jump-work-type-id="jumpWorkTypeId" @jumped="jumpCaseId = null; jumpCaseTab = null; jumpWorkTypeId = null" />
       <WorkJournalTab v-else-if="activeTab === 'log'" :region="selectedRegion" :pending-only="pendingOnly" :jump-date="jumpDate" :jump-user-id="jumpUserId" />
       <AnnouncementTab v-else-if="activeTab === 'announcement'" />

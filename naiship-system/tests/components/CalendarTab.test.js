@@ -5,6 +5,7 @@ import CalendarTab from '@/components/cases/CalendarTab.vue'
 import { useUsersStore } from '@/stores/users'
 import { useAuthStore } from '@/stores/auth'
 import { useCalendarEventsStore } from '@/stores/calendarEvents'
+import { useCasesStore } from '@/stores/cases'
 import { hoursToDays } from '@/utils/leaveConversion'
 import { TAIWAN_HOLIDAY_NAMES } from '@/constants/holidays'
 import { useToast } from '@/composables/useToast'
@@ -694,11 +695,11 @@ describe('CalendarTab — 事件移動 / 複製', () => {
     expect(wrapper.vm.showDayDetail).toBe(true)
   })
 
-  it('onEventTap 對 milestone → 開小視窗；對 leave → 直接開編輯', async () => {
+  it('onEventTap 對 milestone → 開案件狀況預覽；對 leave → 直接開編輯', async () => {
     const { wrapper } = await mountPlain()
     wrapper.vm.onEventTap(milestoneEvent(), '2026-09-10')
-    expect(wrapper.vm.eventActionModal).not.toBeNull()
-    wrapper.vm.eventActionModal = null
+    expect(wrapper.vm.milestonePreview).not.toBeNull()
+    wrapper.vm.milestonePreview = null
 
     const leave = { id: 'L1', type: 'leave', personName: '柏', leaveType: '事假', label: '柏 事假', date: { toDate: () => new Date('2026-09-10') } }
     wrapper.vm.onEventTap(leave, '2026-09-10')
@@ -988,5 +989,65 @@ describe('CalendarTab — 拖放請假事件', () => {
 
     expect(usersStore.adjustAnnualLeaveHours).toHaveBeenCalledTimes(2)
     expect(deleteSpy).toHaveBeenCalledWith(createdDoc.id)
+  })
+})
+
+describe('CalendarTab — 場勘/施工案件狀況預覽', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+  })
+
+  async function mountWithCases() {
+    const authStore = useAuthStore()
+    authStore.role = 'admin'
+    authStore.name = '柏'
+    const casesStore = useCasesStore()
+    casesStore.cases = [
+      { id: 'case-1', name: '大同區辦公室', status: 'construction', assigneeName: '柏、其宏' },
+    ]
+    const wrapper = mount(CalendarTab, { props: { region: 'south' } })
+    await flushPromises()
+    return { wrapper, casesStore }
+  }
+
+  it('點場勘/施工事件開的是 milestonePreview 而不是 eventActionModal', async () => {
+    const { wrapper } = await mountWithCases()
+    const event = { id: 'ms-1', type: 'milestone', label: '大同區辦公室 木作進場', caseIds: ['case-1'], caseNames: ['大同區辦公室'], date: { toDate: () => new Date() } }
+
+    wrapper.vm.onEventTap(event, '2026-09-14')
+
+    expect(wrapper.vm.milestonePreview).toEqual(event)
+    expect(wrapper.vm.eventActionModal).toBeNull()
+  })
+
+  it('點重要記事/客戶跟進仍然開 eventActionModal', async () => {
+    const { wrapper } = await mountWithCases()
+    const event = { id: 'note-1', type: 'note', label: '重要記事', date: { toDate: () => new Date() } }
+
+    wrapper.vm.onEventTap(event, '2026-09-14')
+
+    expect(wrapper.vm.eventActionModal).toEqual(event)
+    expect(wrapper.vm.milestonePreview).toBeNull()
+  })
+
+  it('查看詳情會 emit jump-to-case 並帶正確的 caseId', async () => {
+    const { wrapper } = await mountWithCases()
+    const event = { id: 'ms-2', type: 'milestone', label: '大同區辦公室 木作進場', caseIds: ['case-1'], caseNames: ['大同區辦公室'], date: { toDate: () => new Date() } }
+    wrapper.vm.milestonePreview = event
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-test="milestone-preview-case-detail"]').trigger('click')
+
+    expect(wrapper.emitted('jump-to-case')).toBeTruthy()
+    expect(wrapper.emitted('jump-to-case')[0]).toEqual(['case-1'])
+  })
+
+  it('沒有關聯案件時顯示「未關聯案件」', async () => {
+    const { wrapper } = await mountWithCases()
+    const event = { id: 'ms-3', type: 'milestone', label: '沒有案件的記事', caseIds: [], caseNames: [], date: { toDate: () => new Date() } }
+    wrapper.vm.milestonePreview = event
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.text()).toContain('未關聯案件')
   })
 })
