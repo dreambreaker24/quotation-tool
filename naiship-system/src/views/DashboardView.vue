@@ -86,7 +86,6 @@ import { useCasesStore } from '@/stores/cases'
 import { useClientsStore } from '@/stores/clients'
 import { useAuthStore } from '@/stores/auth'
 import { useWorkLogsStore } from '@/stores/workLogs'
-import { calcVendorDueDate, vendorReminderPlan } from '@/utils/paymentDueDate'
 
 const router = useRouter()
 const casesStore = useCasesStore()
@@ -104,12 +103,6 @@ function calcOwnerDueDate(startDate) {
     return toDateStr(d)
 }
 
-function wtVendorCostTotal(wt) {
-    if (wt.vendorCostFree) return 0
-    const items = wt.vendorCostItems ?? (wt.vendorCost > 0 ? [{ amount: wt.vendorCost }] : [])
-    return (items || []).reduce((s, i) => s + (i.amount || 0), 0)
-}
-
 function wtPaymentTotal(wt) {
     if (wt.paymentFree) return 0
     const items = wt.paymentItems ?? (wt.payment > 0 ? [{ amount: wt.payment }] : [])
@@ -120,33 +113,8 @@ const BACKFILL_KEY = 'naiship_reminders_backfilled_v6'
 
 async function backfillReminders() {
     if (localStorage.getItem(BACKFILL_KEY)) return
-    const today = new Date().toISOString().slice(0, 10)
     for (const c of casesStore.cases) {
         for (const wt of (c.workTypes || [])) {
-            if (wt.done) {
-                const vendorCost = wtVendorCostTotal(wt)
-                const vendorPaid = (wt.vendorPayments || []).reduce((s, vp) => s + (vp.amount || 0), 0)
-                const remaining = vendorCost - vendorPaid
-                const plan = vendorReminderPlan(remaining)
-                if ((vendorCost > 0 && vendorPaid >= vendorCost) || !plan.shouldRemind) {
-                    await remindersStore.deleteAutoReminder(`auto_vendor_${wt.id}`)
-                } else {
-                    const effectiveEnd = wt.endDate || today
-                    await remindersStore.addAutoReminder(`auto_vendor_${wt.id}`, {
-                        source: 'auto', type: 'vendor',
-                        dueDate: calcVendorDueDate(effectiveEnd),
-                        caseId: c.id, caseName: c.name,
-                        companyId: c.companyId ?? '',
-                        workTypeId: wt.id, workTypeName: wt.name,
-                        vendorName: wt.vendorName || '',
-                        amount: remaining,
-                        endDate: wt.endDate || '',
-                        createdBy: authStore.user?.uid ?? '',
-                        createdByName: authStore.name ?? '',
-                        needsManualFollowup: plan.needsManualFollowup,
-                    })
-                }
-            }
             if (wt.startDate) {
                 await remindersStore.addAutoReminder(`auto_owner_${wt.id}`, {
                     source: 'auto', type: 'owner',
