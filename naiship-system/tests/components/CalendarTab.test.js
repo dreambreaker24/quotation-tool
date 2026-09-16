@@ -5,8 +5,10 @@ import CalendarTab from '@/components/cases/CalendarTab.vue'
 import { useUsersStore } from '@/stores/users'
 import { useAuthStore } from '@/stores/auth'
 import { useCalendarEventsStore } from '@/stores/calendarEvents'
+import { useCasesStore } from '@/stores/cases'
 import { hoursToDays } from '@/utils/leaveConversion'
 import { TAIWAN_HOLIDAY_NAMES } from '@/constants/holidays'
+import { useToast } from '@/composables/useToast'
 
 vi.mock('@/firebase', () => ({ auth: {}, db: {} }))
 vi.mock('firebase/auth', () => ({
@@ -693,11 +695,11 @@ describe('CalendarTab — 事件移動 / 複製', () => {
     expect(wrapper.vm.showDayDetail).toBe(true)
   })
 
-  it('onEventTap 對 milestone → 開小視窗；對 leave → 直接開編輯', async () => {
+  it('onEventTap 對 milestone → 開案件狀況預覽；對 leave → 直接開編輯', async () => {
     const { wrapper } = await mountPlain()
     wrapper.vm.onEventTap(milestoneEvent(), '2026-09-10')
-    expect(wrapper.vm.eventActionModal).not.toBeNull()
-    wrapper.vm.eventActionModal = null
+    expect(wrapper.vm.milestonePreview).not.toBeNull()
+    wrapper.vm.milestonePreview = null
 
     const leave = { id: 'L1', type: 'leave', personName: '柏', leaveType: '事假', label: '柏 事假', date: { toDate: () => new Date('2026-09-10') } }
     wrapper.vm.onEventTap(leave, '2026-09-10')
@@ -743,12 +745,309 @@ describe('CalendarTab — 事件移動 / 複製', () => {
   it('moveEvent 失敗時跳錯誤提示，不丟出例外', async () => {
     const { wrapper, eventsStore } = await mountPlain()
     vi.spyOn(eventsStore, 'updateEvent').mockRejectedValue(new Error('boom'))
-    await expect(wrapper.vm.moveEvent(milestoneEvent(), '2026-09-15')).resolves.toBeUndefined()
+    await expect(wrapper.vm.moveEvent(milestoneEvent(), '2026-09-15')).resolves.toBe(false)
   })
 
   it('copyEvent 失敗時跳錯誤提示，不丟出例外', async () => {
     const { wrapper, eventsStore } = await mountPlain()
     vi.spyOn(eventsStore, 'addEvent').mockRejectedValue(new Error('boom'))
-    await expect(wrapper.vm.copyEvent(milestoneEvent(), '2026-09-20')).resolves.toBeUndefined()
+    await expect(wrapper.vm.copyEvent(milestoneEvent(), '2026-09-20')).resolves.toBe(null)
+  })
+})
+
+describe('CalendarTab — 拖曳可拖曳判斷', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+  })
+
+  async function mountAsManager() {
+    const authStore = useAuthStore()
+    authStore.role = 'admin'
+    authStore.name = '柏'
+    const wrapper = mount(CalendarTab, { props: { region: 'south' } })
+    await flushPromises()
+    return { wrapper, authStore }
+  }
+
+  it('合併色塊（_merged）不可拖曳', async () => {
+    const { wrapper } = await mountAsManager()
+    const merged = { id: 'merged_x', type: 'milestone', _merged: true, date: { toDate: () => new Date(2026, 8, 10) } }
+    expect(wrapper.vm.canDragEvent(merged, '2026-09-10')).toBe(false)
+  })
+
+  it('跨天事件只有起始日格子可拖曳', async () => {
+    const { wrapper } = await mountAsManager()
+    const event = { id: 'e1', type: 'note', label: '跨天', date: { toDate: () => new Date(2026, 8, 10) }, endDate: { toDate: () => new Date(2026, 8, 12) } }
+    expect(wrapper.vm.canDragEvent(event, '2026-09-10')).toBe(true)
+    expect(wrapper.vm.canDragEvent(event, '2026-09-11')).toBe(false)
+    expect(wrapper.vm.canDragEvent(event, '2026-09-12')).toBe(false)
+  })
+
+  it('非本人非主管的請假事件不可拖曳', async () => {
+    const authStore = useAuthStore()
+    authStore.role = 'staff'
+    authStore.name = '阿蚌'
+    const wrapper = mount(CalendarTab, { props: { region: 'south' } })
+    await flushPromises()
+    const event = { id: 'e2', type: 'leave', personName: '柏', date: { toDate: () => new Date(2026, 8, 10) } }
+    expect(wrapper.vm.canDragEvent(event, '2026-09-10')).toBe(false)
+  })
+
+  it('已透過薪資單折抵的請假事件不可拖曳', async () => {
+    const { wrapper, authStore } = await mountAsManager()
+    const event = { id: 'e3', type: 'leave', personName: authStore.name, leaveTypeLocked: true, date: { toDate: () => new Date(2026, 8, 10) } }
+    expect(wrapper.vm.canDragEvent(event, '2026-09-10')).toBe(false)
+  })
+
+  it('重要記事/場勘施工/客戶跟進沒有權限限制，任何人可拖曳', async () => {
+    const authStore = useAuthStore()
+    authStore.role = 'staff'
+    authStore.name = '阿蚌'
+    const wrapper = mount(CalendarTab, { props: { region: 'south' } })
+    await flushPromises()
+    const event = { id: 'e4', type: 'followup', label: '跟進', date: { toDate: () => new Date(2026, 8, 10) } }
+    expect(wrapper.vm.canDragEvent(event, '2026-09-10')).toBe(true)
+  })
+})
+
+describe('CalendarTab — 拖放非請假事件', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    useToast().toasts.value = []
+  })
+
+  async function mountAsManager() {
+    const authStore = useAuthStore()
+    authStore.role = 'admin'
+    authStore.name = '柏'
+    const eventsStore = useCalendarEventsStore()
+    const wrapper = mount(CalendarTab, { props: { region: 'south' } })
+    await flushPromises()
+    return { wrapper, eventsStore }
+  }
+
+  it('直接拖放（move）呼叫 moveEvent 並在成功後顯示可復原的 toast', async () => {
+    const { wrapper, eventsStore } = await mountAsManager()
+    vi.spyOn(eventsStore, 'updateEvent').mockResolvedValue()
+    const event = { id: 'note-1', type: 'note', label: '測試記事', companyId: 'south', date: { toDate: () => new Date(2026, 8, 10) } }
+
+    wrapper.vm.dragState = { event, origDateStr: '2026-09-10', mode: 'move' }
+    await wrapper.vm.onCellDrop({ dateStr: '2026-09-12' })
+    await flushPromises()
+
+    const [, payload] = eventsStore.updateEvent.mock.calls[0]
+    expect(payload.date.toDate().getFullYear()).toBe(2026)
+    expect(payload.date.toDate().getMonth()).toBe(8) // 9月，0-indexed
+    expect(payload.date.toDate().getDate()).toBe(12)
+    expect(payload.endDate).toBeNull()
+    expect(wrapper.vm.dragState).toBeNull()
+    const { toasts } = useToast()
+    expect(toasts.value.at(-1)?.action?.label).toBe('復原')
+  })
+
+  it('按住 Ctrl 拖放（copy）呼叫 copyEvent 而不是 moveEvent', async () => {
+    const { wrapper, eventsStore } = await mountAsManager()
+    vi.spyOn(eventsStore, 'updateEvent')
+    vi.spyOn(eventsStore, 'addEvent').mockResolvedValue({ id: 'note-copy-1' })
+    const event = { id: 'note-2', type: 'note', label: '測試記事2', companyId: 'south', date: { toDate: () => new Date(2026, 8, 10) } }
+
+    wrapper.vm.dragState = { event, origDateStr: '2026-09-10', mode: 'copy' }
+    await wrapper.vm.onCellDrop({ dateStr: '2026-09-15' })
+    await flushPromises()
+
+    expect(eventsStore.addEvent).toHaveBeenCalled()
+    expect(eventsStore.updateEvent).not.toHaveBeenCalled()
+  })
+
+  it('放到原本那一天不做任何事', async () => {
+    const { wrapper, eventsStore } = await mountAsManager()
+    vi.spyOn(eventsStore, 'updateEvent')
+    const event = { id: 'note-3', type: 'note', label: '不變', companyId: 'south', date: { toDate: () => new Date(2026, 8, 10) } }
+
+    wrapper.vm.dragState = { event, origDateStr: '2026-09-10', mode: 'move' }
+    await wrapper.vm.onCellDrop({ dateStr: '2026-09-10' })
+    await flushPromises()
+
+    expect(eventsStore.updateEvent).not.toHaveBeenCalled()
+  })
+})
+
+describe('CalendarTab — 拖放請假事件', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    useToast().toasts.value = []
+  })
+
+  async function mountAsManager(existingEvents = []) {
+    const usersStore = useUsersStore()
+    const authStore = useAuthStore()
+    const eventsStore = useCalendarEventsStore()
+    authStore.role = 'admin'
+    authStore.name = '柏'
+    usersStore.users = [{ id: 'u-bang', name: '蚌', annualLeaveHours: 0 }]
+    vi.spyOn(eventsStore, 'fetchLeaveEventsByPerson').mockResolvedValue(existingEvents)
+    const wrapper = mount(CalendarTab, { props: { region: 'south' } })
+    await flushPromises()
+    return { wrapper, eventsStore, authStore }
+  }
+
+  it('移動請假到週末會擋下，不寫入', async () => {
+    const { wrapper, eventsStore } = await mountAsManager()
+    const updateSpy = vi.spyOn(eventsStore, 'updateEvent')
+    const event = { id: 'leave-1', type: 'leave', personName: '蚌', leaveType: '事假', hours: 8, date: { toDate: () => new Date(SAFE_WEEKDAY) } }
+
+    const d = new Date(SAFE_WEEKDAY)
+    while (d.getDay() !== 6) d.setDate(d.getDate() + 1)
+    const saturday = fmtDate(d)
+
+    wrapper.vm.dragState = { event, origDateStr: SAFE_WEEKDAY, mode: 'move' }
+    await wrapper.vm.onCellDrop({ dateStr: saturday })
+    await flushPromises()
+
+    expect(updateSpy).not.toHaveBeenCalled()
+  })
+
+  it('移動請假到有重疊的日期會開衝突視窗，不直接寫入', async () => {
+    const existing = {
+      id: 'existing-1', type: 'leave', personName: '蚌', leaveType: '特休', hours: 24,
+      date: { toDate: () => new Date(NO_OVERLAP_DATE) },
+      endDate: { toDate: () => new Date(NO_OVERLAP_DATE) },
+    }
+    const { wrapper, eventsStore } = await mountAsManager([existing])
+    const updateSpy = vi.spyOn(eventsStore, 'updateEvent')
+    const event = { id: 'leave-2', type: 'leave', personName: '蚌', leaveType: '事假', hours: 8, date: { toDate: () => new Date(SAFE_WEEKDAY) } }
+
+    wrapper.vm.dragState = { event, origDateStr: SAFE_WEEKDAY, mode: 'move' }
+    await wrapper.vm.onCellDrop({ dateStr: NO_OVERLAP_DATE })
+    await flushPromises()
+
+    expect(updateSpy).not.toHaveBeenCalled()
+    expect(wrapper.vm.conflictModal).not.toBeNull()
+  })
+
+  it('移動沒有衝突的請假：只更新日期，成功後有可復原的 toast', async () => {
+    const { wrapper, eventsStore } = await mountAsManager()
+    const updateSpy = vi.spyOn(eventsStore, 'updateEvent').mockResolvedValue()
+    const event = {
+      id: 'leave-3', type: 'leave', personName: '蚌', leaveType: '事假', hours: 8,
+      date: { toDate: () => new Date(SAFE_WEEKDAY) },
+    }
+    eventsStore.events = [event]
+
+    wrapper.vm.dragState = { event, origDateStr: SAFE_WEEKDAY, mode: 'move' }
+    await wrapper.vm.onCellDrop({ dateStr: NO_OVERLAP_DATE })
+    await flushPromises()
+
+    expect(updateSpy).toHaveBeenCalled()
+    const payload = updateSpy.mock.calls[0][1]
+    expect(payload.leaveType).toBe('事假')
+    expect(payload.hours).toBe(8)
+    const { toasts } = useToast()
+    expect(toasts.value.at(-1)?.action?.label).toBe('復原')
+  })
+
+  it('複製請假事件會走新增流程並核銷餘額', async () => {
+    const { wrapper, eventsStore, authStore } = await mountAsManager()
+    const usersStore = useUsersStore()
+    vi.spyOn(eventsStore, 'addEvent').mockResolvedValue()
+    const adjustSpy = vi.spyOn(usersStore, 'adjustAnnualLeaveHours').mockResolvedValue()
+    const event = { id: 'leave-4', type: 'leave', personName: authStore.name, leaveType: '特休', hours: 8, date: { toDate: () => new Date(SAFE_WEEKDAY) } }
+    usersStore.users.push({ id: 'u-bo', name: authStore.name, annualLeaveHours: 999 })
+
+    wrapper.vm.dragState = { event, origDateStr: SAFE_WEEKDAY, mode: 'copy' }
+    await wrapper.vm.onCellDrop({ dateStr: NO_OVERLAP_DATE })
+    await flushPromises()
+
+    expect(eventsStore.addEvent).toHaveBeenCalled()
+    expect(adjustSpy).toHaveBeenCalled()
+  })
+
+  it('複製請假的「復原」會呼叫 removeEvent 對應的歸還邏輯（deleteEvent 前一定先歸還餘額）', async () => {
+    const { wrapper, eventsStore, authStore } = await mountAsManager()
+    const usersStore = useUsersStore()
+    let createdDoc = null
+    vi.spyOn(eventsStore, 'addEvent').mockImplementation(async (payload, dedupeId) => {
+      createdDoc = { id: dedupeId, ...payload }
+      eventsStore.events = [createdDoc]
+    })
+    vi.spyOn(usersStore, 'adjustAnnualLeaveHours').mockResolvedValue()
+    const deleteSpy = vi.spyOn(eventsStore, 'deleteEvent').mockResolvedValue()
+    usersStore.users.push({ id: 'u-bo', name: authStore.name, annualLeaveHours: 999 })
+    const event = { id: 'leave-5', type: 'leave', personName: authStore.name, leaveType: '特休', hours: 8, date: { toDate: () => new Date(SAFE_WEEKDAY) } }
+
+    wrapper.vm.dragState = { event, origDateStr: SAFE_WEEKDAY, mode: 'copy' }
+    await wrapper.vm.onCellDrop({ dateStr: NO_OVERLAP_DATE })
+    await flushPromises()
+
+    const { toasts } = useToast()
+    const undoToast = toasts.value.at(-1)
+    expect(undoToast?.action?.label).toBe('復原')
+    expect(createdDoc).not.toBeNull()
+
+    await undoToast.action.onClick()
+    await flushPromises()
+
+    expect(usersStore.adjustAnnualLeaveHours).toHaveBeenCalledTimes(2)
+    expect(deleteSpy).toHaveBeenCalledWith(createdDoc.id)
+  })
+})
+
+describe('CalendarTab — 場勘/施工案件狀況預覽', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+  })
+
+  async function mountWithCases() {
+    const authStore = useAuthStore()
+    authStore.role = 'admin'
+    authStore.name = '柏'
+    const casesStore = useCasesStore()
+    casesStore.cases = [
+      { id: 'case-1', name: '大同區辦公室', status: 'construction', assigneeName: '柏、其宏' },
+    ]
+    const wrapper = mount(CalendarTab, { props: { region: 'south' } })
+    await flushPromises()
+    return { wrapper, casesStore }
+  }
+
+  it('點場勘/施工事件開的是 milestonePreview 而不是 eventActionModal', async () => {
+    const { wrapper } = await mountWithCases()
+    const event = { id: 'ms-1', type: 'milestone', label: '大同區辦公室 木作進場', caseIds: ['case-1'], caseNames: ['大同區辦公室'], date: { toDate: () => new Date() } }
+
+    wrapper.vm.onEventTap(event, '2026-09-14')
+
+    expect(wrapper.vm.milestonePreview).toEqual(event)
+    expect(wrapper.vm.eventActionModal).toBeNull()
+  })
+
+  it('點重要記事/客戶跟進仍然開 eventActionModal', async () => {
+    const { wrapper } = await mountWithCases()
+    const event = { id: 'note-1', type: 'note', label: '重要記事', date: { toDate: () => new Date() } }
+
+    wrapper.vm.onEventTap(event, '2026-09-14')
+
+    expect(wrapper.vm.eventActionModal).toEqual(event)
+    expect(wrapper.vm.milestonePreview).toBeNull()
+  })
+
+  it('查看詳情會 emit jump-to-case 並帶正確的 caseId', async () => {
+    const { wrapper } = await mountWithCases()
+    const event = { id: 'ms-2', type: 'milestone', label: '大同區辦公室 木作進場', caseIds: ['case-1'], caseNames: ['大同區辦公室'], date: { toDate: () => new Date() } }
+    wrapper.vm.milestonePreview = event
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-test="milestone-preview-case-detail"]').trigger('click')
+
+    expect(wrapper.emitted('jump-to-case')).toBeTruthy()
+    expect(wrapper.emitted('jump-to-case')[0]).toEqual(['case-1'])
+  })
+
+  it('沒有關聯案件時顯示「未關聯案件」', async () => {
+    const { wrapper } = await mountWithCases()
+    const event = { id: 'ms-3', type: 'milestone', label: '沒有案件的記事', caseIds: [], caseNames: [], date: { toDate: () => new Date() } }
+    wrapper.vm.milestonePreview = event
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.text()).toContain('未關聯案件')
   })
 })

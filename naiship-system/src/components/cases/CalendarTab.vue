@@ -16,6 +16,7 @@
         <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded" style="background:#0d9488"></span>場勘/施工</div>
         <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-blue-400"></span>員工請假</div>
         <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded" style="background:#a855f7"></span>客戶跟進</div>
+        <span class="hidden sm:inline text-gray-400">拖曳事件可搬到別天，按住 Ctrl 拖曳＝複製</span>
         <button @click="openAddEventModal" class="text-xs border border-gray-200 rounded-lg px-3 py-1.5 text-gray-500 hover:border-gray-400">+ 新增</button>
       </div>
     </div>
@@ -53,10 +54,12 @@
           !cell.currentMonth && 'opacity-40',
           cell.isToday ? 'bg-amber-50' : cell.isNonWorking ? 'bg-rose-100' : '',
           cell.currentMonth && 'cursor-pointer hover:bg-gray-50/50 transition-colors',
-          cell.dateStr === highlightDate && cell.currentMonth ? 'ring-2 ring-inset ring-amber-400' : '',
+          (cell.dateStr === highlightDate && cell.currentMonth) || (dragState && dragOverDateStr === cell.dateStr) ? 'ring-2 ring-inset ring-amber-400' : '',
           pendingAction ? 'hover:ring-2 hover:ring-inset hover:ring-amber-400 cursor-pointer' : ''
         ]"
-        @click="onCellClick(cell)">
+        @click="onCellClick(cell)"
+        @dragover.prevent="onCellDragOver(cell, $event)"
+        @drop.prevent="onCellDrop(cell)">
         <span v-if="cell.isToday"
           class="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold text-white"
           style="background:#c9a96e">
@@ -77,8 +80,11 @@
         </div>
         <div v-for="event in cell.events.slice(0, 4)" :key="event.id"
           @click.stop="onEventTap(event, cell.dateStr)"
+          :draggable="canDragEvent(event, cell.dateStr)"
+          @dragstart="onEventDragStart(event, cell.dateStr, $event)"
+          @dragend="onEventDragEnd"
           class="mt-1 text-[10px] rounded px-1.5 py-0.5 truncate text-white cursor-pointer hover:opacity-80 transition-opacity"
-          :class="event.type === 'leave' ? 'bg-blue-400' : event.type === 'note' ? 'bg-red-400' : ''"
+          :class="[event.type === 'leave' ? 'bg-blue-400' : event.type === 'note' ? 'bg-red-400' : '', dragState && dragState.event.id === event.id ? 'opacity-50' : '']"
           :style="event.type === 'milestone' ? 'background:#0d9488' : event.type === 'followup' ? 'background:#a855f7' : ''">
           {{ event.startTime ? `${event.startTime}${event.endTime ? '-' + event.endTime : ''} ` : '' }}{{ event.label }}
         </div>
@@ -421,6 +427,33 @@
     </div>
   </div>
 
+  <!-- 場勘/施工案件狀況預覽 -->
+  <div v-if="milestonePreview" class="fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.4)" @click.self="milestonePreview = null">
+    <div class="bg-white rounded-2xl shadow-xl p-5 w-full max-w-xs mx-4 border-t-4" style="border-top-color:#0d9488">
+      <div class="text-sm font-bold text-gray-800 mb-3 truncate">{{ milestonePreview.label }}</div>
+      <div v-if="milestonePreviewCases.length === 0" class="text-xs text-gray-300 mb-4">未關聯案件</div>
+      <div v-else class="flex flex-col gap-2 mb-4">
+        <div v-for="c in milestonePreviewCases" :key="c.id" class="rounded-lg border border-gray-100 px-3 py-2">
+          <div class="flex items-center justify-between gap-2">
+            <div class="text-sm font-medium text-gray-800 truncate">{{ c.name }}</div>
+            <button data-test="milestone-preview-case-detail" @click="emit('jump-to-case', c.id); milestonePreview = null" class="text-[11px] flex-shrink-0" style="color:#c9a96e">查看詳情</button>
+          </div>
+          <div class="flex items-center gap-1.5 mt-1">
+            <span class="w-2 h-2 rounded-full flex-shrink-0" :style="`background:${caseStatusInfo(c.status).color}`"></span>
+            <span class="text-[11px] text-gray-500">{{ caseStatusInfo(c.status).label }}</span>
+            <span v-if="c.assigneeName" class="text-[11px] text-gray-300">・{{ c.assigneeName }}</span>
+          </div>
+        </div>
+      </div>
+      <div class="flex flex-col gap-2">
+        <button @click="openEditEvent(milestonePreview); milestonePreview = null" class="text-sm border border-gray-200 rounded-lg py-2 hover:border-gray-400">✏️ 編輯行程</button>
+        <button @click="startPendingAction('move', milestonePreview)" class="text-sm rounded-lg py-2 text-white" style="background:#1e2533">⟳ 移動到別天</button>
+        <button @click="startPendingAction('copy', milestonePreview)" class="text-sm border border-gray-200 rounded-lg py-2 hover:border-gray-400">⧉ 複製到別天</button>
+        <button @click="milestonePreview = null" class="text-sm text-gray-400 py-2">關閉</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 當天詳情 Modal -->
   <div v-if="showDayDetail" class="fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.4)">
     <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm mx-4 border-t-4 max-h-[80vh] flex flex-col" style="border-top-color:#c9a96e">
@@ -464,9 +497,10 @@ import { TAIWAN_HOLIDAY_NAMES } from '@/constants/holidays'
 import { getBusinessDays } from '@/utils/businessDays'
 import { leaveDedupeId } from '@/utils/leaveDedupeId'
 import { shiftedRange, buildCopyDraft } from '@/utils/eventDateShift'
+import { CASE_STATUS_LABELS, CASE_STATUS_COLORS } from '@/constants/caseStatus'
 
 const props = defineProps({ region: String, jumpEventDate: String })
-const emit = defineEmits(['jumped-date'])
+const emit = defineEmits(['jumped-date', 'jump-to-case'])
 const casesStore = useCasesStore()
 const eventsStore = useCalendarEventsStore()
 const authStore = useAuthStore()
@@ -694,11 +728,168 @@ const resolvingConflict = ref(false)
 const submitting = ref(false)
 const lastLeaveWriteId = ref(null)
 const eventActionModal = ref(null)
+const milestonePreview = ref(null)
+
+function caseStatusInfo(status) {
+  const known = statuses.find(s => s.key === status)
+  if (known) return { label: known.label, color: known.border }
+  return { label: CASE_STATUS_LABELS[status] ?? status ?? '未知狀態', color: CASE_STATUS_COLORS[status] ?? '#6b7280' }
+}
+
+const milestonePreviewCases = computed(() => {
+  const event = milestonePreview.value
+  if (!event) return []
+  return (event.caseIds ?? []).map(id => casesStore.cases.find(c => c.id === id)).filter(Boolean)
+})
 const pendingAction = ref(null)
+const dragState = ref(null)        // { event, origDateStr, mode: 'move' | 'copy' }
+const dragOverDateStr = ref('')
+
+function canDragEvent(event, cellDateStr) {
+  if (event._merged) return false
+  if (event.endDate) {
+    const startDateStr = tsToDateStr(event.date)
+    if (startDateStr !== cellDateStr) return false
+  }
+  if (event.type === 'leave') {
+    if (event.leaveTypeLocked) return false
+    if (!authStore.isManager && event.personName !== authStore.name) return false
+  }
+  return true
+}
+
+function onEventDragStart(event, dateStr, e) {
+  cancelPendingAction()
+  dragState.value = { event, origDateStr: dateStr, mode: 'move' }
+  e.dataTransfer?.setData('text/plain', event.id)
+  if (e.dataTransfer) e.dataTransfer.effectAllowed = 'copyMove'
+}
+
+function onCellDragOver(cell, e) {
+  if (!dragState.value) return
+  dragOverDateStr.value = cell.dateStr
+  dragState.value.mode = e.ctrlKey ? 'copy' : 'move'
+  if (e.dataTransfer) e.dataTransfer.dropEffect = dragState.value.mode
+}
+
+function onEventDragEnd() {
+  dragState.value = null
+  dragOverDateStr.value = ''
+}
+
+function showUndoToast(message, onUndo) {
+  toast(message, 'success', 4000, {
+    label: '復原',
+    onClick: async () => {
+      await onUndo()
+    },
+  })
+}
+
+async function dragMoveLeaveEvent(event, targetDateStr) {
+  if (submitting.value) {
+    toast('上一筆操作還在處理中，請稍等再拖曳', 'error')
+    return
+  }
+  if (event.leaveTypeLocked) {
+    toast('已透過薪資單折抵補休，請至薪資單取消折抵後再拖曳', 'error')
+    return
+  }
+  if (!authStore.isManager && event.personName !== authStore.name) {
+    toast('只有蚌、其宏、柏可以移動別人的請假紀錄', 'error')
+    return
+  }
+  const origDateStr = tsToDateStr(event.date)
+  populateEditForm(event)
+  const shifted = shiftedRange(editForm.value.date, editForm.value.endDate, targetDateStr)
+  editForm.value.date = shifted.date
+  editForm.value.endDate = shifted.endDate || ''
+  const ok = await saveEditEvent()
+  if (ok) {
+    showUndoToast(`已將「${event.label}」移到 ${targetDateStr}`, async () => {
+      const latest = eventsStore.events.find(ev => ev.id === event.id)
+      if (latest) await dragMoveLeaveEvent(latest, origDateStr)
+    })
+  }
+}
+
+async function dragCopyLeaveEvent(event, targetDateStr) {
+  if (submitting.value) {
+    toast('上一筆操作還在處理中，請稍等再拖曳', 'error')
+    return
+  }
+  if (!authStore.isManager && event.personName !== authStore.name) {
+    toast('只有蚌、其宏、柏可以複製別人的請假紀錄', 'error')
+    return
+  }
+  const origDateStr = tsToDateStr(event.date)
+  const origEndDateStr = event.endDate ? tsToDateStr(event.endDate) : ''
+  const shifted = shiftedRange(origDateStr, origEndDateStr, targetDateStr)
+  eventForm.value = {
+    ...blankEvent(),
+    type: 'leave',
+    date: shifted.date,
+    endDate: shifted.endDate || '',
+    personName: event.personName || '',
+    hours: event.hours || 0,
+    leaveType: event.leaveType || '',
+    startTime: event.startTime || '',
+    endTime: event.endTime || '',
+  }
+  const ok = await submitEvent()
+  if (!ok) return
+  const newId = lastLeaveWriteId.value
+  if (!newId) return
+  showUndoToast(`已複製「${event.label}」到 ${shifted.date}`, async () => {
+    const copiedDoc = eventsStore.events.find(ev => ev.id === newId)
+    if (!copiedDoc) return
+    populateEditForm(copiedDoc)
+    await removeEvent()
+  })
+}
+
+async function onCellDrop(cell) {
+  const state = dragState.value
+  dragState.value = null
+  dragOverDateStr.value = ''
+  if (!state) return
+  const targetDateStr = cell.dateStr
+  if (targetDateStr === state.origDateStr) return
+  const fresh = eventsStore.events.find(ev => ev.id === state.event.id) ?? state.event
+
+  if (fresh.type === 'leave') {
+    if (state.mode === 'move') await dragMoveLeaveEvent(fresh, targetDateStr)
+    else await dragCopyLeaveEvent(fresh, targetDateStr)
+    return
+  }
+
+  if (state.mode === 'move') {
+    const origDateStr = state.origDateStr
+    const ok = await moveEvent(fresh, targetDateStr)
+    if (ok) {
+      showUndoToast(`已將「${fresh.label}」移到 ${targetDateStr}`, async () => {
+        const latest = eventsStore.events.find(ev => ev.id === fresh.id)
+        if (latest) await moveEvent(latest, origDateStr)
+      })
+    }
+  } else {
+    const newId = await copyEvent(fresh, targetDateStr)
+    if (newId) {
+      showUndoToast(`已複製「${fresh.label}」到 ${targetDateStr}`, async () => {
+        try {
+          await eventsStore.deleteEvent(newId)
+        } catch {
+          toast('復原失敗，請重試', 'error')
+        }
+      })
+    }
+  }
+}
 
 function startPendingAction(mode, event) {
   pendingAction.value = { mode, event }
   eventActionModal.value = null
+  milestonePreview.value = null
   showDayDetail.value = false
   showEditEvent.value = false
 }
@@ -730,6 +921,7 @@ function onEventTap(event, dateStr) {
   showDayDetail.value = false
   if (event._merged) { openDayDetail(dateStr); return }
   if (event.type === 'leave') { openEditEvent(event); return }
+  if (event.type === 'milestone') { milestonePreview.value = event; return }
   eventActionModal.value = event
 }
 
@@ -768,11 +960,7 @@ function tsToDateStr(ts) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
 }
 
-function openEditEvent(event) {
-  if (event.type === 'leave' && !authStore.isManager && event.personName !== authStore.name) {
-    toast('只有蚌、其宏、柏可以編輯別人的請假紀錄', 'error')
-    return
-  }
+function populateEditForm(event) {
   editingEventId.value = event.id
   const casePrefix = event.type === 'milestone' ? (event.caseNames || []).join(' ') : ''
   let label = event.label || ''
@@ -793,6 +981,14 @@ function openEditEvent(event) {
     _origCompConsumption: event.compConsumption || [],
     _leaveTypeLocked: event.leaveTypeLocked || false,
   }
+}
+
+function openEditEvent(event) {
+  if (event.type === 'leave' && !authStore.isManager && event.personName !== authStore.name) {
+    toast('只有蚌、其宏、柏可以編輯別人的請假紀錄', 'error')
+    return
+  }
+  populateEditForm(event)
   showEditEvent.value = true
 }
 
@@ -833,7 +1029,7 @@ async function saveEditEvent() {
         return
       }
     }
-    await finalizeEditEvent()
+    return await finalizeEditEvent()
   } finally {
     submitting.value = false
   }
@@ -917,6 +1113,7 @@ async function finalizeEditEvent() {
 }
 
 async function removeEvent() {
+  if (submitting.value) return
   if (editForm.value._leaveTypeLocked) {
     toast('已透過薪資單折抵補休，請至薪資單取消折抵後再刪除', 'error')
     return
@@ -925,6 +1122,7 @@ async function removeEvent() {
     toast('只有蚌、其宏、柏可以刪除別人的請假紀錄', 'error')
     return
   }
+  submitting.value = true
   try {
     const delEvtDate = editForm.value.date
     const delLabel = editForm.value.type === 'leave'
@@ -938,6 +1136,8 @@ async function removeEvent() {
     showEditEvent.value = false
   } catch {
     toast('刪除失敗，請重試', 'error')
+  } finally {
+    submitting.value = false
   }
 }
 
@@ -1194,7 +1394,7 @@ async function submitEvent() {
         return
       }
     }
-    await finalizeAddEvent()
+    return await finalizeAddEvent()
   } finally {
     submitting.value = false
   }
@@ -1274,7 +1474,7 @@ async function finalizeAddEvent() {
 
 async function moveEvent(event, targetDateStr) {
   const origDate = tsToDateStr(event.date)
-  if (targetDateStr === origDate) return
+  if (targetDateStr === origDate) return true
   const origEnd = event.endDate ? tsToDateStr(event.endDate) : ''
   const { date, endDate } = shiftedRange(origDate, origEnd, targetDateStr)
   const payload = {
@@ -1284,8 +1484,10 @@ async function moveEvent(event, targetDateStr) {
   try {
     await eventsStore.updateEvent(event.id, payload)
     notifStore.notifyAll(authStore.name ?? '', `將行程「${event.label}」從 ${fmtNotifDate(origDate)} 移至 ${fmtNotifDate(date)}`, '', '', event.companyId ?? props.region ?? '', '', 'cal', date, false)
+    return true
   } catch {
     toast('移動失敗，請重試', 'error')
+    return false
   }
 }
 
@@ -1296,10 +1498,12 @@ async function copyEvent(event, targetDateStr) {
   const payload = { ...draft, date: Timestamp.fromDate(new Date(draft.date)) }
   if (draft.endDate) payload.endDate = Timestamp.fromDate(new Date(draft.endDate))
   try {
-    await eventsStore.addEvent(payload)
+    const ref = await eventsStore.addEvent(payload)
     notifStore.notifyAll(authStore.name ?? '', `複製行程「${event.label}」到 ${fmtNotifDate(draft.date)}`, '', '', payload.companyId, '', 'cal', draft.date, false)
+    return ref?.id ?? null
   } catch {
     toast('複製失敗，請重試', 'error')
+    return null
   }
 }
 </script>
