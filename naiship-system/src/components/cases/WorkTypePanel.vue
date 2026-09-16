@@ -1331,6 +1331,9 @@ function buildVendorChangeLines(existing, entry) {
 
 async function submitForm() {
     if (!form.value.name || saving.value) return
+    if ((!form.value.startDate || !form.value.endDate) && !confirm('進場日期或退場日期尚未填寫，確定要儲存嗎？')) {
+        return
+    }
     if (!form.value.vendorCostFree && formVendorCostTotal.value > 0 && form.value.costIncludesTax === null) {
         toast('請選擇含稅或未稅', 'error')
         return

@@ -157,3 +157,66 @@ describe('WorkTypePanel — 廠商付款項目分攤', () => {
         expect(wrapper.vm.isItemFullyPaid(wt, wt.vendorCostItems[0])).toBe(true)
     })
 })
+
+describe('WorkTypePanel — 進場/退場日期防呆', () => {
+    beforeEach(() => {
+        setActivePinia(createPinia())
+    })
+
+    async function mountEmpty() {
+        const casesStore = useCasesStore()
+        const authStore = useAuthStore()
+        authStore.role = 'admin'
+        authStore.name = '柏'
+        casesStore.cases = [{ id: caseId, name: '大同區辦公室', companyId: 'north', workTypes: [] }]
+        const wrapper = mount(WorkTypePanel, { props: { caseId, caseName: '大同區辦公室' } })
+        await flushPromises()
+        return { wrapper, casesStore }
+    }
+
+    it('進場/退場日期都沒填，跳確認視窗；使用者取消則不儲存', async () => {
+        vi.stubGlobal('confirm', vi.fn(() => false))
+        const { wrapper, casesStore } = await mountEmpty()
+        const updateCaseSpy = vi.spyOn(casesStore, 'updateCase')
+
+        wrapper.vm.openAdd()
+        await wrapper.vm.$nextTick()
+        wrapper.vm.form.name = '油漆'
+        await wrapper.vm.submitForm()
+        await flushPromises()
+
+        expect(global.confirm).toHaveBeenCalledWith('進場日期或退場日期尚未填寫，確定要儲存嗎？')
+        expect(updateCaseSpy).not.toHaveBeenCalled()
+    })
+
+    it('進場/退場日期都沒填，使用者確認後仍正常儲存', async () => {
+        vi.stubGlobal('confirm', vi.fn(() => true))
+        const { wrapper, casesStore } = await mountEmpty()
+        const updateCaseSpy = vi.spyOn(casesStore, 'updateCase').mockResolvedValue()
+
+        wrapper.vm.openAdd()
+        await wrapper.vm.$nextTick()
+        wrapper.vm.form.name = '油漆'
+        await wrapper.vm.submitForm()
+        await flushPromises()
+
+        expect(updateCaseSpy).toHaveBeenCalled()
+    })
+
+    it('進場、退場日期都有填，不跳確認視窗，直接儲存', async () => {
+        vi.stubGlobal('confirm', vi.fn(() => true))
+        const { wrapper, casesStore } = await mountEmpty()
+        const updateCaseSpy = vi.spyOn(casesStore, 'updateCase').mockResolvedValue()
+
+        wrapper.vm.openAdd()
+        await wrapper.vm.$nextTick()
+        wrapper.vm.form.name = '油漆'
+        wrapper.vm.form.startDate = '2026-10-01'
+        wrapper.vm.form.endDate = '2026-10-05'
+        await wrapper.vm.submitForm()
+        await flushPromises()
+
+        expect(global.confirm).not.toHaveBeenCalled()
+        expect(updateCaseSpy).toHaveBeenCalled()
+    })
+})
