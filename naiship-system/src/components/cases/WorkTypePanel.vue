@@ -415,18 +415,25 @@
                 <input v-model.number="item.amount" type="number" min="0" placeholder="金額"
                   class="w-24 text-xs border border-gray-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 bg-white">
               </div>
-              <div class="flex gap-1.5 items-center">
-                <input v-model="item.note" type="text" placeholder="備註"
-                  class="flex-1 text-xs border border-gray-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 bg-white">
-                <input v-if="editingIdx !== null" v-model="item.dueDate" type="date"
-                  @change="handleVendorItemDueDateChange(item)"
-                  class="text-xs border border-gray-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 bg-white w-32 flex-shrink-0">
-                <button v-if="editingIdx !== null" type="button" @click="sendReminder(item)"
-                  class="text-[10px] px-2 py-1 rounded bg-blue-100 text-blue-700 hover:bg-blue-200 whitespace-nowrap transition-colors">
+              <input v-model="item.note" type="text" placeholder="備註"
+                class="w-full text-xs border border-gray-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 bg-white mb-1.5">
+              <div v-if="editingIdx !== null" class="flex gap-1.5 items-end">
+                <div class="flex-1 min-w-0">
+                  <div class="text-[9px] text-gray-400 mb-0.5">檢查日期</div>
+                  <input v-model="item.dueDate" type="date"
+                    @change="handleVendorItemDueDateChange(item)"
+                    class="w-full text-xs border border-gray-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 bg-white">
+                </div>
+                <button type="button" @click="sendReminder(item)"
+                  class="text-[10px] px-2 py-1.5 rounded bg-blue-100 text-blue-700 hover:bg-blue-200 whitespace-nowrap transition-colors flex-shrink-0">
                   提醒主管
                 </button>
                 <button type="button" @click="removeVendorCostItem(i)"
-                  class="text-[10px] text-red-400 hover:text-red-600 px-1 flex-shrink-0">✕</button>
+                  class="text-[10px] text-red-400 hover:text-red-600 px-1.5 flex-shrink-0">✕</button>
+              </div>
+              <div v-else class="flex justify-end">
+                <button type="button" @click="removeVendorCostItem(i)"
+                  class="text-[10px] text-red-400 hover:text-red-600 px-1.5 flex-shrink-0">✕</button>
               </div>
             </div>
             <button type="button" @click="addVendorCostItem"
