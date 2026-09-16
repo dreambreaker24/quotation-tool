@@ -169,6 +169,17 @@ describe('useFileSelection - downloadSelected', () => {
         clickSpy.mockRestore()
     })
 
+    it('fetch 帶 cache:"reload"，避免瀏覽器用 CORS 標頭修好之前的舊快取（2026-09-16 事故）', async () => {
+        const items = makeItems()
+        const { selectAll, downloadSelected } = useFileSelection(items)
+        selectAll()
+        const fetchSpy = vi.fn(async () => ({ ok: true, blob: async () => new Blob(['x']) }))
+        globalThis.fetch = fetchSpy
+        vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+        await downloadSelected()
+        expect(fetchSpy).toHaveBeenCalledWith(expect.any(String), { cache: 'reload' })
+    })
+
     it('URL.revokeObjectURL 應該延遲呼叫，不立即執行', async () => {
         const items = makeItems()
         const { toggle, downloadSelected } = useFileSelection(items)
@@ -212,6 +223,17 @@ describe('useFileSelection - shareSelected', () => {
         expect(result.ok).toBe(false)
         expect(result.failCount).toBe(3)
         expect(globalThis.navigator.share).not.toHaveBeenCalled()
+    })
+
+    it('fetch 帶 cache:"reload"，理由同 downloadSelected（2026-09-16 事故）', async () => {
+        const items = makeItems()
+        const { selectAll, shareSelected } = useFileSelection(items)
+        selectAll()
+        const fetchSpy = vi.fn(async () => ({ ok: true, blob: async () => new Blob(['x'], { type: 'image/jpeg' }) }))
+        globalThis.fetch = fetchSpy
+        globalThis.navigator.share = vi.fn(async () => {})
+        await shareSelected()
+        expect(fetchSpy).toHaveBeenCalledWith(expect.any(String), { cache: 'reload' })
     })
 
     it('使用者取消分享面板（AbortError）不算失敗', async () => {

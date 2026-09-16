@@ -54,7 +54,11 @@ export function useFileSelection(itemsRef) {
         let failCount = 0
         for (const item of selectedItems()) {
             try {
-                const res = await fetch(item.url)
+                // cache: 'reload' 一定要加——瀏覽器對這個網址的舊快取如果是伺服器補上 CORS
+                // 標頭之前存的，即使使用者整頁強制重新整理（Ctrl+Shift+R）也不會連帶讓這個
+                // fetch() 重新問伺服器，會一直拿舊的、沒有 CORS 標頭的快取內容，一直失敗
+                // （2026-09-16 真實事故：伺服器端已經修好，但舊快取讓使用者端持續看到失敗）。
+                const res = await fetch(item.url, { cache: 'reload' })
                 if (!res.ok) throw new Error('download failed')
                 const blob = await res.blob()
                 const blobUrl = URL.createObjectURL(blob)
@@ -77,7 +81,8 @@ export function useFileSelection(itemsRef) {
         let failCount = 0
         for (const item of selectedItems()) {
             try {
-                const res = await fetch(item.url)
+                // cache: 'reload' 理由同 downloadSelected()，避免拿到 CORS 標頭修好之前的舊快取。
+                const res = await fetch(item.url, { cache: 'reload' })
                 if (!res.ok) throw new Error('download failed')
                 const blob = await res.blob()
                 files.push(new File([blob], guessFileName(item.url, item.isPdf), { type: blob.type }))
