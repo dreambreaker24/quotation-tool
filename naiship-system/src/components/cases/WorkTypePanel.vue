@@ -20,7 +20,13 @@
     </div>
 
     <div v-else class="flex flex-col gap-2">
-      <div v-for="(wt, idx) in workTypes" :key="wt.id" :id="'worktype-card-' + wt.id"
+      <template v-for="({ wt, idx }, i) in displayWorkTypes" :key="wt.id">
+      <button v-if="i === firstDoneDisplayIndex" type="button" @click="doneSectionExpanded = !doneSectionExpanded"
+        class="w-full flex items-center gap-2 px-3 py-2 rounded-xl border border-dashed border-gray-200 text-xs text-gray-500 hover:bg-gray-50 transition-colors">
+        <span class="text-[10px] inline-block transition-transform duration-150" :style="doneSectionExpanded ? 'transform:rotate(90deg)' : ''">▶</span>
+        已完工工種（{{ doneCount }}）
+      </button>
+      <div v-if="!wt.done || doneSectionExpanded" :id="'worktype-card-' + wt.id"
         class="border rounded-xl p-3 bg-gray-50/50 hover:bg-white hover:shadow-sm transition-all"
         :class="highlightedWorkTypeId === wt.id ? 'ring-2 ring-inset ring-amber-400 border-transparent' : 'border-gray-100'">
         <!-- Main row -->
@@ -330,6 +336,7 @@
           </template>
         </div>
       </div>
+      </template>
     </div>
   </div>
 
@@ -1127,6 +1134,19 @@ function hideVendorDropdown() {
 
 const caseData = computed(() => casesStore.cases.find(c => c.id === props.caseId))
 const workTypes = computed(() => caseData.value?.workTypes ?? [])
+
+const doneCount = computed(() => workTypes.value.filter(wt => wt.done).length)
+const doneSectionExpanded = ref(false)
+
+const displayWorkTypes = computed(() => {
+    const active = []
+    const done = []
+    workTypes.value.forEach((wt, idx) => {
+        (wt.done ? done : active).push({ wt, idx })
+    })
+    return [...active, ...done]
+})
+const firstDoneDisplayIndex = computed(() => displayWorkTypes.value.findIndex(({ wt }) => wt.done))
 
 const TODAY_STR = new Date().toISOString().slice(0, 10)
 

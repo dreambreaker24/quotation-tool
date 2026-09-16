@@ -236,3 +236,71 @@ describe('WorkTypePanel — 進場/退場日期防呆', () => {
         expect(updateCaseSpy).toHaveBeenCalled()
     })
 })
+
+describe('WorkTypePanel — 已完工收合', () => {
+    beforeEach(() => {
+        setActivePinia(createPinia())
+    })
+
+    function makeWorkTypes() {
+        return [
+            { id: 'wt_a', name: '水電', done: false },
+            { id: 'wt_b', name: '油漆', done: true },
+            { id: 'wt_c', name: '木工', done: false },
+            { id: 'wt_d', name: '泥作', done: true },
+        ]
+    }
+
+    async function mountWithWorkTypes(workTypes) {
+        const casesStore = useCasesStore()
+        const authStore = useAuthStore()
+        authStore.role = 'admin'
+        authStore.name = '柏'
+        casesStore.cases = [{ id: caseId, name: '大同區辦公室', companyId: 'north', workTypes }]
+        const wrapper = mount(WorkTypePanel, { props: { caseId, caseName: '大同區辦公室' } })
+        await flushPromises()
+        return { wrapper, casesStore }
+    }
+
+    it('displayWorkTypes 把未完工排在前面、已完工排在後面，各自維持原本相對順序', async () => {
+        const { wrapper } = await mountWithWorkTypes(makeWorkTypes())
+        const ids = wrapper.vm.displayWorkTypes.map(({ wt }) => wt.id)
+        expect(ids).toEqual(['wt_a', 'wt_c', 'wt_b', 'wt_d'])
+    })
+
+    it('doneCount 正確計算已完工工種數量', async () => {
+        const { wrapper } = await mountWithWorkTypes(makeWorkTypes())
+        expect(wrapper.vm.doneCount).toBe(2)
+    })
+
+    it('firstDoneDisplayIndex 指向 displayWorkTypes 裡第一個已完工項目的位置', async () => {
+        const { wrapper } = await mountWithWorkTypes(makeWorkTypes())
+        expect(wrapper.vm.firstDoneDisplayIndex).toBe(2)
+    })
+
+    it('沒有任何已完工工種時，firstDoneDisplayIndex 是 -1，收合列不顯示', async () => {
+        const { wrapper } = await mountWithWorkTypes([
+            { id: 'wt_a', name: '水電', done: false },
+        ])
+        expect(wrapper.vm.firstDoneDisplayIndex).toBe(-1)
+        expect(wrapper.find('#worktype-card-wt_a').exists()).toBe(true)
+        expect(wrapper.text()).not.toContain('已完工工種')
+    })
+
+    it('預設收合，已完工工種的卡片不顯示在畫面上', async () => {
+        const { wrapper } = await mountWithWorkTypes(makeWorkTypes())
+        expect(wrapper.find('#worktype-card-wt_a').exists()).toBe(true)
+        expect(wrapper.find('#worktype-card-wt_c').exists()).toBe(true)
+        expect(wrapper.find('#worktype-card-wt_b').exists()).toBe(false)
+        expect(wrapper.find('#worktype-card-wt_d').exists()).toBe(false)
+        expect(wrapper.text()).toContain('已完工工種（2）')
+    })
+
+    it('點擊收合列展開後，已完工工種的卡片會顯示出來', async () => {
+        const { wrapper } = await mountWithWorkTypes(makeWorkTypes())
+        const toggle = wrapper.findAll('button').find(b => b.text().includes('已完工工種'))
+        await toggle.trigger('click')
+        expect(wrapper.find('#worktype-card-wt_b').exists()).toBe(true)
+        expect(wrapper.find('#worktype-card-wt_d').exists()).toBe(true)
+    })
+})
