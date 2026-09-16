@@ -108,23 +108,6 @@ describe('WorkTypePanel — 廠商付款項目分攤', () => {
         expect(markDoneSpy).not.toHaveBeenCalledWith(expect.stringContaining('auto_vendor_item_'))
     })
 
-    it('整個工種所有項目都付清時，也會呼叫舊制的markDone(auto_vendor_${wt.id})，維持既有行為不變', async () => {
-        const wt = makeWt()
-        const { wrapper } = await mountWithWorkType(wt)
-        const remindersStore = usePaymentRemindersStore()
-        const markDoneSpy = vi.spyOn(remindersStore, 'markDone').mockResolvedValue()
-
-        wrapper.vm.openVendorPay(0)
-        await wrapper.vm.$nextTick()
-        wrapper.vm.selectedPaymentItemIds = ['i1', 'i2']
-        wrapper.vm.vendorPayForm.amount = 38210
-        wrapper.vm.vendorPayForm.paidDate = '2026-09-08'
-        await wrapper.vm.addVendorPayment()
-        await flushPromises()
-
-        expect(markDoneSpy).toHaveBeenCalledWith('auto_vendor_wt1')
-    })
-
     it('勾選的項目在送出前其實已經被其他付款紀錄付清，不會誤分攤金額也不會誤呼叫markDone', async () => {
         const wt = makeWt({
             vendorPayments: [{ id: 'vp0', amount: 6500, itemAllocations: [{ itemId: 'i1', amount: 6500 }] }],

@@ -733,7 +733,6 @@ import { WT_COLORS } from '@/constants/workTypeColors'
 import { isLegacyCategoryName } from '@/utils/workTypeCategory'
 import { getVendorSpecialties, filterVendorsByCategory } from '@/utils/vendorSpecialty'
 import { wtVendorCostTotal, totalVendorPaid, vendorInvoiceStatus, itemPaid, allocatePayment } from '@/utils/workTypeInvoice'
-import { calcVendorDueDate, vendorReminderPlan } from '@/utils/paymentDueDate'
 import { suggestPaymentPlan, makeStage } from '@/utils/paymentPlan'
 import { useVendorsStore } from '@/stores/vendors'
 import { useCasesStore } from '@/stores/cases'
@@ -1145,41 +1144,13 @@ async function markDone(idx) {
     const updated = [...workTypes.value]
     updated[idx] = { ...updated[idx], done: true }
     await casesStore.updateCase(props.caseId, { workTypes: updated })
-    const wt = workTypes.value[idx]
-    const effectiveEndDate = wt.endDate || new Date().toISOString().slice(0, 10)
-    const amount = wtVendorCostTotal(wt)
-    const plan = vendorReminderPlan(amount)
-    if (!plan.shouldRemind) {
-        await remindersStore.deleteAutoReminder(`auto_vendor_${wt.id}`)
-        toast(`已完工，金額 $${amount.toLocaleString()} 可直接付現，不建立匯款提醒`)
-        return
-    }
-    const dueDate = calcVendorDueDate(effectiveEndDate)
-    await remindersStore.addAutoReminder(`auto_vendor_${wt.id}`, {
-        source: 'auto',
-        type: 'vendor',
-        dueDate,
-        caseId: props.caseId,
-        caseName: props.caseName,
-        companyId: caseData.value?.companyId ?? '',
-        workTypeId: wt.id,
-        workTypeName: wt.name,
-        vendorName: wt.vendorName || '',
-        amount,
-        endDate: wt.endDate || '',
-        createdBy: authStore.user?.uid ?? '',
-        createdByName: authStore.name ?? '',
-        needsManualFollowup: plan.needsManualFollowup,
-    })
-    toast(`已完工，廠商付款提醒：${formatDateChinese(dueDate)}${plan.needsManualFollowup ? '（已標記手動提醒）' : ''}`)
+    toast('已標記完工')
 }
 
 async function unmarkDone(idx) {
     const updated = [...workTypes.value]
     updated[idx] = { ...updated[idx], done: false }
     await casesStore.updateCase(props.caseId, { workTypes: updated })
-    const wt = workTypes.value[idx]
-    await remindersStore.deleteAutoReminder(`auto_vendor_${wt.id}`)
 }
 
 function openVendorPreview(wtId, idx) {
@@ -1339,22 +1310,16 @@ function openVendorPay(idx) {
 }
 
 function buildVendorChangeLines(existing, entry) {
-    const fallbackToday = new Date().toISOString().slice(0, 10)
-    const oldDue = calcVendorDueDate(existing.endDate || fallbackToday)
-    const newDue = calcVendorDueDate(entry.endDate || fallbackToday)
     const oldAmount = wtVendorCostTotal(existing)
     const newAmount = wtVendorCostTotal(entry)
     const lines = []
     if ((existing.endDate || '') !== (entry.endDate || '')) {
         lines.push(`完工日期：${existing.endDate ? formatDateChinese(existing.endDate) : '未設'} → ${entry.endDate ? formatDateChinese(entry.endDate) : '未設'}`)
     }
-    if (oldDue !== newDue) {
-        lines.push(`付款到期日：${formatDateChinese(oldDue)} → ${formatDateChinese(newDue)}`)
-    }
     if (oldAmount !== newAmount) {
         lines.push(`廠商金額：$${oldAmount.toLocaleString()} → $${newAmount.toLocaleString()}`)
     }
-    return { lines, dueDate: newDue, amount: newAmount }
+    return { lines }
 }
 
 async function submitForm() {
@@ -1427,33 +1392,6 @@ async function submitForm() {
                 } catch {
                     // 提醒文件清理失敗不擋主流程，工種本身已經存成功
                 }
-            }
-        }
-        if (existing?.done && vendorChange?.lines?.length > 0) {
-            try {
-                const plan = vendorReminderPlan(vendorChange.amount)
-                if (!plan.shouldRemind) {
-                    await remindersStore.deleteAutoReminder(`auto_vendor_${entry.id}`)
-                } else {
-                    await remindersStore.addAutoReminder(`auto_vendor_${entry.id}`, {
-                        source: 'auto',
-                        type: 'vendor',
-                        dueDate: vendorChange.dueDate,
-                        caseId: props.caseId,
-                        caseName: props.caseName,
-                        companyId: caseData.value?.companyId ?? '',
-                        workTypeId: entry.id,
-                        workTypeName: entry.name,
-                        vendorName: entry.vendorName || '',
-                        amount: vendorChange.amount,
-                        endDate: entry.endDate || '',
-                        createdBy: authStore.user?.uid ?? '',
-                        createdByName: authStore.name ?? '',
-                        needsManualFollowup: plan.needsManualFollowup,
-                    })
-                }
-            } catch {
-                toast('工種已儲存，但同步首頁付款清單失敗，請手動確認', 'error')
             }
         }
         const changeSuffix = vendorChange?.lines?.length > 0 ? `（${vendorChange.lines.join('、')}）` : ''
@@ -1682,38 +1620,6 @@ async function addVendorPayment() {
         updated[vendorPayingIdx.value] = wt
         await casesStore.updateCase(props.caseId, { workTypes: updated })
 
-        // 舊制：整個工種的合約總額全部付清才關閉（維持既有邏輯不動，正式資料裡仍有案件在用這條路徑）
-        const totalPaid = totalVendorPaid(wt)
-        const totalCost = wtVendorCostTotal(wt)
-        if (totalCost > 0 && totalPaid >= totalCost) {
-            try { await remindersStore.markDone(`auto_vendor_${wt.id}`) } catch (_) {}
-        } else if (wt.done && totalCost > 0) {
-            try {
-                const remaining = totalCost - totalPaid
-                const plan = vendorReminderPlan(remaining)
-                if (!plan.shouldRemind) {
-                    await remindersStore.deleteAutoReminder(`auto_vendor_${wt.id}`)
-                } else {
-                    await remindersStore.addAutoReminder(`auto_vendor_${wt.id}`, {
-                        source: 'auto',
-                        type: 'vendor',
-                        dueDate: calcVendorDueDate(wt.endDate || new Date().toISOString().slice(0, 10)),
-                        caseId: props.caseId,
-                        caseName: props.caseName,
-                        companyId: caseData.value?.companyId ?? '',
-                        workTypeId: wt.id,
-                        workTypeName: wt.name,
-                        vendorName: wt.vendorName || '',
-                        amount: remaining,
-                        endDate: wt.endDate || '',
-                        createdBy: authStore.user?.uid ?? '',
-                        createdByName: authStore.name ?? '',
-                        needsManualFollowup: plan.needsManualFollowup,
-                    })
-                }
-            } catch (_) {}
-        }
-
         // 新制：這次分攤到的項目，各自檢查是否已經付清，付清就關閉該項目自己的提醒（這次的根因修復）
         for (const alloc of allocations) {
             const item = wt.vendorCostItems.find(i => i.id === alloc.itemId)
@@ -1736,7 +1642,6 @@ async function removeWorkType(idx) {
     try {
         const updated = workTypes.value.filter((_, i) => i !== idx)
         await casesStore.updateCase(props.caseId, { workTypes: updated })
-        await remindersStore.deleteAutoReminder(`auto_vendor_${wt.id}`)
         for (const item of (wt.vendorCostItems || [])) {
             try { await remindersStore.deleteAutoReminder(vendorItemReminderDocId(item, wt)) } catch (_) {}
         }
