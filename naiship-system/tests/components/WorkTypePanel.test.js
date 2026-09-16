@@ -343,11 +343,19 @@ describe('WorkTypePanel — 工種拖曳排序', () => {
         return { wrapper, casesStore }
     }
 
-    it('把第一筆拖到第三筆卡片上，插入到第三筆前面並正確存檔', async () => {
+    function dropAtTop() {
+        return { currentTarget: { getBoundingClientRect: () => ({ top: 0, height: 100 }) }, clientY: 10 }
+    }
+    function dropAtBottom() {
+        return { currentTarget: { getBoundingClientRect: () => ({ top: 0, height: 100 }) }, clientY: 90 }
+    }
+
+    it('拖到目標卡片上半部，插入到目標前面並正確存檔', async () => {
         const { wrapper, casesStore } = await mountWithWorkTypes(makeWorkTypes())
         const updateCaseSpy = vi.spyOn(casesStore, 'updateCase').mockResolvedValue()
 
         wrapper.vm.onCardDragStart(0, {})
+        wrapper.vm.onCardDragOver(2, dropAtTop())
         await wrapper.vm.onCardDrop(2)
         await flushPromises()
 
@@ -355,11 +363,25 @@ describe('WorkTypePanel — 工種拖曳排序', () => {
         expect(savedIds).toEqual(['wt_b', 'wt_a', 'wt_c'])
     })
 
-    it('把第三筆拖到第一筆卡片上，插入到第一筆前面並正確存檔', async () => {
+    it('拖到目標卡片下半部，插入到目標後面並正確存檔', async () => {
+        const { wrapper, casesStore } = await mountWithWorkTypes(makeWorkTypes())
+        const updateCaseSpy = vi.spyOn(casesStore, 'updateCase').mockResolvedValue()
+
+        wrapper.vm.onCardDragStart(0, {})
+        wrapper.vm.onCardDragOver(2, dropAtBottom())
+        await wrapper.vm.onCardDrop(2)
+        await flushPromises()
+
+        const savedIds = updateCaseSpy.mock.calls[0][1].workTypes.map(wt => wt.id)
+        expect(savedIds).toEqual(['wt_b', 'wt_c', 'wt_a'])
+    })
+
+    it('把第三筆拖到第一筆卡片上半部，插入到第一筆前面並正確存檔', async () => {
         const { wrapper, casesStore } = await mountWithWorkTypes(makeWorkTypes())
         const updateCaseSpy = vi.spyOn(casesStore, 'updateCase').mockResolvedValue()
 
         wrapper.vm.onCardDragStart(2, {})
+        wrapper.vm.onCardDragOver(0, dropAtTop())
         await wrapper.vm.onCardDrop(0)
         await flushPromises()
 
@@ -367,11 +389,37 @@ describe('WorkTypePanel — 工種拖曳排序', () => {
         expect(savedIds).toEqual(['wt_c', 'wt_a', 'wt_b'])
     })
 
+    it('拖到緊鄰下一張卡片的上半部（等於維持原位），不會呼叫 updateCase', async () => {
+        const { wrapper, casesStore } = await mountWithWorkTypes(makeWorkTypes())
+        const updateCaseSpy = vi.spyOn(casesStore, 'updateCase').mockResolvedValue()
+
+        wrapper.vm.onCardDragStart(0, {})
+        wrapper.vm.onCardDragOver(1, dropAtTop())
+        await wrapper.vm.onCardDrop(1)
+        await flushPromises()
+
+        expect(updateCaseSpy).not.toHaveBeenCalled()
+    })
+
+    it('拖到緊鄰下一張卡片的下半部，會插到它後面、順序確實改變（修正原本「往下拖一格沒反應」的問題）', async () => {
+        const { wrapper, casesStore } = await mountWithWorkTypes(makeWorkTypes())
+        const updateCaseSpy = vi.spyOn(casesStore, 'updateCase').mockResolvedValue()
+
+        wrapper.vm.onCardDragStart(0, {})
+        wrapper.vm.onCardDragOver(1, dropAtBottom())
+        await wrapper.vm.onCardDrop(1)
+        await flushPromises()
+
+        const savedIds = updateCaseSpy.mock.calls[0][1].workTypes.map(wt => wt.id)
+        expect(savedIds).toEqual(['wt_b', 'wt_a', 'wt_c'])
+    })
+
     it('拖到自己原本的位置，不會呼叫 updateCase', async () => {
         const { wrapper, casesStore } = await mountWithWorkTypes(makeWorkTypes())
         const updateCaseSpy = vi.spyOn(casesStore, 'updateCase').mockResolvedValue()
 
         wrapper.vm.onCardDragStart(1, {})
+        wrapper.vm.onCardDragOver(1, dropAtTop())
         await wrapper.vm.onCardDrop(1)
         await flushPromises()
 
@@ -388,6 +436,7 @@ describe('WorkTypePanel — 工種拖曳排序', () => {
         const updateCaseSpy = vi.spyOn(casesStore, 'updateCase').mockResolvedValue()
 
         wrapper.vm.onCardDragStart(2, {})
+        wrapper.vm.onCardDragOver(0, dropAtTop())
         await wrapper.vm.onCardDrop(0)
         await flushPromises()
 
