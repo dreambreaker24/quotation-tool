@@ -1360,7 +1360,7 @@ async function submitForm() {
     if (existing?.done) {
         vendorChange = buildVendorChangeLines(existing, entry)
         if (vendorChange.lines.length > 0) {
-            const confirmed = confirm(`確定要儲存這些變動嗎？\n\n${vendorChange.lines.join('\n')}\n\n此變動會同步更新首頁付款清單（若該筆款項已標記付款完成，金額將維持原紀錄不變）`)
+            const confirmed = confirm(`確定要儲存這些變動嗎？\n\n${vendorChange.lines.join('\n')}`)
             if (!confirmed) return
         }
     }
