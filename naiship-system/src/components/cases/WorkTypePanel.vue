@@ -27,11 +27,19 @@
             已完工工種（{{ doneCount }}）
           </button>
           <div v-if="!wt.done || doneSectionExpanded" :id="'worktype-card-' + wt.id"
+            @dragover.prevent="!wt.done && onCardDragOver(idx)"
+            @drop.prevent="!wt.done && onCardDrop(idx)"
             class="border rounded-xl p-3 bg-gray-50/50 hover:bg-white hover:shadow-sm transition-all"
-            :class="highlightedWorkTypeId === wt.id ? 'ring-2 ring-inset ring-amber-400 border-transparent' : 'border-gray-100'">
+            :class="[
+              highlightedWorkTypeId === wt.id ? 'ring-2 ring-inset ring-amber-400 border-transparent' : 'border-gray-100',
+              dragOverIdx === idx && draggingIdx !== idx ? 'ring-2 ring-inset ring-blue-300' : '',
+              draggingIdx === idx ? 'opacity-50' : '',
+            ]">
             <!-- Main row -->
             <div class="overflow-x-auto -mx-1 px-1">
             <div class="flex items-center gap-3 min-w-[480px]">
+              <span v-if="!wt.done" draggable="true" @dragstart="onCardDragStart(idx, $event)" @dragend="onCardDragEnd"
+                class="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 select-none flex-shrink-0 text-xs" title="拖曳排序">⠿</span>
               <span class="w-2.5 h-2.5 rounded-full flex-shrink-0" :style="`background:${wt.color}`"></span>
               <div class="flex-1 grid grid-cols-6 gap-2 items-start">
                 <div class="min-w-0">
@@ -1147,6 +1155,37 @@ const displayWorkTypes = computed(() => {
     return [...active, ...done]
 })
 const firstDoneDisplayIndex = computed(() => displayWorkTypes.value.findIndex(({ wt }) => wt.done))
+
+const draggingIdx = ref(null)
+const dragOverIdx = ref(null)
+
+function onCardDragStart(idx, e) {
+    draggingIdx.value = idx
+    e.dataTransfer?.setData('text/plain', String(idx))
+    if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'
+}
+
+function onCardDragOver(idx) {
+    if (draggingIdx.value === null) return
+    dragOverIdx.value = idx
+}
+
+async function onCardDrop(idx) {
+    const fromIdx = draggingIdx.value
+    draggingIdx.value = null
+    dragOverIdx.value = null
+    if (fromIdx === null || fromIdx === idx) return
+    const updated = [...workTypes.value]
+    const [moved] = updated.splice(fromIdx, 1)
+    const insertAt = fromIdx < idx ? idx - 1 : idx
+    updated.splice(insertAt, 0, moved)
+    await casesStore.updateCase(props.caseId, { workTypes: updated })
+}
+
+function onCardDragEnd() {
+    draggingIdx.value = null
+    dragOverIdx.value = null
+}
 
 const TODAY_STR = new Date().toISOString().slice(0, 10)
 

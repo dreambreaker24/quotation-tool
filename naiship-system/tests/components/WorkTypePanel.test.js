@@ -318,3 +318,80 @@ describe('WorkTypePanel — 已完工收合', () => {
         expect(wrapper.find('#worktype-card-wt_b').exists()).toBe(true)
     })
 })
+
+describe('WorkTypePanel — 工種拖曳排序', () => {
+    beforeEach(() => {
+        setActivePinia(createPinia())
+    })
+
+    function makeWorkTypes() {
+        return [
+            { id: 'wt_a', name: '水電', done: false },
+            { id: 'wt_b', name: '油漆', done: false },
+            { id: 'wt_c', name: '木工', done: false },
+        ]
+    }
+
+    async function mountWithWorkTypes(workTypes) {
+        const casesStore = useCasesStore()
+        const authStore = useAuthStore()
+        authStore.role = 'admin'
+        authStore.name = '柏'
+        casesStore.cases = [{ id: caseId, name: '大同區辦公室', companyId: 'north', workTypes }]
+        const wrapper = mount(WorkTypePanel, { props: { caseId, caseName: '大同區辦公室' } })
+        await flushPromises()
+        return { wrapper, casesStore }
+    }
+
+    it('把第一筆拖到第三筆卡片上，插入到第三筆前面並正確存檔', async () => {
+        const { wrapper, casesStore } = await mountWithWorkTypes(makeWorkTypes())
+        const updateCaseSpy = vi.spyOn(casesStore, 'updateCase').mockResolvedValue()
+
+        wrapper.vm.onCardDragStart(0, {})
+        await wrapper.vm.onCardDrop(2)
+        await flushPromises()
+
+        const savedIds = updateCaseSpy.mock.calls[0][1].workTypes.map(wt => wt.id)
+        expect(savedIds).toEqual(['wt_b', 'wt_a', 'wt_c'])
+    })
+
+    it('把第三筆拖到第一筆卡片上，插入到第一筆前面並正確存檔', async () => {
+        const { wrapper, casesStore } = await mountWithWorkTypes(makeWorkTypes())
+        const updateCaseSpy = vi.spyOn(casesStore, 'updateCase').mockResolvedValue()
+
+        wrapper.vm.onCardDragStart(2, {})
+        await wrapper.vm.onCardDrop(0)
+        await flushPromises()
+
+        const savedIds = updateCaseSpy.mock.calls[0][1].workTypes.map(wt => wt.id)
+        expect(savedIds).toEqual(['wt_c', 'wt_a', 'wt_b'])
+    })
+
+    it('拖到自己原本的位置，不會呼叫 updateCase', async () => {
+        const { wrapper, casesStore } = await mountWithWorkTypes(makeWorkTypes())
+        const updateCaseSpy = vi.spyOn(casesStore, 'updateCase').mockResolvedValue()
+
+        wrapper.vm.onCardDragStart(1, {})
+        await wrapper.vm.onCardDrop(1)
+        await flushPromises()
+
+        expect(updateCaseSpy).not.toHaveBeenCalled()
+    })
+
+    it('已完工工種夾在中間時，拖曳未完工項目不影響已完工項目的位置', async () => {
+        const workTypes = [
+            { id: 'wt_a', name: '水電', done: false },
+            { id: 'wt_x', name: '油漆', done: true },
+            { id: 'wt_b', name: '木工', done: false },
+        ]
+        const { wrapper, casesStore } = await mountWithWorkTypes(workTypes)
+        const updateCaseSpy = vi.spyOn(casesStore, 'updateCase').mockResolvedValue()
+
+        wrapper.vm.onCardDragStart(2, {})
+        await wrapper.vm.onCardDrop(0)
+        await flushPromises()
+
+        const savedIds = updateCaseSpy.mock.calls[0][1].workTypes.map(wt => wt.id)
+        expect(savedIds).toEqual(['wt_b', 'wt_a', 'wt_x'])
+    })
+})
