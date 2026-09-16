@@ -219,4 +219,20 @@ describe('WorkTypePanel — 進場/退場日期防呆', () => {
         expect(global.confirm).not.toHaveBeenCalled()
         expect(updateCaseSpy).toHaveBeenCalled()
     })
+
+    it('只有退場日期沒填（進場日期有填），仍然跳確認視窗', async () => {
+        vi.stubGlobal('confirm', vi.fn(() => true))
+        const { wrapper, casesStore } = await mountEmpty()
+        const updateCaseSpy = vi.spyOn(casesStore, 'updateCase').mockResolvedValue()
+
+        wrapper.vm.openAdd()
+        await wrapper.vm.$nextTick()
+        wrapper.vm.form.name = '油漆'
+        wrapper.vm.form.startDate = '2026-10-01'
+        await wrapper.vm.submitForm()
+        await flushPromises()
+
+        expect(global.confirm).toHaveBeenCalledWith('進場日期或退場日期尚未填寫，確定要儲存嗎？')
+        expect(updateCaseSpy).toHaveBeenCalled()
+    })
 })
