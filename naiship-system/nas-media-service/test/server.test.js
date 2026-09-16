@@ -183,6 +183,28 @@ describe('GET 靜態供檔', () => {
     const res = await request(createApp(config(), fakeVerify)).get('/media/naiship/.secret')
     expect([403, 404]).toContain(res.status)
   })
+
+  it('白名單來源帶 CORS 標頭 → 前端 fetch() 圈選下載/分享才讀得到回應內容', async () => {
+    // <img>/<video> 顯示縮圖不需要 CORS，但「圈選下載/分享」是用 fetch() 讀回應內容再存成
+    // blob，沒有這個標頭瀏覽器會直接擋下讀取（縮圖正常、下載卻全部失敗，2026-09-16 事故）。
+    const dir = join(mediaRoot, 'naiship', 'survey')
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(join(dir, 'x.jpg'), 'imgdata')
+    const res = await request(createApp(config(), fakeVerify))
+      .get('/media/naiship/survey/x.jpg')
+      .set('Origin', 'https://app.example')
+    expect(res.headers['access-control-allow-origin']).toBe('https://app.example')
+  })
+
+  it('非白名單來源不帶 CORS 標頭', async () => {
+    const dir = join(mediaRoot, 'naiship', 'survey')
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(join(dir, 'x.jpg'), 'imgdata')
+    const res = await request(createApp(config(), fakeVerify))
+      .get('/media/naiship/survey/x.jpg')
+      .set('Origin', 'https://evil.example')
+    expect(res.headers['access-control-allow-origin']).toBeUndefined()
+  })
 })
 
 describe('磁碟暫存不殘留', () => {

@@ -13,8 +13,21 @@ export function createApp(config, verifyIdToken) {
   // health：所有來源開放
   app.get('/media/health', cors(), (req, res) => res.json({ ok: true }))
 
+  // 站台 CORS 限白名單，靜態供檔／上傳共用同一份判斷
+  const siteCors = cors({
+    origin(origin, cb) {
+      if (!origin || config.allowedOrigins.includes(origin)) cb(null, true)
+      else cb(null, false)
+    },
+  })
+
   // 靜態供檔（GET/HEAD），只開放 naiship 子樹、inline 顯示、長快取
-  app.use('/media/naiship', express.static(join(config.mediaRoot, 'naiship'), {
+  // 一定要掛 CORS：<img>/<video> 標籤顯示縮圖不需要 CORS 標頭也能正常運作，
+  // 但「圈選下載/分享」（useFileSelection.js）是用 fetch() 讀回應內容再存成 blob，
+  // 瀏覽器會擋下沒有 CORS 允許標頭的跨網域內容讀取——縮圖顯示正常、下載卻全部失敗
+  // 就是這裡漏掉 CORS 造成的（2026-09-16 事故，NAS 遷移那批就漏了，搬完很少人用
+  // 「圈選下載」批次抓檔案才一直沒被發現）。
+  app.use('/media/naiship', siteCors, express.static(join(config.mediaRoot, 'naiship'), {
     maxAge: '30d',
     index: false,
     dotfiles: 'deny',
@@ -24,14 +37,6 @@ export function createApp(config, verifyIdToken) {
       res.setHeader('Content-Security-Policy', "default-src 'none'; sandbox")
     },
   }))
-
-  // 上傳：CORS 限白名單
-  const uploadCors = cors({
-    origin(origin, cb) {
-      if (!origin || config.allowedOrigins.includes(origin)) cb(null, true)
-      else cb(null, false)
-    },
-  })
   // NOTE: reverse proxy should cap body size + connections
   // 大檔案（影片可到 500MB）不整包塞進記憶體，先落地到暫存資料夾。
   // 解析/大小超限錯誤（err 分支）不用 respond() 清——那種情況 req.file 是 undefined，
@@ -62,8 +67,8 @@ export function createApp(config, verifyIdToken) {
   // Express 的路由比對不會把 OPTIONS 導進上面的 POST-only 處理器，
   // 沒有這行預檢請求會被內建的預設 OPTIONS 處理器攔走、缺 CORS 標頭，
   // 瀏覽器會擋下真正的 POST。
-  app.options('/media/upload', uploadCors)
-  app.post('/media/upload', uploadCors, (req, res) => {
+  app.options('/media/upload', siteCors)
+  app.post('/media/upload', siteCors, (req, res) => {
     upload.single('file')(req, res, async (err) => {
       // 暫存檔清理一定要排在「送出回應」之前，而不是送完回應才在背景清——
       // 兩者若順序反過來，socket 寫出通常比 fs.unlink() 的 threadpool 往返快，
