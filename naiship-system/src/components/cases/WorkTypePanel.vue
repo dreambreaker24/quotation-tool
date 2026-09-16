@@ -21,246 +21,298 @@
 
     <div v-else class="flex flex-col gap-2">
       <template v-for="({ wt, idx }, i) in displayWorkTypes" :key="wt.id">
-      <button v-if="i === firstDoneDisplayIndex" type="button" @click="doneSectionExpanded = !doneSectionExpanded"
-        class="w-full flex items-center gap-2 px-3 py-2 rounded-xl border border-dashed border-gray-200 text-xs text-gray-500 hover:bg-gray-50 transition-colors">
-        <span class="text-[10px] inline-block transition-transform duration-150" :style="doneSectionExpanded ? 'transform:rotate(90deg)' : ''">▶</span>
-        已完工工種（{{ doneCount }}）
-      </button>
-      <div v-if="!wt.done || doneSectionExpanded" :id="'worktype-card-' + wt.id"
-        class="border rounded-xl p-3 bg-gray-50/50 hover:bg-white hover:shadow-sm transition-all"
-        :class="highlightedWorkTypeId === wt.id ? 'ring-2 ring-inset ring-amber-400 border-transparent' : 'border-gray-100'">
-        <!-- Main row -->
-        <div class="overflow-x-auto -mx-1 px-1">
-        <div class="flex items-center gap-3 min-w-[480px]">
-          <span class="w-2.5 h-2.5 rounded-full flex-shrink-0" :style="`background:${wt.color}`"></span>
-          <div class="flex-1 grid grid-cols-6 gap-2 items-start">
-            <div class="min-w-0">
-              <div class="text-[10px] text-gray-400 mb-0.5">工種</div>
-              <div class="text-sm font-bold text-gray-900 truncate" :title="wt.name">{{ wt.name }}</div>
-            </div>
-            <div class="min-w-0">
-              <div class="text-[10px] text-gray-400 mb-0.5">負責廠商</div>
-              <div class="text-xs text-gray-600 truncate" :title="wt.vendorName || ''">{{ wt.vendorName || '—' }}</div>
-            </div>
-            <div class="col-span-2">
-              <div class="text-[10px] text-gray-400 mb-0.5">進場期間</div>
-              <div class="text-xs text-gray-600">
-                <template v-if="wt.startDate">
-                  {{ wt.startDate }}<template v-if="wt.endDate"><br>～ {{ wt.endDate }}</template>
-                </template>
-                <template v-else>—</template>
-              </div>
-              <span v-if="isWorkTypeOverdue(wt)"
-                class="text-[9px] px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-600 font-semibold mt-0.5 inline-block">
-                退場逾期
-              </span>
-              <span v-if="wt.done"
-                class="text-[9px] px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 font-semibold mt-0.5 inline-block cursor-pointer"
-                @click="unmarkDone(idx)" title="點擊取消完工">
-                ✓ 已完工
-              </span>
-              <button v-else-if="wt.endDate" @click="markDone(idx)"
-                class="text-[9px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 hover:bg-green-100 hover:text-green-600 font-medium mt-0.5 inline-block transition-colors">
-                ✓ 完工
-              </button>
-            </div>
-            <div>
-              <div class="text-[10px] text-gray-400 mb-0.5">廠商合約金額</div>
-              <template v-if="wt.vendorCostFree">
-                <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-600 font-medium">免費</span>
-              </template>
-              <template v-else>
-                <div class="text-sm font-bold text-gray-900">
-                  {{ wtVendorCostTotal(wt) > 0 ? `$${wtVendorCostTotal(wt).toLocaleString()}` : '—' }}
+          <button v-if="i === firstDoneDisplayIndex" type="button" @click="doneSectionExpanded = !doneSectionExpanded"
+            class="w-full flex items-center gap-2 px-3 py-2 rounded-xl border border-dashed border-gray-200 text-xs text-gray-500 hover:bg-gray-50 transition-colors">
+            <span class="text-[10px] inline-block transition-transform duration-150" :style="doneSectionExpanded ? 'transform:rotate(90deg)' : ''">▶</span>
+            已完工工種（{{ doneCount }}）
+          </button>
+          <div v-if="!wt.done || doneSectionExpanded" :id="'worktype-card-' + wt.id"
+            class="border rounded-xl p-3 bg-gray-50/50 hover:bg-white hover:shadow-sm transition-all"
+            :class="highlightedWorkTypeId === wt.id ? 'ring-2 ring-inset ring-amber-400 border-transparent' : 'border-gray-100'">
+            <!-- Main row -->
+            <div class="overflow-x-auto -mx-1 px-1">
+            <div class="flex items-center gap-3 min-w-[480px]">
+              <span class="w-2.5 h-2.5 rounded-full flex-shrink-0" :style="`background:${wt.color}`"></span>
+              <div class="flex-1 grid grid-cols-6 gap-2 items-start">
+                <div class="min-w-0">
+                  <div class="text-[10px] text-gray-400 mb-0.5">工種</div>
+                  <div class="text-sm font-bold text-gray-900 truncate" :title="wt.name">{{ wt.name }}</div>
                 </div>
-                <span v-if="wtVendorCostTotal(wt) > 0" class="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
-                  :class="wt.costIncludesTax ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'">
-                  {{ wt.costIncludesTax ? '含稅' : '未稅' }}
-                </span>
-                <template v-if="wtVendorCostTotal(wt) > 0">
-                  <div class="text-[10px] mt-1"
-                    :class="totalVendorPaid(wt) >= wtVendorCostTotal(wt) ? 'text-green-600'
-                          : totalVendorPaid(wt) > 0 ? 'text-orange-500'
-                          : 'text-gray-400'">
-                    已付 ${{ totalVendorPaid(wt).toLocaleString() }}
-                    <span v-if="totalVendorPaid(wt) >= wtVendorCostTotal(wt)" class="ml-0.5">✓</span>
+                <div class="min-w-0">
+                  <div class="text-[10px] text-gray-400 mb-0.5">負責廠商</div>
+                  <div class="text-xs text-gray-600 truncate" :title="wt.vendorName || ''">{{ wt.vendorName || '—' }}</div>
+                </div>
+                <div class="col-span-2">
+                  <div class="text-[10px] text-gray-400 mb-0.5">進場期間</div>
+                  <div class="text-xs text-gray-600">
+                    <template v-if="wt.startDate">
+                      {{ wt.startDate }}<template v-if="wt.endDate"><br>～ {{ wt.endDate }}</template>
+                    </template>
+                    <template v-else>—</template>
                   </div>
-                  <div v-if="wtVendorCostTotal(wt) > totalVendorPaid(wt)" class="text-[10px] text-red-400">
-                    還未付 ${{ (wtVendorCostTotal(wt) - totalVendorPaid(wt)).toLocaleString() }}
-                  </div>
-                  <div class="w-full h-1 rounded-full bg-gray-100 mt-1 overflow-hidden">
-                    <div class="h-full rounded-full transition-all"
-                      :style="`width:${Math.min(100, Math.round(totalVendorPaid(wt) / wtVendorCostTotal(wt) * 100))}%`"
-                      :class="totalVendorPaid(wt) >= wtVendorCostTotal(wt) ? 'bg-green-500'
-                            : totalVendorPaid(wt) > 0 ? 'bg-orange-400'
-                            : 'bg-gray-300'">
+                  <span v-if="isWorkTypeOverdue(wt)"
+                    class="text-[9px] px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-600 font-semibold mt-0.5 inline-block">
+                    退場逾期
+                  </span>
+                  <span v-if="wt.done"
+                    class="text-[9px] px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 font-semibold mt-0.5 inline-block cursor-pointer"
+                    @click="unmarkDone(idx)" title="點擊取消完工">
+                    ✓ 已完工
+                  </span>
+                  <button v-else-if="wt.endDate" @click="markDone(idx)"
+                    class="text-[9px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 hover:bg-green-100 hover:text-green-600 font-medium mt-0.5 inline-block transition-colors">
+                    ✓ 完工
+                  </button>
+                </div>
+                <div>
+                  <div class="text-[10px] text-gray-400 mb-0.5">廠商合約金額</div>
+                  <template v-if="wt.vendorCostFree">
+                    <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-600 font-medium">免費</span>
+                  </template>
+                  <template v-else>
+                    <div class="text-sm font-bold text-gray-900">
+                      {{ wtVendorCostTotal(wt) > 0 ? `$${wtVendorCostTotal(wt).toLocaleString()}` : '—' }}
                     </div>
-                  </div>
-                  <div v-if="wt.vendorCostItems?.length > 1" class="mt-1.5 flex flex-col gap-1">
-                    <div v-for="item in wt.vendorCostItems" :key="item.id" class="flex items-center justify-between text-[10px]">
-                      <span class="text-gray-500 truncate">{{ item.description || '未命名項目' }}</span>
-                      <span class="text-gray-400 flex-shrink-0 ml-1">
-                        {{ Math.round(item.amount / wtVendorCostTotal(wt) * 100) }}%
-                        <span :class="isItemFullyPaid(wt, item) ? 'text-green-500' : 'text-orange-400'">
-                          {{ isItemFullyPaid(wt, item) ? '✓已付清' : `已付$${itemPaid(wt, item.id).toLocaleString()}` }}
-                        </span>
-                      </span>
-                    </div>
-                  </div>
-                </template>
-                <span v-if="vendorInvoiceStatus(wt)" @click="toggleInvoiceReceived(idx)"
-                  class="text-[10px] px-1.5 py-0.5 rounded-full font-medium mt-0.5 inline-block cursor-pointer"
-                  :class="vendorInvoiceStatus(wt).cls" title="點擊切換發票狀態">
-                  {{ vendorInvoiceStatus(wt).label }}
+                    <span v-if="wtVendorCostTotal(wt) > 0" class="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+                      :class="wt.costIncludesTax ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'">
+                      {{ wt.costIncludesTax ? '含稅' : '未稅' }}
+                    </span>
+                    <template v-if="wtVendorCostTotal(wt) > 0">
+                      <div class="text-[10px] mt-1"
+                        :class="totalVendorPaid(wt) >= wtVendorCostTotal(wt) ? 'text-green-600'
+                              : totalVendorPaid(wt) > 0 ? 'text-orange-500'
+                              : 'text-gray-400'">
+                        已付 ${{ totalVendorPaid(wt).toLocaleString() }}
+                        <span v-if="totalVendorPaid(wt) >= wtVendorCostTotal(wt)" class="ml-0.5">✓</span>
+                      </div>
+                      <div v-if="wtVendorCostTotal(wt) > totalVendorPaid(wt)" class="text-[10px] text-red-400">
+                        還未付 ${{ (wtVendorCostTotal(wt) - totalVendorPaid(wt)).toLocaleString() }}
+                      </div>
+                      <div class="w-full h-1 rounded-full bg-gray-100 mt-1 overflow-hidden">
+                        <div class="h-full rounded-full transition-all"
+                          :style="`width:${Math.min(100, Math.round(totalVendorPaid(wt) / wtVendorCostTotal(wt) * 100))}%`"
+                          :class="totalVendorPaid(wt) >= wtVendorCostTotal(wt) ? 'bg-green-500'
+                                : totalVendorPaid(wt) > 0 ? 'bg-orange-400'
+                                : 'bg-gray-300'">
+                        </div>
+                      </div>
+                      <div v-if="wt.vendorCostItems?.length > 1" class="mt-1.5 flex flex-col gap-1">
+                        <div v-for="item in wt.vendorCostItems" :key="item.id" class="flex items-center justify-between text-[10px]">
+                          <span class="text-gray-500 truncate">{{ item.description || '未命名項目' }}</span>
+                          <span class="text-gray-400 flex-shrink-0 ml-1">
+                            {{ Math.round(item.amount / wtVendorCostTotal(wt) * 100) }}%
+                            <span :class="isItemFullyPaid(wt, item) ? 'text-green-500' : 'text-orange-400'">
+                              {{ isItemFullyPaid(wt, item) ? '✓已付清' : `已付$${itemPaid(wt, item.id).toLocaleString()}` }}
+                            </span>
+                          </span>
+                        </div>
+                      </div>
+                    </template>
+                    <span v-if="vendorInvoiceStatus(wt)" @click="toggleInvoiceReceived(idx)"
+                      class="text-[10px] px-1.5 py-0.5 rounded-full font-medium mt-0.5 inline-block cursor-pointer"
+                      :class="vendorInvoiceStatus(wt).cls" title="點擊切換發票狀態">
+                      {{ vendorInvoiceStatus(wt).label }}
+                    </span>
+                    <label class="text-[10px] px-1.5 py-0.5 rounded-full font-medium mt-0.5 inline-block cursor-pointer bg-purple-50 text-purple-600 hover:bg-purple-100 transition-colors">
+                      📎 {{ wt.invoiceFile ? '重新上傳發票' : '上傳發票' }}
+                      <input type="file" accept="image/jpeg,image/jpg,image/png,image/webp,.pdf" class="hidden" @change="uploadInvoiceFile(idx, $event.target.files)">
+                    </label>
+                    <a v-if="wt.invoiceFile" :href="wt.invoiceFile.url" target="_blank"
+                      class="text-[10px] text-purple-500 hover:text-purple-700 underline mt-0.5 inline-block">
+                      查看已上傳的發票
+                    </a>
+                  </template>
+                </div>
+                <div>
+                  <div class="text-[10px] text-gray-400 mb-0.5">報價單</div>
+                  <span :class="wt.hasQuote ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'"
+                    class="text-[10px] px-2 py-0.5 rounded-full font-medium whitespace-nowrap block mb-1">
+                    {{ wt.hasQuote ? '已提供' : '未提供' }}
+                  </span>
+                  <div class="text-[10px] text-gray-400 mb-0.5">施工日期</div>
+                  <span :class="wt.hasSchedule ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400'"
+                    class="text-[10px] px-2 py-0.5 rounded-full font-medium whitespace-nowrap block">
+                    {{ wt.hasSchedule ? '已提供' : '未提供' }}
+                  </span>
+                </div>
+              </div>
+              <div class="flex gap-1.5 flex-shrink-0">
+                <span v-if="wt.vendorName && wtVendorCostTotal(wt) > 0 && !wt.vendorCostFree && wt.costIncludesTax === false"
+                  class="text-[11px] px-2 py-1 rounded-lg bg-purple-100 text-purple-600 font-medium">
+                  不開發票
                 </span>
-                <label class="text-[10px] px-1.5 py-0.5 rounded-full font-medium mt-0.5 inline-block cursor-pointer bg-purple-50 text-purple-600 hover:bg-purple-100 transition-colors">
-                  📎 {{ wt.invoiceFile ? '重新上傳發票' : '上傳發票' }}
-                  <input type="file" accept="image/jpeg,image/jpg,image/png,image/webp,.pdf" class="hidden" @change="uploadInvoiceFile(idx, $event.target.files)">
-                </label>
-                <a v-if="wt.invoiceFile" :href="wt.invoiceFile.url" target="_blank"
-                  class="text-[10px] text-purple-500 hover:text-purple-700 underline mt-0.5 inline-block">
-                  查看已上傳的發票
-                </a>
-              </template>
+                <button @click="openVendorPay(idx)" class="text-[11px] px-1.5 py-1 text-gray-400 hover:text-gray-700 hover:underline transition-colors">記錄付款</button>
+                <button @click="openEdit(idx)" class="text-[11px] px-1.5 py-1 text-gray-400 hover:text-gray-700 hover:underline transition-colors">編輯</button>
+                <button @click="removeWorkType(idx)" class="text-[11px] px-1.5 py-1 text-red-300 hover:text-red-500 hover:underline transition-colors">刪除</button>
+              </div>
             </div>
-            <div>
-              <div class="text-[10px] text-gray-400 mb-0.5">報價單</div>
-              <span :class="wt.hasQuote ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'"
-                class="text-[10px] px-2 py-0.5 rounded-full font-medium whitespace-nowrap block mb-1">
-                {{ wt.hasQuote ? '已提供' : '未提供' }}
-              </span>
-              <div class="text-[10px] text-gray-400 mb-0.5">施工日期</div>
-              <span :class="wt.hasSchedule ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400'"
-                class="text-[10px] px-2 py-0.5 rounded-full font-medium whitespace-nowrap block">
-                {{ wt.hasSchedule ? '已提供' : '未提供' }}
-              </span>
             </div>
-          </div>
-          <div class="flex gap-1.5 flex-shrink-0">
-            <span v-if="wt.vendorName && wtVendorCostTotal(wt) > 0 && !wt.vendorCostFree && wt.costIncludesTax === false"
-              class="text-[11px] px-2 py-1 rounded-lg bg-purple-100 text-purple-600 font-medium">
-              不開發票
-            </span>
-            <button @click="openVendorPay(idx)" class="text-[11px] px-1.5 py-1 text-gray-400 hover:text-gray-700 hover:underline transition-colors">記錄付款</button>
-            <button @click="openEdit(idx)" class="text-[11px] px-1.5 py-1 text-gray-400 hover:text-gray-700 hover:underline transition-colors">編輯</button>
-            <button @click="removeWorkType(idx)" class="text-[11px] px-1.5 py-1 text-red-300 hover:text-red-500 hover:underline transition-colors">刪除</button>
-          </div>
-        </div>
-        </div>
-
-        <div v-if="wt.vendorName && wtVendorCostTotal(wt) > 0 && !wt.vendorCostFree && wt.costIncludesTax !== false" class="mt-2 pt-2 border-t border-gray-100 flex items-center gap-2">
-          <span class="text-[10px] text-gray-400 font-medium">開立對象</span>
-          <button @click="setInvoiceTarget(idx, 'naiship')"
-            class="text-[10px] px-2 py-0.5 rounded-full font-medium transition-colors"
-            :class="wt.invoiceTarget === 'naiship' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'">
-            奈拾
-          </button>
-          <button @click="setInvoiceTarget(idx, 'boyan')"
-            class="text-[10px] px-2 py-0.5 rounded-full font-medium transition-colors"
-            :class="wt.invoiceTarget === 'boyan' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'">
-            柏延
-          </button>
-          <span v-if="!wt.invoiceTarget" class="text-[9px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 font-semibold">
-            未選開立對象
-          </span>
-        </div>
-
-        <div v-if="wt.locations?.length" class="mt-2 pt-2 border-t border-gray-100">
-          <div class="text-[10px] text-gray-400 font-medium mb-1">施作位置</div>
-          <div class="flex flex-col gap-1">
-            <div v-for="loc in wt.locations" :key="loc.id" class="text-[11px] text-gray-600 flex items-center gap-2">
-              <span class="font-medium">{{ loc.label }}</span>
-              <span v-if="loc.startDate" class="text-gray-400">
-                {{ loc.startDate }}<template v-if="loc.endDate"> ～ {{ loc.endDate }}</template>
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Vendor quotes section -->
-        <div class="mt-2 pt-2 border-t border-gray-100">
-          <div class="flex items-center gap-2 mb-1.5">
-            <span class="text-[10px] text-gray-400 font-medium">廠商報價單</span>
-            <span v-if="vendorPhotos[wt.id]?.length"
-              class="text-[9px] min-w-[16px] h-4 px-1 rounded-full bg-gray-400 text-white leading-4 text-center">
-              {{ vendorPhotos[wt.id].length }}
-            </span>
-            <button @click="triggerVendorUpload(wt.id)"
-              class="ml-auto text-[10px] border border-dashed border-gray-200 rounded px-2 py-0.5 text-gray-400 hover:border-gray-400 hover:text-gray-600 transition-colors">
-              + 上傳
-            </button>
-          </div>
-          <div v-if="vendorPhotos[wt.id]?.length" class="flex gap-2 overflow-x-auto pb-1">
-            <div v-for="(item, idx) in vendorPhotos[wt.id]" :key="item.url"
-              class="flex-shrink-0 flex flex-col items-center gap-0.5 relative group">
-              <a v-if="item.isPdf" :href="item.pdfUrl" target="_blank"
-                class="w-14 h-14 rounded bg-red-100 flex items-center justify-center text-[10px] text-red-600 font-bold hover:bg-red-200 transition-colors">PDF</a>
-              <img v-else :src="item.url"
-                class="w-14 h-14 rounded object-cover cursor-pointer hover:opacity-80"
-                @click="openVendorPreview(wt.id, idx)">
-              <span class="text-[8px] text-gray-400 leading-tight">{{ formatTime(item.createdAt) }} · {{ uploaderName(item.uploadedBy) }}</span>
-              <button @click="deleteVendorPhoto(wt.id, item)"
-                class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-gray-600 text-white rounded-full text-[8px] leading-none hidden group-hover:flex items-center justify-center hover:bg-red-500 z-10">✕</button>
-            </div>
-          </div>
-          <div v-else class="text-[10px] text-gray-300">尚未上傳</div>
-        </div>
-
-        <!-- Construction photos section -->
-        <div class="mt-2 pt-2 border-t border-gray-100">
-          <div class="flex items-center gap-2 mb-1.5">
-            <span class="text-[10px] text-gray-400 font-medium">施工照片</span>
-            <span v-if="wtConstructPhotoCount(wt.id)"
-              class="text-[9px] min-w-[16px] h-4 px-1 rounded-full bg-gray-400 text-white leading-4 text-center">
-              {{ wtConstructPhotoCount(wt.id) }}
-            </span>
-            <div class="ml-auto flex items-center gap-1.5">
-              <FileSelectionBar
-                :selecting="getWtFileSelection(wt.id).selecting.value"
-                :count="getWtFileSelection(wt.id).selected.value.size"
-                :can-share="getWtFileSelection(wt.id).canShare.value"
-                @start="getWtFileSelection(wt.id).startSelecting()"
-                @stop="getWtFileSelection(wt.id).stopSelecting()"
-                @select-all="getWtFileSelection(wt.id).selectAll()"
-                @download="handleWtDownloadSelected(wt.id)"
-                @share="handleWtShareSelected(wt.id)" />
-              <button @click="openWtFolderForm(wt.id)"
-                class="text-[9px] px-1.5 py-0.5 border border-gray-200 rounded text-gray-400 hover:border-gray-400 hover:text-gray-600 transition-colors">
-                + 資料夾
+    
+            <div v-if="wt.vendorName && wtVendorCostTotal(wt) > 0 && !wt.vendorCostFree && wt.costIncludesTax !== false" class="mt-2 pt-2 border-t border-gray-100 flex items-center gap-2">
+              <span class="text-[10px] text-gray-400 font-medium">開立對象</span>
+              <button @click="setInvoiceTarget(idx, 'naiship')"
+                class="text-[10px] px-2 py-0.5 rounded-full font-medium transition-colors"
+                :class="wt.invoiceTarget === 'naiship' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'">
+                奈拾
               </button>
-              <button @click="triggerWtConstructUpload(wt.id)"
-                class="text-[10px] border border-dashed border-gray-200 rounded px-2 py-0.5 text-gray-400 hover:border-gray-400 hover:text-gray-600 transition-colors">
-                + 上傳
+              <button @click="setInvoiceTarget(idx, 'boyan')"
+                class="text-[10px] px-2 py-0.5 rounded-full font-medium transition-colors"
+                :class="wt.invoiceTarget === 'boyan' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'">
+                柏延
               </button>
+              <span v-if="!wt.invoiceTarget" class="text-[9px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 font-semibold">
+                未選開立對象
+              </span>
             </div>
-          </div>
-
-          <!-- Has folders: grouped display -->
-          <template v-if="wtFoldersForWt(wt.id).length">
-            <div v-for="folder in wtFoldersForWt(wt.id)" :key="folder.id" class="mb-1">
-              <div class="flex items-center gap-1.5 cursor-pointer py-0.5" @click="toggleWtFolder(folder.id)">
-                <span class="text-[9px] text-gray-300">{{ wtFolderExpanded[folder.id] === true ? '▼' : '▶' }}</span>
-                <span class="text-[10px] font-semibold text-gray-600">📁 {{ folder.label }}</span>
-                <span v-if="wtPhotosInFolder(wt.id, folder.id).length"
-                  class="text-[8px] min-w-[14px] h-3.5 px-0.5 rounded-full bg-gray-100 text-gray-500 leading-[14px] text-center">
-                  {{ wtPhotosInFolder(wt.id, folder.id).length }}
+    
+            <div v-if="wt.locations?.length" class="mt-2 pt-2 border-t border-gray-100">
+              <div class="text-[10px] text-gray-400 font-medium mb-1">施作位置</div>
+              <div class="flex flex-col gap-1">
+                <div v-for="loc in wt.locations" :key="loc.id" class="text-[11px] text-gray-600 flex items-center gap-2">
+                  <span class="font-medium">{{ loc.label }}</span>
+                  <span v-if="loc.startDate" class="text-gray-400">
+                    {{ loc.startDate }}<template v-if="loc.endDate"> ～ {{ loc.endDate }}</template>
+                  </span>
+                </div>
+              </div>
+            </div>
+    
+            <!-- Vendor quotes section -->
+            <div class="mt-2 pt-2 border-t border-gray-100">
+              <div class="flex items-center gap-2 mb-1.5">
+                <span class="text-[10px] text-gray-400 font-medium">廠商報價單</span>
+                <span v-if="vendorPhotos[wt.id]?.length"
+                  class="text-[9px] min-w-[16px] h-4 px-1 rounded-full bg-gray-400 text-white leading-4 text-center">
+                  {{ vendorPhotos[wt.id].length }}
                 </span>
-                <div class="ml-auto flex items-center gap-1" @click.stop>
-                  <button @click="uploadToWtFolder(wt.id, folder.id)"
-                    class="text-[8px] px-1 py-0.5 border border-dashed border-gray-200 rounded text-gray-400 hover:border-amber-300 hover:text-amber-600 transition-colors">
+                <button @click="triggerVendorUpload(wt.id)"
+                  class="ml-auto text-[10px] border border-dashed border-gray-200 rounded px-2 py-0.5 text-gray-400 hover:border-gray-400 hover:text-gray-600 transition-colors">
+                  + 上傳
+                </button>
+              </div>
+              <div v-if="vendorPhotos[wt.id]?.length" class="flex gap-2 overflow-x-auto pb-1">
+                <div v-for="(item, idx) in vendorPhotos[wt.id]" :key="item.url"
+                  class="flex-shrink-0 flex flex-col items-center gap-0.5 relative group">
+                  <a v-if="item.isPdf" :href="item.pdfUrl" target="_blank"
+                    class="w-14 h-14 rounded bg-red-100 flex items-center justify-center text-[10px] text-red-600 font-bold hover:bg-red-200 transition-colors">PDF</a>
+                  <img v-else :src="item.url"
+                    class="w-14 h-14 rounded object-cover cursor-pointer hover:opacity-80"
+                    @click="openVendorPreview(wt.id, idx)">
+                  <span class="text-[8px] text-gray-400 leading-tight">{{ formatTime(item.createdAt) }} · {{ uploaderName(item.uploadedBy) }}</span>
+                  <button @click="deleteVendorPhoto(wt.id, item)"
+                    class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-gray-600 text-white rounded-full text-[8px] leading-none hidden group-hover:flex items-center justify-center hover:bg-red-500 z-10">✕</button>
+                </div>
+              </div>
+              <div v-else class="text-[10px] text-gray-300">尚未上傳</div>
+            </div>
+    
+            <!-- Construction photos section -->
+            <div class="mt-2 pt-2 border-t border-gray-100">
+              <div class="flex items-center gap-2 mb-1.5">
+                <span class="text-[10px] text-gray-400 font-medium">施工照片</span>
+                <span v-if="wtConstructPhotoCount(wt.id)"
+                  class="text-[9px] min-w-[16px] h-4 px-1 rounded-full bg-gray-400 text-white leading-4 text-center">
+                  {{ wtConstructPhotoCount(wt.id) }}
+                </span>
+                <div class="ml-auto flex items-center gap-1.5">
+                  <FileSelectionBar
+                    :selecting="getWtFileSelection(wt.id).selecting.value"
+                    :count="getWtFileSelection(wt.id).selected.value.size"
+                    :can-share="getWtFileSelection(wt.id).canShare.value"
+                    @start="getWtFileSelection(wt.id).startSelecting()"
+                    @stop="getWtFileSelection(wt.id).stopSelecting()"
+                    @select-all="getWtFileSelection(wt.id).selectAll()"
+                    @download="handleWtDownloadSelected(wt.id)"
+                    @share="handleWtShareSelected(wt.id)" />
+                  <button @click="openWtFolderForm(wt.id)"
+                    class="text-[9px] px-1.5 py-0.5 border border-gray-200 rounded text-gray-400 hover:border-gray-400 hover:text-gray-600 transition-colors">
+                    + 資料夾
+                  </button>
+                  <button @click="triggerWtConstructUpload(wt.id)"
+                    class="text-[10px] border border-dashed border-gray-200 rounded px-2 py-0.5 text-gray-400 hover:border-gray-400 hover:text-gray-600 transition-colors">
                     + 上傳
                   </button>
-                  <button @click="editWtFolder(folder)"
-                    class="text-[8px] text-gray-400 hover:text-gray-700 transition-colors px-0.5">編輯</button>
-                  <button @click="deleteWtFolder(folder.id)"
-                    class="text-[8px] text-red-300 hover:text-red-500 transition-colors px-0.5">刪除</button>
                 </div>
               </div>
-              <div v-if="folder.description && wtFolderExpanded[folder.id] === true" class="text-[9px] text-gray-400 ml-4 mb-0.5">{{ folder.description }}</div>
-              <div v-if="wtFolderExpanded[folder.id] === true">
-                <div v-if="!wtPhotosInFolder(wt.id, folder.id).length" class="text-[9px] text-gray-300 ml-4 py-0.5">尚無照片</div>
-                <div v-else class="flex gap-2 overflow-x-auto pb-1">
-                  <div v-for="item in wtPhotosInFolder(wt.id, folder.id)" :key="item.id"
+    
+              <!-- Has folders: grouped display -->
+              <template v-if="wtFoldersForWt(wt.id).length">
+                <div v-for="folder in wtFoldersForWt(wt.id)" :key="folder.id" class="mb-1">
+                  <div class="flex items-center gap-1.5 cursor-pointer py-0.5" @click="toggleWtFolder(folder.id)">
+                    <span class="text-[9px] text-gray-300">{{ wtFolderExpanded[folder.id] === true ? '▼' : '▶' }}</span>
+                    <span class="text-[10px] font-semibold text-gray-600">📁 {{ folder.label }}</span>
+                    <span v-if="wtPhotosInFolder(wt.id, folder.id).length"
+                      class="text-[8px] min-w-[14px] h-3.5 px-0.5 rounded-full bg-gray-100 text-gray-500 leading-[14px] text-center">
+                      {{ wtPhotosInFolder(wt.id, folder.id).length }}
+                    </span>
+                    <div class="ml-auto flex items-center gap-1" @click.stop>
+                      <button @click="uploadToWtFolder(wt.id, folder.id)"
+                        class="text-[8px] px-1 py-0.5 border border-dashed border-gray-200 rounded text-gray-400 hover:border-amber-300 hover:text-amber-600 transition-colors">
+                        + 上傳
+                      </button>
+                      <button @click="editWtFolder(folder)"
+                        class="text-[8px] text-gray-400 hover:text-gray-700 transition-colors px-0.5">編輯</button>
+                      <button @click="deleteWtFolder(folder.id)"
+                        class="text-[8px] text-red-300 hover:text-red-500 transition-colors px-0.5">刪除</button>
+                    </div>
+                  </div>
+                  <div v-if="folder.description && wtFolderExpanded[folder.id] === true" class="text-[9px] text-gray-400 ml-4 mb-0.5">{{ folder.description }}</div>
+                  <div v-if="wtFolderExpanded[folder.id] === true">
+                    <div v-if="!wtPhotosInFolder(wt.id, folder.id).length" class="text-[9px] text-gray-300 ml-4 py-0.5">尚無照片</div>
+                    <div v-else class="flex gap-2 overflow-x-auto pb-1">
+                      <div v-for="item in wtPhotosInFolder(wt.id, folder.id)" :key="item.id"
+                        class="flex-shrink-0 flex flex-col items-center gap-0.5 relative group">
+                        <div v-if="getWtFileSelection(wt.id).selecting.value"
+                          class="absolute -top-1 -left-1 w-3.5 h-3.5 rounded-full border-2 border-white z-10 shadow flex items-center justify-center cursor-pointer"
+                          :style="getWtFileSelection(wt.id).selected.value.has(item.url) ? 'background:#c9a96e' : 'background:#fff'"
+                          @click.stop="getWtFileSelection(wt.id).toggle(item.url)">
+                          <span v-if="getWtFileSelection(wt.id).selected.value.has(item.url)" class="text-white text-[8px] leading-none">✓</span>
+                        </div>
+                        <div v-if="item.isPdf" @click="handleWtThumbClick(wt.id, item)"
+                          class="w-14 h-14 rounded bg-red-100 flex items-center justify-center text-[10px] text-red-600 font-bold hover:bg-red-200 transition-colors cursor-pointer">PDF</div>
+                        <div v-else-if="item.isVideo" @click="handleWtThumbClick(wt.id, item)"
+                          class="w-14 h-14 rounded flex items-center justify-center text-white text-base hover:opacity-80 transition-opacity cursor-pointer" style="background:#1e2533">▶</div>
+                        <img v-else :src="item.url"
+                          class="w-14 h-14 rounded object-cover cursor-pointer hover:opacity-80"
+                          @click="handleWtThumbClick(wt.id, item)">
+                        <span class="text-[8px] text-gray-400 leading-tight">{{ formatTime(item.createdAt) }} · {{ uploaderName(item.uploadedBy) }}</span>
+                        <button v-if="!getWtFileSelection(wt.id).selecting.value" @click="deleteWtConstructPhoto(wt.id, item)"
+                          class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-gray-600 text-white rounded-full text-[8px] leading-none hidden group-hover:flex items-center justify-center hover:bg-red-500 z-10">✕</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div v-if="wtPhotosInFolder(wt.id, null).length">
+                  <div class="text-[9px] text-gray-400 font-medium mb-0.5">未分類</div>
+                  <div class="flex gap-2 overflow-x-auto pb-1">
+                    <div v-for="item in wtPhotosInFolder(wt.id, null)" :key="item.id"
+                      class="flex-shrink-0 flex flex-col items-center gap-0.5 relative group">
+                      <div v-if="getWtFileSelection(wt.id).selecting.value"
+                        class="absolute -top-1 -left-1 w-3.5 h-3.5 rounded-full border-2 border-white z-10 shadow flex items-center justify-center cursor-pointer"
+                        :style="getWtFileSelection(wt.id).selected.value.has(item.url) ? 'background:#c9a96e' : 'background:#fff'"
+                        @click.stop="getWtFileSelection(wt.id).toggle(item.url)">
+                        <span v-if="getWtFileSelection(wt.id).selected.value.has(item.url)" class="text-white text-[8px] leading-none">✓</span>
+                      </div>
+                      <div v-if="item.isPdf" @click="handleWtThumbClick(wt.id, item)"
+                        class="w-14 h-14 rounded bg-red-100 flex items-center justify-center text-[10px] text-red-600 font-bold hover:bg-red-200 transition-colors cursor-pointer">PDF</div>
+                      <div v-else-if="item.isVideo" @click="handleWtThumbClick(wt.id, item)"
+                        class="w-14 h-14 rounded flex items-center justify-center text-white text-base hover:opacity-80 transition-opacity cursor-pointer" style="background:#1e2533">▶</div>
+                      <img v-else :src="item.url"
+                        class="w-14 h-14 rounded object-cover cursor-pointer hover:opacity-80"
+                        @click="handleWtThumbClick(wt.id, item)">
+                      <span class="text-[8px] text-gray-400 leading-tight">{{ formatTime(item.createdAt) }} · {{ uploaderName(item.uploadedBy) }}</span>
+                      <button v-if="!getWtFileSelection(wt.id).selecting.value" @click="deleteWtConstructPhoto(wt.id, item)"
+                        class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-gray-600 text-white rounded-full text-[8px] leading-none hidden group-hover:flex items-center justify-center hover:bg-red-500 z-10">✕</button>
+                    </div>
+                  </div>
+                </div>
+                <div v-else-if="!wtConstructPhotoCount(wt.id)" class="text-[10px] text-gray-300">尚未上傳</div>
+              </template>
+    
+              <!-- No folders: flat display -->
+              <template v-else>
+                <div v-if="wtConstructPhotos[wt.id]?.length" class="flex gap-2 overflow-x-auto pb-1">
+                  <div v-for="item in wtConstructPhotos[wt.id]" :key="item.id"
                     class="flex-shrink-0 flex flex-col items-center gap-0.5 relative group">
                     <div v-if="getWtFileSelection(wt.id).selecting.value"
                       class="absolute -top-1 -left-1 w-3.5 h-3.5 rounded-full border-2 border-white z-10 shadow flex items-center justify-center cursor-pointer"
@@ -280,62 +332,10 @@
                       class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-gray-600 text-white rounded-full text-[8px] leading-none hidden group-hover:flex items-center justify-center hover:bg-red-500 z-10">✕</button>
                   </div>
                 </div>
-              </div>
+                <div v-else class="text-[10px] text-gray-300">尚未上傳</div>
+              </template>
             </div>
-            <div v-if="wtPhotosInFolder(wt.id, null).length">
-              <div class="text-[9px] text-gray-400 font-medium mb-0.5">未分類</div>
-              <div class="flex gap-2 overflow-x-auto pb-1">
-                <div v-for="item in wtPhotosInFolder(wt.id, null)" :key="item.id"
-                  class="flex-shrink-0 flex flex-col items-center gap-0.5 relative group">
-                  <div v-if="getWtFileSelection(wt.id).selecting.value"
-                    class="absolute -top-1 -left-1 w-3.5 h-3.5 rounded-full border-2 border-white z-10 shadow flex items-center justify-center cursor-pointer"
-                    :style="getWtFileSelection(wt.id).selected.value.has(item.url) ? 'background:#c9a96e' : 'background:#fff'"
-                    @click.stop="getWtFileSelection(wt.id).toggle(item.url)">
-                    <span v-if="getWtFileSelection(wt.id).selected.value.has(item.url)" class="text-white text-[8px] leading-none">✓</span>
-                  </div>
-                  <div v-if="item.isPdf" @click="handleWtThumbClick(wt.id, item)"
-                    class="w-14 h-14 rounded bg-red-100 flex items-center justify-center text-[10px] text-red-600 font-bold hover:bg-red-200 transition-colors cursor-pointer">PDF</div>
-                  <div v-else-if="item.isVideo" @click="handleWtThumbClick(wt.id, item)"
-                    class="w-14 h-14 rounded flex items-center justify-center text-white text-base hover:opacity-80 transition-opacity cursor-pointer" style="background:#1e2533">▶</div>
-                  <img v-else :src="item.url"
-                    class="w-14 h-14 rounded object-cover cursor-pointer hover:opacity-80"
-                    @click="handleWtThumbClick(wt.id, item)">
-                  <span class="text-[8px] text-gray-400 leading-tight">{{ formatTime(item.createdAt) }} · {{ uploaderName(item.uploadedBy) }}</span>
-                  <button v-if="!getWtFileSelection(wt.id).selecting.value" @click="deleteWtConstructPhoto(wt.id, item)"
-                    class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-gray-600 text-white rounded-full text-[8px] leading-none hidden group-hover:flex items-center justify-center hover:bg-red-500 z-10">✕</button>
-                </div>
-              </div>
-            </div>
-            <div v-else-if="!wtConstructPhotoCount(wt.id)" class="text-[10px] text-gray-300">尚未上傳</div>
-          </template>
-
-          <!-- No folders: flat display -->
-          <template v-else>
-            <div v-if="wtConstructPhotos[wt.id]?.length" class="flex gap-2 overflow-x-auto pb-1">
-              <div v-for="item in wtConstructPhotos[wt.id]" :key="item.id"
-                class="flex-shrink-0 flex flex-col items-center gap-0.5 relative group">
-                <div v-if="getWtFileSelection(wt.id).selecting.value"
-                  class="absolute -top-1 -left-1 w-3.5 h-3.5 rounded-full border-2 border-white z-10 shadow flex items-center justify-center cursor-pointer"
-                  :style="getWtFileSelection(wt.id).selected.value.has(item.url) ? 'background:#c9a96e' : 'background:#fff'"
-                  @click.stop="getWtFileSelection(wt.id).toggle(item.url)">
-                  <span v-if="getWtFileSelection(wt.id).selected.value.has(item.url)" class="text-white text-[8px] leading-none">✓</span>
-                </div>
-                <div v-if="item.isPdf" @click="handleWtThumbClick(wt.id, item)"
-                  class="w-14 h-14 rounded bg-red-100 flex items-center justify-center text-[10px] text-red-600 font-bold hover:bg-red-200 transition-colors cursor-pointer">PDF</div>
-                <div v-else-if="item.isVideo" @click="handleWtThumbClick(wt.id, item)"
-                  class="w-14 h-14 rounded flex items-center justify-center text-white text-base hover:opacity-80 transition-opacity cursor-pointer" style="background:#1e2533">▶</div>
-                <img v-else :src="item.url"
-                  class="w-14 h-14 rounded object-cover cursor-pointer hover:opacity-80"
-                  @click="handleWtThumbClick(wt.id, item)">
-                <span class="text-[8px] text-gray-400 leading-tight">{{ formatTime(item.createdAt) }} · {{ uploaderName(item.uploadedBy) }}</span>
-                <button v-if="!getWtFileSelection(wt.id).selecting.value" @click="deleteWtConstructPhoto(wt.id, item)"
-                  class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-gray-600 text-white rounded-full text-[8px] leading-none hidden group-hover:flex items-center justify-center hover:bg-red-500 z-10">✕</button>
-              </div>
-            </div>
-            <div v-else class="text-[10px] text-gray-300">尚未上傳</div>
-          </template>
-        </div>
-      </div>
+          </div>
       </template>
     </div>
   </div>

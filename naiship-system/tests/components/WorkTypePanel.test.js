@@ -303,4 +303,18 @@ describe('WorkTypePanel — 已完工收合', () => {
         expect(wrapper.find('#worktype-card-wt_b').exists()).toBe(true)
         expect(wrapper.find('#worktype-card-wt_d').exists()).toBe(true)
     })
+
+    it('全部工種都已完工時，收合列出現在最前面，展開後所有卡片都顯示', async () => {
+        const { wrapper } = await mountWithWorkTypes([
+            { id: 'wt_a', name: '水電', done: true },
+            { id: 'wt_b', name: '油漆', done: true },
+        ])
+        expect(wrapper.vm.firstDoneDisplayIndex).toBe(0)
+        expect(wrapper.text()).toContain('已完工工種（2）')
+        expect(wrapper.find('#worktype-card-wt_a').exists()).toBe(false)
+        const toggle = wrapper.findAll('button').find(b => b.text().includes('已完工工種'))
+        await toggle.trigger('click')
+        expect(wrapper.find('#worktype-card-wt_a').exists()).toBe(true)
+        expect(wrapper.find('#worktype-card-wt_b').exists()).toBe(true)
+    })
 })
