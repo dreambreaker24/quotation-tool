@@ -58,13 +58,14 @@ export const useWorkCategoriesStore = defineStore('workCategories', () => {
         let vendorCount = 0
         for (const vendorDoc of vendorsSnap.docs) {
             const data = vendorDoc.data()
-            if (Array.isArray(data.specialties) && data.specialties.includes(oldName)) {
+            const specialties = getVendorSpecialties(data)
+            if (!specialties.includes(oldName)) continue
+            if (Array.isArray(data.specialties) && data.specialties.length > 0) {
                 batch.update(vendorDoc.ref, { specialties: data.specialties.map(s => s === oldName ? newName : s) })
-                vendorCount++
-            } else if (data.specialty === oldName) {
+            } else {
                 batch.update(vendorDoc.ref, { specialty: newName })
-                vendorCount++
             }
+            vendorCount++
         }
 
         let workTypeCount = 0
