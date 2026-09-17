@@ -55,6 +55,8 @@
             <span class="text-xs font-semibold text-gray-400">天</span>
           </div>
           <div v-if="authStore.isAdmin" class="flex gap-1">
+            <button @click="openDetail(name, 'annual', '特休')"
+              class="text-[10px] text-gray-400 px-1.5 py-0.5 rounded border border-gray-200 hover:border-gray-400">明細</button>
             <button @click="openEdit(name, 'annualLeaveHours', '特休')"
               class="text-[10px] text-white px-1.5 py-0.5 rounded" style="background:#1e2533">調整</button>
             <button @click="confirmReset(name, 'annualLeaveHours', '特休')"
@@ -126,12 +128,15 @@
         <button @click="detailName = null" class="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
       </div>
       <div v-if="detailLoading" class="text-xs text-gray-400 text-center py-4">載入中…</div>
-      <div v-else-if="detailEntries.length === 0" class="text-xs text-gray-400 text-center py-4">尚無已核准的加班記錄或人工調整</div>
+      <div v-else-if="detailEntries.length === 0" class="text-xs text-gray-400 text-center py-4">尚無異動紀錄</div>
       <div v-else class="flex flex-col gap-1.5 max-h-72 overflow-y-auto">
         <div v-for="(e, i) in detailEntries" :key="i" class="flex items-center gap-3 justify-between text-xs border rounded-lg px-3 py-2"
-          :class="e.manual ? 'border-amber-100 bg-amber-50' : 'border-gray-100 bg-gray-50'">
+          :class="e.kind === 'adjustment' ? 'border-amber-100 bg-amber-50' : 'border-gray-100 bg-gray-50'">
           <span class="text-gray-600 whitespace-nowrap">{{ formatDetailDate(e.date) }}</span>
-          <span class="font-semibold text-gray-800 whitespace-nowrap">{{ e.hours }} 小時</span>
+          <span class="font-semibold whitespace-nowrap"
+            :class="e.kind === 'leave' ? 'text-red-500' : e.kind === 'cashout' ? 'text-purple-600' : 'text-gray-800'">
+            {{ e.hours > 0 ? '+' : '' }}{{ e.hours }} {{ detailType === 'annual' ? '天' : '小時' }}
+          </span>
           <span class="text-gray-400 truncate flex-1 text-right">{{ e.reason }}</span>
         </div>
       </div>
@@ -145,13 +150,17 @@
 import { ref, computed, watch } from 'vue'
 import { useUsersStore, prevMonthStr, prevMonthOf, monthStr } from '@/stores/users'
 import { useAuthStore } from '@/stores/auth'
+import { useCalendarEventsStore } from '@/stores/calendarEvents'
 import { useToast } from '@/composables/useToast'
 import { getAnnualLeaveCycleInfo } from '@/utils/annualLeaveSchedule'
 import { consumeFIFO, sumRemainingHours, expiredEntries, valueForConsumption } from '@/utils/compLedger'
+import { mapCashoutEntries, mapLeaveEntries, mergeCompHistory } from '@/utils/compHistory'
+import { hoursToDays } from '@/utils/leaveConversion'
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/firebase'
 
 const usersStore = useUsersStore()
+const eventsStore = useCalendarEventsStore()
 // 其宏、柏是老闆，不追蹤補休/特休餘額，面板不顯示他們（到職日/特休週期試算仍會照常存，只是這裡排除顯示）
 const UNTRACKED_NAMES = ['其宏', '柏']
 const TRACKED = computed(() => usersStore.users.filter(u => !UNTRACKED_NAMES.includes(u.name)).map(u => u.name))
@@ -240,14 +249,27 @@ async function loadDetail() {
     try {
         const uid = detailUserId.value
         if (!uid) return
+        if (detailType.value === 'annual') {
+            const adjustments = await usersStore.fetchCompAdjustments(uid, 'annualLeaveHours')
+            const leaveEvents = await eventsStore.fetchLeaveEventsByPerson(detailName.value)
+            const leaveEntries = mapLeaveEntries(leaveEvents, '特休', hoursToDays)
+            detailEntries.value = mergeCompHistory(adjustments, leaveEntries)
+            return
+        }
         const type = detailType.value === 'holiday' ? '休息日' : '平日'
-        const entries = ledgerFor(detailName.value).filter(e => e.type === type)
-        detailEntries.value = entries.map(e => ({
+        const accrualEntries = ledgerFor(detailName.value).filter(e => e.type === type).map(e => ({
             date: e.createdAt?.toDate?.() ?? null,
             hours: e.hours,
             reason: `${e.source === 'migration' ? '舊資料轉入' : e.source === 'adjustment' ? '人工調整' : '加班核准'}・剩餘${e.remainingHours}h${e.expireDate ? `・到期${e.expireDate}` : ''}`,
             manual: e.source !== 'overtime',
+            kind: 'accrual',
         }))
+        const adjustments = await usersStore.fetchCompAdjustments(uid, type)
+        const cashouts = await usersStore.fetchCompCashouts(uid, type)
+        const cashoutEntries = mapCashoutEntries(cashouts)
+        const leaveEvents = await eventsStore.fetchLeaveEventsByPerson(detailName.value)
+        const leaveEntries = mapLeaveEntries(leaveEvents, '補休')
+        detailEntries.value = mergeCompHistory(accrualEntries, adjustments, cashoutEntries, leaveEntries)
     } finally {
         detailLoading.value = false
     }
