@@ -87,6 +87,7 @@ export const useUsersStore = defineStore('users', () => {
                     ? `請假${a.leaveType ? `（${a.leaveType}）` : ''}${a.adjustedBy ? `－${a.adjustedBy}` : ''}`
                     : `人工調整${a.adjustedBy ? `（${a.adjustedBy}）` : ''}`,
                 manual: a.source !== 'leave',
+                kind: 'adjustment',
             }))
     }
 
@@ -106,6 +107,11 @@ export const useUsersStore = defineStore('users', () => {
         ))
     }
 
+    async function fetchCompCashouts(uid, type) {
+        const snap = await getDocs(collection(db, 'users', uid, 'compCashouts'))
+        return snap.docs.map(d => d.data()).filter(c => c.type === type)
+    }
+
     async function getUser(uid) {
         const snap = await getDoc(doc(db, 'users', uid))
         return snap.exists() ? { id: snap.id, ...snap.data() } : null
@@ -118,7 +124,7 @@ export const useUsersStore = defineStore('users', () => {
     return {
         users, subscribe, updateUser, adjustAnnualLeaveHours,
         adjustCompensatoryField, applyAnnualLeaveCycle,
-        fetchCompAdjustments, getUser, cleanup,
+        fetchCompAdjustments, fetchCompCashouts, getUser, cleanup,
         fetchCompLedger, addLedgerEntry, applyLedgerConsumption,
     }
 })
