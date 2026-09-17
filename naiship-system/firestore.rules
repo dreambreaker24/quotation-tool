@@ -43,6 +43,12 @@ service cloud.firestore {
         allow write: if isSignedIn();
       }
     }
+    // collectionGroup('bidRequests') 查詢（跨所有案件一次查）需要獨立的頂層遞迴規則，
+    // 掛在 cases/{caseId} 底下的單段萬用字元規則（上面那條）只對「指定某個 case 底下查」有效，
+    // 對 collectionGroup 查詢無效——這是這次工種分類改名/刪除功能連動比價需求時才發現的規則遺漏。
+    match /{path=**}/bidRequests/{bidRequestId} {
+      allow read, write: if isSignedIn();
+    }
     match /clients/{clientId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn() && isSameRegion(request.resource.data.companyId);
