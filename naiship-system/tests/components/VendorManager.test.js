@@ -38,6 +38,26 @@ describe('VendorManager — 新增分類', () => {
         await wrapper.vm.submitNewCategory()
 
         expect(addCategorySpy).toHaveBeenCalledWith('磁磚')
+        expect(wrapper.vm.newCategoryName).toBe('')
+    })
+
+    it('送出中（submittingCategory 為 true）時重複呼叫不會送出第二次', async () => {
+        const workCategoriesStore = useWorkCategoriesStore()
+        let resolveAdd
+        const addCategorySpy = vi.spyOn(workCategoriesStore, 'addCategory')
+            .mockImplementation(() => new Promise(resolve => { resolveAdd = resolve }))
+        const wrapper = mount(VendorManager)
+        await flushPromises()
+
+        wrapper.vm.newCategoryName = '磁磚'
+        const firstCall = wrapper.vm.submitNewCategory()
+        await wrapper.vm.$nextTick()
+        wrapper.vm.newCategoryName = '磁磚'
+        await wrapper.vm.submitNewCategory()
+
+        expect(addCategorySpy).toHaveBeenCalledTimes(1)
+        resolveAdd()
+        await firstCall
     })
 
     it('分類名稱空白時不會呼叫 addCategory', async () => {
