@@ -128,6 +128,7 @@
         <button @click="detailName = null" class="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
       </div>
       <div v-if="detailLoading" class="text-xs text-gray-400 text-center py-4">載入中…</div>
+      <div v-else-if="detailError" class="text-xs text-red-400 text-center py-4">載入失敗，請重新開啟明細</div>
       <div v-else-if="detailEntries.length === 0" class="text-xs text-gray-400 text-center py-4">尚無異動紀錄</div>
       <div v-else class="flex flex-col gap-1.5 max-h-72 overflow-y-auto">
         <div v-for="(e, i) in detailEntries" :key="i" class="flex items-center gap-3 justify-between text-xs border rounded-lg px-3 py-2"
@@ -215,6 +216,8 @@ const detailLabel = ref('')
 const detailEntries = ref([])
 const detailLoading = ref(false)
 const detailUserId = ref(null)
+const detailError = ref(false)
+let detailRequestId = 0
 
 function getHours(name, field) {
     if (field === 'compensatoryHours') return compHours(name, '平日')
@@ -244,34 +247,44 @@ async function openDetail(name, type, label) {
 }
 
 async function loadDetail() {
+    const requestId = ++detailRequestId
     detailEntries.value = []
+    detailError.value = false
     detailLoading.value = true
     try {
         const uid = detailUserId.value
         if (!uid) return
+        let merged
         if (detailType.value === 'annual') {
-            const adjustments = await usersStore.fetchCompAdjustments(uid, 'annualLeaveHours')
-            const leaveEvents = await eventsStore.fetchLeaveEventsByPerson(detailName.value)
+            const [adjustments, leaveEvents] = await Promise.all([
+                usersStore.fetchCompAdjustments(uid, 'annualLeaveHours'),
+                eventsStore.fetchLeaveEventsByPerson(detailName.value),
+            ])
             const leaveEntries = mapLeaveEntries(leaveEvents, '特休', hoursToDays)
-            detailEntries.value = mergeCompHistory(adjustments, leaveEntries)
-            return
+            merged = mergeCompHistory(adjustments, leaveEntries)
+        } else {
+            const type = detailType.value === 'holiday' ? '休息日' : '平日'
+            const accrualEntries = ledgerFor(detailName.value).filter(e => e.type === type).map(e => ({
+                date: e.createdAt?.toDate?.() ?? null,
+                hours: e.hours,
+                reason: `${e.source === 'migration' ? '舊資料轉入' : e.source === 'adjustment' ? '人工調整' : '加班核准'}・剩餘${e.remainingHours}h${e.expireDate ? `・到期${e.expireDate}` : ''}`,
+                kind: 'accrual',
+            }))
+            const [adjustments, cashouts, leaveEvents] = await Promise.all([
+                usersStore.fetchCompAdjustments(uid, type),
+                usersStore.fetchCompCashouts(uid, type),
+                eventsStore.fetchLeaveEventsByPerson(detailName.value),
+            ])
+            const cashoutEntries = mapCashoutEntries(cashouts)
+            const leaveEntries = mapLeaveEntries(leaveEvents, '補休')
+            merged = mergeCompHistory(accrualEntries, adjustments, cashoutEntries, leaveEntries)
         }
-        const type = detailType.value === 'holiday' ? '休息日' : '平日'
-        const accrualEntries = ledgerFor(detailName.value).filter(e => e.type === type).map(e => ({
-            date: e.createdAt?.toDate?.() ?? null,
-            hours: e.hours,
-            reason: `${e.source === 'migration' ? '舊資料轉入' : e.source === 'adjustment' ? '人工調整' : '加班核准'}・剩餘${e.remainingHours}h${e.expireDate ? `・到期${e.expireDate}` : ''}`,
-            manual: e.source !== 'overtime',
-            kind: 'accrual',
-        }))
-        const adjustments = await usersStore.fetchCompAdjustments(uid, type)
-        const cashouts = await usersStore.fetchCompCashouts(uid, type)
-        const cashoutEntries = mapCashoutEntries(cashouts)
-        const leaveEvents = await eventsStore.fetchLeaveEventsByPerson(detailName.value)
-        const leaveEntries = mapLeaveEntries(leaveEvents, '補休')
-        detailEntries.value = mergeCompHistory(accrualEntries, adjustments, cashoutEntries, leaveEntries)
+        if (requestId !== detailRequestId) return
+        detailEntries.value = merged
+    } catch {
+        if (requestId === detailRequestId) detailError.value = true
     } finally {
-        detailLoading.value = false
+        if (requestId === detailRequestId) detailLoading.value = false
     }
 }
 
