@@ -85,3 +85,41 @@ describe('VendorManager — 新增分類', () => {
         expect(addCategorySpy).not.toHaveBeenCalled()
     })
 })
+
+describe('VendorManager — 改名分類', () => {
+    beforeEach(() => {
+        setActivePinia(createPinia())
+    })
+
+    it('輸入新名稱確認後，呼叫 workCategoriesStore.renameCategory 並顯示更新筆數', async () => {
+        const workCategoriesStore = useWorkCategoriesStore()
+        workCategoriesStore.categories = [{ id: 'c1', name: '油漆', createdAt: 'ts' }]
+        const renameSpy = vi.spyOn(workCategoriesStore, 'renameCategory')
+            .mockResolvedValue({ vendorCount: 2, workTypeCount: 5, bidRequestCount: 0 })
+        const wrapper = mount(VendorManager)
+        await flushPromises()
+
+        await wrapper.vm.startRenameCategory('c1', '油漆')
+        wrapper.vm.renameCategoryDraft = '油漆工程'
+        await wrapper.vm.confirmRenameCategory('c1', '油漆')
+
+        expect(renameSpy).toHaveBeenCalledWith('c1', '油漆', '油漆工程')
+    })
+
+    it('新名稱跟現有其他分類重複時不會呼叫 renameCategory', async () => {
+        const workCategoriesStore = useWorkCategoriesStore()
+        workCategoriesStore.categories = [
+            { id: 'c1', name: '油漆', createdAt: 'ts1' },
+            { id: 'c2', name: '水電', createdAt: 'ts2' },
+        ]
+        const renameSpy = vi.spyOn(workCategoriesStore, 'renameCategory').mockResolvedValue({})
+        const wrapper = mount(VendorManager)
+        await flushPromises()
+
+        await wrapper.vm.startRenameCategory('c1', '油漆')
+        wrapper.vm.renameCategoryDraft = '水電'
+        await wrapper.vm.confirmRenameCategory('c1', '油漆')
+
+        expect(renameSpy).not.toHaveBeenCalled()
+    })
+})

@@ -76,6 +76,16 @@
               {{ cat.list.length }}
             </span>
           </button>
+          <div v-if="cat.id && renamingCategoryId !== cat.id" class="px-1">
+            <button @click="startRenameCategory(cat.id, cat.label)" class="text-[10px] text-gray-400 hover:text-gray-700">改名</button>
+          </div>
+          <div v-else-if="cat.id" class="flex items-center gap-1 px-1">
+            <input v-model="renameCategoryDraft" type="text" @keyup.enter="confirmRenameCategory(cat.id, cat.label)"
+              :disabled="renamingSubmitting"
+              class="text-xs border border-gray-200 rounded px-2 py-1 w-24 focus:outline-none focus:ring-1">
+            <button @click="confirmRenameCategory(cat.id, cat.label)" :disabled="renamingSubmitting" class="text-[10px] text-green-600 hover:text-green-800 disabled:opacity-60">確認</button>
+            <button @click="cancelRenameCategory" :disabled="renamingSubmitting" class="text-[10px] text-gray-400 hover:text-gray-600">取消</button>
+          </div>
           <div v-if="expandedCategories[cat.label] && cat.list.length > 0" class="mx-2 mb-1 flex flex-col gap-1">
             <div v-for="v in cat.list" :key="v.id"
               class="flex flex-col px-3 py-2 rounded-lg border border-gray-100 bg-gray-50/60 gap-0.5 hover:bg-white hover:shadow-sm hover:-translate-y-px transition-all cursor-default">
@@ -232,11 +242,12 @@ const standardCategories = computed(() => workCategoriesStore.categoryNames.filt
 
 const allCategories = computed(() => {
     const result = standardCategories.value.map(label => ({
+        id: workCategoriesStore.categories.find(c => c.name === label)?.id ?? null,
         label,
         list: vendorsStore.vendors.filter(v => getVendorSpecialties(v).includes(label)),
     }))
     const others = filterVendorsByCategory(vendorsStore.vendors, '其他', workCategoriesStore.categoryNames)
-    if (others.length > 0) result.push({ label: '其他', list: others })
+    if (others.length > 0) result.push({ id: null, label: '其他', list: others })
     return result
 })
 
@@ -272,6 +283,41 @@ async function submitNewCategory() {
         toast('分類已新增')
     } finally {
         submittingCategory.value = false
+    }
+}
+
+const renamingCategoryId = ref(null)
+const renameCategoryDraft = ref('')
+const renamingSubmitting = ref(false)
+
+async function startRenameCategory(id, currentName) {
+    renamingCategoryId.value = id
+    renameCategoryDraft.value = currentName
+}
+
+function cancelRenameCategory() {
+    renamingCategoryId.value = null
+    renameCategoryDraft.value = ''
+}
+
+async function confirmRenameCategory(id, oldName) {
+    const newName = renameCategoryDraft.value.trim()
+    if (!newName || newName === oldName) {
+        cancelRenameCategory()
+        return
+    }
+    if (renamingSubmitting.value) return
+    if (workCategoriesStore.categoryNames.includes(newName)) {
+        toast('已經有這個分類名稱了', 'error')
+        return
+    }
+    renamingSubmitting.value = true
+    try {
+        const result = await workCategoriesStore.renameCategory(id, oldName, newName)
+        toast(`已更新：${result.vendorCount} 家廠商、${result.workTypeCount} 個工種、${result.bidRequestCount} 筆比價需求`)
+        cancelRenameCategory()
+    } finally {
+        renamingSubmitting.value = false
     }
 }
 
