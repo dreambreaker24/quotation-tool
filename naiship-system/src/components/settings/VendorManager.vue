@@ -104,6 +104,12 @@
             </div>
           </div>
         </div>
+        <div class="flex gap-2 px-3 py-2">
+          <input v-model="newCategoryName" type="text" placeholder="新分類名稱"
+            @keyup.enter="submitNewCategory"
+            class="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1">
+          <button @click="submitNewCategory" class="text-xs text-white px-3 py-1.5 rounded-lg" style="background:#1e2533">＋新增分類</button>
+        </div>
       </div>
     </template>
   </div>
@@ -248,6 +254,20 @@ const filteredVendors = computed(() => {
         (v.name || '').includes(kw) || getVendorSpecialties(v).some(s => s.includes(kw))
     )
 })
+
+const newCategoryName = ref('')
+
+async function submitNewCategory() {
+    const name = newCategoryName.value.trim()
+    if (!name) return
+    if (workCategoriesStore.categoryNames.includes(name)) {
+        toast('已經有這個分類名稱了', 'error')
+        return
+    }
+    await workCategoriesStore.addCategory(name)
+    newCategoryName.value = ''
+    toast('分類已新增')
+}
 
 const showForm = ref(false)
 const submitting = ref(false)
