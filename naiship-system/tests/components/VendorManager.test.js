@@ -4,6 +4,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import VendorManager from '@/components/settings/VendorManager.vue'
 import { useWorkCategoriesStore } from '@/stores/workCategories'
+import { useAuthStore } from '@/stores/auth'
 
 vi.mock('@/firebase', () => ({ auth: {}, db: {} }))
 vi.mock('firebase/auth', () => ({
@@ -135,5 +136,43 @@ describe('VendorManager — 改名分類', () => {
         await wrapper.vm.confirmRenameCategory('c1', '油漆')
 
         expect(wrapper.vm.renamingSubmitting).toBe(false)
+    })
+})
+
+describe('VendorManager — 刪除分類', () => {
+    beforeEach(() => {
+        setActivePinia(createPinia())
+    })
+
+    it('分類仍有廠商在用時，擋下刪除並顯示使用筆數，不呼叫 deleteCategory', async () => {
+        const workCategoriesStore = useWorkCategoriesStore()
+        const authStore = useAuthStore()
+        authStore.role = 'admin'
+        workCategoriesStore.categories = [{ id: 'c1', name: '油漆', createdAt: 'ts' }]
+        const deleteSpy = vi.spyOn(workCategoriesStore, 'deleteCategory')
+            .mockResolvedValue({ deleted: false, usage: { vendorCount: 3, workTypeCount: 0, bidRequestCount: 0 } })
+        vi.stubGlobal('confirm', vi.fn(() => true))
+        const wrapper = mount(VendorManager)
+        await flushPromises()
+
+        await wrapper.vm.deleteCategoryWithConfirm('c1', '油漆')
+
+        expect(deleteSpy).toHaveBeenCalledWith('c1', '油漆')
+    })
+
+    it('分類完全沒人用時，確認後成功刪除', async () => {
+        const workCategoriesStore = useWorkCategoriesStore()
+        const authStore = useAuthStore()
+        authStore.role = 'admin'
+        workCategoriesStore.categories = [{ id: 'c1', name: '油漆', createdAt: 'ts' }]
+        const deleteSpy = vi.spyOn(workCategoriesStore, 'deleteCategory')
+            .mockResolvedValue({ deleted: true, usage: { vendorCount: 0, workTypeCount: 0, bidRequestCount: 0 } })
+        vi.stubGlobal('confirm', vi.fn(() => true))
+        const wrapper = mount(VendorManager)
+        await flushPromises()
+
+        await wrapper.vm.deleteCategoryWithConfirm('c1', '油漆')
+
+        expect(deleteSpy).toHaveBeenCalledWith('c1', '油漆')
     })
 })

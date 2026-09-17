@@ -76,8 +76,9 @@
               {{ cat.list.length }}
             </span>
           </button>
-          <div v-if="cat.id && renamingCategoryId !== cat.id" class="px-1">
+          <div v-if="cat.id && renamingCategoryId !== cat.id" class="flex items-center gap-1 px-1">
             <button @click="startRenameCategory(cat.id, cat.label)" class="text-[10px] text-gray-400 hover:text-gray-700">改名</button>
+            <button v-if="authStore.isManager" @click="deleteCategoryWithConfirm(cat.id, cat.label)" :disabled="deletingCategory" class="text-[10px] text-red-400 hover:text-red-600 disabled:opacity-60">刪除</button>
           </div>
           <div v-else-if="cat.id" class="flex items-center gap-1 px-1">
             <input v-model="renameCategoryDraft" type="text" @keyup.enter="confirmRenameCategory(cat.id, cat.label)"
@@ -374,6 +375,31 @@ async function submitForm() {
         toast('儲存失敗，請重試', 'error')
     } finally {
         submitting.value = false
+    }
+}
+
+const deletingCategory = ref(false)
+
+async function deleteCategoryWithConfirm(id, name) {
+    if (deletingCategory.value) return
+    if (!confirm(`確定要刪除分類「${name}」嗎？`)) return
+    deletingCategory.value = true
+    try {
+        const result = await workCategoriesStore.deleteCategory(id, name)
+        if (!result.deleted) {
+            const { vendorCount, workTypeCount, bidRequestCount } = result.usage
+            const parts = []
+            if (vendorCount > 0) parts.push(`${vendorCount} 家廠商`)
+            if (workTypeCount > 0) parts.push(`${workTypeCount} 個工種`)
+            if (bidRequestCount > 0) parts.push(`${bidRequestCount} 筆比價需求`)
+            toast(`目前有 ${parts.join('、')} 在用，無法刪除`, 'error')
+            return
+        }
+        toast('分類已刪除')
+    } catch {
+        toast('刪除失敗，請重試', 'error')
+    } finally {
+        deletingCategory.value = false
     }
 }
 
