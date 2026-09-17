@@ -110,17 +110,16 @@
 
         <!-- 上傳圖片 -->
         <div>
-          <label class="text-xs text-gray-500 mb-1 block">上傳圖片（最多 6 張）</label>
+          <label class="text-xs text-gray-500 mb-1 block">上傳圖片</label>
           <div class="flex gap-2 flex-wrap">
             <div v-for="(url, i) in form.receiptImages" :key="url" class="relative">
               <img :src="url" class="w-16 h-16 rounded-lg object-cover">
               <button @click="form.receiptImages.splice(i, 1)"
                 class="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center leading-none">✕</button>
             </div>
-            <label v-if="form.receiptImages.length < 6"
-              class="w-16 h-16 rounded-lg border-2 border-dashed border-gray-200 flex items-center justify-center cursor-pointer hover:border-gray-400 text-gray-400 text-2xl">
+            <label class="w-16 h-16 rounded-lg border-2 border-dashed border-gray-200 flex items-center justify-center cursor-pointer hover:border-gray-400 text-gray-400 text-2xl">
               +
-              <input type="file" accept="image/*" class="hidden" @change="uploadImage">
+              <input type="file" accept="image/*" multiple class="hidden" @change="uploadImage">
             </label>
           </div>
           <div v-if="uploading" class="text-xs text-gray-400 mt-1">上傳中...</div>
@@ -292,14 +291,18 @@ const typeOptions = computed(() => {
 })
 
 async function uploadImage(e) {
-    const file = e.target.files[0]
-    if (!file) return
-    const err = validateUploadFile(file)
-    if (err) { toast(err, 'error'); return }
+    const files = Array.from(e.target.files || [])
+    if (!files.length) return
+    for (const file of files) {
+        const err = validateUploadFile(file)
+        if (err) { toast(err, 'error'); return }
+    }
     uploading.value = true
     try {
-        const url = await uploadPhoto(file, 'petty-cash')
-        form.value.receiptImages.push(url)
+        for (const file of files) {
+            const url = await uploadPhoto(file, 'petty-cash')
+            form.value.receiptImages.push(url)
+        }
     } catch {
         toast('圖片上傳失敗', 'error')
     } finally {

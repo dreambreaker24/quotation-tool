@@ -123,12 +123,12 @@
                       {{ vendorInvoiceStatus(wt).label }}
                     </span>
                     <label class="text-[10px] px-1.5 py-0.5 rounded-full font-medium mt-0.5 inline-block cursor-pointer bg-purple-50 text-purple-600 hover:bg-purple-100 transition-colors">
-                      📎 {{ wt.invoiceFile ? '重新上傳發票' : '上傳發票' }}
-                      <input type="file" accept="image/jpeg,image/jpg,image/png,image/webp,.pdf" class="hidden" @change="uploadInvoiceFile(idx, $event.target.files)">
+                      📎 上傳發票
+                      <input type="file" accept="image/jpeg,image/jpg,image/png,image/webp,.pdf" multiple class="hidden" @change="uploadInvoiceFile(idx, $event.target.files)">
                     </label>
-                    <a v-if="wt.invoiceFile" :href="wt.invoiceFile.url" target="_blank"
-                      class="text-[10px] text-purple-500 hover:text-purple-700 underline mt-0.5 inline-block">
-                      查看已上傳的發票
+                    <a v-for="(file, fi) in invoiceFilesOf(wt)" :key="file.url" :href="file.url" target="_blank"
+                      class="text-[10px] text-purple-500 hover:text-purple-700 underline mt-0.5 inline-block mr-1.5">
+                      查看發票{{ invoiceFilesOf(wt).length > 1 ? fi + 1 : '' }}
                     </a>
                   </template>
                 </div>
@@ -1430,6 +1430,7 @@ async function submitForm() {
         done: existing?.done ?? false,
         invoiceTarget: existing?.invoiceTarget ?? null,
         invoiceFile: existing?.invoiceFile ?? null,
+        invoiceFiles: existing?.invoiceFiles ?? [],
         paymentPlan: form.value.paymentPlan,
         locations: form.value.locations.filter(l => l.label),
         customName: existing?.customName ?? false,
@@ -1639,25 +1640,31 @@ async function deleteVendorPayment(vpId) {
     await casesStore.updateCase(props.caseId, { workTypes: updated })
 }
 
+// 舊資料只有單一 wt.invoiceFile，新上傳一律寫進 wt.invoiceFiles 陣列，
+// 這裡統一讀取路徑，讓舊資料自動併入清單第一筆，不用另外寫遷移腳本
+function invoiceFilesOf(wt) {
+    if (Array.isArray(wt.invoiceFiles) && wt.invoiceFiles.length > 0) return wt.invoiceFiles
+    return wt.invoiceFile ? [wt.invoiceFile] : []
+}
+
 async function uploadInvoiceFile(idx, fileList) {
-    const file = fileList?.[0]
-    if (!file) return
-    const err = validateUploadFile(file)
-    if (err) { toast(err, 'error'); return }
+    const files = Array.from(fileList || [])
+    if (!files.length) return
+    for (const file of files) {
+        const err = validateUploadFile(file)
+        if (err) { toast(err, 'error'); return }
+    }
     try {
-        const url = await uploadPhoto(file, 'invoice')
         const wt = workTypes.value[idx]
-        const updated = [...workTypes.value]
-        updated[idx] = {
-            ...wt,
-            invoiceFile: {
-                url,
-                uploadedAt: new Date().toISOString(),
-                uploadedByName: authStore.name ?? '',
-            },
+        const uploaded = []
+        for (const file of files) {
+            const url = await uploadPhoto(file, 'invoice')
+            uploaded.push({ url, uploadedAt: new Date().toISOString(), uploadedByName: authStore.name ?? '' })
         }
+        const updated = [...workTypes.value]
+        updated[idx] = { ...wt, invoiceFiles: [...invoiceFilesOf(wt), ...uploaded] }
         await casesStore.updateCase(props.caseId, { workTypes: updated })
-        toast('發票已上傳')
+        toast(files.length > 1 ? `已上傳 ${files.length} 張發票` : '發票已上傳')
     } catch {
         toast('發票上傳失敗，請重試', 'error')
     }

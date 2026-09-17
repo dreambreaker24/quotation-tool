@@ -24,6 +24,11 @@ vi.mock('firebase/firestore', () => ({
   serverTimestamp: vi.fn(() => 'ts'),
   Timestamp: { fromDate: vi.fn(d => d), now: vi.fn(() => 'ts') },
 }))
+vi.mock('@/composables/useStorage', () => ({
+  uploadPhoto: vi.fn((file) => Promise.resolve(`https://example.com/${file.name}`)),
+  validateUploadFile: vi.fn(() => null),
+  isVideoFile: vi.fn(() => false),
+}))
 
 const caseId = 'case1'
 function makeWt(overrides) {
@@ -442,5 +447,71 @@ describe('WorkTypePanel — 工種拖曳排序', () => {
 
         const savedIds = updateCaseSpy.mock.calls[0][1].workTypes.map(wt => wt.id)
         expect(savedIds).toEqual(['wt_b', 'wt_a', 'wt_x'])
+    })
+})
+
+describe('WorkTypePanel — 發票上傳不限張數', () => {
+    beforeEach(() => {
+        setActivePinia(createPinia())
+    })
+
+    async function mountWithWorkType(wt) {
+        const casesStore = useCasesStore()
+        const authStore = useAuthStore()
+        authStore.role = 'admin'
+        authStore.name = '柏'
+        casesStore.cases = [{ id: caseId, name: '大同區辦公室', companyId: 'north', workTypes: [wt] }]
+        const wrapper = mount(WorkTypePanel, { props: { caseId, caseName: '大同區辦公室' } })
+        await flushPromises()
+        return { wrapper, casesStore }
+    }
+
+    it('一次選多個檔案上傳，全部累加進 invoiceFiles 陣列', async () => {
+        const wt = makeWt({ invoiceFiles: [] })
+        const { wrapper, casesStore } = await mountWithWorkType(wt)
+        const updateCaseSpy = vi.spyOn(casesStore, 'updateCase').mockResolvedValue()
+
+        await wrapper.vm.uploadInvoiceFile(0, [{ name: 'a.jpg' }, { name: 'b.jpg' }])
+
+        const savedWt = updateCaseSpy.mock.calls[0][1].workTypes[0]
+        expect(savedWt.invoiceFiles).toHaveLength(2)
+        expect(savedWt.invoiceFiles[0].url).toBe('https://example.com/a.jpg')
+        expect(savedWt.invoiceFiles[1].url).toBe('https://example.com/b.jpg')
+    })
+
+    it('已經有發票時再上傳，新的會累加、不會蓋掉舊的', async () => {
+        const wt = makeWt({ invoiceFiles: [{ url: 'https://example.com/old.jpg', uploadedAt: 't0', uploadedByName: '蚌' }] })
+        const { wrapper, casesStore } = await mountWithWorkType(wt)
+        const updateCaseSpy = vi.spyOn(casesStore, 'updateCase').mockResolvedValue()
+
+        await wrapper.vm.uploadInvoiceFile(0, [{ name: 'new.jpg' }])
+
+        const savedWt = updateCaseSpy.mock.calls[0][1].workTypes[0]
+        expect(savedWt.invoiceFiles).toHaveLength(2)
+        expect(savedWt.invoiceFiles[0].url).toBe('https://example.com/old.jpg')
+        expect(savedWt.invoiceFiles[1].url).toBe('https://example.com/new.jpg')
+    })
+
+    it('舊資料只有單一 invoiceFile（沒有 invoiceFiles 陣列）時，再上傳會把舊的併入陣列一起保留', async () => {
+        const wt = makeWt({ invoiceFile: { url: 'https://example.com/legacy.jpg', uploadedAt: 't0', uploadedByName: '柏' } })
+        const { wrapper, casesStore } = await mountWithWorkType(wt)
+        const updateCaseSpy = vi.spyOn(casesStore, 'updateCase').mockResolvedValue()
+
+        await wrapper.vm.uploadInvoiceFile(0, [{ name: 'new.jpg' }])
+
+        const savedWt = updateCaseSpy.mock.calls[0][1].workTypes[0]
+        expect(savedWt.invoiceFiles).toHaveLength(2)
+        expect(savedWt.invoiceFiles[0].url).toBe('https://example.com/legacy.jpg')
+        expect(savedWt.invoiceFiles[1].url).toBe('https://example.com/new.jpg')
+    })
+
+    it('沒有選任何檔案時不會呼叫 updateCase', async () => {
+        const wt = makeWt()
+        const { wrapper, casesStore } = await mountWithWorkType(wt)
+        const updateCaseSpy = vi.spyOn(casesStore, 'updateCase').mockResolvedValue()
+
+        await wrapper.vm.uploadInvoiceFile(0, [])
+
+        expect(updateCaseSpy).not.toHaveBeenCalled()
     })
 })
