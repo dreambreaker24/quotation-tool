@@ -86,7 +86,6 @@ export const useUsersStore = defineStore('users', () => {
                 reason: a.source === 'leave'
                     ? `請假${a.leaveType ? `（${a.leaveType}）` : ''}${a.adjustedBy ? `－${a.adjustedBy}` : ''}`
                     : `人工調整${a.adjustedBy ? `（${a.adjustedBy}）` : ''}`,
-                manual: a.source !== 'leave',
                 kind: 'adjustment',
             }))
     }
