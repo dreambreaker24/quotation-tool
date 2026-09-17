@@ -83,7 +83,7 @@
             <input v-model="renameCategoryDraft" type="text" @keyup.enter="confirmRenameCategory(cat.id, cat.label)"
               :disabled="renamingSubmitting"
               class="text-xs border border-gray-200 rounded px-2 py-1 w-24 focus:outline-none focus:ring-1">
-            <button @click="confirmRenameCategory(cat.id, cat.label)" :disabled="renamingSubmitting" class="text-[10px] text-green-600 hover:text-green-800 disabled:opacity-60">確認</button>
+            <button @click="confirmRenameCategory(cat.id, cat.label)" :disabled="renamingSubmitting" class="text-[10px] text-green-600 hover:text-green-800 disabled:opacity-60">{{ renamingSubmitting ? '處理中…' : '確認' }}</button>
             <button @click="cancelRenameCategory" :disabled="renamingSubmitting" class="text-[10px] text-gray-400 hover:text-gray-600">取消</button>
           </div>
           <div v-if="expandedCategories[cat.label] && cat.list.length > 0" class="mx-2 mb-1 flex flex-col gap-1">
@@ -316,6 +316,8 @@ async function confirmRenameCategory(id, oldName) {
         const result = await workCategoriesStore.renameCategory(id, oldName, newName)
         toast(`已更新：${result.vendorCount} 家廠商、${result.workTypeCount} 個工種、${result.bidRequestCount} 筆比價需求`)
         cancelRenameCategory()
+    } catch {
+        toast('改名失敗，請重試', 'error')
     } finally {
         renamingSubmitting.value = false
     }

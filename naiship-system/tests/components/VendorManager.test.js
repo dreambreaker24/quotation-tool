@@ -122,4 +122,18 @@ describe('VendorManager — 改名分類', () => {
 
         expect(renameSpy).not.toHaveBeenCalled()
     })
+
+    it('renameCategory 失敗時跳出錯誤提示，不會卡在改名狀態解不開', async () => {
+        const workCategoriesStore = useWorkCategoriesStore()
+        workCategoriesStore.categories = [{ id: 'c1', name: '油漆', createdAt: 'ts' }]
+        vi.spyOn(workCategoriesStore, 'renameCategory').mockRejectedValue(new Error('network error'))
+        const wrapper = mount(VendorManager)
+        await flushPromises()
+
+        await wrapper.vm.startRenameCategory('c1', '油漆')
+        wrapper.vm.renameCategoryDraft = '油漆工程'
+        await wrapper.vm.confirmRenameCategory('c1', '油漆')
+
+        expect(wrapper.vm.renamingSubmitting).toBe(false)
+    })
 })
