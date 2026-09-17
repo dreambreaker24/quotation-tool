@@ -175,4 +175,30 @@ describe('VendorManager — 刪除分類', () => {
 
         expect(deleteSpy).toHaveBeenCalledWith('c1', '油漆')
     })
+
+    it('使用者取消確認對話框時，不會呼叫 deleteCategory', async () => {
+        const workCategoriesStore = useWorkCategoriesStore()
+        workCategoriesStore.categories = [{ id: 'c1', name: '油漆', createdAt: 'ts' }]
+        const deleteSpy = vi.spyOn(workCategoriesStore, 'deleteCategory').mockResolvedValue({ deleted: true, usage: {} })
+        vi.stubGlobal('confirm', vi.fn(() => false))
+        const wrapper = mount(VendorManager)
+        await flushPromises()
+
+        await wrapper.vm.deleteCategoryWithConfirm('c1', '油漆')
+
+        expect(deleteSpy).not.toHaveBeenCalled()
+    })
+
+    it('deleteCategory 失敗時跳出錯誤提示，不會卡在刪除中狀態解不開', async () => {
+        const workCategoriesStore = useWorkCategoriesStore()
+        workCategoriesStore.categories = [{ id: 'c1', name: '油漆', createdAt: 'ts' }]
+        vi.spyOn(workCategoriesStore, 'deleteCategory').mockRejectedValue(new Error('network error'))
+        vi.stubGlobal('confirm', vi.fn(() => true))
+        const wrapper = mount(VendorManager)
+        await flushPromises()
+
+        await wrapper.vm.deleteCategoryWithConfirm('c1', '油漆')
+
+        expect(wrapper.vm.deletingCategory).toBe(false)
+    })
 })
