@@ -363,7 +363,7 @@
           <label class="text-xs text-gray-500 mb-1 block">工種 *</label>
           <select v-model="selectedCategory" @change="onCategoryChange" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1">
             <option value="">— 請選擇工種 —</option>
-            <option v-for="cat in WORK_CATEGORIES" :key="cat" :value="cat">{{ cat }}</option>
+            <option v-for="cat in workCategoriesStore.categoryNames" :key="cat" :value="cat">{{ cat }}</option>
           </select>
           <div v-if="isLegacyCustomName" class="mt-1.5 text-[11px] text-amber-600 bg-amber-50 rounded-lg px-2.5 py-1.5">
             舊資料：{{ form.name }}（不在標準清單內）
@@ -751,7 +751,7 @@
 </template>
 <script setup>
 import { ref, computed, reactive, onMounted, onUnmounted, nextTick, watch } from 'vue'
-import { WORK_CATEGORIES } from '@/constants/workCategories'
+import { useWorkCategoriesStore } from '@/stores/workCategories'
 import { WT_COLORS } from '@/constants/workTypeColors'
 import { isLegacyCategoryName } from '@/utils/workTypeCategory'
 import { getVendorSpecialties, filterVendorsByCategory } from '@/utils/vendorSpecialty'
@@ -778,6 +778,7 @@ function formatDateChinese(isoDate) {
 
 const props = defineProps({ caseId: String, caseName: String, jumpWorkTypeId: String })
 const vendorsStore = useVendorsStore()
+const workCategoriesStore = useWorkCategoriesStore()
 const casesStore = useCasesStore()
 const authStore = useAuthStore()
 const notifStore = useNotificationsStore()
@@ -1119,7 +1120,7 @@ function onCategoryChange() {
     if (selectedCategory.value) form.value.name = selectedCategory.value
 }
 const isLegacyCustomName = computed(() =>
-    !form.value.customName && isLegacyCategoryName(selectedCategory.value, form.value.name, WORK_CATEGORIES)
+    !form.value.customName && isLegacyCategoryName(selectedCategory.value, form.value.name, workCategoriesStore.categoryNames)
 )
 function clearLegacyCustomName() {
     form.value.name = ''
@@ -1332,7 +1333,7 @@ const remainingVendorAmount = computed(() => {
 
 const regionVendors = computed(() => {
     const vendors = vendorsStore.vendors.filter(v => !v.companyId || v.companyId === caseData.value?.companyId)
-    return filterVendorsByCategory(vendors, selectedCategory.value, WORK_CATEGORIES)
+    return filterVendorsByCategory(vendors, selectedCategory.value, workCategoriesStore.categoryNames)
 })
 function openAdd() {
     suppressPlanWatch.value = true
@@ -1354,7 +1355,7 @@ function openEdit(idx) {
     suppressPlanWatch.value = true
     editingIdx.value = idx
     const wt = workTypes.value[idx]
-    selectedCategory.value = WORK_CATEGORIES.includes(wt.name) ? wt.name : ''
+    selectedCategory.value = workCategoriesStore.categoryNames.includes(wt.name) ? wt.name : ''
     vendorSearch.value = wt.vendorName || ''
     form.value = {
         name: wt.name,

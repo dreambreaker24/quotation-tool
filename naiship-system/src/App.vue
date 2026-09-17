@@ -41,6 +41,7 @@ import { useVendorsStore } from '@/stores/vendors'
 import { useUsersStore } from '@/stores/users'
 import { useClientsStore } from '@/stores/clients'
 import { usePettyCashStore } from '@/stores/pettyCash'
+import { useWorkCategoriesStore } from '@/stores/workCategories'
 
 const route = useRoute()
 const { toasts } = useToast()
@@ -49,6 +50,7 @@ const vendorsStore = useVendorsStore()
 const usersStore = useUsersStore()
 const clientsStore = useClientsStore()
 const pettyCashStore = usePettyCashStore()
+const workCategoriesStore = useWorkCategoriesStore()
 
 async function handleToastAction(t) {
     await t.action.onClick()
@@ -61,11 +63,13 @@ watch(() => authStore.user, (u) => {
         usersStore.subscribe()
         clientsStore.subscribe(['south', 'north', 'central'])
         pettyCashStore.subscribe()
+        workCategoriesStore.subscribe()
     } else {
         vendorsStore.cleanup()
         usersStore.cleanup()
         clientsStore.cleanup()
         pettyCashStore.cleanup()
+        workCategoriesStore.cleanup()
     }
 }, { immediate: true })
 </script>

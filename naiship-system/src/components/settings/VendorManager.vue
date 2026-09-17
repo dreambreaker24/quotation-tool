@@ -123,7 +123,7 @@
         <div>
           <label class="text-xs text-gray-500 mb-1 block">工種分類 *（可複選）</label>
           <div class="flex flex-wrap gap-1.5">
-            <button v-for="cat in VENDOR_CATEGORIES" :key="cat" type="button"
+            <button v-for="cat in workCategoriesStore.categoryNames" :key="cat" type="button"
               @click="toggleSpecialty(cat)"
               class="text-xs px-2.5 py-1 rounded-full border transition-colors"
               :class="form.specialties.includes(cat) ? 'text-white border-transparent' : 'text-gray-500 border-gray-200 hover:border-gray-400'"
@@ -205,13 +205,14 @@
 </template>
 <script setup>
 import { ref, computed, reactive } from 'vue'
-import { WORK_CATEGORIES as VENDOR_CATEGORIES } from '@/constants/workCategories'
+import { useWorkCategoriesStore } from '@/stores/workCategories'
 import { useVendorsStore } from '@/stores/vendors'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
 import { getVendorSpecialties, filterVendorsByCategory } from '@/utils/vendorSpecialty'
 
 const vendorsStore = useVendorsStore()
+const workCategoriesStore = useWorkCategoriesStore()
 const authStore = useAuthStore()
 const { toast } = useToast()
 
@@ -221,20 +222,20 @@ function toggleCategory(label) {
     expandedCategories[label] = !expandedCategories[label]
 }
 
-const standardCategories = VENDOR_CATEGORIES.filter(c => c !== '其他')
+const standardCategories = computed(() => workCategoriesStore.categoryNames.filter(c => c !== '其他'))
 
 const allCategories = computed(() => {
-    const result = standardCategories.map(label => ({
+    const result = standardCategories.value.map(label => ({
         label,
         list: vendorsStore.vendors.filter(v => getVendorSpecialties(v).includes(label)),
     }))
-    const others = filterVendorsByCategory(vendorsStore.vendors, '其他', VENDOR_CATEGORIES)
+    const others = filterVendorsByCategory(vendorsStore.vendors, '其他', workCategoriesStore.categoryNames)
     if (others.length > 0) result.push({ label: '其他', list: others })
     return result
 })
 
 const hasUncategorized = computed(() =>
-    filterVendorsByCategory(vendorsStore.vendors, '其他', VENDOR_CATEGORIES).length > 0
+    filterVendorsByCategory(vendorsStore.vendors, '其他', workCategoriesStore.categoryNames).length > 0
 )
 
 const missingFormVendors = computed(() => vendorsStore.vendors.filter(v => !v.formSubmitted))

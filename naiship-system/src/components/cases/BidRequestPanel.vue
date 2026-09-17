@@ -121,7 +121,7 @@
                     <label class="text-[11px] text-gray-500 mb-1 block">工種（選填）</label>
                     <select v-model="winnerWorkCategory" class="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-1">
                       <option value="">— 未分類 —</option>
-                      <option v-for="cat in WORK_CATEGORIES" :key="cat" :value="cat">{{ cat }}</option>
+                      <option v-for="cat in workCategoriesStore.categoryNames" :key="cat" :value="cat">{{ cat }}</option>
                     </select>
                   </div>
                 </div>
@@ -185,7 +185,7 @@
 </template>
 <script setup>
 import { ref, computed, reactive, onMounted, onUnmounted } from 'vue'
-import { WORK_CATEGORIES } from '@/constants/workCategories'
+import { useWorkCategoriesStore } from '@/stores/workCategories'
 import { filterVendorsByCategory } from '@/utils/vendorSpecialty'
 import { useBidRequestsStore, buildWinningWorkType } from '@/stores/bidRequests'
 import { useVendorsStore } from '@/stores/vendors'
@@ -200,6 +200,7 @@ import { db } from '@/firebase'
 const props = defineProps({ caseId: String, caseName: String })
 const bidRequestsStore = useBidRequestsStore()
 const vendorsStore = useVendorsStore()
+const workCategoriesStore = useWorkCategoriesStore()
 const casesStore = useCasesStore()
 const authStore = useAuthStore()
 const usersStore = useUsersStore()
@@ -266,7 +267,7 @@ function openEditBid(br, bid) {
 
 function filteredVendorList(category) {
     const vendors = vendorsStore.vendors.filter(v => !v.companyId || v.companyId === caseData.value?.companyId)
-    const byCategory = filterVendorsByCategory(vendors, category, WORK_CATEGORIES)
+    const byCategory = filterVendorsByCategory(vendors, category, workCategoriesStore.categoryNames)
     const kw = vendorSearch.value.trim()
     if (!kw) return byCategory
     return byCategory.filter(v => v.name.includes(kw))
