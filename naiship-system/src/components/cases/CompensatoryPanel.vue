@@ -130,15 +130,24 @@
       <div v-if="detailLoading" class="text-xs text-gray-400 text-center py-4">載入中…</div>
       <div v-else-if="detailError" class="text-xs text-red-400 text-center py-4">載入失敗，請重新開啟明細</div>
       <div v-else-if="detailEntries.length === 0" class="text-xs text-gray-400 text-center py-4">尚無異動紀錄</div>
-      <div v-else class="flex flex-col gap-1.5 max-h-72 overflow-y-auto">
-        <div v-for="(e, i) in detailEntries" :key="i" class="flex items-center gap-3 justify-between text-xs border rounded-lg px-3 py-2"
-          :class="e.kind === 'adjustment' ? 'border-amber-100 bg-amber-50' : 'border-gray-100 bg-gray-50'">
-          <span class="text-gray-600 whitespace-nowrap">{{ formatDetailDate(e.date) }}</span>
-          <span class="font-semibold whitespace-nowrap"
-            :class="e.kind === 'leave' ? 'text-red-500' : e.kind === 'cashout' ? 'text-purple-600' : 'text-gray-800'">
-            {{ e.hours > 0 ? '+' : '' }}{{ e.hours }} {{ detailType === 'annual' ? '天' : '小時' }}
-          </span>
-          <span class="text-gray-400 truncate flex-1 text-right">{{ e.reason }}</span>
+      <div v-else class="flex flex-col gap-1 max-h-72 overflow-y-auto">
+        <div v-for="g in detailGroups" :key="g.monthKey ?? 'unknown'">
+          <button type="button" @click="toggleMonth(g.monthKey)"
+            class="w-full flex items-center justify-between text-[11px] text-gray-500 font-semibold px-1 py-1.5 hover:text-gray-700">
+            <span>{{ g.label }}</span>
+            <span>{{ expandedMonths.has(g.monthKey) ? '▾' : '▸' }}</span>
+          </button>
+          <div v-if="expandedMonths.has(g.monthKey)" class="flex flex-col gap-1.5 pb-1.5">
+            <div v-for="(e, i) in g.entries" :key="i" class="flex items-center gap-3 justify-between text-xs border rounded-lg px-3 py-2"
+              :class="e.kind === 'adjustment' ? 'border-amber-100 bg-amber-50' : 'border-gray-100 bg-gray-50'">
+              <span class="text-gray-600 whitespace-nowrap">{{ formatDetailDate(e.date) }}</span>
+              <span class="font-semibold whitespace-nowrap"
+                :class="e.kind === 'leave' ? 'text-red-500' : e.kind === 'cashout' ? 'text-purple-600' : 'text-gray-800'">
+                {{ e.hours > 0 ? '+' : '' }}{{ e.hours }} {{ detailType === 'annual' ? '天' : '小時' }}
+              </span>
+              <span class="text-gray-400 truncate flex-1 text-right">{{ e.reason }}</span>
+            </div>
+          </div>
         </div>
       </div>
       <div class="flex justify-end mt-4">
@@ -155,7 +164,7 @@ import { useCalendarEventsStore } from '@/stores/calendarEvents'
 import { useToast } from '@/composables/useToast'
 import { getAnnualLeaveCycleInfo } from '@/utils/annualLeaveSchedule'
 import { consumeFIFO, sumRemainingHours, expiredEntries, valueForConsumption } from '@/utils/compLedger'
-import { mapCashoutEntries, mapLeaveEntries, mergeCompHistory } from '@/utils/compHistory'
+import { mapCashoutEntries, mapLeaveEntries, mergeCompHistory, groupHistoryByMonth } from '@/utils/compHistory'
 import { hoursToDays } from '@/utils/leaveConversion'
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/firebase'
@@ -219,6 +228,22 @@ const detailUserId = ref(null)
 const detailError = ref(false)
 let detailRequestId = 0
 
+const expandedMonths = ref(new Set())
+
+function currentMonthKey() {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
+const detailGroups = computed(() => groupHistoryByMonth(detailEntries.value))
+
+function toggleMonth(monthKey) {
+    const next = new Set(expandedMonths.value)
+    if (next.has(monthKey)) next.delete(monthKey)
+    else next.add(monthKey)
+    expandedMonths.value = next
+}
+
 function getHours(name, field) {
     if (field === 'compensatoryHours') return compHours(name, '平日')
     if (field === 'compensatoryHolidayHours') return compHours(name, '休息日')
@@ -243,6 +268,7 @@ async function openDetail(name, type, label) {
     detailLabel.value = label
     const user = usersStore.users.find(u => u.name === name)
     detailUserId.value = user?.id ?? null
+    expandedMonths.value = new Set([currentMonthKey()])
     await loadDetail()
 }
 
