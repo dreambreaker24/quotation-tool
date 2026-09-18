@@ -39,10 +39,11 @@
         <span class="text-xl font-bold" :class="benBalance < 10000 ? 'text-red-500' : 'text-gray-800'">
           ${{ benBalance.toLocaleString() }}
         </span>
+        <span class="text-xs text-gray-400">/ ${{ totalPool.toLocaleString() }}</span>
       </div>
       <div class="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
         <div class="h-full rounded-full transition-all"
-          :style="`width:${Math.min(100, Math.max(0, benBalance / (settings.benBudget || 1) * 100))}%;background:${benBalance < 10000 ? '#ef4444' : '#1f2937'}`"></div>
+          :style="`width:${Math.min(100, Math.max(0, benBalance / (totalPool || 1) * 100))}%;background:${benBalance < 10000 ? '#ef4444' : '#1f2937'}`"></div>
       </div>
     </div>
   </div>
@@ -57,5 +58,6 @@ const laiBalance = computed(() => store.laiBalance)
 const bunExpenseThisMonth = computed(() => store.bunExpenseThisMonth)
 const laiExpenseThisMonth = computed(() => store.laiExpenseThisMonth)
 const benBalance = computed(() => store.benBalance)
+const totalPool = computed(() => store.benBalance + store.bunBalance + store.laiBalance)
 const settings = computed(() => store.settings)
 </script>
