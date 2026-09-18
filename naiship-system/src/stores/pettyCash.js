@@ -72,6 +72,22 @@ export const usePettyCashStore = defineStore('pettyCash', () => {
         }, 0)
     )
 
+    const bunExpenseThisMonth = computed(() => {
+        const ym = new Date().toISOString().slice(0, 7)
+        return entries.value.reduce((sum, e) => {
+            if (e.payerName !== '蚌' || e.type !== 'expense' || e.date?.slice(0, 7) !== ym) return sum
+            return sum + (e.amount || 0)
+        }, 0)
+    })
+
+    const laiExpenseThisMonth = computed(() => {
+        const ym = new Date().toISOString().slice(0, 7)
+        return entries.value.reduce((sum, e) => {
+            if (e.payerName !== '賴賴' || e.type !== 'expense' || e.date?.slice(0, 7) !== ym) return sum
+            return sum + (e.amount || 0)
+        }, 0)
+    })
+
     // 總零用金（柏手上實際的現金）：補款進來會增加，發放給蚌／賴賴保管會減少（不管發給誰），
     // 蚌／賴賴歸還會加回來，柏自己（或蚌賴賴以外任何人）的支出會減少。
     const benBalance = computed(() =>
@@ -148,7 +164,7 @@ export const usePettyCashStore = defineStore('pettyCash', () => {
     }
 
     return {
-        entries, settings, bunBalance, laiBalance, benBalance,
+        entries, settings, bunBalance, laiBalance, benBalance, bunExpenseThisMonth, laiExpenseThisMonth,
         subscribe, cleanup, addEntry, updateEntry, deleteEntry, updateSettings
     }
 })

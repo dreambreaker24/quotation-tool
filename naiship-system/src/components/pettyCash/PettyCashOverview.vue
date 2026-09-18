@@ -9,10 +9,11 @@
         </span>
         <span class="text-xs text-gray-400">/ ${{ settings.bunBudget?.toLocaleString() }}</span>
       </div>
-      <div class="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+      <div class="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden mb-1.5">
         <div class="h-full rounded-full transition-all"
           :style="`width:${Math.min(100, Math.max(0, bunBalance / (settings.bunBudget || 1) * 100))}%;background:${bunBalance < 5000 ? '#ef4444' : '#22c55e'}`"></div>
       </div>
+      <div class="text-[11px] text-gray-400">本月花費 ${{ bunExpenseThisMonth.toLocaleString() }}</div>
     </div>
 
     <!-- 賴賴 -->
@@ -24,10 +25,11 @@
         </span>
         <span class="text-xs text-gray-400">/ ${{ settings.laiBudget?.toLocaleString() }}</span>
       </div>
-      <div class="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+      <div class="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden mb-1.5">
         <div class="h-full rounded-full transition-all"
           :style="`width:${Math.min(100, Math.max(0, laiBalance / (settings.laiBudget || 1) * 100))}%;background:${laiBalance < 5000 ? '#ef4444' : '#22c55e'}`"></div>
       </div>
+      <div class="text-[11px] text-gray-400">本月花費 ${{ laiExpenseThisMonth.toLocaleString() }}</div>
     </div>
 
     <!-- 總零用金：柏當下的現金餘額 -->
@@ -52,6 +54,8 @@ import { usePettyCashStore } from '@/stores/pettyCash'
 const store = usePettyCashStore()
 const bunBalance = computed(() => store.bunBalance)
 const laiBalance = computed(() => store.laiBalance)
+const bunExpenseThisMonth = computed(() => store.bunExpenseThisMonth)
+const laiExpenseThisMonth = computed(() => store.laiExpenseThisMonth)
 const benBalance = computed(() => store.benBalance)
 const settings = computed(() => store.settings)
 </script>

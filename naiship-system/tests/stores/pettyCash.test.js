@@ -63,4 +63,20 @@ describe('pettyCash store — benBalance（柏零用金）', () => {
         expect(store.benBalance).toBe(50000)
         expect(store.bunBalance).toBe(-3000)
     })
+
+    it('本月花費只算 date 落在當月、type 為 expense 的記錄', () => {
+        const store = usePettyCashStore()
+        const thisMonth = new Date().toISOString().slice(0, 7)
+        store.entries = [
+            // 之前月份：不該算進本月花費
+            { date: '2020-01-15', type: 'expense', payerName: '蚌', amount: 9999 },
+            // 本月：蚌花兩筆、賴賴花一筆，發放/歸還不算花費
+            { date: `${thisMonth}-05`, type: 'expense', payerName: '蚌', amount: 1000 },
+            { date: `${thisMonth}-06`, type: 'expense', payerName: '蚌', amount: 500 },
+            { date: `${thisMonth}-07`, type: 'expense', payerName: '賴賴', amount: 300 },
+            { date: `${thisMonth}-08`, type: 'distribute', payerName: '蚌', amount: 30000 },
+        ]
+        expect(store.bunExpenseThisMonth).toBe(1500)
+        expect(store.laiExpenseThisMonth).toBe(300)
+    })
 })
