@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { mapCashoutEntries, mapLeaveEntries, mergeCompHistory } from '@/utils/compHistory'
+import { mapCashoutEntries, mapLeaveEntries, mergeCompHistory, groupHistoryByMonth } from '@/utils/compHistory'
 
 describe('mapCashoutEntries', () => {
   it('把換現金紀錄轉成負數時數的明細格式', () => {
@@ -70,5 +70,56 @@ describe('mergeCompHistory', () => {
     const a = [{ date: new Date('2026-09-01'), hours: 1, reason: 'a', kind: 'accrual' }]
     const result = mergeCompHistory(a, [], [])
     expect(result).toEqual(a)
+  })
+})
+
+describe('groupHistoryByMonth', () => {
+  it('依年月分組，組間新到舊排序', () => {
+    const entries = [
+      { date: new Date('2026-08-05'), hours: 1, reason: 'a', kind: 'accrual' },
+      { date: new Date('2026-09-10'), hours: -1, reason: 'b', kind: 'leave' },
+    ]
+    const result = groupHistoryByMonth(entries)
+    expect(result.map(g => g.monthKey)).toEqual(['2026-09', '2026-08'])
+  })
+
+  it('組內依日期舊到新排序', () => {
+    const entries = [
+      { date: new Date('2026-09-20'), hours: -1, reason: 'late', kind: 'leave' },
+      { date: new Date('2026-09-05'), hours: 3, reason: 'early', kind: 'accrual' },
+    ]
+    const result = groupHistoryByMonth(entries)
+    expect(result[0].entries.map(e => e.reason)).toEqual(['early', 'late'])
+  })
+
+  it('月份標題文字格式正確', () => {
+    const entries = [{ date: new Date('2026-01-15'), hours: 1, reason: 'a', kind: 'accrual' }]
+    const result = groupHistoryByMonth(entries)
+    expect(result[0].label).toBe('2026年1月')
+  })
+
+  it('日期是 null 的異動歸進「日期不明」分組，排在最後', () => {
+    const entries = [
+      { date: new Date('2026-09-05'), hours: 1, reason: 'has-date', kind: 'accrual' },
+      { date: null, hours: 1, reason: 'no-date', kind: 'adjustment' },
+    ]
+    const result = groupHistoryByMonth(entries)
+    expect(result.map(g => g.monthKey)).toEqual(['2026-09', null])
+    expect(result[1].label).toBe('日期不明')
+    expect(result[1].entries.map(e => e.reason)).toEqual(['no-date'])
+  })
+
+  it('空陣列輸入回傳空陣列', () => {
+    expect(groupHistoryByMonth([])).toEqual([])
+  })
+
+  it('同一個月份的多筆異動會分在同一組', () => {
+    const entries = [
+      { date: new Date('2026-09-05'), hours: 1, reason: 'x', kind: 'accrual' },
+      { date: new Date('2026-09-20'), hours: -1, reason: 'y', kind: 'leave' },
+    ]
+    const result = groupHistoryByMonth(entries)
+    expect(result.length).toBe(1)
+    expect(result[0].entries.length).toBe(2)
   })
 })

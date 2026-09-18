@@ -30,3 +30,27 @@ export function mergeCompHistory(...entryLists) {
         return b.date - a.date
     })
 }
+
+// 把 mergeCompHistory 的攤平輸出依年月重新分組：組間新到舊、組內舊到新。
+// 日期是 null 的異動（理論上不會發生，這裡防禦性處理）歸進「日期不明」分組放最後。
+export function groupHistoryByMonth(entries) {
+    const groups = new Map()
+    const noDate = []
+    for (const e of entries) {
+        if (!e.date) { noDate.push(e); continue }
+        const monthKey = `${e.date.getFullYear()}-${String(e.date.getMonth() + 1).padStart(2, '0')}`
+        if (!groups.has(monthKey)) groups.set(monthKey, [])
+        groups.get(monthKey).push(e)
+    }
+    const result = [...groups.entries()]
+        .sort((a, b) => b[0].localeCompare(a[0]))
+        .map(([monthKey, monthEntries]) => ({
+            monthKey,
+            label: `${monthKey.slice(0, 4)}年${Number(monthKey.slice(5, 7))}月`,
+            entries: [...monthEntries].sort((a, b) => a.date - b.date),
+        }))
+    if (noDate.length) {
+        result.push({ monthKey: null, label: '日期不明', entries: noDate })
+    }
+    return result
+}
