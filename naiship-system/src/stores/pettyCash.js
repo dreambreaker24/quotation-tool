@@ -13,6 +13,7 @@ const SETTINGS_PATH = 'settings/pettyCash'
 export const usePettyCashStore = defineStore('pettyCash', () => {
     const entries = ref([])
     const settings = ref({
+        benBudget: 10000,
         bunBudget: 30000,
         laiBudget: 10000,
         lastNotifiedBunLow: '',
@@ -75,6 +76,20 @@ export const usePettyCashStore = defineStore('pettyCash', () => {
             if (e.type === 'distribute') return sum + (e.amount || 0)
             if (e.type === 'expense') return sum - (e.amount || 0)
             if (e.type === 'return') return sum - (e.amount || 0)
+            return sum
+        }, 0)
+    )
+
+    // 柏手上實際的現金：補款進來會增加，發放給蚌／賴賴保管會減少（不管發給誰），
+    // 蚌／賴賴歸還會加回來，柏自己（或蚌賴賴以外任何人）的支出會減少。
+    // 這樣算出來的柏零用金 + 蚌零用金 + 賴賴零用金，永遠等於 totalBalance（補款總額－全部支出），
+    // 因為錢只是在「柏／蚌／賴賴」之間轉移，不會憑空增加或消失。
+    const benBalance = computed(() =>
+        entries.value.reduce((sum, e) => {
+            if (e.type === 'topup') return sum + (e.amount || 0)
+            if (e.type === 'distribute') return sum - (e.amount || 0)
+            if (e.type === 'return') return sum + (e.amount || 0)
+            if (e.type === 'expense' && e.payerName !== '蚌' && e.payerName !== '賴賴') return sum - (e.amount || 0)
             return sum
         }, 0)
     )
@@ -143,7 +158,7 @@ export const usePettyCashStore = defineStore('pettyCash', () => {
     }
 
     return {
-        entries, settings, totalBalance, bunBalance, laiBalance,
+        entries, settings, totalBalance, bunBalance, laiBalance, benBalance,
         subscribe, cleanup, addEntry, updateEntry, deleteEntry, updateSettings
     }
 })
