@@ -298,6 +298,12 @@ describe('applyVendorItemPayment', () => {
         expect(applyVendorItemPayment(makeWorkTypes(), 'wt1', { itemId: 'i1', amount: 0, paidDate: '2026-09-21' })).toBeNull()
         expect(applyVendorItemPayment(makeWorkTypes(), 'wt1', { itemId: 'i1', amount: -100, paidDate: '2026-09-21' })).toBeNull()
     })
+
+    it('項目已經付清時回傳 null，避免重複提交造成金額灌水', () => {
+        const workTypes = makeWorkTypes()
+        workTypes[0].vendorPayments = [{ id: 'vp0', amount: 10000, paidDate: '2026-09-01', itemAllocations: [{ itemId: 'i1', amount: 10000 }] }]
+        expect(applyVendorItemPayment(workTypes, 'wt1', { itemId: 'i1', amount: 5000, paidDate: '2026-09-21' })).toBeNull()
+    })
 })
 
 describe('applyVendorStagePayment', () => {

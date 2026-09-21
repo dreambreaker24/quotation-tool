@@ -103,6 +103,7 @@ export function applyVendorItemPayment(workTypes, workTypeId, { itemId, amount, 
     const item = (wt.vendorCostItems || []).find(i => i.id === itemId)
     if (!item) return null
     if (amount <= 0) return null
+    if (itemPaid(wt, itemId) >= item.amount && item.amount > 0) return null
     const allocations = allocatePayment(amount, [item], wt)
     const newVendorPayments = [...(wt.vendorPayments || []), {
         id: `vp_${Date.now()}`,
