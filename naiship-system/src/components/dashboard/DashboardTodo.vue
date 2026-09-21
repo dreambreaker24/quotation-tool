@@ -89,10 +89,10 @@
       </div>
 
       <!-- 逾期未收款 -->
-      <div v-if="overduePayments.length > 0">
+      <div v-if="overduePayments.length > 0 || recentlyPaidMilestones.length > 0">
         <div class="text-[10px] font-semibold text-gray-400 mb-1.5 uppercase tracking-wide">逾期未收款</div>
         <div v-for="p in overduePayments" :key="`${p.caseId}-${p.label}`"
-          @click="router.push({ name: 'cases', query: { region: p.companyId } })"
+          @click="router.push({ name: 'cases', query: { region: p.companyId, caseId: p.caseId, caseTab: 'payment' } })"
           class="flex items-center justify-between px-3 py-2 rounded-xl border border-orange-100 bg-orange-50 mb-1.5 last:mb-0 cursor-pointer hover:bg-orange-100 transition-colors">
           <div>
             <div class="text-xs font-semibold text-gray-800">{{ p.caseName }}</div>
@@ -100,6 +100,17 @@
           </div>
           <span class="text-[10px] font-semibold text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full flex-shrink-0 ml-2">
             ${{ (p.amount - p.paidAmount).toLocaleString() }} 未收
+          </span>
+        </div>
+        <div v-for="p in recentlyPaidMilestones" :key="`done-${p.caseId}-${p.label}`"
+          @click="router.push({ name: 'cases', query: { region: p.companyId, caseId: p.caseId, caseTab: 'payment' } })"
+          class="flex items-center justify-between px-3 py-2 rounded-xl border border-gray-100 bg-gray-50 mb-1.5 last:mb-0 cursor-pointer hover:bg-gray-100 transition-colors opacity-70">
+          <div>
+            <div class="text-xs font-semibold text-gray-500">{{ p.caseName }}</div>
+            <div class="text-[10px] text-gray-400">{{ p.label }}</div>
+          </div>
+          <span class="text-[10px] font-semibold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full flex-shrink-0 ml-2">
+            ✓ 已完成
           </span>
         </div>
       </div>
@@ -115,6 +126,7 @@ import { useTodosStore } from '@/stores/todos'
 import { useAuthStore } from '@/stores/auth'
 import { useUsersStore } from '@/stores/users'
 import { useNotificationsStore } from '@/stores/notifications'
+import { isWithinDays } from '@/utils/dateRetention'
 
 const router = useRouter()
 const casesStore = useCasesStore()
@@ -212,7 +224,22 @@ const overduePayments = computed(() => {
     return result.sort((a, b) => a.dueStr.localeCompare(b.dueStr))
 })
 
-const totalCount = computed(() => urgentCases.value.length + followUpClients.value.length + overduePayments.value.length)
+const recentlyPaidMilestones = computed(() => {
+    const result = []
+    casesStore.cases.forEach(c => {
+        if (!c.paymentMilestones?.length) return
+        c.paymentMilestones.forEach(p => {
+            const amount = p.amount || 0
+            const paidAmount = p.paidAmount || 0
+            if (amount <= 0 || paidAmount < amount) return
+            if (!isWithinDays(p.paidDate, 3)) return
+            result.push({ caseName: c.name, caseId: c.id, companyId: c.companyId, label: p.label })
+        })
+    })
+    return result
+})
+
+const totalCount = computed(() => urgentCases.value.length + followUpClients.value.length + overduePayments.value.length + recentlyPaidMilestones.value.length)
 
 function deadlineLabel(deadline) {
     const dl = deadline.toDate?.()
