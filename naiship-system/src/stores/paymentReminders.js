@@ -1,8 +1,9 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { collection, query, where, onSnapshot, addDoc, updateDoc, doc, serverTimestamp, setDoc, deleteDoc, getDoc } from 'firebase/firestore'
+import { collection, query, onSnapshot, addDoc, updateDoc, doc, serverTimestamp, setDoc, deleteDoc, getDoc } from 'firebase/firestore'
 import { db } from '@/firebase'
 import { useAuthStore } from '@/stores/auth'
+import { isWithinDays } from '@/utils/dateRetention'
 
 export const usePaymentRemindersStore = defineStore('paymentReminders', () => {
     const reminders = ref([])
@@ -10,10 +11,7 @@ export const usePaymentRemindersStore = defineStore('paymentReminders', () => {
 
     function subscribe() {
         if (unsubscribe) unsubscribe()
-        const q = query(
-            collection(db, 'paymentReminders'),
-            where('status', '==', 'pending')
-        )
+        const q = query(collection(db, 'paymentReminders'))
         unsubscribe = onSnapshot(q,
             snap => { reminders.value = snap.docs.map(d => ({ id: d.id, ...d.data() })) },
             err => console.error('[paymentReminders] onSnapshot error:', err)
@@ -25,12 +23,12 @@ export const usePaymentRemindersStore = defineStore('paymentReminders', () => {
         reminders.value = []
     }
 
-    const pendingOwner = computed(() => reminders.value.filter(r => r.type === 'owner' && (!r.source || r.source === 'manual')))
-    const pendingVendor = computed(() => reminders.value.filter(r => r.type === 'vendor' && (!r.source || r.source === 'manual')))
+    const pendingOwner = computed(() => reminders.value.filter(r => r.status === 'pending' && r.type === 'owner' && (!r.source || r.source === 'manual')))
+    const pendingVendor = computed(() => reminders.value.filter(r => r.status === 'pending' && r.type === 'vendor' && (!r.source || r.source === 'manual')))
 
     const upcomingAuto = computed(() =>
         reminders.value
-            .filter(r => r.source === 'auto')
+            .filter(r => r.status === 'pending' && r.source === 'auto')
             .sort((a, b) => (a.dueDate || '').localeCompare(b.dueDate || ''))
     )
 
@@ -56,6 +54,14 @@ export const usePaymentRemindersStore = defineStore('paymentReminders', () => {
             r.type === 'owner' && r.dueDate >= start && r.dueDate <= end
         )
     })
+
+    const recentlyDoneVendor = computed(() =>
+        reminders.value.filter(r => r.type === 'vendor' && r.status === 'done' && isWithinDays(r.doneAt, 3))
+    )
+
+    const recentlyDoneOwner = computed(() =>
+        reminders.value.filter(r => r.type === 'owner' && r.status === 'done' && isWithinDays(r.doneAt, 3))
+    )
 
     function nextMonthEndStr() {
         const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Taipei' })
@@ -124,6 +130,7 @@ export const usePaymentRemindersStore = defineStore('paymentReminders', () => {
     return {
         reminders, pendingOwner, pendingVendor,
         upcomingAuto, upcomingAutoSoon, upcomingOwnerSoon,
+        recentlyDoneVendor, recentlyDoneOwner,
         vendorDisplayItems,
         subscribe, cleanup,
         addReminder, markDone,

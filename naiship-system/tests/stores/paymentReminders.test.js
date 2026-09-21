@@ -117,3 +117,57 @@ describe('usePaymentRemindersStore — reminderExists', () => {
         expect(result).toBe(false)
     })
 })
+
+describe('usePaymentRemindersStore — pending 篩選跟最近完成', () => {
+    beforeEach(() => {
+        setActivePinia(createPinia())
+        vi.setSystemTime(MOCK_NOW)
+    })
+    afterEach(() => vi.useRealTimers())
+
+    it('pendingVendor 只列 status 為 pending 的記錄', () => {
+        const store = usePaymentRemindersStore()
+        store.reminders = [
+            { id: 'r1', type: 'vendor', status: 'pending' },
+            { id: 'r2', type: 'vendor', status: 'done', doneAt: { toDate: () => new Date('2026-06-29') } },
+        ]
+        expect(store.pendingVendor.map(r => r.id)).toEqual(['r1'])
+    })
+
+    it('pendingOwner 只列 status 為 pending 的記錄', () => {
+        const store = usePaymentRemindersStore()
+        store.reminders = [
+            { id: 'r1', type: 'owner', status: 'pending' },
+            { id: 'r2', type: 'owner', status: 'done', doneAt: { toDate: () => new Date('2026-06-29') } },
+        ]
+        expect(store.pendingOwner.map(r => r.id)).toEqual(['r1'])
+    })
+
+    it('recentlyDoneVendor 列出 3 天內完成的 vendor 記錄', () => {
+        const store = usePaymentRemindersStore()
+        store.reminders = [
+            { id: 'r1', type: 'vendor', status: 'done', doneAt: { toDate: () => new Date('2026-06-28') } },
+            { id: 'r2', type: 'vendor', status: 'done', doneAt: { toDate: () => new Date('2026-06-01') } },
+            { id: 'r3', type: 'vendor', status: 'pending' },
+        ]
+        expect(store.recentlyDoneVendor.map(r => r.id)).toEqual(['r1'])
+    })
+
+    it('recentlyDoneOwner 列出 3 天內完成的 owner 記錄', () => {
+        const store = usePaymentRemindersStore()
+        store.reminders = [
+            { id: 'r1', type: 'owner', status: 'done', doneAt: { toDate: () => new Date('2026-06-28') } },
+            { id: 'r2', type: 'owner', status: 'done', doneAt: { toDate: () => new Date('2026-06-01') } },
+        ]
+        expect(store.recentlyDoneOwner.map(r => r.id)).toEqual(['r1'])
+    })
+
+    it('upcomingAutoSoon 排除已完成的記錄（改用全量抓取後，之前只靠查詢排除 done 的行為要維持）', () => {
+        const store = usePaymentRemindersStore()
+        store.reminders = [
+            { id: 'r1', type: 'vendor', source: 'auto', status: 'pending', dueDate: '2026-06-30' },
+            { id: 'r2', type: 'vendor', source: 'auto', status: 'done', dueDate: '2026-06-30', doneAt: { toDate: () => new Date('2026-06-28') } },
+        ]
+        expect(store.upcomingAutoSoon.map(r => r.id)).toEqual(['r1'])
+    })
+})
