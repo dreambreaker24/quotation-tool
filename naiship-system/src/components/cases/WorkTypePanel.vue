@@ -755,7 +755,7 @@ import { useWorkCategoriesStore } from '@/stores/workCategories'
 import { WT_COLORS } from '@/constants/workTypeColors'
 import { isLegacyCategoryName } from '@/utils/workTypeCategory'
 import { getVendorSpecialties, filterVendorsByCategory } from '@/utils/vendorSpecialty'
-import { wtVendorCostTotal, totalVendorPaid, vendorInvoiceStatus, itemPaid, allocatePayment, stageAmountOf } from '@/utils/workTypeInvoice'
+import { wtVendorCostTotal, totalVendorPaid, vendorInvoiceStatus, itemPaid, allocatePayment, stageAmountOf, applyVendorStagePayment } from '@/utils/workTypeInvoice'
 import { suggestPaymentPlan, makeStage } from '@/utils/paymentPlan'
 import { useVendorsStore } from '@/stores/vendors'
 import { useCasesStore } from '@/stores/cases'
@@ -1542,6 +1542,7 @@ function buildPaymentPlanStagePayload(stage, wt, stageAmount) {
         workTypeId: wt.id,
         workTypeName: wt.name,
         vendorName: wt.vendorName || '',
+        stageId: stage.id,
         description: stage.name,
         amount: stageAmount,
         note: '',
@@ -1591,24 +1592,13 @@ async function completePlanStage(idx, stageId) {
     savingPlanStage.value = true
     try {
         const wt = workTypes.value[idx]
-        const stage = wt.paymentPlan?.stages?.find(s => s.id === stageId)
-        if (!stage) return
-        const docId = paymentPlanStageDocId(wt, stage)
-        const amount = stageAmountOf(wt, stage)
         const today = new Date().toISOString().slice(0, 10)
-
-        const newStages = wt.paymentPlan.stages.map(s => s.id === stageId ? { ...s, status: 'done' } : s)
-        const newVendorPayments = [...(wt.vendorPayments || []), {
-            id: `vp_${Date.now()}`,
-            amount,
-            paidDate: today,
-            note: stage.name,
-        }]
-        const updated = [...workTypes.value]
-        updated[idx] = { ...wt, paymentPlan: { ...wt.paymentPlan, stages: newStages }, vendorPayments: newVendorPayments }
-        await casesStore.updateCase(props.caseId, { workTypes: updated })
+        const result = applyVendorStagePayment(workTypes.value, wt.id, stageId, today)
+        if (!result) return
+        await casesStore.updateCase(props.caseId, { workTypes: result.workTypes })
         syncFormStageStatus(stageId, 'done')
 
+        const docId = paymentPlanStageDocId(wt, { id: stageId })
         if (await remindersStore.reminderExists(docId)) {
             try { await remindersStore.markDone(docId) } catch (_) {}
         }
