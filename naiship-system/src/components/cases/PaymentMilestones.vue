@@ -218,6 +218,7 @@ async function submitTemplate() {
                 await remindersStore.addAutoReminder(`auto_owner_pm_${entry.id}`, {
                     source: 'auto',
                     type: 'owner',
+                    milestoneId: entry.id,
                     dueDate: entry.dueDate,
                     caseId: props.caseId,
                     caseName: props.caseName,
@@ -308,6 +309,7 @@ async function submitForm() {
             await remindersStore.addAutoReminder(remId, {
                 source: 'auto',
                 type: 'owner',
+                milestoneId: entry.id,
                 dueDate: entry.dueDate,
                 caseId: props.caseId,
                 caseName: props.caseName,
