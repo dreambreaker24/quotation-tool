@@ -35,4 +35,11 @@ describe('isWithinDays', () => {
     it('無法解析的值回傳 false', () => {
         expect(isWithinDays('不是日期', 3)).toBe(false)
     })
+
+    it('在非午夜時刻，邊界日期仍在範圍內（台北日曆日邊界）', () => {
+        // 系統時間: 2026-09-21 14:00 台北時間 (2026-09-21T06:00:00Z)
+        vi.setSystemTime(new Date('2026-09-21T06:00:00Z'))
+        // 3 天前的日期: 2026-09-18（台北日曆日比較應該是 3 天前）
+        expect(isWithinDays('2026-09-18', 3)).toBe(true)
+    })
 })
