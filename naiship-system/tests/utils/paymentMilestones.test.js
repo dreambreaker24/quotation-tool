@@ -42,4 +42,13 @@ describe('applyMilestonePayment', () => {
         milestones[0].paidDate = '2026-09-15'
         expect(applyMilestonePayment(milestones, 'pm1', { paidAmount: 50000, paidDate: '2026-09-21' })).toBeNull()
     })
+
+    it('第二次付款會累加到既有的 paidAmount，不是覆蓋掉', () => {
+        const milestones = makeMilestones()
+        milestones[0].paidAmount = 30000
+        milestones[0].paidDate = '2026-09-01'
+        const result = applyMilestonePayment(milestones, 'pm1', { paidAmount: 70000, paidDate: '2026-09-21' })
+        expect(result.milestone.paidAmount).toBe(100000)
+        expect(result.fullyPaid).toBe(true)
+    })
 })

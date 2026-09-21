@@ -361,7 +361,7 @@ async function markDone(id) {
     if (!target) {
         doneFeedback.value = { ...doneFeedback.value, [id]: true }
         await remindersStore.markDone(id)
-        if (r) await notifStore.notifyAll(authStore.name ?? '', `標記了「${r.caseName}」的「${r.workTypeName || ''}」付款/收款已完成`, r.caseId, r.caseName, r.companyId ?? '')
+        if (r) await notifStore.notifyAll(authStore.name ?? '', `標記了「${r.caseName}」的「${r.workTypeName || ''}」${r.type === 'owner' ? '收款' : '付款'}已完成`, r.caseId, r.caseName, r.companyId ?? '')
         return
     }
     completingReminder.value = { id, r, target }
