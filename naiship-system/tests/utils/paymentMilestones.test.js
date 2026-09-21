@@ -30,4 +30,16 @@ describe('applyMilestonePayment', () => {
         applyMilestonePayment(milestones, 'pm1', { paidAmount: 100000, paidDate: '2026-09-21' })
         expect(milestones[0].paidAmount).toBe(0)
     })
+
+    it('paidAmount 為 0 或負數時回傳 null', () => {
+        expect(applyMilestonePayment(makeMilestones(), 'pm1', { paidAmount: 0, paidDate: '2026-09-21' })).toBeNull()
+        expect(applyMilestonePayment(makeMilestones(), 'pm1', { paidAmount: -100, paidDate: '2026-09-21' })).toBeNull()
+    })
+
+    it('期款已經付清時回傳 null，避免重複/競爭呼叫覆蓋既有金額', () => {
+        const milestones = makeMilestones()
+        milestones[0].paidAmount = 100000
+        milestones[0].paidDate = '2026-09-15'
+        expect(applyMilestonePayment(milestones, 'pm1', { paidAmount: 50000, paidDate: '2026-09-21' })).toBeNull()
+    })
 })

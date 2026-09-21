@@ -4,8 +4,11 @@
 export function applyMilestonePayment(milestones, milestoneId, { paidAmount, paidDate }) {
     const idx = milestones.findIndex(m => m.id === milestoneId)
     if (idx === -1) return null
+    if (paidAmount <= 0) return null
+    const current = milestones[idx]
+    if ((current.paidAmount || 0) >= (current.amount || 0) && (current.amount || 0) > 0) return null
     const newMilestones = [...milestones]
-    newMilestones[idx] = { ...milestones[idx], paidAmount, paidDate }
+    newMilestones[idx] = { ...current, paidAmount, paidDate }
     const fullyPaid = paidAmount >= (newMilestones[idx].amount || 0) && (newMilestones[idx].amount || 0) > 0
     return { milestones: newMilestones, milestone: newMilestones[idx], fullyPaid }
 }
