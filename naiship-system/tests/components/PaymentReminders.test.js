@@ -1,11 +1,13 @@
 // naiship-system/tests/components/PaymentReminders.test.js
 import { mount, flushPromises } from '@vue/test-utils'
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import PaymentReminders from '@/components/dashboard/PaymentReminders.vue'
+import PaymentCompleteModal from '@/components/dashboard/PaymentCompleteModal.vue'
 import { useCasesStore } from '@/stores/cases'
 import { useAuthStore } from '@/stores/auth'
+import { usePaymentRemindersStore } from '@/stores/paymentReminders'
 
 vi.mock('@/firebase', () => ({ auth: {}, db: {} }))
 vi.mock('firebase/auth', () => ({
@@ -50,6 +52,7 @@ describe('PaymentReminders — 待催發票區塊', () => {
     beforeEach(() => {
         setActivePinia(createPinia())
     })
+    afterEach(() => vi.useRealTimers())
 
     async function mountWithCases(workTypes) {
         const casesStore = useCasesStore()
@@ -82,7 +85,8 @@ describe('PaymentReminders — 待催發票區塊', () => {
         expect(wrapper.find('#invoice-pending').exists()).toBe(false)
     })
 
-    it('點擊「發票已收到」呼叫 casesStore.updateCase 把該工種標記為已收發票', async () => {
+    it('點擊「發票已收到」呼叫 casesStore.updateCase 把該工種標記為已收發票並補上時間戳記', async () => {
+        vi.setSystemTime(new Date('2026-09-21T04:00:00Z'))
         const { wrapper, casesStore } = await mountWithCases([makeWt()])
         const updateSpy = vi.spyOn(casesStore, 'updateCase')
 
@@ -90,12 +94,59 @@ describe('PaymentReminders — 待催發票區塊', () => {
         await flushPromises()
 
         expect(updateSpy).toHaveBeenCalledWith('c1', {
-            workTypes: [expect.objectContaining({ id: 'wt-1', invoiceReceived: true })],
+            workTypes: [expect.objectContaining({ id: 'wt-1', invoiceReceived: true, invoiceReceivedAt: '2026-09-21' })],
         })
     })
 
     it('只有待催發票有內容、其他兩塊都空時，整個付款清單區塊仍然顯示', async () => {
         const { wrapper } = await mountWithCases([makeWt()])
         expect(wrapper.find('#payment-reminders').exists()).toBe(true)
+    })
+})
+
+describe('PaymentReminders — 廠商付款排程完成流程', () => {
+    beforeEach(() => setActivePinia(createPinia()))
+    afterEach(() => vi.useRealTimers())
+
+    async function mountWithReminderAndCase() {
+        const casesStore = useCasesStore()
+        const authStore = useAuthStore()
+        authStore.role = 'admin'
+        casesStore.cases = [{
+            id: 'c1', name: '大同區辦公室', companyId: 'tainan',
+            workTypes: [{
+                id: 'wt-1', name: '水電', vendorName: '甲廠商',
+                vendorCostItems: [{ id: 'i1', amount: 10000 }],
+                vendorPayments: [],
+                invoiceReceived: false,
+            }],
+        }]
+        const remindersStore = usePaymentRemindersStore()
+        remindersStore.reminders = [{
+            id: 'auto_vendor_item_wt-1_i1', type: 'vendor', source: 'auto', status: 'pending',
+            caseId: 'c1', caseName: '大同區辦公室', workTypeId: 'wt-1', workTypeName: '水電',
+            itemId: 'i1', amount: 10000, dueDate: '2026-09-01',
+        }]
+        const wrapper = mount(PaymentReminders, { global: { plugins: [router] } })
+        await flushPromises()
+        return { wrapper, casesStore, remindersStore }
+    }
+
+    it('點完成彈出輸入視窗，確認後寫回案件的 vendorPayments', async () => {
+        const { wrapper, casesStore } = await mountWithReminderAndCase()
+        await wrapper.find('#scheduled-reminders button').trigger('click')
+        await flushPromises()
+        expect(wrapper.findComponent(PaymentCompleteModal).exists()).toBe(true)
+
+        const updateSpy = vi.spyOn(casesStore, 'updateCase')
+        await wrapper.find('input[type="number"]').setValue(10000)
+        await wrapper.find('[data-test="confirm-btn"]').trigger('click')
+        await flushPromises()
+
+        expect(updateSpy).toHaveBeenCalled()
+        const [caseId, patch] = updateSpy.mock.calls[0]
+        expect(caseId).toBe('c1')
+        expect(patch.workTypes[0].vendorPayments).toHaveLength(1)
+        expect(patch.workTypes[0].vendorPayments[0].amount).toBe(10000)
     })
 })

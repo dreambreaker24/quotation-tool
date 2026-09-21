@@ -82,6 +82,13 @@
             </div>
           </div>
         </div>
+        <div v-if="remindersStore.recentlyDoneVendor.length > 0" class="mt-3 flex flex-col gap-1.5">
+          <div v-for="r in remindersStore.recentlyDoneVendor" :key="r.id"
+            class="bg-gray-50 rounded-lg px-3 py-2 opacity-70 flex items-center justify-between">
+            <span class="text-[11px] text-gray-400">{{ r.caseName }}－{{ r.workTypeName }}</span>
+            <span class="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-400">✓ 已完成</span>
+          </div>
+        </div>
       </div>
 
       <!-- 右半：待請款（不動） -->
@@ -118,12 +125,19 @@
             </div>
           </div>
         </div>
+        <div v-if="remindersStore.recentlyDoneOwner.length > 0" class="mt-2 flex flex-col gap-1.5">
+          <div v-for="r in remindersStore.recentlyDoneOwner" :key="r.id"
+            class="bg-gray-50 rounded-lg px-3 py-2 opacity-70 flex items-center justify-between">
+            <span class="text-[11px] text-gray-400">{{ r.caseName }}－{{ r.workTypeName }}</span>
+            <span class="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-400">✓ 已完成</span>
+          </div>
+        </div>
       </div>
 
     </div>
 
       <!-- 第三塊：待催發票 -->
-      <div v-if="pendingInvoiceGroups.length > 0" id="invoice-pending" class="mt-4">
+      <div v-if="pendingInvoiceGroups.length > 0 || recentlyCompletedInvoiceGroups.length > 0" id="invoice-pending" class="mt-4">
         <div class="text-xs font-semibold text-purple-600 mb-2 pl-2 border-l-2 border-purple-300">待催發票</div>
         <div class="flex flex-col gap-3">
           <div v-for="group in pendingInvoiceGroups" :key="group.caseId"
@@ -150,8 +164,34 @@
               </div>
             </div>
           </div>
+          <div v-for="group in recentlyCompletedInvoiceGroups" :key="'done-' + group.caseId"
+            class="bg-gray-50 rounded-xl px-3 py-2.5 opacity-70">
+            <div class="flex items-center gap-1.5 mb-2">
+              <div class="w-1 h-3.5 rounded-full flex-shrink-0 bg-gray-300"></div>
+              <span class="text-xs font-bold text-gray-500">{{ group.caseName }}</span>
+            </div>
+            <div class="flex flex-col gap-1.5 pl-2.5">
+              <div v-for="item in group.items" :key="item.wt.id" class="flex items-center gap-2">
+                <div class="flex-1 min-w-0 text-[11px] text-gray-400">
+                  <span class="font-semibold">{{ item.wt.name }}</span>
+                  <span> · </span>
+                  <span>{{ item.wt.vendorName }}</span>
+                </div>
+                <span class="flex-shrink-0 text-[10px] px-2 py-1 rounded-lg bg-gray-100 text-gray-400 whitespace-nowrap">✓ 已完成</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
+
+      <PaymentCompleteModal
+        v-if="completingReminder"
+        :title="completingReminder.target.kind === 'owner-milestone' ? '記一筆收款' : (completingReminder.target.kind === 'vendor-stage' ? '標記分期完成' : '記一筆付款')"
+        :default-amount="completingReminder.target.kind === 'vendor-stage' ? stageAmountOf(completingReminder.target.wt, completingReminder.target.stage) : (completingReminder.target.remainingOwed ?? completingReminder.r.amount ?? 0)"
+        :fixed-amount="completingReminder.target.kind === 'vendor-stage'"
+        :saving="completingSaving"
+        @confirm="confirmComplete"
+        @close="completingReminder = null" />
   </div>
 </template>
 <script setup>
@@ -160,13 +200,19 @@ import { useRouter } from 'vue-router'
 import { usePaymentRemindersStore } from '@/stores/paymentReminders'
 import { useAuthStore } from '@/stores/auth'
 import { useCasesStore } from '@/stores/cases'
-import { totalVendorPaid, computePendingInvoiceGroups } from '@/utils/workTypeInvoice'
+import PaymentCompleteModal from '@/components/dashboard/PaymentCompleteModal.vue'
+import { useNotificationsStore } from '@/stores/notifications'
+import { applyVendorItemPayment, applyVendorStagePayment, itemPaid, totalVendorPaid, computePendingInvoiceGroups, computeRecentlyReceivedInvoiceGroups, stageAmountOf } from '@/utils/workTypeInvoice'
+import { applyMilestonePayment } from '@/utils/paymentMilestones'
 
 const router = useRouter()
 const remindersStore = usePaymentRemindersStore()
 const authStore = useAuthStore()
 const casesStore = useCasesStore()
+const notifStore = useNotificationsStore()
 const doneFeedback = ref({})
+const completingReminder = ref(null)
+const completingSaving = ref(false)
 
 function getInvoiceReceived(r) {
     const c = casesStore.cases.find(c => c.id === r.caseId)
@@ -276,8 +322,9 @@ const ownerItems = computed(() => sortByOverdueThenDate([
 ].filter(r => (r.amount || 0) > 0)))
 
 const pendingInvoiceGroups = computed(() => computePendingInvoiceGroups(casesStore.cases))
+const recentlyCompletedInvoiceGroups = computed(() => computeRecentlyReceivedInvoiceGroups(casesStore.cases))
 
-const hasAny = computed(() => groupedSegments.value.length > 0 || ownerItems.value.length > 0 || pendingInvoiceGroups.value.length > 0)
+const hasAny = computed(() => groupedSegments.value.length > 0 || ownerItems.value.length > 0 || pendingInvoiceGroups.value.length > 0 || recentlyCompletedInvoiceGroups.value.length > 0)
 
 function jumpToCase(r) {
     const q = { caseId: r.caseId }
@@ -285,15 +332,93 @@ function jumpToCase(r) {
     router.push({ path: '/cases', query: q })
 }
 
+function resolvableTarget(r) {
+    const c = casesStore.cases.find(c => c.id === r.caseId)
+    if (!c) return null
+    if (r.type === 'vendor' && r.itemId) {
+        const wt = c.workTypes?.find(wt => wt.id === r.workTypeId)
+        const item = wt?.vendorCostItems?.find(i => i.id === r.itemId)
+        if (!wt || !item) return null
+        return { kind: 'vendor-item', wt, item, remainingOwed: (item.amount || 0) - itemPaid(wt, r.itemId) }
+    }
+    if (r.type === 'vendor' && r.stageId) {
+        const wt = c.workTypes?.find(wt => wt.id === r.workTypeId)
+        const stage = wt?.paymentPlan?.stages?.find(s => s.id === r.stageId)
+        if (!wt || !stage) return null
+        return { kind: 'vendor-stage', wt, stage }
+    }
+    if (r.type === 'owner' && r.milestoneId) {
+        const milestone = c.paymentMilestones?.find(m => m.id === r.milestoneId)
+        if (!milestone) return null
+        return { kind: 'owner-milestone', milestone, remainingOwed: (milestone.amount || 0) - (milestone.paidAmount || 0) }
+    }
+    return null
+}
+
 async function markDone(id) {
-    doneFeedback.value = { ...doneFeedback.value, [id]: true }
-    await remindersStore.markDone(id)
+    const r = remindersStore.reminders.find(x => x.id === id)
+    const target = r ? resolvableTarget(r) : null
+    if (!target) {
+        doneFeedback.value = { ...doneFeedback.value, [id]: true }
+        await remindersStore.markDone(id)
+        if (r) await notifStore.notifyAll(authStore.name ?? '', `標記了「${r.caseName}」的「${r.workTypeName || ''}」付款/收款已完成`, r.caseId, r.caseName, r.companyId ?? '')
+        return
+    }
+    completingReminder.value = { id, r, target }
+}
+
+async function confirmComplete({ amount, paidDate }) {
+    if (!completingReminder.value) return
+    const { id, r, target } = completingReminder.value
+    completingSaving.value = true
+    try {
+        let writeHappened = false
+        if (target.kind === 'vendor-item') {
+            const result = applyVendorItemPayment(casesStore.cases.find(c => c.id === r.caseId).workTypes, r.workTypeId, {
+                itemId: r.itemId, amount, paidDate, note: '',
+            })
+            if (result) {
+                await casesStore.updateCase(r.caseId, { workTypes: result.workTypes })
+                writeHappened = true
+                if (result.itemFullyPaid) await remindersStore.markDone(id)
+            }
+        } else if (target.kind === 'vendor-stage') {
+            const result = applyVendorStagePayment(casesStore.cases.find(c => c.id === r.caseId).workTypes, r.workTypeId, r.stageId, paidDate)
+            if (result) {
+                await casesStore.updateCase(r.caseId, { workTypes: result.workTypes })
+                writeHappened = true
+                await remindersStore.markDone(id)
+            }
+        } else if (target.kind === 'owner-milestone') {
+            const c = casesStore.cases.find(c => c.id === r.caseId)
+            const result = applyMilestonePayment(c.paymentMilestones, r.milestoneId, { paidAmount: amount, paidDate })
+            if (result) {
+                await casesStore.updateCase(r.caseId, { paymentMilestones: result.milestones })
+                writeHappened = true
+                if (result.fullyPaid) await remindersStore.markDone(id)
+            }
+        }
+        if (writeHappened) {
+            await notifStore.notifyAll(
+                authStore.name ?? '',
+                `標記了「${r.caseName}」的「${r.workTypeName || ''}」${target.kind === 'owner-milestone' ? '收款' : '付款'} $${amount.toLocaleString()} 已完成`,
+                r.caseId, r.caseName, r.companyId ?? '', '', target.kind === 'owner-milestone' ? 'payment' : 'worktype', '', false, '', '', '', r.workTypeId || ''
+            )
+        }
+        completingReminder.value = null
+    } finally {
+        completingSaving.value = false
+    }
 }
 
 async function markInvoiceReceived(caseId, workTypeId) {
     const c = casesStore.cases.find(c => c.id === caseId)
     if (!c) return
-    const updated = c.workTypes.map(wt => wt.id === workTypeId ? { ...wt, invoiceReceived: true } : wt)
+    const wt = c.workTypes.find(wt => wt.id === workTypeId)
+    const updated = c.workTypes.map(w => w.id === workTypeId
+        ? { ...w, invoiceReceived: true, invoiceReceivedAt: new Date().toISOString().slice(0, 10) }
+        : w)
     await casesStore.updateCase(caseId, { workTypes: updated })
+    await notifStore.notifyAll(authStore.name ?? '', `標記了「${c.name}」的「${wt?.name ?? ''}」發票已收到`, caseId, c.name, c.companyId ?? '', '', 'worktype', '', false, '', '', '', workTypeId)
 }
 </script>
