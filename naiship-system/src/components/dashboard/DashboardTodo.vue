@@ -52,7 +52,7 @@
       </div>
     </div>
 
-    <div v-if="totalCount === 0" class="text-xs text-gray-400 py-2">目前無系統提醒事項</div>
+    <div v-if="totalCount === 0 && recentlyPaidMilestones.length === 0" class="text-xs text-gray-400 py-2">目前無系統提醒事項</div>
 
     <template v-if="totalCount > 0 || recentlyPaidMilestones.length > 0">
       <!-- 即將到期案件 -->

@@ -59,4 +59,16 @@ describe('DashboardTodo — 逾期未收款', () => {
         await flushPromises()
         expect(wrapper.text()).not.toContain('訂金')
     })
+
+    it('只有 3 天內已完成的期款、沒有其他待處理事項時，不顯示「目前無系統提醒事項」', async () => {
+        const casesStore = useCasesStore()
+        casesStore.cases = [{
+            id: 'c1', name: '案件A', companyId: 'tainan',
+            paymentMilestones: [{ id: 'pm1', label: '訂金', amount: 10000, dueDate: '2026-09-01', paidAmount: 10000, paidDate: '2026-09-20' }],
+        }]
+        const wrapper = mount(DashboardTodo, { global: { plugins: [router] } })
+        await flushPromises()
+        expect(wrapper.text()).not.toContain('目前無系統提醒事項')
+        expect(wrapper.text()).toContain('已完成')
+    })
 })
