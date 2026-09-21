@@ -374,28 +374,36 @@ async function confirmComplete({ amount, paidDate }) {
     try {
         let writeHappened = false
         if (target.kind === 'vendor-item') {
-            const result = applyVendorItemPayment(casesStore.cases.find(c => c.id === r.caseId).workTypes, r.workTypeId, {
-                itemId: r.itemId, amount, paidDate, note: '',
-            })
-            if (result) {
-                await casesStore.updateCase(r.caseId, { workTypes: result.workTypes })
-                writeHappened = true
-                if (result.itemFullyPaid) await remindersStore.markDone(id)
+            const c = casesStore.cases.find(c => c.id === r.caseId)
+            if (c) {
+                const result = applyVendorItemPayment(c.workTypes, r.workTypeId, {
+                    itemId: r.itemId, amount, paidDate, note: '',
+                })
+                if (result) {
+                    await casesStore.updateCase(r.caseId, { workTypes: result.workTypes })
+                    writeHappened = true
+                    if (result.itemFullyPaid) await remindersStore.markDone(id)
+                }
             }
         } else if (target.kind === 'vendor-stage') {
-            const result = applyVendorStagePayment(casesStore.cases.find(c => c.id === r.caseId).workTypes, r.workTypeId, r.stageId, paidDate)
-            if (result) {
-                await casesStore.updateCase(r.caseId, { workTypes: result.workTypes })
-                writeHappened = true
-                await remindersStore.markDone(id)
+            const c = casesStore.cases.find(c => c.id === r.caseId)
+            if (c) {
+                const result = applyVendorStagePayment(c.workTypes, r.workTypeId, r.stageId, paidDate)
+                if (result) {
+                    await casesStore.updateCase(r.caseId, { workTypes: result.workTypes })
+                    writeHappened = true
+                    await remindersStore.markDone(id)
+                }
             }
         } else if (target.kind === 'owner-milestone') {
             const c = casesStore.cases.find(c => c.id === r.caseId)
-            const result = applyMilestonePayment(c.paymentMilestones, r.milestoneId, { paidAmount: amount, paidDate })
-            if (result) {
-                await casesStore.updateCase(r.caseId, { paymentMilestones: result.milestones })
-                writeHappened = true
-                if (result.fullyPaid) await remindersStore.markDone(id)
+            if (c) {
+                const result = applyMilestonePayment(c.paymentMilestones, r.milestoneId, { paidAmount: amount, paidDate })
+                if (result) {
+                    await casesStore.updateCase(r.caseId, { paymentMilestones: result.milestones })
+                    writeHappened = true
+                    if (result.fullyPaid) await remindersStore.markDone(id)
+                }
             }
         }
         if (writeHappened) {
@@ -416,7 +424,7 @@ async function markInvoiceReceived(caseId, workTypeId) {
     if (!c) return
     const wt = c.workTypes.find(wt => wt.id === workTypeId)
     const updated = c.workTypes.map(w => w.id === workTypeId
-        ? { ...w, invoiceReceived: true, invoiceReceivedAt: new Date().toISOString().slice(0, 10) }
+        ? { ...w, invoiceReceived: true, invoiceReceivedAt: todayStr() }
         : w)
     await casesStore.updateCase(caseId, { workTypes: updated })
     await notifStore.notifyAll(authStore.name ?? '', `標記了「${c.name}」的「${wt?.name ?? ''}」發票已收到`, caseId, c.name, c.companyId ?? '', '', 'worktype', '', false, '', '', '', workTypeId)
