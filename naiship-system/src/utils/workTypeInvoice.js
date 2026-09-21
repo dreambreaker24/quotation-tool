@@ -100,6 +100,7 @@ export function applyVendorItemPayment(workTypes, workTypeId, { itemId, amount, 
     const wt = workTypes[idx]
     const item = (wt.vendorCostItems || []).find(i => i.id === itemId)
     if (!item) return null
+    if (amount <= 0) return null
     const allocations = allocatePayment(amount, [item], wt)
     const newVendorPayments = [...(wt.vendorPayments || []), {
         id: `vp_${Date.now()}`,
@@ -122,6 +123,7 @@ export function applyVendorStagePayment(workTypes, workTypeId, stageId, paidDate
     const wt = workTypes[idx]
     const stage = (wt.paymentPlan?.stages || []).find(s => s.id === stageId)
     if (!stage) return null
+    if (stage.status === 'done') return null
     const amount = stageAmountOf(wt, stage)
     const newStages = wt.paymentPlan.stages.map(s => s.id === stageId ? { ...s, status: 'done' } : s)
     const newVendorPayments = [...(wt.vendorPayments || []), {

@@ -293,6 +293,11 @@ describe('applyVendorItemPayment', () => {
         applyVendorItemPayment(workTypes, 'wt1', { itemId: 'i1', amount: 10000, paidDate: '2026-09-21' })
         expect(workTypes[0].vendorPayments).toEqual([])
     })
+
+    it('金額為 0 或負數時回傳 null', () => {
+        expect(applyVendorItemPayment(makeWorkTypes(), 'wt1', { itemId: 'i1', amount: 0, paidDate: '2026-09-21' })).toBeNull()
+        expect(applyVendorItemPayment(makeWorkTypes(), 'wt1', { itemId: 'i1', amount: -100, paidDate: '2026-09-21' })).toBeNull()
+    })
 })
 
 describe('applyVendorStagePayment', () => {
@@ -320,5 +325,11 @@ describe('applyVendorStagePayment', () => {
         const wt = result.workTypes.find(w => w.id === 'wt1')
         expect(wt.paymentPlan.stages.find(s => s.id === 's1').status).toBe('done')
         expect(wt.vendorPayments).toEqual([{ id: expect.any(String), amount: 30000, paidDate: '2026-09-21', note: '訂金' }])
+    })
+
+    it('分期已經是 done 狀態時回傳 null，避免重複記錄付款', () => {
+        const workTypes = makeWorkTypes()
+        workTypes[0].paymentPlan.stages[0].status = 'done'
+        expect(applyVendorStagePayment(workTypes, 'wt1', 's1', '2026-09-21')).toBeNull()
     })
 })
