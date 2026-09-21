@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { sumItems, wtVendorCostTotal, totalVendorPaid, vendorInvoiceStatus, computePendingInvoiceGroups, itemPaid, allocatePayment, applyVendorItemPayment, applyVendorStagePayment, stageAmountOf } from '@/utils/workTypeInvoice'
+import { describe, it, expect, vi, afterEach } from 'vitest'
+import { sumItems, wtVendorCostTotal, totalVendorPaid, vendorInvoiceStatus, computePendingInvoiceGroups, itemPaid, allocatePayment, applyVendorItemPayment, applyVendorStagePayment, stageAmountOf, computeRecentlyReceivedInvoiceGroups } from '@/utils/workTypeInvoice'
 
 describe('sumItems', () => {
     it('免費時直接回傳 0', () => {
@@ -331,5 +331,49 @@ describe('applyVendorStagePayment', () => {
         const workTypes = makeWorkTypes()
         workTypes[0].paymentPlan.stages[0].status = 'done'
         expect(applyVendorStagePayment(workTypes, 'wt1', 's1', '2026-09-21')).toBeNull()
+    })
+})
+
+describe('computeRecentlyReceivedInvoiceGroups', () => {
+    afterEach(() => vi.useRealTimers())
+
+    function makeWt(overrides) {
+        return {
+            id: 'wt-default',
+            name: '工種',
+            vendorName: '甲廠商',
+            vendorCostItems: [{ amount: 10000 }],
+            vendorPayments: [{ amount: 10000, paidDate: '2026-08-01' }],
+            invoiceReceived: true,
+            invoiceReceivedAt: '2026-09-20',
+            ...overrides,
+        }
+    }
+    function makeCase(id, name, workTypes) {
+        return { id, name, companyId: 'tainan', workTypes }
+    }
+
+    it('3 天內收到發票的工種列入', () => {
+        vi.setSystemTime(new Date('2026-09-21T00:00:00Z'))
+        const cases = [makeCase('c1', '案件A', [makeWt()])]
+        expect(computeRecentlyReceivedInvoiceGroups(cases)).toHaveLength(1)
+    })
+
+    it('超過 3 天的不列入', () => {
+        vi.setSystemTime(new Date('2026-09-21T00:00:00Z'))
+        const cases = [makeCase('c1', '案件A', [makeWt({ invoiceReceivedAt: '2026-09-01' })])]
+        expect(computeRecentlyReceivedInvoiceGroups(cases)).toEqual([])
+    })
+
+    it('沒有 invoiceReceivedAt 的舊資料不列入（沒有時間可以比較，視為過期）', () => {
+        vi.setSystemTime(new Date('2026-09-21T00:00:00Z'))
+        const cases = [makeCase('c1', '案件A', [makeWt({ invoiceReceivedAt: undefined })])]
+        expect(computeRecentlyReceivedInvoiceGroups(cases)).toEqual([])
+    })
+
+    it('還沒收到發票的不列入', () => {
+        vi.setSystemTime(new Date('2026-09-21T00:00:00Z'))
+        const cases = [makeCase('c1', '案件A', [makeWt({ invoiceReceived: false, invoiceReceivedAt: '' })])]
+        expect(computeRecentlyReceivedInvoiceGroups(cases)).toEqual([])
     })
 })

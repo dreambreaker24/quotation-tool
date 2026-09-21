@@ -1651,8 +1651,13 @@ async function uploadInvoiceFile(idx, fileList) {
 
 async function toggleInvoiceReceived(idx) {
     const wt = workTypes.value[idx]
+    const nextReceived = !wt.invoiceReceived
     const updated = [...workTypes.value]
-    updated[idx] = { ...wt, invoiceReceived: !wt.invoiceReceived }
+    updated[idx] = {
+        ...wt,
+        invoiceReceived: nextReceived,
+        invoiceReceivedAt: nextReceived ? new Date().toISOString().slice(0, 10) : '',
+    }
     await casesStore.updateCase(props.caseId, { workTypes: updated })
 }
 

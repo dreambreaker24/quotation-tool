@@ -1,6 +1,8 @@
 // 工種廠商成本／付款／發票相關的共用計算，WorkTypePanel.vue 跟首頁總覽都會用到，
 // 抽成共用函式避免兩處各自維護一份邏輯不一致（D3 那次修復就是在修這種不同步的問題）
 
+import { isWithinDays } from './dateRetention'
+
 export function sumItems(items, free) {
     if (free) return 0
     return (items || []).reduce((s, i) => s + (i.amount || 0), 0)
@@ -136,4 +138,29 @@ export function applyVendorStagePayment(workTypes, workTypeId, stageId, paidDate
     const newWorkTypes = [...workTypes]
     newWorkTypes[idx] = newWt
     return { workTypes: newWorkTypes, amount, stageName: stage.name }
+}
+
+// 跟 computePendingInvoiceGroups 是同一份資料的另一個視角：這裡列出「已經收到發票，
+// 而且是最近 3 天內收到的」，讓首頁還能繼續看到剛完成的項目一小段時間，不是一標記
+// 完成就馬上從畫面消失。回傳格式跟 computePendingInvoiceGroups 一樣（caseId/caseName/items），
+// 每個 item 多一個 completed:true 讓畫面知道要用「已完成」樣式呈現。
+export function computeRecentlyReceivedInvoiceGroups(cases, days = 3) {
+    const flat = []
+    for (const c of cases) {
+        for (const wt of (c.workTypes || [])) {
+            if (!wt.invoiceReceived) continue
+            if (!isWithinDays(wt.invoiceReceivedAt, days)) continue
+            flat.push({ caseId: c.id, caseName: c.name, companyId: c.companyId, wt, completed: true })
+        }
+    }
+    const caseOrder = []
+    const caseMap = {}
+    for (const item of flat) {
+        if (!caseMap[item.caseId]) {
+            caseMap[item.caseId] = { caseId: item.caseId, caseName: item.caseName, items: [] }
+            caseOrder.push(item.caseId)
+        }
+        caseMap[item.caseId].items.push(item)
+    }
+    return caseOrder.map(id => caseMap[id])
 }
