@@ -755,7 +755,7 @@ import { useWorkCategoriesStore } from '@/stores/workCategories'
 import { WT_COLORS } from '@/constants/workTypeColors'
 import { isLegacyCategoryName } from '@/utils/workTypeCategory'
 import { getVendorSpecialties, filterVendorsByCategory } from '@/utils/vendorSpecialty'
-import { wtVendorCostTotal, totalVendorPaid, vendorInvoiceStatus, itemPaid, allocatePayment } from '@/utils/workTypeInvoice'
+import { wtVendorCostTotal, totalVendorPaid, vendorInvoiceStatus, itemPaid, allocatePayment, stageAmountOf } from '@/utils/workTypeInvoice'
 import { suggestPaymentPlan, makeStage } from '@/utils/paymentPlan'
 import { useVendorsStore } from '@/stores/vendors'
 import { useCasesStore } from '@/stores/cases'
@@ -1550,17 +1550,6 @@ function buildPaymentPlanStagePayload(stage, wt, stageAmount) {
         createdBy: authStore.user?.uid ?? '',
         createdByName: authStore.name ?? '',
     }
-}
-
-function stageAmountOf(wt, stage) {
-    const total = wtVendorCostTotal(wt)
-    const stages = wt.paymentPlan?.stages || []
-    const i = stages.findIndex(s => s.id === stage.id)
-    if (i === stages.length - 1) {
-        const othersSum = stages.slice(0, -1).reduce((sum, s) => sum + Math.round(total * (s.pct || 0) / 100), 0)
-        return total - othersSum
-    }
-    return Math.round(total * (stage.pct || 0) / 100)
 }
 
 function syncFormStageStatus(stageId, status) {

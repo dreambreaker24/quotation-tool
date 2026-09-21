@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { sumItems, wtVendorCostTotal, totalVendorPaid, vendorInvoiceStatus, computePendingInvoiceGroups, itemPaid, allocatePayment } from '@/utils/workTypeInvoice'
+import { sumItems, wtVendorCostTotal, totalVendorPaid, vendorInvoiceStatus, computePendingInvoiceGroups, itemPaid, allocatePayment, applyVendorItemPayment, applyVendorStagePayment, stageAmountOf } from '@/utils/workTypeInvoice'
 
 describe('sumItems', () => {
     it('免費時直接回傳 0', () => {
@@ -242,5 +242,83 @@ describe('allocatePayment', () => {
         const items = [{ id: 'i1', description: '項目', amount: 10000 }]
         const result = allocatePayment(5000, items, wt)
         expect(result).toEqual([])
+    })
+})
+
+describe('stageAmountOf', () => {
+    it('非最後一期依比例計算', () => {
+        const wt = { vendorCostItems: [{ amount: 100000 }], paymentPlan: { stages: [{ id: 's1', pct: 30 }, { id: 's2', pct: 70 }] } }
+        expect(stageAmountOf(wt, { id: 's1', pct: 30 })).toBe(30000)
+    })
+
+    it('最後一期吃總金額扣掉前面所有期數，避免四捨五入誤差', () => {
+        const wt = { vendorCostItems: [{ amount: 100000 }], paymentPlan: { stages: [{ id: 's1', pct: 33 }, { id: 's2', pct: 33 }, { id: 's3', pct: 34 }] } }
+        expect(stageAmountOf(wt, { id: 's3', pct: 34 })).toBe(100000 - 33000 - 33000)
+    })
+})
+
+describe('applyVendorItemPayment', () => {
+    function makeWorkTypes() {
+        return [{
+            id: 'wt1',
+            vendorCostItems: [{ id: 'i1', amount: 10000 }, { id: 'i2', amount: 5000 }],
+            vendorPayments: [],
+        }]
+    }
+
+    it('找不到工種時回傳 null', () => {
+        expect(applyVendorItemPayment(makeWorkTypes(), 'no-such-wt', { itemId: 'i1', amount: 1000, paidDate: '2026-09-21' })).toBeNull()
+    })
+
+    it('找不到項目時回傳 null', () => {
+        expect(applyVendorItemPayment(makeWorkTypes(), 'wt1', { itemId: 'no-such-item', amount: 1000, paidDate: '2026-09-21' })).toBeNull()
+    })
+
+    it('付清整筆項目金額，itemFullyPaid 回傳 true', () => {
+        const result = applyVendorItemPayment(makeWorkTypes(), 'wt1', { itemId: 'i1', amount: 10000, paidDate: '2026-09-21', note: '備註' })
+        expect(result.itemFullyPaid).toBe(true)
+        const wt = result.workTypes.find(w => w.id === 'wt1')
+        expect(wt.vendorPayments).toHaveLength(1)
+        expect(wt.vendorPayments[0]).toMatchObject({ amount: 10000, paidDate: '2026-09-21', note: '備註' })
+        expect(wt.vendorPayments[0].itemAllocations).toEqual([{ itemId: 'i1', amount: 10000 }])
+    })
+
+    it('部分付款，itemFullyPaid 回傳 false', () => {
+        const result = applyVendorItemPayment(makeWorkTypes(), 'wt1', { itemId: 'i1', amount: 4000, paidDate: '2026-09-21' })
+        expect(result.itemFullyPaid).toBe(false)
+    })
+
+    it('不影響原始陣列（純函式，不能改到傳入的物件）', () => {
+        const workTypes = makeWorkTypes()
+        applyVendorItemPayment(workTypes, 'wt1', { itemId: 'i1', amount: 10000, paidDate: '2026-09-21' })
+        expect(workTypes[0].vendorPayments).toEqual([])
+    })
+})
+
+describe('applyVendorStagePayment', () => {
+    function makeWorkTypes() {
+        return [{
+            id: 'wt1',
+            vendorCostItems: [{ amount: 100000 }],
+            paymentPlan: { stages: [{ id: 's1', name: '訂金', pct: 30, status: 'pending' }, { id: 's2', name: '尾款', pct: 70, status: 'pending' }] },
+            vendorPayments: [],
+        }]
+    }
+
+    it('找不到工種時回傳 null', () => {
+        expect(applyVendorStagePayment(makeWorkTypes(), 'no-such-wt', 's1', '2026-09-21')).toBeNull()
+    })
+
+    it('找不到分期時回傳 null', () => {
+        expect(applyVendorStagePayment(makeWorkTypes(), 'wt1', 'no-such-stage', '2026-09-21')).toBeNull()
+    })
+
+    it('標記分期完成並補上對應金額的付款記錄', () => {
+        const result = applyVendorStagePayment(makeWorkTypes(), 'wt1', 's1', '2026-09-21')
+        expect(result.amount).toBe(30000)
+        expect(result.stageName).toBe('訂金')
+        const wt = result.workTypes.find(w => w.id === 'wt1')
+        expect(wt.paymentPlan.stages.find(s => s.id === 's1').status).toBe('done')
+        expect(wt.vendorPayments).toEqual([{ id: expect.any(String), amount: 30000, paidDate: '2026-09-21', note: '訂金' }])
     })
 })

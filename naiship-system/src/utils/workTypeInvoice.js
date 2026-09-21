@@ -76,3 +76,62 @@ export function allocatePayment(amount, selectedItems, wt) {
     }
     return allocations
 }
+
+// 分期付款每一期實際金額：非最後一期直接照比例算，最後一期吃總金額扣掉前面所有期數的和，
+// 避免四捨五入造成全部期數加起來對不上合約總額
+export function stageAmountOf(wt, stage) {
+    const total = wtVendorCostTotal(wt)
+    const stages = wt.paymentPlan?.stages || []
+    const i = stages.findIndex(s => s.id === stage.id)
+    if (i === stages.length - 1) {
+        const othersSum = stages.slice(0, -1).reduce((sum, s) => sum + Math.round(total * (s.pct || 0) / 100), 0)
+        return total - othersSum
+    }
+    return Math.round(total * (stage.pct || 0) / 100)
+}
+
+// 記一筆針對「單一廠商成本項目」的付款（首頁儀表板快速完成用；案件詳情原本的多項目
+// 一次分攤付款維持在 WorkTypePanel.vue 自己的邏輯，不套用這個函式，因為那邊本來就支援
+// 一筆付款分攤給多個項目，跟這裡「只針對一個項目」的簡化流程不是同一件事）。
+// 回傳 null 代表找不到對應的工種或項目，呼叫端要自行處理（通常代表資料已經被刪除/改過）。
+export function applyVendorItemPayment(workTypes, workTypeId, { itemId, amount, paidDate, note }) {
+    const idx = workTypes.findIndex(wt => wt.id === workTypeId)
+    if (idx === -1) return null
+    const wt = workTypes[idx]
+    const item = (wt.vendorCostItems || []).find(i => i.id === itemId)
+    if (!item) return null
+    const allocations = allocatePayment(amount, [item], wt)
+    const newVendorPayments = [...(wt.vendorPayments || []), {
+        id: `vp_${Date.now()}`,
+        amount,
+        paidDate,
+        note: note || '',
+        itemAllocations: allocations,
+    }]
+    const newWt = { ...wt, vendorPayments: newVendorPayments }
+    const newWorkTypes = [...workTypes]
+    newWorkTypes[idx] = newWt
+    return { workTypes: newWorkTypes, itemFullyPaid: itemPaid(newWt, itemId) >= item.amount }
+}
+
+// 標記付款計畫裡的某一期完成：金額固定用 stageAmountOf 算出來的比例金額，不能手動改
+// （分期付款本來就是照合約比例走，跟「單一項目」那種可以自由輸入金額的情況不一樣）。
+export function applyVendorStagePayment(workTypes, workTypeId, stageId, paidDate) {
+    const idx = workTypes.findIndex(wt => wt.id === workTypeId)
+    if (idx === -1) return null
+    const wt = workTypes[idx]
+    const stage = (wt.paymentPlan?.stages || []).find(s => s.id === stageId)
+    if (!stage) return null
+    const amount = stageAmountOf(wt, stage)
+    const newStages = wt.paymentPlan.stages.map(s => s.id === stageId ? { ...s, status: 'done' } : s)
+    const newVendorPayments = [...(wt.vendorPayments || []), {
+        id: `vp_${Date.now()}`,
+        amount,
+        paidDate,
+        note: stage.name,
+    }]
+    const newWt = { ...wt, paymentPlan: { ...wt.paymentPlan, stages: newStages }, vendorPayments: newVendorPayments }
+    const newWorkTypes = [...workTypes]
+    newWorkTypes[idx] = newWt
+    return { workTypes: newWorkTypes, amount, stageName: stage.name }
+}
