@@ -84,9 +84,9 @@
         </div>
         <div v-if="remindersStore.recentlyDoneVendor.length > 0" class="mt-3 flex flex-col gap-1.5">
           <div v-for="r in remindersStore.recentlyDoneVendor" :key="r.id"
-            class="bg-gray-50 rounded-lg px-3 py-2 opacity-70 flex items-center justify-between">
-            <span class="text-[11px] text-gray-400">{{ r.caseName }}－{{ r.workTypeName }}</span>
-            <span class="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-400">✓ 已完成</span>
+            class="bg-green-50 border border-green-200 rounded-lg px-3 py-2 flex items-center justify-between">
+            <span class="text-xs text-green-800">{{ r.caseName }}－{{ r.workTypeName }}</span>
+            <span class="text-[11px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-semibold">✓ 已完成</span>
           </div>
         </div>
       </div>
@@ -127,9 +127,9 @@
         </div>
         <div v-if="remindersStore.recentlyDoneOwner.length > 0" class="mt-2 flex flex-col gap-1.5">
           <div v-for="r in remindersStore.recentlyDoneOwner" :key="r.id"
-            class="bg-gray-50 rounded-lg px-3 py-2 opacity-70 flex items-center justify-between">
-            <span class="text-[11px] text-gray-400">{{ r.caseName }}－{{ r.workTypeName }}</span>
-            <span class="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-400">✓ 已完成</span>
+            class="bg-green-50 border border-green-200 rounded-lg px-3 py-2 flex items-center justify-between">
+            <span class="text-xs text-green-800">{{ r.caseName }}－{{ r.workTypeName }}</span>
+            <span class="text-[11px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-semibold">✓ 已完成</span>
           </div>
         </div>
       </div>
@@ -165,19 +165,19 @@
             </div>
           </div>
           <div v-for="group in recentlyCompletedInvoiceGroups" :key="'done-' + group.caseId"
-            class="bg-gray-50 rounded-xl px-3 py-2.5 opacity-70">
+            class="bg-green-50 border border-green-200 rounded-xl px-3 py-2.5">
             <div class="flex items-center gap-1.5 mb-2">
-              <div class="w-1 h-3.5 rounded-full flex-shrink-0 bg-gray-300"></div>
-              <span class="text-xs font-bold text-gray-500">{{ group.caseName }}</span>
+              <div class="w-1 h-3.5 rounded-full flex-shrink-0 bg-green-400"></div>
+              <span class="text-xs font-bold text-green-800">{{ group.caseName }}</span>
             </div>
             <div class="flex flex-col gap-1.5 pl-2.5">
               <div v-for="item in group.items" :key="item.wt.id" class="flex items-center gap-2">
-                <div class="flex-1 min-w-0 text-[11px] text-gray-400">
+                <div class="flex-1 min-w-0 text-xs text-green-800">
                   <span class="font-semibold">{{ item.wt.name }}</span>
                   <span> · </span>
                   <span>{{ item.wt.vendorName }}</span>
                 </div>
-                <span class="flex-shrink-0 text-[10px] px-2 py-1 rounded-lg bg-gray-100 text-gray-400 whitespace-nowrap">✓ 已完成</span>
+                <span class="flex-shrink-0 text-[11px] px-2 py-1 rounded-lg bg-green-100 text-green-700 font-semibold whitespace-nowrap">✓ 已完成</span>
               </div>
             </div>
           </div>
