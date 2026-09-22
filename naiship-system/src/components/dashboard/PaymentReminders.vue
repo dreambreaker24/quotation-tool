@@ -86,7 +86,10 @@
           <div v-for="r in remindersStore.recentlyDoneVendor" :key="r.id"
             class="bg-green-50 border border-green-200 rounded-lg px-3 py-2 flex items-center justify-between">
             <span class="text-xs text-green-800">{{ r.caseName }}－{{ r.workTypeName }}</span>
-            <span class="text-[11px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-semibold">✓ 已完成</span>
+            <span class="flex items-center gap-1.5">
+              <span class="text-[10px] text-green-600">{{ formatDoneAt(r.doneAt) }}</span>
+              <span class="text-[11px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-semibold">✓ 已完成</span>
+            </span>
           </div>
         </div>
       </div>
@@ -129,7 +132,10 @@
           <div v-for="r in remindersStore.recentlyDoneOwner" :key="r.id"
             class="bg-green-50 border border-green-200 rounded-lg px-3 py-2 flex items-center justify-between">
             <span class="text-xs text-green-800">{{ r.caseName }}－{{ r.workTypeName }}</span>
-            <span class="text-[11px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-semibold">✓ 已完成</span>
+            <span class="flex items-center gap-1.5">
+              <span class="text-[10px] text-green-600">{{ formatDoneAt(r.doneAt) }}</span>
+              <span class="text-[11px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-semibold">✓ 已完成</span>
+            </span>
           </div>
         </div>
       </div>
@@ -177,7 +183,10 @@
                   <span> · </span>
                   <span>{{ item.wt.vendorName }}</span>
                 </div>
-                <span class="flex-shrink-0 text-[11px] px-2 py-1 rounded-lg bg-green-100 text-green-700 font-semibold whitespace-nowrap">✓ 已完成</span>
+                <span class="flex-shrink-0 flex items-center gap-1.5">
+                  <span class="text-[10px] text-green-600">{{ formatDate(item.wt.invoiceReceivedAt) }}</span>
+                  <span class="text-[11px] px-2 py-1 rounded-lg bg-green-100 text-green-700 font-semibold whitespace-nowrap">✓ 已完成</span>
+                </span>
               </div>
             </div>
           </div>
@@ -273,6 +282,13 @@ function getSegment(dueDate) {
 function formatDate(dateStr) {
     if (!dateStr) return '未設日期'
     const d = new Date(dateStr)
+    return `${d.getMonth() + 1}月${d.getDate()}日`
+}
+
+function formatDoneAt(value) {
+    if (!value) return ''
+    const d = typeof value.toDate === 'function' ? value.toDate() : new Date(value)
+    if (isNaN(d.getTime())) return ''
     return `${d.getMonth() + 1}月${d.getDate()}日`
 }
 
