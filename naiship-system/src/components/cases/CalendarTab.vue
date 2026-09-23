@@ -48,53 +48,66 @@
     </div>
 
     <!-- Calendar grid -->
-    <div class="grid grid-cols-7">
-      <div v-for="(cell, i) in calendarCells" :key="i"
-        class="border-r border-b border-gray-100 p-1 sm:p-2 min-h-[70px] sm:min-h-[90px]"
-        :class="[
-          !cell.currentMonth && 'opacity-40',
-          cell.isToday && 'bg-amber-50',
-          cell.currentMonth && 'cursor-pointer hover:bg-gray-50/50 transition-colors',
-          (cell.dateStr === highlightDate && cell.currentMonth) || (dragState && dragOverDateStr === cell.dateStr) ? 'ring-2 ring-inset ring-amber-400' : '',
-          pendingAction ? 'hover:ring-2 hover:ring-inset hover:ring-amber-400 cursor-pointer' : ''
-        ]"
-        :style="!cell.isToday && cell.isNonWorking ? 'background:#F4DCDC' : ''"
-        @click="onCellClick(cell)"
-        @dragover.prevent="onCellDragOver(cell, $event)"
-        @drop.prevent="onCellDrop(cell)">
-        <div class="flex items-center gap-1.5">
-          <span v-if="cell.isToday"
-            class="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold text-white flex-shrink-0"
-            style="background:#c9a96e">
-            {{ cell.day }}
-          </span>
-          <span v-else-if="cell.dateStr === highlightDate && cell.currentMonth"
-            class="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold text-white flex-shrink-0"
-            style="background:#f59e0b">
-            {{ cell.day }}
-          </span>
-          <span v-else class="text-xs flex-shrink-0"
-            :class="cell.isNonWorking ? 'font-bold' : 'text-gray-600'"
-            :style="cell.isNonWorking ? 'color:#A34848' : ''">
-            {{ cell.day }}
-          </span>
-          <span v-if="cell.lunarLabel" class="text-[9px] font-medium truncate flex-1 min-w-0"
-            :style="cell.isNonWorking ? 'color:#A34848' : 'color:#9ca3af'">
-            {{ cell.holidayName ? `${cell.lunarLabel}・${cell.holidayName}` : cell.lunarLabel }}
-          </span>
+    <div class="flex flex-col">
+      <div v-for="(week, wi) in weekGroups" :key="wi" class="relative grid grid-cols-7">
+        <div v-for="cell in week" :key="cell.dateStr"
+          class="border-r border-b border-gray-100 p-1 sm:p-2 min-h-[70px] sm:min-h-[90px]"
+          :class="[
+            !cell.currentMonth && 'opacity-40',
+            cell.isToday && 'bg-amber-50',
+            cell.currentMonth && 'cursor-pointer hover:bg-gray-50/50 transition-colors',
+            (cell.dateStr === highlightDate && cell.currentMonth) || (dragState && dragOverDateStr === cell.dateStr) ? 'ring-2 ring-inset ring-amber-400' : '',
+            pendingAction ? 'hover:ring-2 hover:ring-inset hover:ring-amber-400 cursor-pointer' : ''
+          ]"
+          :style="!cell.isToday && cell.isNonWorking ? 'background:#F4DCDC' : ''"
+          @click="onCellClick(cell)"
+          @dragover.prevent="onCellDragOver(cell, $event)"
+          @drop.prevent="onCellDrop(cell)">
+          <div class="flex items-center gap-1.5">
+            <span v-if="cell.isToday"
+              class="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold text-white flex-shrink-0"
+              style="background:#c9a96e">
+              {{ cell.day }}
+            </span>
+            <span v-else-if="cell.dateStr === highlightDate && cell.currentMonth"
+              class="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold text-white flex-shrink-0"
+              style="background:#f59e0b">
+              {{ cell.day }}
+            </span>
+            <span v-else class="text-xs flex-shrink-0"
+              :class="cell.isNonWorking ? 'font-bold' : 'text-gray-600'"
+              :style="cell.isNonWorking ? 'color:#A34848' : ''">
+              {{ cell.day }}
+            </span>
+            <span v-if="cell.lunarLabel" class="text-[9px] font-medium truncate flex-1 min-w-0"
+              :style="cell.isNonWorking ? 'color:#A34848' : 'color:#9ca3af'">
+              {{ cell.holidayName ? `${cell.lunarLabel}・${cell.holidayName}` : cell.lunarLabel }}
+            </span>
+          </div>
+          <div v-if="cell.barRows" :style="`height:${cell.barRows * 24}px`" class="flex-shrink-0"></div>
+          <div v-for="event in cell.events.slice(0, 4)" :key="event.id"
+            @click.stop="onEventTap(event, cell.dateStr)"
+            :draggable="canDragEvent(event, cell.dateStr)"
+            @dragstart="onEventDragStart(event, cell.dateStr, $event)"
+            @dragend="onEventDragEnd"
+            class="mt-1 h-5 leading-5 text-[11px] rounded-md px-2 truncate text-white cursor-pointer hover:opacity-80 transition-opacity"
+            :class="dragState && dragState.event.id === event.id ? 'opacity-50' : ''"
+            :style="`background:${eventColor(event.type)}`">
+            {{ event.startTime ? `${event.startTime}${event.endTime ? '-' + event.endTime : ''} ` : '' }}{{ event.label }}
+          </div>
+          <div v-if="cell.events.length > 4" class="mt-1 text-[9px] text-gray-400 truncate">
+            還有 {{ cell.events.length - 4 }} 則
+          </div>
         </div>
-        <div v-for="event in cell.events.slice(0, 4)" :key="event.id"
-          @click.stop="onEventTap(event, cell.dateStr)"
-          :draggable="canDragEvent(event, cell.dateStr)"
-          @dragstart="onEventDragStart(event, cell.dateStr, $event)"
+        <div v-for="bar in weekEventBars[wi]" :key="`${wi}-${bar.event.id}-${bar.colStart}`"
+          class="absolute h-5 leading-5 text-[11px] rounded-md px-2 truncate text-white cursor-pointer hover:opacity-80 transition-opacity"
+          :class="dragState && dragState.event.id === bar.event.id ? 'opacity-50' : ''"
+          :style="`top:${36 + bar.row * 24}px; left:calc(${bar.colStart / 7 * 100}% + 8px); width:calc(${bar.colSpan / 7 * 100}% - 16px); background:${eventColor(bar.event.type)}`"
+          :draggable="canDragEvent(bar.event, tsToDateStr(bar.event.date))"
+          @dragstart="onEventDragStart(bar.event, tsToDateStr(bar.event.date), $event)"
           @dragend="onEventDragEnd"
-          class="mt-1 h-5 leading-5 text-[11px] rounded-md px-2 truncate text-white cursor-pointer hover:opacity-80 transition-opacity"
-          :class="dragState && dragState.event.id === event.id ? 'opacity-50' : ''"
-          :style="`background:${eventColor(event.type)}`">
-          {{ event.startTime ? `${event.startTime}${event.endTime ? '-' + event.endTime : ''} ` : '' }}{{ event.label }}
-        </div>
-        <div v-if="cell.events.length > 4" class="mt-1 text-[9px] text-gray-400 truncate">
-          還有 {{ cell.events.length - 4 }} 則
+          @click.stop="onEventTap(bar.event, tsToDateStr(bar.event.date))">
+          {{ bar.event.label }}
         </div>
       </div>
     </div>
