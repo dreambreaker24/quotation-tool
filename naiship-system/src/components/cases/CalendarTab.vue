@@ -1353,7 +1353,7 @@ const multiDayEventLookup = computed(() => {
   return map
 })
 
-// 依週分組（每 7 格一組），每週各自算長條，回傳長度 6 的陣列，每項是這一週要畫的長條清單
+// 依週分組（每 7 格一組），每週各自算長條，回傳長度依當月週數而定的陣列，每項是這一週要畫的長條清單
 const weekEventBars = computed(() => {
   const cells = calendarCells.value
   const weeks = []
