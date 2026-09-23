@@ -352,7 +352,7 @@ async function confirmReset(name, field, label) {
         if (compType) {
             const entries = ledgerFor(name).filter(e => e.type === compType && e.remainingHours > 0)
             const totalRemaining = entries.reduce((s, e) => s + e.remainingHours, 0)
-            await usersStore.applyLedgerConsumption(user.id, entries.map(e => ({ id: e.id, remainingHours: 0 })))
+            await usersStore.applyLedgerConsumption(user.id, entries.map(e => ({ id: e.id, delta: -e.remainingHours })))
             if (totalRemaining > 0) {
                 await addDoc(collection(db, 'users', user.id, 'compAdjustments'), {
                     field: compType, delta: -totalRemaining,
@@ -386,9 +386,9 @@ async function adjustCompLedger(uid, type, delta, reason) {
         })
     } else {
         const entries = ledgerFor(usersStore.users.find(u => u.id === uid)?.name).filter(e => e.type === type)
-        const { updatedEntries } = consumeFIFO(entries, type, -delta)
-        const touched = updatedEntries.filter(e => entries.find(orig => orig.id === e.id && orig.remainingHours !== e.remainingHours))
-        await usersStore.applyLedgerConsumption(uid, touched)
+        const { consumptions } = consumeFIFO(entries, type, -delta)
+        const deltas = consumptions.map(c => ({ id: c.id, delta: -c.hours }))
+        await usersStore.applyLedgerConsumption(uid, deltas)
         await addDoc(collection(db, 'users', uid, 'compAdjustments'), {
             field: type, delta,
             adjustedBy: authStore.name ?? '', adjustedAt: serverTimestamp(),
@@ -444,9 +444,8 @@ async function performCashout(name, type, consumptions, entries, reason) {
     if (!user) { toast('找不到此員工', 'error'); return }
     const amount = valueForConsumption(entries, consumptions)
     const hours = consumptions.reduce((s, c) => s + c.hours, 0)
-    const byId = new Map(entries.map(e => [e.id, e]))
-    const updated = consumptions.map(c => ({ id: c.id, remainingHours: byId.get(c.id).remainingHours - c.hours }))
-    await usersStore.applyLedgerConsumption(user.id, updated)
+    const deltas = consumptions.map(c => ({ id: c.id, delta: -c.hours }))
+    await usersStore.applyLedgerConsumption(user.id, deltas)
     await addDoc(collection(db, 'users', user.id, 'compCashouts'), {
         type, hours, amount,
         payMonth: monthStr(new Date()),

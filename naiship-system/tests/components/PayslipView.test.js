@@ -87,7 +87,7 @@ describe('PayslipView — 補休折抵事假', () => {
     await flushPromises()
 
     // 8h 事假只需要消耗平日補休（10.5h 夠用），休息日 3h 完全不動
-    expect(applySpy).toHaveBeenCalledWith('u-bang', [expect.objectContaining({ id: 'led-1', remainingHours: 2.5 })])
+    expect(applySpy).toHaveBeenCalledWith('u-bang', [expect.objectContaining({ id: 'led-1', delta: -8 })])
     expect(updateSpy).toHaveBeenCalledWith('leave-1', expect.objectContaining({
       leaveType: '補休',
       leaveTypeLocked: true,
@@ -179,8 +179,8 @@ describe('PayslipView — 補休折抵事假', () => {
 
     // 整體消耗：led-1 全部 5h + led-2 4h = 9h，餘額正確扣完
     expect(applySpy).toHaveBeenCalledWith('u-bang', expect.arrayContaining([
-      expect.objectContaining({ id: 'led-1', remainingHours: 0 }),
-      expect.objectContaining({ id: 'led-2', remainingHours: 6 }),
+      expect.objectContaining({ id: 'led-1', delta: -5 }),
+      expect.objectContaining({ id: 'led-2', delta: -4 }),
     ]))
     // 依日期排序後先處理 leave-2（8/3，3h）：全部從 led-1 拿
     expect(updateSpy).toHaveBeenCalledWith('leave-2', expect.objectContaining({
@@ -240,7 +240,7 @@ describe('PayslipView — 取消折抵', () => {
     await wrapper.vm.undoOffset(wrapper.vm.convertedEntries[0])
     await flushPromises()
 
-    expect(applySpy).toHaveBeenCalledWith('u-bang', [expect.objectContaining({ id: 'led-1', remainingHours: 10.5 })])
+    expect(applySpy).toHaveBeenCalledWith('u-bang', [expect.objectContaining({ id: 'led-1', delta: 8 })])
     expect(updateSpy).toHaveBeenCalledWith('leave-1', expect.objectContaining({
       leaveType: '事假',
       leaveTypeLocked: false,

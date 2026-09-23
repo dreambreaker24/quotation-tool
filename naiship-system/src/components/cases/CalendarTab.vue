@@ -550,8 +550,10 @@ async function applyLeaveDelta(leaveType, name, deltaHours, consumption = null) 
                 const entries = await usersStore.fetchCompLedger(user.id)
                 const refunded = refundConsumption(entries, consumption)
                 const before = new Map(entries.map(e => [e.id, e.remainingHours]))
-                const changed = refunded.filter(e => before.get(e.id) !== e.remainingHours)
-                await usersStore.applyLedgerConsumption(user.id, changed)
+                const deltas = refunded
+                    .filter(e => before.get(e.id) !== e.remainingHours)
+                    .map(e => ({ id: e.id, delta: e.remainingHours - before.get(e.id) }))
+                await usersStore.applyLedgerConsumption(user.id, deltas)
             }
             return null
         }
@@ -561,10 +563,10 @@ async function applyLeaveDelta(leaveType, name, deltaHours, consumption = null) 
         const weekday = consumeFIFO(entries, '平日', needed)
         const holiday = weekday.shortfall > 0
             ? consumeFIFO(weekday.updatedEntries, '休息日', weekday.shortfall)
-            : { consumptions: [], updatedEntries: weekday.updatedEntries }
+            : { consumptions: [] }
         const allConsumptions = [...weekday.consumptions, ...holiday.consumptions]
-        const touchedIds = new Set(allConsumptions.map(c => c.id))
-        await usersStore.applyLedgerConsumption(user.id, holiday.updatedEntries.filter(e => touchedIds.has(e.id)))
+        const deltas = allConsumptions.map(c => ({ id: c.id, delta: -c.hours }))
+        await usersStore.applyLedgerConsumption(user.id, deltas)
         return allConsumptions
     } else if (leaveType === '特休') {
         await usersStore.adjustAnnualLeaveHours(user.id, hoursToDays(deltaHours))
