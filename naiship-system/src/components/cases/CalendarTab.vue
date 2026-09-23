@@ -62,24 +62,26 @@
         @click="onCellClick(cell)"
         @dragover.prevent="onCellDragOver(cell, $event)"
         @drop.prevent="onCellDrop(cell)">
-        <span v-if="cell.isToday"
-          class="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold text-white"
-          style="background:#c9a96e">
-          {{ cell.day }}
-        </span>
-        <span v-else-if="cell.dateStr === highlightDate && cell.currentMonth"
-          class="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold text-white"
-          style="background:#f59e0b">
-          {{ cell.day }}
-        </span>
-        <span v-else class="text-xs"
-          :class="cell.isNonWorking ? 'font-bold' : 'text-gray-600'"
-          :style="cell.isNonWorking ? 'color:#A34848' : ''">
-          {{ cell.day }}
-        </span>
-        <div v-if="cell.holidayName && cell.currentMonth"
-          class="text-[9px] font-medium truncate leading-none mt-0.5" style="color:#A34848">
-          {{ cell.holidayName }}
+        <div class="flex items-center gap-1.5">
+          <span v-if="cell.isToday"
+            class="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold text-white flex-shrink-0"
+            style="background:#c9a96e">
+            {{ cell.day }}
+          </span>
+          <span v-else-if="cell.dateStr === highlightDate && cell.currentMonth"
+            class="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold text-white flex-shrink-0"
+            style="background:#f59e0b">
+            {{ cell.day }}
+          </span>
+          <span v-else class="text-xs flex-shrink-0"
+            :class="cell.isNonWorking ? 'font-bold' : 'text-gray-600'"
+            :style="cell.isNonWorking ? 'color:#A34848' : ''">
+            {{ cell.day }}
+          </span>
+          <span v-if="cell.lunarLabel" class="text-[9px] font-medium truncate"
+            :style="cell.isNonWorking ? 'color:#A34848' : 'color:#9ca3af'">
+            {{ cell.holidayName ? `${cell.lunarLabel}・${cell.holidayName}` : cell.lunarLabel }}
+          </span>
         </div>
         <div v-for="event in cell.events.slice(0, 4)" :key="event.id"
           @click.stop="onEventTap(event, cell.dateStr)"
