@@ -1414,7 +1414,7 @@ const weekGroups = computed(() => {
       const barsHere = barsThisWeek.filter(b => col >= b.colStart && col < b.colStart + b.colSpan)
       return {
         ...cell,
-        barRows: barsHere.length,
+        barRows: barsHere.length ? Math.max(...barsHere.map(b => b.row)) + 1 : 0,
         events: cell.events.filter(e => !(e.endDate && !e._merged && barsHere.some(b => b.event.id === e.id)))
       }
     })
