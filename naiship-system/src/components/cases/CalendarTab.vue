@@ -8,26 +8,26 @@
         <span class="font-semibold text-gray-800">{{ displayMonth }}</span>
         <button @click="nextMonth" class="text-gray-400 hover:text-gray-700 px-2">▶</button>
         <button @click="goToToday"
-          class="text-[11px] px-2.5 py-1 rounded-lg border border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700 transition-colors ml-1">今天</button>
+          class="text-[11px] px-2.5 py-1 rounded-lg border transition-colors ml-1" style="border-color:#c9a96e;color:#8A6D2E">今天</button>
       </div>
       <div class="flex flex-wrap items-center gap-2 sm:gap-4 text-[11px]">
-        <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded" style="background:#ffe4e6;border:1px solid #fda4af"></span>假日</div>
-        <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-red-400"></span>重要記事</div>
-        <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded" style="background:#0d9488"></span>場勘/施工</div>
-        <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-blue-400"></span>員工請假</div>
-        <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded" style="background:#a855f7"></span>客戶跟進</div>
+        <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded" style="background:#F4DCDC"></span>假日</div>
+        <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded" style="background:#8B3A3A"></span>重要記事</div>
+        <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded" style="background:#4A7C59"></span>場勘/施工</div>
+        <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded" style="background:#5B7C99"></span>員工請假</div>
+        <div class="hidden sm:flex items-center gap-1.5"><span class="w-3 h-3 rounded" style="background:#7C5C8A"></span>客戶跟進</div>
         <span class="hidden sm:inline text-gray-400">拖曳事件可搬到別天，按住 Ctrl 拖曳＝複製</span>
         <button @click="openAddEventModal" class="text-xs border border-gray-200 rounded-lg px-3 py-1.5 text-gray-500 hover:border-gray-400">+ 新增</button>
       </div>
     </div>
 
     <!-- Status counters -->
-    <div class="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-3 p-3 sm:p-4 border-b border-gray-100 bg-gray-50/50">
+    <div class="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-3 p-3 sm:p-4 border-b border-gray-100">
       <div v-for="s in statuses" :key="s.key"
-        class="bg-white rounded-xl px-3 py-3 shadow-sm text-center border-t-2"
-        :style="`border-top-color:${s.border}`">
-        <div class="text-2xl font-bold" :class="s.color">{{ counts[s.key] }}</div>
-        <div class="text-[10px] text-gray-400 mt-0.5">{{ s.label }}</div>
+        class="rounded-xl px-3 py-3 text-center"
+        :style="`background:${s.bg}`">
+        <div class="text-2xl font-bold" :style="`color:${s.text};font-family:'Fraunces',serif`">{{ counts[s.key] }}</div>
+        <div class="text-[10px] mt-0.5" :style="`color:${s.labelText}`">{{ s.label }}</div>
       </div>
     </div>
 
@@ -35,7 +35,8 @@
     <div class="grid grid-cols-7 border-b border-gray-100">
       <div v-for="(d, i) in weekDays" :key="d"
         class="text-center text-[11px] font-semibold py-2"
-        :class="i===5?'text-blue-400':i===6?'text-red-400':'text-gray-500'">
+        :class="i===5||i===6?'':'text-gray-500'"
+        :style="i===5||i===6?'color:#A34848':''">
         {{ d }}
       </div>
     </div>
@@ -52,11 +53,12 @@
         class="border-r border-b border-gray-100 p-1 sm:p-2 min-h-[70px] sm:min-h-[90px]"
         :class="[
           !cell.currentMonth && 'opacity-40',
-          cell.isToday ? 'bg-amber-50' : cell.isNonWorking ? 'bg-rose-100' : '',
+          cell.isToday && 'bg-amber-50',
           cell.currentMonth && 'cursor-pointer hover:bg-gray-50/50 transition-colors',
           (cell.dateStr === highlightDate && cell.currentMonth) || (dragState && dragOverDateStr === cell.dateStr) ? 'ring-2 ring-inset ring-amber-400' : '',
           pendingAction ? 'hover:ring-2 hover:ring-inset hover:ring-amber-400 cursor-pointer' : ''
         ]"
+        :style="!cell.isToday && cell.isNonWorking ? 'background:#F4DCDC' : ''"
         @click="onCellClick(cell)"
         @dragover.prevent="onCellDragOver(cell, $event)"
         @drop.prevent="onCellDrop(cell)">
@@ -71,11 +73,12 @@
           {{ cell.day }}
         </span>
         <span v-else class="text-xs"
-          :class="cell.dayOfWeek===6?'text-blue-500':cell.dayOfWeek===0?'text-red-500':'text-gray-600'">
+          :class="cell.isNonWorking ? 'font-bold' : 'text-gray-600'"
+          :style="cell.isNonWorking ? 'color:#A34848' : ''">
           {{ cell.day }}
         </span>
         <div v-if="cell.holidayName && cell.currentMonth"
-          class="text-[9px] text-rose-400 font-medium truncate leading-none mt-0.5">
+          class="text-[9px] font-medium truncate leading-none mt-0.5" style="color:#A34848">
           {{ cell.holidayName }}
         </div>
         <div v-for="event in cell.events.slice(0, 4)" :key="event.id"
@@ -83,9 +86,9 @@
           :draggable="canDragEvent(event, cell.dateStr)"
           @dragstart="onEventDragStart(event, cell.dateStr, $event)"
           @dragend="onEventDragEnd"
-          class="mt-1 text-[10px] rounded px-1.5 py-0.5 truncate text-white cursor-pointer hover:opacity-80 transition-opacity"
-          :class="[event.type === 'leave' ? 'bg-blue-400' : event.type === 'note' ? 'bg-red-400' : '', dragState && dragState.event.id === event.id ? 'opacity-50' : '']"
-          :style="event.type === 'milestone' ? 'background:#0d9488' : event.type === 'followup' ? 'background:#a855f7' : ''">
+          class="mt-1 h-5 leading-5 text-[11px] rounded-md px-2 truncate text-white cursor-pointer hover:opacity-80 transition-opacity"
+          :class="dragState && dragState.event.id === event.id ? 'opacity-50' : ''"
+          :style="`background:${eventColor(event.type)}`">
           {{ event.startTime ? `${event.startTime}${event.endTime ? '-' + event.endTime : ''} ` : '' }}{{ event.label }}
         </div>
         <div v-if="cell.events.length > 4" class="mt-1 text-[9px] text-gray-400 truncate">
@@ -429,7 +432,7 @@
 
   <!-- 場勘/施工案件狀況預覽 -->
   <div v-if="milestonePreview" class="fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.4)" @click.self="milestonePreview = null">
-    <div class="bg-white rounded-2xl shadow-xl p-5 w-full max-w-xs mx-4 border-t-4" style="border-top-color:#0d9488">
+    <div class="bg-white rounded-2xl shadow-xl p-5 w-full max-w-xs mx-4 border-t-4" style="border-top-color:#4A7C59">
       <div class="text-sm font-bold text-gray-800 mb-3 truncate">{{ milestonePreview.label }}</div>
       <div v-if="milestonePreviewCases.length === 0" class="text-xs text-gray-300 mb-4">未關聯案件</div>
       <div v-else class="flex flex-col gap-2 mb-4">
@@ -468,8 +471,7 @@
           @click="onEventTap(event, dayDetailDate)"
           class="flex items-center gap-2 rounded-lg px-3 py-2 border border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors">
           <span class="w-2.5 h-2.5 rounded-full flex-shrink-0"
-            :class="event.type === 'leave' ? 'bg-blue-400' : event.type === 'note' ? 'bg-red-400' : ''"
-            :style="event.type === 'milestone' ? 'background:#0d9488' : event.type === 'followup' ? 'background:#a855f7' : ''"></span>
+            :style="`background:${eventColor(event.type)}`"></span>
           <span class="text-xs text-gray-700 flex-1 min-w-0 truncate">
             {{ event.startTime ? `${event.startTime}${event.endTime ? '-' + event.endTime : ''} ` : '' }}{{ event.label }}
           </span>
@@ -700,11 +702,14 @@ const dayDetailDate = ref('')
 const ALL_REGIONS = ['south', 'north', 'central']
 
 const eventTypes = [
-  { key: 'note',      label: '重要記事',   color: '#f87171' },
-  { key: 'milestone', label: '場勘/施工',   color: '#0d9488' },
-  { key: 'leave',     label: '員工請假',   color: '#60a5fa' },
-  { key: 'followup',  label: '客戶跟進',   color: '#a855f7' },
+  { key: 'note',      label: '重要記事',   color: '#8B3A3A' },
+  { key: 'milestone', label: '場勘/施工',   color: '#4A7C59' },
+  { key: 'leave',     label: '員工請假',   color: '#5B7C99' },
+  { key: 'followup',  label: '客戶跟進',   color: '#7C5C8A' },
 ]
+function eventColor(type) {
+  return eventTypes.find(t => t.key === type)?.color ?? '#94a3b8'
+}
 const LEAVE_TYPES = ['特休', '病假', '事假', '臨請', '婚假', '喪假', '產假', '陪產假', '公假', '補休', '其他']
 
 const TIME_OPTIONS = (() => {
@@ -1231,12 +1236,12 @@ function goToToday() {
 }
 
 const statuses = [
-  { key: 'pending',            label: '待約客戶',  color: 'text-gray-700',       border: '#94a3b8' },
-  { key: 'negotiating',        label: '洽談中',    color: 'text-[#c9a96e]',      border: '#c9a96e' },
-  { key: 'drafting',           label: '製圖中',    color: 'text-[#f472b6]',      border: '#f472b6' },
-  { key: 'construction',       label: '施工中',    color: 'text-blue-500',       border: '#3b82f6' },
-  { key: 'pending_settlement', label: '待結算',    color: 'text-orange-500',     border: '#f97316' },
-  { key: 'aftercare',          label: '售後/組裝', color: 'text-green-500',      border: '#22c55e' }
+  { key: 'pending',            label: '待約客戶',  bg: '#F5EDDD', text: '#2A2420', labelText: 'rgba(42,36,32,.68)', border: '#F5EDDD' },
+  { key: 'negotiating',        label: '洽談中',    bg: '#E9D7AE', text: '#2A2420', labelText: 'rgba(42,36,32,.68)', border: '#E9D7AE' },
+  { key: 'drafting',           label: '製圖中',    bg: '#DCC084', text: '#2A2420', labelText: 'rgba(42,36,32,.68)', border: '#DCC084' },
+  { key: 'construction',       label: '施工中',    bg: '#C9A96E', text: '#2A2420', labelText: 'rgba(42,36,32,.75)', border: '#C9A96E' },
+  { key: 'pending_settlement', label: '待結算',    bg: '#A9824C', text: '#FAF7F2', labelText: 'rgba(250,247,242,.85)', border: '#A9824C' },
+  { key: 'aftercare',          label: '售後/組裝', bg: '#7C5C2E', text: '#FAF7F2', labelText: 'rgba(250,247,242,.85)', border: '#7C5C2E' }
 ]
 
 const counts = computed(() =>
