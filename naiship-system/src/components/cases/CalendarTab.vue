@@ -496,6 +496,7 @@ import { consumeFIFO, refundConsumption, sumRemainingHours } from '@/utils/compL
 import { findOverlappingLeave } from '@/utils/leaveConflict'
 import CompensatoryPanel from './CompensatoryPanel.vue'
 import { TAIWAN_HOLIDAY_NAMES } from '@/constants/holidays'
+import { getLunarLabel } from '@/utils/lunarCalendar'
 import { getBusinessDays } from '@/utils/businessDays'
 import { leaveDedupeId } from '@/utils/leaveDedupeId'
 import { shiftedRange, buildCopyDraft } from '@/utils/eventDateShift'
@@ -1307,7 +1308,7 @@ const calendarCells = computed(() => {
   for (let i = startOffset - 1; i >= 0; i--) {
     const date = new Date(currentYear.value, currentMonth.value - 1, prevMonthDays - i)
     const dow = date.getDay()
-    cells.push({ day: prevMonthDays - i, currentMonth: false, dateStr: toDateStr(date), events: mergeMilestonesByCase(eventsForDate(date)), dayOfWeek: dow, isNonWorking: dow === 0 || dow === 6 })
+    cells.push({ day: prevMonthDays - i, currentMonth: false, dateStr: toDateStr(date), events: mergeMilestonesByCase(eventsForDate(date)), dayOfWeek: dow, isNonWorking: dow === 0 || dow === 6, lunarLabel: getLunarLabel(date) })
   }
 
   for (let d = 1; d <= daysInMonth; d++) {
@@ -1323,6 +1324,7 @@ const calendarCells = computed(() => {
       dayOfWeek: dow,
       isNonWorking: isWeekend || Boolean(holidayName),
       holidayName,
+      lunarLabel: getLunarLabel(date),
       events: mergeMilestonesByCase(eventsForDate(date))
     })
   }
@@ -1331,7 +1333,7 @@ const calendarCells = computed(() => {
   while (cells.length % 7 !== 0) {
     const date = new Date(currentYear.value, currentMonth.value + 1, nextDay)
     const dow = date.getDay()
-    cells.push({ day: nextDay, currentMonth: false, dateStr: toDateStr(date), events: mergeMilestonesByCase(eventsForDate(date)), dayOfWeek: dow, isNonWorking: dow === 0 || dow === 6 })
+    cells.push({ day: nextDay, currentMonth: false, dateStr: toDateStr(date), events: mergeMilestonesByCase(eventsForDate(date)), dayOfWeek: dow, isNonWorking: dow === 0 || dow === 6, lunarLabel: getLunarLabel(date) })
     nextDay++
   }
   return cells
