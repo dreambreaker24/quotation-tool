@@ -18,8 +18,12 @@ describe('getLunarLabel', () => {
         expect(getLunarLabel(new Date(2026, 9, 23))).toBe('霜降')
     })
 
-    it('跨農曆年（2026-09-28 農曆八月十八）', () => {
-        expect(getLunarLabel(new Date(2026, 8, 28))).toBe('十八')
+    it('農曆新年邊界 — 除夕當天（2026-02-16 農曆十二月廿九）', () => {
+        expect(getLunarLabel(new Date(2026, 1, 16))).toBe('廿九')
+    })
+
+    it('農曆新年邊界 — 初一當天（2026-02-17 農曆正月初一）', () => {
+        expect(getLunarLabel(new Date(2026, 1, 17))).toBe('正月')
     })
 
     it('跨西曆月份仍正確換算（2026-11-01 農曆九月廿三）', () => {
