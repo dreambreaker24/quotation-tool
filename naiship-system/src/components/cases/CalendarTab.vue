@@ -1342,13 +1342,13 @@ const calendarCells = computed(() => {
   return cells
 })
 
-// 有 endDate 的事件才會被拿去排長條；已經被 mergeMilestonesByCase() 合併成 _merged
-// 的場勘/施工事件不套用長條顯示，維持原本逐日顯示的行為（合併只在「同一天同案場
-// 多筆場勘」才會發生，機率很低，不強求這個情況也做成長條）
+// 這裡吃的是 eventsStore.events（原始 store 資料），不是 cell 層級的
+// mergeMilestonesByCase() 合併結果，所以永遠不會出現 _merged 物件，不用判斷；
+// 只挑有 endDate 的事件出來排長條
 const multiDayEventLookup = computed(() => {
   const map = new Map()
   for (const e of eventsStore.events) {
-    if (e.endDate && !e._merged) map.set(e.id, e)
+    if (e.endDate) map.set(e.id, e)
   }
   return map
 })
@@ -1380,7 +1380,12 @@ const weekEventBars = computed(() => {
 })
 
 // 依週分組的最終格子資料，events 已經把「這一天被長條蓋到的跨天事件」濾掉，
-// 樣板的逐日事件迴圈（slice(0,4)）改吃這份資料，不會跟長條重複顯示
+// 樣板的逐日事件迴圈（slice(0,4)）改吃這份資料，不會跟長條重複顯示。
+// 這裡吃的是 cell.events（calendarCells 算出來的、經過 mergeMilestonesByCase()
+// 處理過的結果），才可能真的出現 _merged 合併物件——下面 filter 裡的 !e._merged
+// 是真正生效的防呆：已合併成一個色塊的場勘/施工事件不套用長條顯示，維持原本
+// 逐日顯示的行為（合併只在「同一天同案場多筆場勘」才會發生，機率很低，不強求
+// 這個情況也做成長條）
 const weekGroups = computed(() => {
   const cells = calendarCells.value
   const bars = weekEventBars.value
