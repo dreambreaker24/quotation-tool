@@ -99,9 +99,13 @@
             還有 {{ cell.events.length - 4 }} 則
           </div>
         </div>
+        <!-- 長條一律代表事件的起始日，canDragEvent 內對「是否為起始日」的檢查對長條路徑永遠成立，是預期行為 -->
         <div v-for="bar in weekEventBars[wi]" :key="`${wi}-${bar.event.id}-${bar.colStart}`"
           class="absolute h-5 leading-5 text-[11px] rounded-md px-2 truncate text-white cursor-pointer hover:opacity-80 transition-opacity"
-          :class="dragState && dragState.event.id === bar.event.id ? 'opacity-50' : ''"
+          :class="[
+            dragState && dragState.event.id === bar.event.id ? 'opacity-50' : '',
+            pendingAction ? 'pointer-events-none' : ''
+          ]"
           :style="`top:${36 + bar.row * 24}px; left:calc(${bar.colStart / 7 * 100}% + 8px); width:calc(${bar.colSpan / 7 * 100}% - 16px); background:${eventColor(bar.event.type)}`"
           :draggable="canDragEvent(bar.event, tsToDateStr(bar.event.date))"
           @dragstart="onEventDragStart(bar.event, tsToDateStr(bar.event.date), $event)"
