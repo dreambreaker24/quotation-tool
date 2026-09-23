@@ -78,7 +78,7 @@
             :style="cell.isNonWorking ? 'color:#A34848' : ''">
             {{ cell.day }}
           </span>
-          <span v-if="cell.lunarLabel" class="text-[9px] font-medium truncate"
+          <span v-if="cell.lunarLabel" class="text-[9px] font-medium truncate flex-1 min-w-0"
             :style="cell.isNonWorking ? 'color:#A34848' : 'color:#9ca3af'">
             {{ cell.holidayName ? `${cell.lunarLabel}・${cell.holidayName}` : cell.lunarLabel }}
           </span>
