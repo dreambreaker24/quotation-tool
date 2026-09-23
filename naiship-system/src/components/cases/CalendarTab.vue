@@ -499,6 +499,7 @@ import { findOverlappingLeave } from '@/utils/leaveConflict'
 import CompensatoryPanel from './CompensatoryPanel.vue'
 import { TAIWAN_HOLIDAY_NAMES } from '@/constants/holidays'
 import { getLunarLabel } from '@/utils/lunarCalendar'
+import { buildWeekEventBars } from '@/utils/calendarEventBars'
 import { getBusinessDays } from '@/utils/businessDays'
 import { leaveDedupeId } from '@/utils/leaveDedupeId'
 import { shiftedRange, buildCopyDraft } from '@/utils/eventDateShift'
@@ -1339,6 +1340,65 @@ const calendarCells = computed(() => {
     nextDay++
   }
   return cells
+})
+
+// 有 endDate 的事件才會被拿去排長條；已經被 mergeMilestonesByCase() 合併成 _merged
+// 的場勘/施工事件不套用長條顯示，維持原本逐日顯示的行為（合併只在「同一天同案場
+// 多筆場勘」才會發生，機率很低，不強求這個情況也做成長條）
+const multiDayEventLookup = computed(() => {
+  const map = new Map()
+  for (const e of eventsStore.events) {
+    if (e.endDate && !e._merged) map.set(e.id, e)
+  }
+  return map
+})
+
+// 依週分組（每 7 格一組），每週各自算長條，回傳長度 6 的陣列，每項是這一週要畫的長條清單
+const weekEventBars = computed(() => {
+  const cells = calendarCells.value
+  const weeks = []
+  for (let wi = 0; wi * 7 < cells.length; wi++) {
+    const week = cells.slice(wi * 7, wi * 7 + 7)
+    const weekDays = week.map(c => ({ date: c.dateStr, isNonWorking: c.isNonWorking }))
+    const weekStart = week[0].dateStr
+    const weekEnd = week[6].dateStr
+    const events = []
+    for (const e of multiDayEventLookup.value.values()) {
+      const start = tsToDateStr(e.date)
+      const end = tsToDateStr(e.endDate)
+      if (end >= weekStart && start <= weekEnd) events.push({ id: e.id, date: start, endDate: end })
+    }
+    const bars = buildWeekEventBars(weekDays, events).map(seg => ({
+      event: multiDayEventLookup.value.get(seg.id),
+      colStart: seg.colStart,
+      colSpan: seg.colSpan,
+      row: seg.row,
+    }))
+    weeks.push(bars)
+  }
+  return weeks
+})
+
+// 依週分組的最終格子資料，events 已經把「這一天被長條蓋到的跨天事件」濾掉，
+// 樣板的逐日事件迴圈（slice(0,4)）改吃這份資料，不會跟長條重複顯示
+const weekGroups = computed(() => {
+  const cells = calendarCells.value
+  const bars = weekEventBars.value
+  const weeks = []
+  for (let wi = 0; wi * 7 < cells.length; wi++) {
+    const week = cells.slice(wi * 7, wi * 7 + 7)
+    const barsThisWeek = bars[wi]
+    const week7 = week.map((cell, col) => {
+      const barsHere = barsThisWeek.filter(b => col >= b.colStart && col < b.colStart + b.colSpan)
+      return {
+        ...cell,
+        barRows: barsHere.length,
+        events: cell.events.filter(e => !(e.endDate && !e._merged && barsHere.some(b => b.event.id === e.id)))
+      }
+    })
+    weeks.push(week7)
+  }
+  return weeks
 })
 
 function openAddOnDate(dateStr) {
