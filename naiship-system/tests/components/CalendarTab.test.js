@@ -1101,7 +1101,7 @@ describe('CalendarTab — 月曆長條與色塊排版', () => {
     expect(week.items).toHaveLength(1)
     const lane = week.items[0]
     expect(lane.kind).toBe('bar')
-    expect(lane.event._caseLane).toBe(true)
+    expect(lane.event._lane).toBe(true)
     expect([lane.colStart, lane.colSpan]).toEqual([1, 4])
     expect(lane.event.label).toBe('大同區辦公室：水電進場、泥作進場、清運進場')
   })
@@ -1158,9 +1158,48 @@ describe('CalendarTab — 月曆長條與色塊排版', () => {
     expect(items[0].event._chain).toBe(true)
   })
 
+  it('同一個人跨天的補休＋事假合成一條，標題列出假別與時數', async () => {
+    const wrapper = await mountMonth([
+      { id: 'comp', type: 'leave', personName: '蚌', leaveType: '補休', hours: 15.5, label: '蚌 補休 15.5h', date: ts('2026-09-23'), endDate: ts('2026-09-24'), startTime: '09:00', endTime: '17:30' },
+      { id: 'personal', type: 'leave', personName: '蚌', leaveType: '事假', hours: 0.5, label: '蚌 事假 0.5h', date: ts('2026-09-24'), startTime: '17:30', endTime: '18:00' },
+      { id: 'ramy', type: 'leave', personName: 'Ramy', leaveType: '補休', hours: 3.5, label: 'Ramy 補休 3.5h', date: ts('2026-09-24'), startTime: '14:30', endTime: '18:00' },
+    ])
+    const onDay24 = itemsOn(wrapper, '2026-09-24')
+    const bang = onDay24.filter(i => i.event.personName === '蚌')
+    expect(bang).toHaveLength(1)
+    expect(bang[0].event._lane).toBe(true)
+    expect([bang[0].colStart, bang[0].colSpan]).toEqual([2, 2])
+    expect(bang[0].event.label).toBe('蚌：補休 15.5h、事假 0.5h')
+    expect(onDay24.find(i => i.event.id === 'ramy').kind).toBe('chip')
+  })
+
+  it('同一個人同一天兩筆假合成一個色塊', async () => {
+    const wrapper = await mountMonth([
+      { id: 'a', type: 'leave', personName: 'Ramy', leaveType: '補休', hours: 3.5, date: ts('2026-09-17'), startTime: '09:00', endTime: '12:30' },
+      { id: 'b', type: 'leave', personName: 'Ramy', leaveType: '事假', hours: 1, date: ts('2026-09-17'), startTime: '17:00', endTime: '18:00' },
+    ])
+    const items = itemsOn(wrapper, '2026-09-17')
+    expect(items).toHaveLength(1)
+    expect(items[0].event._merged).toBe(true)
+    expect(items[0].event.label).toBe('Ramy：補休 3.5h、事假 1h')
+  })
+
+  it('同一個人週五跟下週一請假：週末不顯示，切開後各剩一天一筆就照單筆顯示', async () => {
+    const wrapper = await mountMonth([
+      { id: 'fri', type: 'leave', personName: '蚌', leaveType: '特休', hours: 8, date: ts('2026-10-02') },
+      { id: 'mon', type: 'leave', personName: '蚌', leaveType: '事假', hours: 8, date: ts('2026-10-05') },
+    ], 9)
+    expect(itemsOn(wrapper, '2026-10-03')).toEqual([])
+    // 週末切開後兩邊各只剩一天一筆，照單筆顯示（可以直接點開那一筆）
+    const fri = itemsOn(wrapper, '2026-10-02')[0]
+    const mon = itemsOn(wrapper, '2026-10-05')[0]
+    expect([fri.kind, fri.event.id]).toEqual(['chip', 'fri'])
+    expect([mon.kind, mon.event.id]).toEqual(['chip', 'mon'])
+  })
+
   it('合併長條與串接長條都不可拖曳', async () => {
     const wrapper = await mountMonth([])
-    expect(wrapper.vm.canDragEvent({ id: 'case_x', type: 'milestone', _caseLane: true, date: ts('2026-09-02') }, '2026-09-02')).toBe(false)
+    expect(wrapper.vm.canDragEvent({ id: 'case_x', type: 'milestone', _lane: true, date: ts('2026-09-02') }, '2026-09-02')).toBe(false)
     expect(wrapper.vm.canDragEvent({ id: 'chain_x', type: 'note', _chain: true, date: ts('2026-09-02') }, '2026-09-02')).toBe(false)
   })
 

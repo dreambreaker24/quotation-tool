@@ -857,7 +857,7 @@ const dragState = ref(null)        // { event, origDateStr, mode: 'move' | 'copy
 const dragOverDateStr = ref('')
 
 function canDragEvent(event, cellDateStr) {
-  if (event._merged || event._chain || event._caseLane) return false
+  if (event._merged || event._chain || event._lane) return false
   if (event.endDate) {
     const startDateStr = tsToDateStr(event.date)
     if (startDateStr !== cellDateStr) return false
@@ -1032,7 +1032,7 @@ function onCellClick(cell) {
 function onEventTap(event, dateStr) {
   if (pendingAction.value) { pickTargetDate(dateStr); return }
   showDayDetail.value = false
-  if (event._merged || event._chain || event._caseLane) { openDayDetail(dateStr); return }
+  if (event._merged || event._chain || event._lane) { openDayDetail(dateStr); return }
   if (event.type === 'leave') { openEditEvent(event); return }
   if (event.type === 'milestone') { milestonePreview.value = event; return }
   eventActionModal.value = event
@@ -1409,29 +1409,43 @@ function eventsForDate(date) {
   })
 }
 
-// 同一案場、同一天的多筆場勘/施工事項合併成一個色塊（只用於月曆格子的精簡顯示，
-// 當天詳情視窗要看完整清單，所以不能動 eventsForDate() 本身）
-function mergeMilestonesByCase(events) {
+// 同一天的精簡顯示（只用於月曆格子，當天詳情視窗要看完整清單，所以不能動 eventsForDate() 本身）：
+// 同一案場的多筆場勘/施工合成一個色塊；同一個人的多筆請假（不分假別）也合成一個色塊
+function leaveItemLabel(e) {
+  return `${e.leaveType || '請假'} ${e.hours || 0}h`
+}
+function mergeSameDayGroups(events) {
   const order = []
   const groups = new Map()
   for (const e of events) {
-    if (e.type !== 'milestone' || !(e.caseNames && e.caseNames.length)) { order.push({ single: e }); continue }
-    const caseKey = e.caseNames.join('、')
-    const casePrefix = e.caseNames.join(' ')
-    let item = e.label || ''
-    if (casePrefix) while (item.startsWith(casePrefix)) item = item.slice(casePrefix.length).trimStart()
-    if (!groups.has(caseKey)) {
-      const bucket = { caseKey, first: e, items: [] }
-      groups.set(caseKey, bucket)
+    let groupKey, title, item
+    if (e.type === 'milestone' && e.caseNames && e.caseNames.length) {
+      title = e.caseNames.join('、')
+      groupKey = `case:${title}`
+      const casePrefix = e.caseNames.join(' ')
+      item = e.label || ''
+      if (casePrefix) while (item.startsWith(casePrefix)) item = item.slice(casePrefix.length).trimStart()
+      item = item || e.label || ''
+    } else if (e.type === 'leave' && e.personName) {
+      title = e.personName
+      groupKey = `leave:${title}`
+      item = leaveItemLabel(e)
+    } else {
+      order.push({ single: e })
+      continue
+    }
+    if (!groups.has(groupKey)) {
+      const bucket = { title, first: e, items: [] }
+      groups.set(groupKey, bucket)
       order.push({ group: bucket })
     }
-    groups.get(caseKey).items.push(item || e.label || '')
+    groups.get(groupKey).items.push(item)
   }
   return order.map(o => {
     if (o.single) return o.single
-    const { caseKey, first, items } = o.group
+    const { title, first, items } = o.group
     if (items.length === 1) return first
-    return { ...first, id: `merged_${first.id}`, label: `${caseKey}：${items.join('、')}`, _merged: true }
+    return { ...first, id: `merged_${first.id}`, label: `${title}：${items.join('、')}`, _merged: true }
   })
 }
 
@@ -1498,21 +1512,53 @@ function shiftDateStr(dateStr, days) {
   return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-${String(next.getDate()).padStart(2, '0')}`
 }
 
+// 同一組事件（同案場、同一個人）佔到的日期切成連續段，每段回傳 { date, endDate, members }。
+// daysOf 決定一筆事件佔哪些日期、isNext 決定兩個日期算不算接續（案場算日曆天、請假算上班日）
+function laneRuns(list, daysOf, isNext) {
+  const dates = new Set()
+  for (const m of list) for (const d of daysOf(m)) dates.add(d)
+  const sorted = [...dates].sort()
+  const runs = []
+  let runStart = 0
+  for (let i = 1; i <= sorted.length; i++) {
+    if (i < sorted.length && isNext(sorted[i - 1], sorted[i])) continue
+    const date = sorted[runStart]
+    const endDate = sorted[i - 1]
+    runStart = i
+    runs.push({ date, endDate, members: list.filter(m => m.date <= endDate && m.endDate >= date) })
+  }
+  return runs
+}
+function calendarDaysOf({ date, endDate }) {
+  const days = []
+  for (let d = date; d <= endDate; d = shiftDateStr(d, 1)) days.push(d)
+  return days
+}
+const isNextCalendarDay = (prev, cur) => shiftDateStr(prev, 1) === cur
+function isNextBusinessDay(prev, cur) {
+  for (let d = shiftDateStr(prev, 1); d < cur; d = shiftDateStr(d, 1)) {
+    if (getBusinessDays(d, d).length) return false
+  }
+  return true
+}
+
 // 要畫成長條的來源，每項 { id, date, endDate, skipNonWorking, memberIds, members, event }：
-// (1) 同案場場勘/施工：連續幾天只要每天都有這個案場的事件，就合成一條（_caseLane）；
-//     只有一筆事件的就直接用那筆事件本身（可拖曳）；只有一天的不畫長條，留給單格合併。
-// (2) 其他有 endDate 的跨天事件（請假長條遇週末/假日斷開）。
+// (1) 合併長條（_lane）：同案場的場勘/施工（連續日曆天）、同一個人的請假（連續上班日，不分假別），
+//     一段裡有兩筆以上就合成一條；只有一筆的直接用那筆事件本身（可拖曳）；只有一天的不畫長條，留給單格合併。
+// (2) 其他有 endDate 的跨天事件。請假長條遇週末/假日斷開。
 // (3) 其他連續幾天每天各一筆、內容相同的單日事件，接成一條（_chain）。
 const barSources = computed(() => {
   const sources = []
-  const caseGroups = new Map()
+  const laneGroups = new Map()
   const singleDay = []
   for (const e of eventsStore.events) {
     const { date, endDate } = eventDateRange(e)
-    if (isCaseMilestone(e)) {
-      const key = caseGroupKey(e)
-      if (!caseGroups.has(key)) caseGroups.set(key, [])
-      caseGroups.get(key).push({ e, date, endDate })
+    const laneKey = isCaseMilestone(e) ? `case:${caseGroupKey(e)}`
+      : (e.type === 'leave' && e.personName) ? `leave:${e.personName}`
+      : null
+    if (laneKey) {
+      if (!laneGroups.has(laneKey)) laneGroups.set(laneKey, [])
+      laneGroups.get(laneKey).push({ e, date, endDate })
     } else if (endDate > date) {
       sources.push({ id: e.id, date, endDate, skipNonWorking: e.type === 'leave', memberIds: [e.id], members: [e], event: e })
     } else if (e.type !== 'leave') {
@@ -1520,31 +1566,24 @@ const barSources = computed(() => {
     }
   }
 
-  for (const [key, list] of caseGroups) {
-    const dates = new Set()
-    for (const { date, endDate } of list) {
-      for (let d = date; d <= endDate; d = shiftDateStr(d, 1)) dates.add(d)
-    }
-    const sorted = [...dates].sort()
-    let runStart = 0
-    for (let i = 1; i <= sorted.length; i++) {
-      if (i < sorted.length && shiftDateStr(sorted[i - 1], 1) === sorted[i]) continue
-      const date = sorted[runStart]
-      const endDate = sorted[i - 1]
-      runStart = i
+  for (const [key, list] of laneGroups) {
+    const isLeave = key.startsWith('leave:')
+    const runs = isLeave
+      ? laneRuns(list, m => getBusinessDays(m.date, m.endDate), isNextBusinessDay)
+      : laneRuns(list, calendarDaysOf, isNextCalendarDay)
+    for (const { date, endDate, members } of runs) {
       if (date === endDate) continue
-      const members = list.filter(m => m.date >= date && m.endDate <= endDate)
       if (members.length === 1) {
         const e = members[0].e
-        sources.push({ id: e.id, date, endDate, skipNonWorking: false, memberIds: [e.id], members: [e], event: e })
+        sources.push({ id: e.id, date, endDate, skipNonWorking: isLeave, memberIds: [e.id], members: [e], event: e })
         continue
       }
       const first = [...members].sort((a, b) => a.date.localeCompare(b.date) || (a.e.startTime || '').localeCompare(b.e.startTime || ''))[0].e
-      const id = `case_${key}_${date}`
+      const id = `lane_${key}_${date}`
       sources.push({
-        id, date, endDate, skipNonWorking: false,
+        id, date, endDate, skipNonWorking: isLeave,
         memberIds: members.map(m => m.e.id), members: members.map(m => m.e),
-        event: { ...first, id, _caseLane: true }
+        event: { ...first, id, _lane: true }
       })
     }
   }
@@ -1561,15 +1600,19 @@ const barSources = computed(() => {
   return sources
 })
 
-// 案場合併長條的標題：只列出「這一段」日期內真的有的項目，依日期、時間排序
-function caseLaneLabel(members, fromDate, toDate) {
-  const caseKey = members[0].caseNames.join('、')
-  const casePrefix = members[0].caseNames.join(' ')
-  const items = []
+// 合併長條的標題：只列出「這一段」日期內真的有的項目，依日期、時間排序。
+// 案場：「案場：水電進場、泥作進場」（同名項目只列一次）；請假：「蚌：補休 15.5h、事假 0.5h」
+function laneLabel(members, fromDate, toDate) {
   const inRange = members
     .map(e => ({ e, ...eventDateRange(e) }))
     .filter(m => m.date <= toDate && m.endDate >= fromDate)
     .sort((a, b) => a.date.localeCompare(b.date) || (a.e.startTime || '').localeCompare(b.e.startTime || ''))
+  if (members[0].type === 'leave') {
+    return `${members[0].personName}：${inRange.map(({ e }) => leaveItemLabel(e)).join('、')}`
+  }
+  const caseKey = members[0].caseNames.join('、')
+  const casePrefix = members[0].caseNames.join(' ')
+  const items = []
   for (const { e } of inRange) {
     let item = e.label || ''
     if (casePrefix) while (item.startsWith(casePrefix)) item = item.slice(casePrefix.length).trimStart()
@@ -1598,10 +1641,15 @@ const weekLayouts = computed(() => {
     segments.sort((a, b) => a.colStart - b.colStart || b.colSpan - a.colSpan || String(a.id).localeCompare(String(b.id)))
     const barItems = segments.map(seg => {
       const source = sourceById.get(seg.id)
-      const event = source.event._caseLane
-        ? { ...source.event, label: caseLaneLabel(source.members, week[seg.colStart].dateStr, week[seg.colStart + seg.colSpan - 1].dateStr) }
-        : source.event
-      return { kind: 'bar', key: `bar-${seg.id}-${seg.colStart}`, event, colStart: seg.colStart, colSpan: seg.colSpan }
+      if (!source.event._lane) return { kind: 'bar', key: `bar-${seg.id}-${seg.colStart}`, event: source.event, colStart: seg.colStart, colSpan: seg.colSpan }
+      const fromDate = week[seg.colStart].dateStr
+      const toDate = week[seg.colStart + seg.colSpan - 1].dateStr
+      // 合併長條被週末/假日切出來、只剩一天一筆的那一段，照單筆顯示（有時間、點了直接開那一筆）
+      const inSegment = source.members.filter(e => { const r = eventDateRange(e); return r.date <= toDate && r.endDate >= fromDate })
+      if (seg.colSpan === 1 && inSegment.length === 1) {
+        return { kind: 'chip', key: `chip-${inSegment[0].id}-${fromDate}`, event: inSegment[0], colStart: seg.colStart, colSpan: 1, dateStr: fromDate }
+      }
+      return { kind: 'bar', key: `bar-${seg.id}-${seg.colStart}`, event: { ...source.event, label: laneLabel(source.members, fromDate, toDate) }, colStart: seg.colStart, colSpan: seg.colSpan }
     })
 
     const chipItems = week.flatMap((cell, col) => {
@@ -1612,7 +1660,7 @@ const weekLayouts = computed(() => {
       const visible = cell.events.filter(e =>
         !coveredIds.has(e.id) && !(e.type === 'leave' && e.endDate && cell.isNonWorking)
       )
-      return mergeMilestonesByCase(visible).map(event => ({
+      return mergeSameDayGroups(visible).map(event => ({
         kind: 'chip', key: `chip-${event.id}-${cell.dateStr}`, event, colStart: col, colSpan: 1, dateStr: cell.dateStr
       }))
     })
@@ -1641,10 +1689,10 @@ function cellUnderPointer(item, wi, e) {
   return weekLayouts.value[wi].cells[col]
 }
 
-// 合併出來的虛擬長條（_chain/_caseLane）底下是好幾筆資料，點哪一天就開哪一天的詳情；一般長條維持開起始日
+// 合併出來的虛擬長條（_chain/_lane）底下是好幾筆資料，點哪一天就開哪一天的詳情；一般長條維持開起始日
 function onItemTap(item, wi, e) {
   if (item.kind === 'chip') { onEventTap(item.event, item.dateStr); return }
-  if (item.event._chain || item.event._caseLane) { onEventTap(item.event, cellUnderPointer(item, wi, e).dateStr); return }
+  if (item.event._chain || item.event._lane) { onEventTap(item.event, cellUnderPointer(item, wi, e).dateStr); return }
   onEventTap(item.event, tsToDateStr(item.event.date))
 }
 function itemDateStr(item) {
