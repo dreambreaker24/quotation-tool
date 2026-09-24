@@ -15,7 +15,7 @@
         <thead>
           <tr class="text-left text-gray-400 text-xs border-b border-gray-100">
             <th class="py-2 font-medium">案件</th>
-            <th class="font-medium">簽約金額</th>
+            <th class="font-medium">簽約金額（收款期程）</th>
             <th class="font-medium">資格</th>
             <th></th>
           </tr>
@@ -23,9 +23,9 @@
         <tbody>
           <tr v-for="c in eligibleCases" :key="c.id" class="border-b border-gray-50">
             <td class="py-2">{{ c.name }}</td>
-            <td>{{ (c.signedAmount || 0).toLocaleString() }}</td>
+            <td>{{ bonusBaseAmount(c).toLocaleString() }}</td>
             <td>
-              <span v-if="isEligibleByAmount(c.signedAmount)" class="text-green-600">符合</span>
+              <span v-if="isEligibleByAmount(bonusBaseAmount(c))" class="text-green-600">符合</span>
               <span v-else class="text-gray-400">未達 50 萬</span>
             </td>
             <td class="text-right">
@@ -130,7 +130,7 @@ import { useBonusQuartersStore, defaultQuarterData } from '@/stores/bonusQuarter
 import { useToast } from '@/composables/useToast'
 import { useExport } from '@/composables/useExport'
 import {
-    isEligibleByAmount, dateToQuarterKey, isCompletedInQuarter,
+    isEligibleByAmount, bonusBaseAmount, dateToQuarterKey, isCompletedInQuarter,
     buildCaseBonusEntries, buildAdminEntry,
 } from '@/utils/bonusCalc'
 import CaseBonusForm from '@/components/bonus/CaseBonusForm.vue'

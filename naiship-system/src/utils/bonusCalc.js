@@ -7,6 +7,12 @@ export const MIN_PROFIT_MARGIN = 0.25
 export const SALES_DESIGN_RATE = 0.04
 export const SALES_CONSTRUCTION_RATE = 0.0125
 
+// 獎金計算金額：以收款期程應收合計為主（含追加款），沒有期程才用案件的簽約金額欄位
+export function bonusBaseAmount(caseInfo) {
+    const milestoneTotal = (caseInfo?.paymentMilestones || []).reduce((s, m) => s + (Number(m.amount) || 0), 0)
+    return milestoneTotal > 0 ? milestoneTotal : (caseInfo?.signedAmount || 0)
+}
+
 export function isEligibleByAmount(signedAmount) {
     return (signedAmount || 0) > THRESHOLD_AMOUNT
 }
@@ -119,14 +125,15 @@ export function buildTeamBonusEntries(caseInfo, bonusData, usersById = {}) {
 export function buildCaseBonusEntries(caseInfo, bonusData, usersById = {}) {
     const entries = []
     const vendorCostTotal = sumVendorCost(caseInfo.workTypes)
+    const baseAmount = bonusBaseAmount(caseInfo)
 
-    const salesAmount = calcSalesBonus(bonusData.designContractAmount, bonusData.constructionContractAmount, caseInfo.signedAmount)
+    const salesAmount = calcSalesBonus(bonusData.designContractAmount, bonusData.constructionContractAmount, baseAmount)
     pushRoleEntries(entries, 'sales', salesAmount, bonusData.salesPersonIds, bonusData.salesSplit, usersById, caseInfo)
 
-    const designerAmount = calcDesignerBonus(caseInfo.signedAmount)
+    const designerAmount = calcDesignerBonus(baseAmount)
     pushRoleEntries(entries, 'designer', designerAmount, bonusData.designerIds, bonusData.designerSplit, usersById, caseInfo)
 
-    const siteManagerAmount = calcSiteManagerBonus(caseInfo.signedAmount, vendorCostTotal, bonusData.miscExpenses)
+    const siteManagerAmount = calcSiteManagerBonus(baseAmount, vendorCostTotal, bonusData.miscExpenses)
     pushRoleEntries(entries, 'siteManager', siteManagerAmount, bonusData.siteManagerIds, bonusData.siteManagerSplit, usersById, caseInfo)
 
     entries.push(...buildTeamBonusEntries(caseInfo, bonusData, usersById))
