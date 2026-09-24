@@ -23,7 +23,7 @@
       class="mx-3 mb-4 rounded-xl p-3 border-l-4 border-blue-400" style="background:rgba(59,130,246,0.15)">
       <div class="text-[10px] text-blue-300 font-semibold uppercase tracking-wide mb-1">即將到期</div>
       <div class="text-white text-sm font-bold">{{ upcomingAutoCount }} 筆</div>
-      <div class="text-[10px] text-gray-400 mt-0.5">本月底及下月排程</div>
+      <div class="text-[10px] text-gray-400 mt-0.5">本月及下月到期</div>
       <a href="#scheduled-reminders"
         class="mt-2 block text-[10px] text-blue-300 hover:text-blue-100 underline">前往廠商排程</a>
     </div>

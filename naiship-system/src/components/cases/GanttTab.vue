@@ -131,7 +131,7 @@
                   :style="wt.done ? 'background:#f0fdf4' : 'background:#f9fafb'">
                   <span class="w-4"></span>
                   <span class="w-2 h-2 rounded-full flex-shrink-0" :style="`background:${wt.color};opacity:${wt.done ? 0.4 : 1}`"></span>
-                  <span class="text-[10px] flex-1 truncate" :class="wt.done ? 'text-gray-400 line-through' : 'text-gray-500'">{{ wt.name }}</span>
+                  <span class="text-[10px] flex-1 truncate" :class="wt.done ? 'text-gray-400 line-through' : 'text-gray-500'">{{ workTypeLabel(wt) }}</span>
                   <span v-if="wt.done" class="text-[9px] px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 font-semibold flex-shrink-0 whitespace-nowrap">✓ 完工</span>
                   <template v-else>
                     <span v-if="isWtOverdue(wt, row.data)" class="text-[9px] px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-600 font-semibold flex-shrink-0 whitespace-nowrap">⚠ 逾期</span>
@@ -274,6 +274,7 @@ import BidRequestPanel from './BidRequestPanel.vue'
 import WorkTypePanel from './WorkTypePanel.vue'
 import PaymentMilestones from './PaymentMilestones.vue'
 import CaseEditModal from './CaseEditModal.vue'
+import { workTypeLabel } from '@/utils/workTypeDuplicates'
 
 const TODAY_STR = new Date().toISOString().slice(0, 10)
 
