@@ -196,3 +196,17 @@ describe('PaymentReminders — 廠商付款依日期顯示', () => {
         expect(headers[2]).toBe('未設日期')
     })
 })
+
+describe('PaymentReminders — 工種細項顯示', () => {
+    beforeEach(() => setActivePinia(createPinia()))
+
+    it('工種有細項時顯示「工種・細項」', async () => {
+        const authStore = useAuthStore()
+        authStore.role = 'admin'
+        useCasesStore().cases = [{ id: 'c1', name: '奈拾辦公室', workTypes: [{ id: 'wt-1', name: '系統櫃', subName: '組裝', vendorName: '陳盈志', vendorCostItems: [], vendorPayments: [] }] }]
+        usePaymentRemindersStore().reminders = [{ id: 'r1', type: 'vendor', source: 'auto', status: 'pending', caseId: 'c1', caseName: '奈拾辦公室', workTypeId: 'wt-1', workTypeName: '系統櫃', amount: 3000, dueDate: '2099-01-01' }]
+        const wrapper = mount(PaymentReminders, { global: { plugins: [router] } })
+        await flushPromises()
+        expect(wrapper.find('#scheduled-reminders').text()).toContain('系統櫃・組裝')
+    })
+})

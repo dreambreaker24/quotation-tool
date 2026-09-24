@@ -45,7 +45,7 @@
               <div class="flex-1 grid grid-cols-6 gap-2 items-start">
                 <div class="min-w-0">
                   <div class="text-[10px] text-gray-400 mb-0.5">工種</div>
-                  <div class="text-sm font-bold text-gray-900 truncate" :title="wt.name">{{ wt.name }}</div>
+                  <div class="text-sm font-bold text-gray-900 truncate" :title="workTypeLabel(wt)">{{ workTypeLabel(wt) }}</div>
                 </div>
                 <div class="min-w-0">
                   <div class="text-[10px] text-gray-400 mb-0.5">負責廠商</div>
@@ -371,6 +371,12 @@
           </div>
         </div>
         <div>
+          <label class="text-xs text-gray-500 mb-1 block">細項（選填）</label>
+          <input ref="subNameInput" v-model="form.subName" data-test="worktype-subname" type="text"
+            class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1"
+            placeholder="同工種有多家廠商時區分用，例：組裝、運送">
+        </div>
+        <div>
           <label class="text-xs text-gray-500 mb-1 block">負責廠商</label>
           <div class="relative">
             <input
@@ -580,6 +586,22 @@
     </div>
   </div>
 
+  <!-- 重複工種提醒 -->
+  <div v-if="duplicatePrompt" data-test="duplicate-dialog" class="fixed inset-0 z-[60] flex items-center justify-center" style="background:rgba(0,0,0,0.4)">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-xs mx-4 p-5 border-t-4" style="border-top-color:#f59e0b">
+      <div class="text-sm font-bold text-gray-800 mb-2">工種重複</div>
+      <div class="text-sm text-gray-600 leading-relaxed">{{ duplicatePrompt.message }}</div>
+      <div class="flex justify-end gap-2 mt-4">
+        <button data-test="duplicate-cancel" @click="answerDuplicate(false)" class="text-sm text-gray-500 px-3 py-2 rounded-xl hover:bg-gray-50">
+          {{ duplicatePrompt.cancelText }}
+        </button>
+        <button data-test="duplicate-confirm" @click="answerDuplicate(true)" class="text-sm text-white px-4 py-2 rounded-xl" style="background:#1e2533">
+          {{ duplicatePrompt.confirmText }}
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- 廠商付款記錄 Modal -->
   <div v-if="showVendorPayForm" class="fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.4)">
     <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm mx-4 border-t-4" style="border-top-color:#c9a96e">
@@ -754,6 +776,7 @@ import { ref, computed, reactive, onMounted, onUnmounted, nextTick, watch } from
 import { useWorkCategoriesStore } from '@/stores/workCategories'
 import { WT_COLORS } from '@/constants/workTypeColors'
 import { isLegacyCategoryName } from '@/utils/workTypeCategory'
+import { workTypeLabel, findDuplicateWorkTypes, describeDuplicate } from '@/utils/workTypeDuplicates'
 import { getVendorSpecialties, filterVendorsByCategory } from '@/utils/vendorSpecialty'
 import { wtVendorCostTotal, totalVendorPaid, vendorInvoiceStatus, itemPaid, allocatePayment, stageAmountOf, applyVendorStagePayment } from '@/utils/workTypeInvoice'
 import { suggestPaymentPlan, makeStage } from '@/utils/paymentPlan'
@@ -802,7 +825,7 @@ const form = ref({
     name: '', vendorId: '', startDate: '', endDate: '',
     hasQuote: false, hasSchedule: false,
     vendorCostItems: [], vendorCostFree: false,
-    costIncludesTax: null, locations: [], customName: false,
+    costIncludesTax: null, locations: [], customName: false, subName: '',
     paymentPlan: suggestPaymentPlan(0),
 })
 
@@ -1344,7 +1367,7 @@ function openAdd() {
         name: '', vendorId: '', startDate: '', endDate: '',
         hasQuote: false, hasSchedule: false,
         vendorCostItems: [], vendorCostFree: false,
-        costIncludesTax: null, locations: [], customName: false,
+        costIncludesTax: null, locations: [], customName: false, subName: '',
         paymentPlan: suggestPaymentPlan(0),
     }
     showForm.value = true
@@ -1373,6 +1396,7 @@ function openEdit(idx) {
         paymentPlan: wt.paymentPlan ? { ...wt.paymentPlan, stages: wt.paymentPlan.stages.map(s => ({ ...s })) } : null,
         locations: (wt.locations || []).map(l => ({ ...l })),
         customName: wt.customName || false,
+        subName: wt.subName || '',
     }
     showForm.value = true
     nextTick(() => { suppressPlanWatch.value = false })
@@ -1398,6 +1422,27 @@ function buildVendorChangeLines(existing, entry) {
     return { lines }
 }
 
+const subNameInput = ref(null)
+const duplicatePrompt = ref(null)
+
+function answerDuplicate(ok) {
+    duplicatePrompt.value.resolve(ok)
+    duplicatePrompt.value = null
+}
+
+// 回傳 true 表示照樣儲存；不同廠商時選「回去填細項」會把游標移到細項欄
+async function confirmDuplicate(dup, isNew) {
+    const existingText = describeDuplicate(dup)
+    const sameVendor = dup.kind === 'same-vendor'
+    const ok = await new Promise(resolve => {
+        duplicatePrompt.value = sameVendor
+            ? { message: `此案件已有${existingText}，確定要${isNew ? '再新增一筆' : '儲存'}嗎？`, cancelText: '取消', confirmText: '確定', resolve }
+            : { message: `此案件已有${existingText}，要不要填「細項」區分？例：組裝、運送`, cancelText: '回去填細項', confirmText: '不用，直接存', resolve }
+    })
+    if (!ok && !sameVendor) nextTick(() => subNameInput.value?.focus())
+    return ok
+}
+
 async function submitForm() {
     if (!form.value.name || saving.value) return
     if ((!form.value.startDate || !form.value.endDate) && !confirm('進場日期或退場日期尚未填寫，確定要儲存嗎？')) {
@@ -1413,6 +1458,17 @@ async function submitForm() {
     }
     const vendor = vendorsStore.vendors.find(v => v.id === form.value.vendorId)
     const existing = editingIdx.value !== null ? workTypes.value[editingIdx.value] : null
+    const subName = (form.value.subName || '').trim()
+    const identityChanged = !existing
+        || existing.name !== form.value.name
+        || (existing.subName || '') !== subName
+        || (existing.vendorId || '') !== (form.value.vendorId || '')
+    if (identityChanged) {
+        const dup = findDuplicateWorkTypes(workTypes.value, {
+            id: existing?.id, name: form.value.name, subName, vendorId: form.value.vendorId,
+        })
+        if (dup && !(await confirmDuplicate(dup, !existing))) return
+    }
     const entry = {
         id: existing ? existing.id : `wt_${Date.now()}`,
         name: form.value.name,
@@ -1434,6 +1490,7 @@ async function submitForm() {
         paymentPlan: form.value.paymentPlan,
         locations: form.value.locations.filter(l => l.label),
         customName: existing?.customName ?? false,
+        subName,
     }
 
     let vendorChange = null
@@ -1476,7 +1533,7 @@ async function submitForm() {
         }
         const changeSuffix = vendorChange?.lines?.length > 0 ? `（${vendorChange.lines.join('、')}）` : ''
         const verb = existing ? '更新' : '新增'
-        notifStore.notifyAll(authStore.name ?? '', `${verb}了「${props.caseName}」的「${entry.name}」工種${changeSuffix}`, props.caseId, props.caseName, caseData.value?.companyId ?? '', '', 'worktype', '', false, '', '', '', entry.id)
+        notifStore.notifyAll(authStore.name ?? '', `${verb}了「${props.caseName}」的「${workTypeLabel(entry)}」工種${changeSuffix}`, props.caseId, props.caseName, caseData.value?.companyId ?? '', '', 'worktype', '', false, '', '', '', entry.id)
         showForm.value = false
     } catch {
         toast('儲存失敗，請重試', 'error')
@@ -1496,7 +1553,7 @@ function buildVendorItemReminderPayload(item, wt) {
         caseName: props.caseName,
         companyId: caseData.value?.companyId ?? '',
         workTypeId: wt.id,
-        workTypeName: wt.name,
+        workTypeName: workTypeLabel(wt),
         vendorName: wt.vendorName || '',
         itemId: item.id,
         description: item.description,
@@ -1515,7 +1572,7 @@ async function sendReminder(item) {
     await remindersStore.addAutoReminder(vendorItemReminderDocId(item, wt), buildVendorItemReminderPayload(item, wt))
     await notifStore.notifyManagers(
         authStore.name ?? '',
-        `${props.caseName}－${wt.name}：${item.description} 廠商匯款 $${(item.amount || 0).toLocaleString()}`
+        `${props.caseName}－${workTypeLabel(wt)}：${item.description} 廠商匯款 $${(item.amount || 0).toLocaleString()}`
     )
     toast('已提醒主管')
 }
@@ -1540,7 +1597,7 @@ function buildPaymentPlanStagePayload(stage, wt, stageAmount) {
         caseName: props.caseName,
         companyId: caseData.value?.companyId ?? '',
         workTypeId: wt.id,
-        workTypeName: wt.name,
+        workTypeName: workTypeLabel(wt),
         vendorName: wt.vendorName || '',
         stageId: stage.id,
         description: stage.name,
@@ -1577,7 +1634,7 @@ async function remindPlanStage(idx, stageId) {
         }
         await notifStore.notifyManagers(
             authStore.name ?? '',
-            `${props.caseName}－${wt.name}：${stage.name} 廠商匯款 $${amount.toLocaleString()}`
+            `${props.caseName}－${workTypeLabel(wt)}：${stage.name} 廠商匯款 $${amount.toLocaleString()}`
         )
         toast('已提醒主管')
     } catch {
@@ -1707,7 +1764,7 @@ async function addVendorPayment() {
 }
 
 async function removeWorkType(idx) {
-    if (!confirm(`確定要刪除「${workTypes.value[idx].name}」？`)) return
+    if (!confirm(`確定要刪除「${workTypeLabel(workTypes.value[idx])}」？`)) return
     const wt = workTypes.value[idx]
     try {
         const updated = workTypes.value.filter((_, i) => i !== idx)

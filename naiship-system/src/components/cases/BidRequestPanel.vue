@@ -188,6 +188,7 @@ import { ref, computed, reactive, onMounted, onUnmounted } from 'vue'
 import { useWorkCategoriesStore } from '@/stores/workCategories'
 import { filterVendorsByCategory } from '@/utils/vendorSpecialty'
 import { useBidRequestsStore, buildWinningWorkType } from '@/stores/bidRequests'
+import { findDuplicateWorkTypes, bidDuplicateMessage } from '@/utils/workTypeDuplicates'
 import { useVendorsStore } from '@/stores/vendors'
 import { useCasesStore } from '@/stores/cases'
 import { useAuthStore } from '@/stores/auth'
@@ -437,6 +438,8 @@ async function confirmWinner(br) {
             ? { vendorId: winnerBid.vendorId, vendorName: winnerBid.vendorName }
             : { vendorId: winnerVendorId.value, vendorName: winnerVendorName.value }
         const newWorkType = buildWinningWorkType(br, selectedWinnerId.value, workTypes.value.length, finalVendor, winnerWorkCategory.value)
+        const dup = findDuplicateWorkTypes(workTypes.value, newWorkType)
+        if (dup && !confirm(bidDuplicateMessage(dup))) return
         await casesStore.updateCase(props.caseId, { workTypes: [...workTypes.value, newWorkType] })
         await bidRequestsStore.markConverted(props.caseId, br.id, selectedWinnerId.value, newWorkType.id)
         await bidRequestsStore.repointQuotePhotos(props.caseId, winnerBid?.quotePhotoIds, newWorkType.id)

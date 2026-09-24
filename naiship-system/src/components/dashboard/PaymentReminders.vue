@@ -39,7 +39,7 @@
                     class="flex items-center gap-2">
                     <div class="flex-1 min-w-0">
                       <div class="flex items-center flex-wrap gap-1 text-[11px]">
-                        <span class="font-semibold text-gray-700">{{ r.workTypeName }}</span>
+                        <span class="font-semibold text-gray-700">{{ getWorkTypeLabel(r) }}</span>
                         <template v-if="getVendorName(r)">
                           <span class="text-gray-300">·</span>
                           <span class="text-gray-400">{{ getVendorName(r) }}</span>
@@ -76,7 +76,7 @@
         <div v-if="remindersStore.recentlyDoneVendor.length > 0" class="mt-3 flex flex-col gap-1.5">
           <div v-for="r in remindersStore.recentlyDoneVendor" :key="r.id"
             class="bg-green-50 border border-green-200 rounded-lg px-3 py-2 flex items-center justify-between">
-            <span class="text-xs text-green-800">{{ r.caseName }}－{{ r.workTypeName }}</span>
+            <span class="text-xs text-green-800">{{ r.caseName }}－{{ getWorkTypeLabel(r) }}</span>
             <span class="flex items-center gap-1.5">
               <span class="text-[10px] text-green-600">{{ formatDoneAt(r.doneAt) }}</span>
               <span class="text-[11px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-semibold">✓ 已完成</span>
@@ -146,7 +146,7 @@
             <div class="flex flex-col gap-1.5 pl-2.5">
               <div v-for="item in group.items" :key="item.wt.id" class="flex items-center gap-2">
                 <div class="flex-1 min-w-0 text-[11px]">
-                  <span class="font-semibold text-gray-700">{{ item.wt.name }}</span>
+                  <span class="font-semibold text-gray-700">{{ workTypeLabel(item.wt) }}</span>
                   <span class="text-gray-300"> · </span>
                   <span class="text-gray-400">{{ item.wt.vendorName }}</span>
                   <div class="text-xs font-bold text-gray-800 mt-0.5">
@@ -170,7 +170,7 @@
             <div class="flex flex-col gap-1.5 pl-2.5">
               <div v-for="item in group.items" :key="item.wt.id" class="flex items-center gap-2">
                 <div class="flex-1 min-w-0 text-xs text-green-800">
-                  <span class="font-semibold">{{ item.wt.name }}</span>
+                  <span class="font-semibold">{{ workTypeLabel(item.wt) }}</span>
                   <span> · </span>
                   <span>{{ item.wt.vendorName }}</span>
                 </div>
@@ -204,6 +204,7 @@ import PaymentCompleteModal from '@/components/dashboard/PaymentCompleteModal.vu
 import { useNotificationsStore } from '@/stores/notifications'
 import { applyVendorItemPayment, applyVendorStagePayment, itemPaid, totalVendorPaid, computePendingInvoiceGroups, computeRecentlyReceivedInvoiceGroups, stageAmountOf } from '@/utils/workTypeInvoice'
 import { applyMilestonePayment } from '@/utils/paymentMilestones'
+import { workTypeLabel } from '@/utils/workTypeDuplicates'
 
 const router = useRouter()
 const remindersStore = usePaymentRemindersStore()
@@ -224,6 +225,12 @@ function getVendorName(r) {
     const c = casesStore.cases.find(c => c.id === r.caseId)
     const wt = c?.workTypes?.find(wt => wt.id === r.workTypeId)
     return wt?.vendorName || r.vendorName || ''
+}
+
+function getWorkTypeLabel(r) {
+    const c = casesStore.cases.find(c => c.id === r.caseId)
+    const wt = c?.workTypes?.find(wt => wt.id === r.workTypeId)
+    return wt ? workTypeLabel(wt) : r.workTypeName
 }
 
 function todayStr() {

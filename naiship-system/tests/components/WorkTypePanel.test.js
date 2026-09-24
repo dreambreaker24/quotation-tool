@@ -515,3 +515,111 @@ describe('WorkTypePanel — 發票上傳不限張數', () => {
         expect(updateCaseSpy).not.toHaveBeenCalled()
     })
 })
+
+describe('WorkTypePanel — 同案件重複工種提醒', () => {
+    beforeEach(() => {
+        setActivePinia(createPinia())
+        vi.stubGlobal('confirm', vi.fn(() => true))
+    })
+
+    async function mountWith(workTypes) {
+        const casesStore = useCasesStore()
+        const authStore = useAuthStore()
+        authStore.role = 'admin'
+        authStore.name = '柏'
+        casesStore.cases = [{ id: caseId, name: '大同區辦公室', companyId: 'north', workTypes }]
+        const updateCaseSpy = vi.spyOn(casesStore, 'updateCase').mockResolvedValue()
+        const wrapper = mount(WorkTypePanel, { props: { caseId, caseName: '大同區辦公室' }, attachTo: document.body })
+        await flushPromises()
+        return { wrapper, updateCaseSpy }
+    }
+
+    async function fillAdd(wrapper, fields) {
+        wrapper.vm.openAdd()
+        await wrapper.vm.$nextTick()
+        Object.assign(wrapper.vm.form, { startDate: '2026-10-01', endDate: '2026-10-05', vendorCostFree: true }, fields)
+    }
+
+    const existingWt = { id: 'wt1', name: '系統櫃', vendorId: 'v1', vendorName: '綠巧築', vendorCostItems: [], vendorPayments: [] }
+
+    it('同工種同廠商：跳提醒，按取消不儲存', async () => {
+        const { wrapper, updateCaseSpy } = await mountWith([existingWt])
+        await fillAdd(wrapper, { name: '系統櫃', vendorId: 'v1' })
+        const saving = wrapper.vm.submitForm()
+        await flushPromises()
+        const dialog = document.querySelector('[data-test="duplicate-dialog"]')
+        expect(dialog.textContent).toContain('此案件已有「系統櫃」（綠巧築），確定要再新增一筆嗎？')
+        document.querySelector('[data-test="duplicate-cancel"]').click()
+        await saving
+        expect(updateCaseSpy).not.toHaveBeenCalled()
+        wrapper.unmount()
+    })
+
+    it('同工種同廠商：按確定照樣儲存', async () => {
+        const { wrapper, updateCaseSpy } = await mountWith([existingWt])
+        await fillAdd(wrapper, { name: '系統櫃', vendorId: 'v1' })
+        const saving = wrapper.vm.submitForm()
+        await flushPromises()
+        document.querySelector('[data-test="duplicate-confirm"]').click()
+        await saving
+        expect(updateCaseSpy).toHaveBeenCalled()
+        expect(updateCaseSpy.mock.calls[0][1].workTypes).toHaveLength(2)
+        wrapper.unmount()
+    })
+
+    it('同工種不同廠商：提醒填細項，選「回去填細項」不儲存、表單保持開啟', async () => {
+        const { wrapper, updateCaseSpy } = await mountWith([existingWt])
+        await fillAdd(wrapper, { name: '系統櫃', vendorId: 'v2' })
+        const saving = wrapper.vm.submitForm()
+        await flushPromises()
+        const dialog = document.querySelector('[data-test="duplicate-dialog"]')
+        expect(dialog.textContent).toContain('要不要填「細項」區分')
+        document.querySelector('[data-test="duplicate-cancel"]').click()
+        await saving
+        await flushPromises()
+        expect(updateCaseSpy).not.toHaveBeenCalled()
+        expect(wrapper.vm.showForm).toBe(true)
+        expect(document.activeElement?.getAttribute('data-test')).toBe('worktype-subname')
+        wrapper.unmount()
+    })
+
+    it('同工種不同廠商：選「不用，直接存」照樣儲存', async () => {
+        const { wrapper, updateCaseSpy } = await mountWith([existingWt])
+        await fillAdd(wrapper, { name: '系統櫃', vendorId: 'v2' })
+        const saving = wrapper.vm.submitForm()
+        await flushPromises()
+        document.querySelector('[data-test="duplicate-confirm"]').click()
+        await saving
+        expect(updateCaseSpy).toHaveBeenCalled()
+        wrapper.unmount()
+    })
+
+    it('填了不同細項就不跳提醒，細項一起存進去', async () => {
+        const { wrapper, updateCaseSpy } = await mountWith([existingWt])
+        await fillAdd(wrapper, { name: '系統櫃', vendorId: 'v2', subName: ' 組裝 ' })
+        await wrapper.vm.submitForm()
+        await flushPromises()
+        expect(document.querySelector('[data-test="duplicate-dialog"]')).toBeNull()
+        const saved = updateCaseSpy.mock.calls[0][1].workTypes[1]
+        expect(saved.subName).toBe('組裝')
+        wrapper.unmount()
+    })
+
+    it('編輯既有重複工種但只改日期，不跳提醒', async () => {
+        const { wrapper, updateCaseSpy } = await mountWith([existingWt, { ...existingWt, id: 'wt2', vendorId: 'v2', vendorName: '陳盈志' }])
+        wrapper.vm.openEdit(1)
+        await wrapper.vm.$nextTick()
+        Object.assign(wrapper.vm.form, { startDate: '2026-10-01', endDate: '2026-10-09' })
+        await wrapper.vm.submitForm()
+        await flushPromises()
+        expect(document.querySelector('[data-test="duplicate-dialog"]')).toBeNull()
+        expect(updateCaseSpy).toHaveBeenCalled()
+        wrapper.unmount()
+    })
+
+    it('卡片上顯示「工種・細項」', async () => {
+        const { wrapper } = await mountWith([{ ...existingWt, subName: '組裝' }])
+        expect(wrapper.text()).toContain('系統櫃・組裝')
+        wrapper.unmount()
+    })
+})
