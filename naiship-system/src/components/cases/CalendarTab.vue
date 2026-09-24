@@ -122,6 +122,33 @@
     </div>
   </div>
 
+  <!-- 補休不足改拆事假：確認視窗（疊在新增/編輯視窗上面） -->
+  <div v-if="compSplitPrompt" class="fixed inset-0 z-[60] flex items-center justify-center" style="background:rgba(0,0,0,0.4)">
+    <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm mx-4 border-t-4" style="border-top-color:#c9a96e">
+      <h3 class="text-base font-bold text-gray-800 mb-2">補休時數不足</h3>
+      <p class="text-sm text-gray-600 mb-4">
+        {{ compSplitPrompt.personName }} 目前補休剩 {{ compSplitPrompt.balance }}h，這次申請 {{ compSplitPrompt.total }}h。不足的部分改請事假，這樣計算可以嗎？
+      </p>
+      <div class="flex flex-col gap-2 mb-3 text-sm">
+        <div class="flex items-center justify-between rounded-lg px-3 py-2" style="background:#EEF3F8">
+          <span class="font-semibold" style="color:#5B7C99">補休 {{ compSplitPrompt.compHours }}h</span>
+          <span class="text-gray-500 text-xs">{{ splitRangeLabel(compSplitPrompt.comp) }}</span>
+        </div>
+        <div class="flex items-center justify-between rounded-lg px-3 py-2" style="background:#F6EEEE">
+          <span class="font-semibold" style="color:#8B3A3A">事假 {{ compSplitPrompt.personalHours }}h</span>
+          <span class="text-gray-500 text-xs">{{ splitRangeLabel(compSplitPrompt.personal) }}</span>
+        </div>
+      </div>
+      <p v-if="compSplitPrompt.balance > compSplitPrompt.compHours" class="text-xs text-gray-400 mb-3">
+        補休剩下的 {{ Math.round((compSplitPrompt.balance - compSplitPrompt.compHours) * 100) / 100 }}h 不足半小時，先留在帳上
+      </p>
+      <div class="flex gap-2">
+        <button @click="answerCompSplit(false)" class="flex-1 text-sm border border-gray-200 rounded-lg py-2 text-gray-500 hover:border-gray-400">取消</button>
+        <button @click="answerCompSplit(true)" class="flex-1 text-sm rounded-lg py-2 text-white font-semibold" style="background:#2A2420">同意</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 新增事件 Modal -->
   <div v-if="showAddEvent" class="fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.4)">
     <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm mx-4 border-t-4" style="border-top-color:#c9a96e">
@@ -518,6 +545,7 @@ import { useToast } from '@/composables/useToast'
 import { hoursToDays } from '@/utils/leaveConversion'
 import { consumeFIFO, refundConsumption, sumRemainingHours } from '@/utils/compLedger'
 import { findOverlappingLeave } from '@/utils/leaveConflict'
+import { splitLeaveRange, roundDownToHalfHour } from '@/utils/leaveSplit'
 import CompensatoryPanel from './CompensatoryPanel.vue'
 import { TAIWAN_HOLIDAY_NAMES } from '@/constants/holidays'
 import { getLunarLabel } from '@/utils/lunarCalendar'
@@ -600,10 +628,58 @@ function leaveInsufficientMsg(leaveType) {
 
 const TRACKED_LEAVE_TYPES = ['補休', '特休']
 
-async function checkLeaveConflict(personName, dateStr, endDateStr, excludeId) {
+// 補休有餘額但不夠：前段用補休（餘額往下取整到 0.5h，時間選單只有整點/半點）、後段自動改事假。
+// 手填時數跟時段算出來的時數對不上時無法精準切時間，回傳 error 讓呼叫端擋下來。
+function planCompSplit(form, balance) {
+    const compHours = roundDownToHalfHour(balance)
+    if (compHours <= 0) return null
+    const total = form.hours || 0
+    if (calcLeaveHours(form.date, form.endDate, form.startTime, form.endTime) !== total) {
+        return { error: `補休只剩 ${balance}h，且請假時數跟時段對不上，無法自動把不足的部分拆成事假，請先修正時段` }
+    }
+    const split = splitLeaveRange({ date: form.date, endDate: form.endDate, startTime: form.startTime, endTime: form.endTime, compHours })
+    if (!split) return null
+    return { balance, total, compHours, personalHours: total - compHours, comp: split.comp, personal: split.personal }
+}
+
+// 確認視窗：回傳 Promise<boolean>，使用者按同意才 resolve(true)
+const compSplitPrompt = ref(null)
+function askCompSplit(personName, plan) {
+    return new Promise(resolve => { compSplitPrompt.value = { personName, ...plan, resolve } })
+}
+function answerCompSplit(ok) {
+    const prompt = compSplitPrompt.value
+    compSplitPrompt.value = null
+    prompt?.resolve(ok)
+}
+function splitRangeLabel(range) {
+    const md = d => `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}`
+    return `${md(range.date)} ${range.startTime} ～ ${range.endDate ? md(range.endDate) + ' ' : ''}${range.endTime}`
+}
+
+// 把一段拆單範圍套到請假 payload 上；clearEndDate 為 true 時單日會寫 endDate: null（updateDoc 用），否則直接拿掉欄位
+function applySplitRange(payload, range, personName, leaveType, hours, splitGroupId, clearEndDate) {
+    const result = {
+        ...payload,
+        leaveType,
+        hours,
+        label: `${personName} ${leaveType} ${hours}h`,
+        date: Timestamp.fromDate(new Date(range.date)),
+        startTime: range.startTime,
+        endTime: range.endTime,
+        splitGroupId,
+    }
+    if (range.endDate) result.endDate = Timestamp.fromDate(new Date(range.endDate))
+    else if (clearEndDate) result.endDate = null
+    else delete result.endDate
+    return result
+}
+
+// excludeGroupId：補休不足拆成「補休＋事假」的兩筆共用同一個 splitGroupId，編輯其中一筆時不把另一筆當衝突
+async function checkLeaveConflict(personName, dateStr, endDateStr, excludeId, excludeGroupId = '') {
     if (!personName || !dateStr) return []
     const raw = await eventsStore.fetchLeaveEventsByPerson(personName)
-    const normalized = raw.map(e => ({
+    const normalized = raw.filter(e => !(excludeGroupId && e.splitGroupId === excludeGroupId)).map(e => ({
         id: e.id,
         personName: e.personName,
         date: tsToDateStr(e.date),
@@ -649,7 +725,7 @@ function closeConflictModal() {
 // 過去日期的餘額不退回；但不管日期新舊，衝突紀錄本身都要刪除。
 // personName 由呼叫端在 finalizeAddEvent/finalizeEditEvent 執行之前先取好傳進來——
 // finalizeAddEvent 成功後會把 eventForm 重置為空白表單，這裡不能再從 eventForm 現讀取
-async function removeConflictingEvents(conflicts, personName, writtenLeaveId = null) {
+async function removeConflictingEvents(conflicts, personName, writtenLeaveIds = []) {
     for (const c of conflicts) {
         // 已透過薪資單折抵鎖定的事件不該被這裡刪除——正常操作應該已經在 resolveConflict()
         // 跟畫面 disabled 擋掉這條路徑，這裡是最後一道防線，不退款也不刪除
@@ -657,7 +733,7 @@ async function removeConflictingEvents(conflicts, personName, writtenLeaveId = n
         if (TRACKED_LEAVE_TYPES.includes(c.leaveType) && c.date >= todayStr) {
             await applyLeaveDelta(c.leaveType, personName, c.hours, c.compConsumption)
         }
-        if (c.id === writtenLeaveId) continue // 這筆衝突已被新紀錄用同一個固定 doc ID 覆蓋，別再刪掉
+        if (writtenLeaveIds.includes(c.id)) continue // 這筆衝突已被新紀錄用同一個固定 doc ID 覆蓋，別再刪掉
         await eventsStore.deleteEvent(c.id)
     }
 }
@@ -697,7 +773,7 @@ async function resolveConflict(choice) {
         // finalizeEditEvent（add 模式表單已被清空、edit 模式重打會重複扣一次餘額）。所以這裡失敗
         // 一律視為「新紀錄已生效，舊紀錄清理留給使用者手動處理」，直接關閉視窗，不保留給使用者重試整個流程
         try {
-            await removeConflictingEvents(conflicts, personName, mode === 'add' ? lastLeaveWriteId.value : null)
+            await removeConflictingEvents(conflicts, personName, lastLeaveWriteIds.value)
         } catch {
             toast('新的請假紀錄已建立，但舊紀錄清理失敗，請至行事曆手動確認並刪除重複的舊紀錄', 'error')
             closeConflictModal()
@@ -760,6 +836,8 @@ const conflictModal = ref(null)
 const resolvingConflict = ref(false)
 const submitting = ref(false)
 const lastLeaveWriteId = ref(null)
+// 這次寫入的所有請假 doc id（補休不足拆單時是補休、事假兩筆），衝突清理與複製復原要一起處理
+const lastLeaveWriteIds = ref([])
 const eventActionModal = ref(null)
 const milestonePreview = ref(null)
 
@@ -871,13 +949,15 @@ async function dragCopyLeaveEvent(event, targetDateStr) {
   }
   const ok = await submitEvent()
   if (!ok) return
-  const newId = lastLeaveWriteId.value
-  if (!newId) return
+  const newIds = [...lastLeaveWriteIds.value]
+  if (!newIds.length) return
   showUndoToast(`已複製「${event.label}」到 ${shifted.date}`, async () => {
-    const copiedDoc = eventsStore.events.find(ev => ev.id === newId)
-    if (!copiedDoc) return
-    populateEditForm(copiedDoc)
-    await removeEvent()
+    for (const id of newIds) {
+      const copiedDoc = eventsStore.events.find(ev => ev.id === id)
+      if (!copiedDoc) continue
+      populateEditForm(copiedDoc)
+      await removeEvent()
+    }
   })
 }
 
@@ -1013,6 +1093,7 @@ function populateEditForm(event) {
     _origDate: tsToDateStr(event.date),
     _origCompConsumption: event.compConsumption || [],
     _leaveTypeLocked: event.leaveTypeLocked || false,
+    _splitGroupId: event.splitGroupId || '',
   }
 }
 
@@ -1056,7 +1137,7 @@ async function saveEditEvent() {
   submitting.value = true
   try {
     if (isLeave) {
-      const conflicts = await checkLeaveConflict(editForm.value.personName, editForm.value.date, editForm.value.endDate, editingEventId.value)
+      const conflicts = await checkLeaveConflict(editForm.value.personName, editForm.value.date, editForm.value.endDate, editingEventId.value, editForm.value._splitGroupId)
       if (conflicts.length) {
         await openConflictModal('edit', conflicts)
         return
@@ -1069,6 +1150,8 @@ async function saveEditEvent() {
 }
 
 async function finalizeEditEvent() {
+  lastLeaveWriteIds.value = []
+  let splitPlan = null
   const isLeave = editForm.value.type === 'leave'
   const isMilestone = editForm.value.type === 'milestone'
   try {
@@ -1120,21 +1203,52 @@ async function finalizeEditEvent() {
         editForm.value.hours === editForm.value._origHours &&
         editForm.value.personName === editForm.value._origPersonName
       if (!noChange) {
-        const wasTracked = TRACKED_LEAVE_TYPES.includes(editForm.value._origLeaveType)
-        const isTracked = TRACKED_LEAVE_TYPES.includes(editForm.value.leaveType)
-        if (wasTracked && editForm.value._origPersonName)
+        const wasTracked = TRACKED_LEAVE_TYPES.includes(editForm.value._origLeaveType) && Boolean(editForm.value._origPersonName)
+        const isTracked = TRACKED_LEAVE_TYPES.includes(editForm.value.leaveType) && Boolean(editForm.value.personName)
+        let consumeHours = editForm.value.hours || 0
+        if (isTracked) {
+          // 餘額要把「等一下會退回的原紀錄」算進去，但先不真的退回，確定夠用（或使用者同意拆單）才動帳
+          let balance = await getLeaveBalance(editForm.value.leaveType, editForm.value.personName)
+          if (wasTracked && editForm.value._origLeaveType === editForm.value.leaveType && editForm.value._origPersonName === editForm.value.personName) {
+            balance += editForm.value.leaveType === '補休'
+              ? (editForm.value._origCompConsumption || []).reduce((sum, c) => sum + c.hours, 0)
+              : hoursToDays(editForm.value._origHours)
+          }
+          if (balance < leaveNeeded(editForm.value.leaveType, consumeHours)) {
+            const plan = editForm.value.leaveType === '補休' ? planCompSplit(editForm.value, balance) : null
+            if (!plan || plan.error) { toast(plan?.error ?? leaveInsufficientMsg(editForm.value.leaveType), 'error'); return false }
+            if (!(await askCompSplit(editForm.value.personName, plan))) return false
+            splitPlan = plan
+            consumeHours = plan.compHours
+          }
+        }
+        if (wasTracked)
           await applyLeaveDelta(editForm.value._origLeaveType, editForm.value._origPersonName, editForm.value._origHours, editForm.value._origCompConsumption)
-        if (isTracked && editForm.value.personName) {
-          const hours = editForm.value.hours || 0
-          const balance = await getLeaveBalance(editForm.value.leaveType, editForm.value.personName)
-          if (balance < leaveNeeded(editForm.value.leaveType, hours)) { toast(leaveInsufficientMsg(editForm.value.leaveType), 'error'); return false }
-          const consumption = await applyLeaveDelta(editForm.value.leaveType, editForm.value.personName, -hours)
+        if (isTracked) {
+          const consumption = await applyLeaveDelta(editForm.value.leaveType, editForm.value.personName, -consumeHours)
           if (editForm.value.leaveType === '補休') payload.compConsumption = consumption || []
         }
       }
     }
 
-    await eventsStore.updateEvent(editingEventId.value, payload)
+    if (splitPlan) {
+      // 編輯中的這筆變成補休段，另外新增一筆事假段，兩筆用這筆的 doc id 當 splitGroupId
+      const personName = editForm.value.personName
+      const groupId = editingEventId.value
+      const companyId = eventsStore.events.find(e => e.id === groupId)?.companyId ?? props.region
+      const compPayload = applySplitRange(payload, splitPlan.comp, personName, '補休', splitPlan.compHours, groupId, true)
+      await eventsStore.updateEvent(groupId, compPayload)
+      const personalBase = { companyId, type: 'leave', personName, createdBy: authStore.user?.uid ?? '' }
+      const personalPayload = applySplitRange(personalBase, splitPlan.personal, personName, '事假', splitPlan.personalHours, groupId, false)
+      const personalId = leaveDedupeId({
+        companyId, personName, date: splitPlan.personal.date, endDate: splitPlan.personal.endDate, leaveType: '事假', startTime: splitPlan.personal.startTime,
+      })
+      await eventsStore.addEvent(personalPayload, personalId)
+      lastLeaveWriteIds.value = [personalId]
+      payload.label = `${personName} 補休 ${splitPlan.compHours}h + 事假 ${splitPlan.personalHours}h`
+    } else {
+      await eventsStore.updateEvent(editingEventId.value, payload)
+    }
     const editEvtDate = editForm.value.date
     notifStore.notifyAll(authStore.name ?? '', `修改了行程「${payload.label}」（${fmtNotifDate(editEvtDate)}）`, '', '', props.region ?? '', '', 'cal', editEvtDate, false)
     showEditEvent.value = false
@@ -1659,6 +1773,7 @@ async function submitEvent() {
 
 async function finalizeAddEvent() {
   lastLeaveWriteId.value = null
+  lastLeaveWriteIds.value = []
   const isLeave = eventForm.value.type === 'leave'
   const isMilestone = eventForm.value.type === 'milestone'
   try {
@@ -1707,21 +1822,42 @@ async function finalizeAddEvent() {
         eventForm.value.endDate && eventForm.value.endDate > eventForm.value.date) {
       payload.endDate = Timestamp.fromDate(new Date(eventForm.value.endDate))
     }
+    let writtenIds = [dedupeId]
+    let notifyLabel = payload.label
     if (isLeave && TRACKED_LEAVE_TYPES.includes(eventForm.value.leaveType) && eventForm.value.personName) {
+      const personName = eventForm.value.personName
       const hours = eventForm.value.hours || 0
-      const balance = await getLeaveBalance(eventForm.value.leaveType, eventForm.value.personName)
-      if (balance < leaveNeeded(eventForm.value.leaveType, hours)) { toast(leaveInsufficientMsg(eventForm.value.leaveType), 'error'); return false }
-      const consumption = await applyLeaveDelta(eventForm.value.leaveType, eventForm.value.personName, -hours)
-      if (eventForm.value.leaveType === '補休') payload.compConsumption = consumption || []
-      await eventsStore.addEvent(payload, dedupeId)
+      const balance = await getLeaveBalance(eventForm.value.leaveType, personName)
+      if (balance < leaveNeeded(eventForm.value.leaveType, hours)) {
+        const plan = eventForm.value.leaveType === '補休' ? planCompSplit(eventForm.value, balance) : null
+        if (!plan || plan.error) { toast(plan?.error ?? leaveInsufficientMsg(eventForm.value.leaveType), 'error'); return false }
+        if (!(await askCompSplit(personName, plan))) return false
+        const idFor = (range, leaveType) => leaveDedupeId({
+          companyId: payload.companyId, personName, date: range.date, endDate: range.endDate, leaveType, startTime: range.startTime,
+        })
+        const compId = idFor(plan.comp, '補休')
+        const personalId = idFor(plan.personal, '事假')
+        const compPayload = applySplitRange(payload, plan.comp, personName, '補休', plan.compHours, compId, false)
+        const personalPayload = applySplitRange(payload, plan.personal, personName, '事假', plan.personalHours, compId, false)
+        compPayload.compConsumption = (await applyLeaveDelta('補休', personName, -plan.compHours)) || []
+        await eventsStore.addEvent(compPayload, compId)
+        await eventsStore.addEvent(personalPayload, personalId)
+        writtenIds = [compId, personalId]
+        notifyLabel = `${personName} 補休 ${plan.compHours}h + 事假 ${plan.personalHours}h`
+      } else {
+        const consumption = await applyLeaveDelta(eventForm.value.leaveType, personName, -hours)
+        if (eventForm.value.leaveType === '補休') payload.compConsumption = consumption || []
+        await eventsStore.addEvent(payload, dedupeId)
+      }
     } else {
       await eventsStore.addEvent(payload, dedupeId)
     }
     const newEvtDate = eventForm.value.date
-    notifStore.notifyAll(authStore.name ?? '', `新增了行程「${payload.label}」（${fmtNotifDate(newEvtDate)}）`, '', '', payload.companyId, '', 'cal', newEvtDate, false)
+    notifStore.notifyAll(authStore.name ?? '', `新增了行程「${notifyLabel}」（${fmtNotifDate(newEvtDate)}）`, '', '', payload.companyId, '', 'cal', newEvtDate, false)
     eventForm.value = blankEvent()
     showAddEvent.value = false
-    lastLeaveWriteId.value = dedupeId
+    lastLeaveWriteId.value = writtenIds[0]
+    lastLeaveWriteIds.value = isLeave ? writtenIds : []
     return true
   } catch {
     toast('新增失敗，請重試', 'error')

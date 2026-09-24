@@ -1179,3 +1179,187 @@ describe('CalendarTab — 月曆長條與色塊排版', () => {
     expect(wrapper.vm.monthCaseLegend.map(c => c.name)).toEqual(['大同區辦公室', '鈺潤軒'])
   })
 })
+
+describe('CalendarTab — 補休不足自動拆成事假', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    useToast().toasts.value = []
+  })
+
+  async function setup({ ledger = [], existing = [] } = {}) {
+    const usersStore = useUsersStore()
+    const authStore = useAuthStore()
+    const eventsStore = useCalendarEventsStore()
+    authStore.role = 'admin'
+    authStore.name = '柏'
+    usersStore.users = [{ id: 'u-bang', name: '蚌', annualLeaveHours: 0 }]
+    vi.spyOn(eventsStore, 'fetchLeaveEventsByPerson').mockResolvedValue(existing)
+    // 模擬帳會跟著退回/扣除變動，比照正式環境每次重新讀資料庫
+    vi.spyOn(usersStore, 'fetchCompLedger').mockImplementation(async () => ledger.map(e => ({ ...e })))
+    const applyLedgerSpy = vi.spyOn(usersStore, 'applyLedgerConsumption').mockImplementation(async (uid, deltas) => {
+      for (const d of deltas) ledger.find(e => e.id === d.id).remainingHours += d.delta
+    })
+    const addSpy = vi.spyOn(eventsStore, 'addEvent').mockResolvedValue({ id: 'x' })
+    const updateSpy = vi.spyOn(eventsStore, 'updateEvent').mockResolvedValue()
+    const wrapper = mount(CalendarTab, { props: { region: 'south' } })
+    await flushPromises()
+    return { wrapper, applyLedgerSpy, addSpy, updateSpy }
+  }
+
+  function ledgerOf(hours) {
+    return [{ id: 'e1', type: '平日', hours, remainingHours: hours, createdAt: { toMillis: () => 1 } }]
+  }
+
+  function fillAdd(wrapper) {
+    Object.assign(wrapper.vm.eventForm, {
+      type: 'leave', date: SAFE_WEEKDAY, endDate: '', personName: '蚌', leaveType: '補休',
+      startTime: '09:00', endTime: '18:00', hours: 8,
+    })
+  }
+
+  it('補休 5.5h 申請 8h：跳出確認，同意後寫入補休 5.5h + 事假 2.5h 兩筆，時間切在 15:30', async () => {
+    const { wrapper, applyLedgerSpy, addSpy } = await setup({ ledger: ledgerOf(5.5) })
+    fillAdd(wrapper)
+    const pending = wrapper.vm.submitEvent()
+    await flushPromises()
+    expect(wrapper.vm.compSplitPrompt).toMatchObject({ balance: 5.5, total: 8, compHours: 5.5, personalHours: 2.5 })
+    wrapper.vm.answerCompSplit(true)
+    await pending
+    await flushPromises()
+
+    expect(addSpy).toHaveBeenCalledTimes(2)
+    const [comp, compId] = addSpy.mock.calls[0]
+    const [personal, personalId] = addSpy.mock.calls[1]
+    expect(comp).toMatchObject({ leaveType: '補休', hours: 5.5, startTime: '09:00', endTime: '15:30', label: '蚌 補休 5.5h', splitGroupId: compId })
+    expect(comp.compConsumption).toEqual([{ id: 'e1', hours: 5.5 }])
+    expect(personal).toMatchObject({ leaveType: '事假', hours: 2.5, startTime: '15:30', endTime: '18:00', label: '蚌 事假 2.5h', splitGroupId: compId })
+    expect(personal.compConsumption).toBeUndefined()
+    expect(personalId).not.toBe(compId)
+    expect(applyLedgerSpy).toHaveBeenCalledWith('u-bang', [{ id: 'e1', delta: -5.5 }])
+    expect(wrapper.vm.lastLeaveWriteIds).toEqual([compId, personalId])
+  })
+
+  it('從「請假重疊」視窗選改用補休：補休不足時一樣跳確認，同意後寫入兩筆再刪掉舊的那筆', async () => {
+    const old = {
+      id: 'old-personal', type: 'leave', personName: '蚌', leaveType: '事假', hours: 8,
+      date: { toDate: () => new Date(SAFE_WEEKDAY) }, startTime: '09:00', endTime: '18:00',
+    }
+    const { wrapper, addSpy } = await setup({ ledger: ledgerOf(5.5), existing: [old] })
+    const deleteSpy = vi.spyOn(useCalendarEventsStore(), 'deleteEvent').mockResolvedValue()
+    fillAdd(wrapper)
+    wrapper.vm.eventForm.leaveType = '事假'
+    await wrapper.vm.submitEvent()
+    await flushPromises()
+    expect(wrapper.vm.conflictModal).not.toBeNull()
+    const pending = wrapper.vm.resolveConflict('comp')
+    await flushPromises()
+    expect(wrapper.vm.compSplitPrompt).toMatchObject({ compHours: 5.5, personalHours: 2.5 })
+    wrapper.vm.answerCompSplit(true)
+    await pending
+    await flushPromises()
+    expect(addSpy).toHaveBeenCalledTimes(2)
+    expect(deleteSpy).toHaveBeenCalledWith('old-personal')
+    expect(wrapper.vm.conflictModal).toBeNull()
+  })
+
+  it('確認視窗按取消：什麼都不寫入、補休不扣', async () => {
+    const { wrapper, applyLedgerSpy, addSpy } = await setup({ ledger: ledgerOf(5.5) })
+    fillAdd(wrapper)
+    const pending = wrapper.vm.submitEvent()
+    await flushPromises()
+    wrapper.vm.answerCompSplit(false)
+    expect(await pending).toBe(false)
+    expect(addSpy).not.toHaveBeenCalled()
+    expect(applyLedgerSpy).not.toHaveBeenCalled()
+  })
+
+  it('完全沒有補休：維持原本整筆擋下，不跳確認', async () => {
+    const { wrapper, addSpy } = await setup({ ledger: [] })
+    fillAdd(wrapper)
+    expect(await wrapper.vm.submitEvent()).toBe(false)
+    expect(wrapper.vm.compSplitPrompt).toBeNull()
+    expect(addSpy).not.toHaveBeenCalled()
+    expect(useToast().toasts.value.at(-1)?.message).toBe('補休時數不足')
+  })
+
+  it('補休只剩 0.25h（不足半小時）：視同沒有，整筆擋下', async () => {
+    const { wrapper, addSpy } = await setup({ ledger: ledgerOf(0.25) })
+    fillAdd(wrapper)
+    expect(await wrapper.vm.submitEvent()).toBe(false)
+    expect(wrapper.vm.compSplitPrompt).toBeNull()
+    expect(addSpy).not.toHaveBeenCalled()
+  })
+
+  it('補休有零頭 5.75h：補休取 5.5h，其餘 2.5h 事假', async () => {
+    const { wrapper } = await setup({ ledger: ledgerOf(5.75) })
+    fillAdd(wrapper)
+    const pending = wrapper.vm.submitEvent()
+    await flushPromises()
+    expect(wrapper.vm.compSplitPrompt).toMatchObject({ balance: 5.75, compHours: 5.5, personalHours: 2.5 })
+    wrapper.vm.answerCompSplit(false)
+    await pending
+  })
+
+  it('手填時數跟時段對不上：不自動拆，擋下並說明原因', async () => {
+    const { wrapper, addSpy } = await setup({ ledger: ledgerOf(5.5) })
+    fillAdd(wrapper)
+    await flushPromises()
+    wrapper.vm.eventForm.hours = 7
+    expect(await wrapper.vm.submitEvent()).toBe(false)
+    expect(wrapper.vm.compSplitPrompt).toBeNull()
+    expect(addSpy).not.toHaveBeenCalled()
+    expect(useToast().toasts.value.at(-1)?.message).toContain('對不上')
+  })
+
+  function existingComp(hours, endTime) {
+    return {
+      id: 'comp-1', type: 'leave', companyId: 'south', personName: '蚌', leaveType: '補休', hours,
+      date: { toDate: () => new Date(SAFE_WEEKDAY) }, startTime: '09:00', endTime,
+      compConsumption: [{ id: 'e1', hours }],
+    }
+  }
+
+  it('編輯：原本補休 4h 改成 8h，退回後可用 6h → 拆成補休 6h（更新原筆）+ 事假 2h（新增）', async () => {
+    const ledger = [{ id: 'e1', type: '平日', hours: 10, remainingHours: 2, createdAt: { toMillis: () => 1 } }]
+    const { wrapper, applyLedgerSpy, addSpy, updateSpy } = await setup({ ledger })
+    wrapper.vm.populateEditForm(existingComp(4, '13:00'))
+    Object.assign(wrapper.vm.editForm, { endTime: '18:00', hours: 8 })
+    const pending = wrapper.vm.saveEditEvent()
+    await flushPromises()
+    expect(wrapper.vm.compSplitPrompt).toMatchObject({ balance: 6, compHours: 6, personalHours: 2 })
+    wrapper.vm.answerCompSplit(true)
+    await pending
+    await flushPromises()
+
+    const [id, compPayload] = updateSpy.mock.calls[0]
+    expect(id).toBe('comp-1')
+    expect(compPayload).toMatchObject({ leaveType: '補休', hours: 6, startTime: '09:00', endTime: '16:00', endDate: null, splitGroupId: 'comp-1' })
+    const [personal] = addSpy.mock.calls[0]
+    expect(personal).toMatchObject({ companyId: 'south', type: 'leave', leaveType: '事假', hours: 2, startTime: '16:00', endTime: '18:00', splitGroupId: 'comp-1' })
+    // 先退回原本 4h，再扣 6h
+    expect(applyLedgerSpy.mock.calls.map(c => c[1])).toEqual([[{ id: 'e1', delta: 4 }], [{ id: 'e1', delta: -6 }]])
+  })
+
+  it('編輯：補休不足時按取消，補休帳完全不動（原本會先退回卻沒扣回）', async () => {
+    const ledger = [{ id: 'e1', type: '平日', hours: 10, remainingHours: 2, createdAt: { toMillis: () => 1 } }]
+    const { wrapper, applyLedgerSpy, updateSpy } = await setup({ ledger })
+    wrapper.vm.populateEditForm(existingComp(4, '13:00'))
+    Object.assign(wrapper.vm.editForm, { endTime: '18:00', hours: 8 })
+    const pending = wrapper.vm.saveEditEvent()
+    await flushPromises()
+    wrapper.vm.answerCompSplit(false)
+    expect(await pending).toBe(false)
+    expect(applyLedgerSpy).not.toHaveBeenCalled()
+    expect(updateSpy).not.toHaveBeenCalled()
+  })
+
+  it('編輯拆單產生的其中一筆時，同組的另一筆不算重疊衝突', async () => {
+    const sibling = {
+      id: 'personal-1', type: 'leave', personName: '蚌', leaveType: '事假', hours: 2, splitGroupId: 'comp-1',
+      date: { toDate: () => new Date(SAFE_WEEKDAY) }, startTime: '16:00', endTime: '18:00',
+    }
+    const { wrapper } = await setup({ existing: [sibling] })
+    expect(await wrapper.vm.checkLeaveConflict('蚌', SAFE_WEEKDAY, '', 'comp-1', 'comp-1')).toEqual([])
+    expect(await wrapper.vm.checkLeaveConflict('蚌', SAFE_WEEKDAY, '', 'comp-1', '')).toHaveLength(1)
+  })
+})
