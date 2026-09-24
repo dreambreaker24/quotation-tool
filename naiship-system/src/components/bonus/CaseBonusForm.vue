@@ -84,7 +84,7 @@ import { useUsersStore } from '@/stores/users'
 import { useToast } from '@/composables/useToast'
 import {
     calcSalesBonus, calcDesignerBonus, calcSiteManagerBonus,
-    calcProfitMargin, sumVendorCost, dedupeParticipants, splitBonus,
+    calcProfitMargin, sumVendorCost, dedupeParticipants, splitBonus, bonusBaseAmount,
 } from '@/utils/bonusCalc'
 import RoleAssigneePicker from './RoleAssigneePicker.vue'
 
@@ -105,14 +105,15 @@ onMounted(async () => {
 })
 
 const vendorCostTotal = computed(() => sumVendorCost(props.caseInfo?.workTypes))
+const baseAmount = computed(() => bonusBaseAmount(props.caseInfo))
 
 const salesAmount = computed(() =>
-    calcSalesBonus(form.designContractAmount, form.constructionContractAmount, props.caseInfo?.signedAmount))
-const designerAmount = computed(() => calcDesignerBonus(props.caseInfo?.signedAmount))
+    calcSalesBonus(form.designContractAmount, form.constructionContractAmount, baseAmount.value))
+const designerAmount = computed(() => calcDesignerBonus(baseAmount.value))
 const profitMargin = computed(() =>
-    calcProfitMargin(props.caseInfo?.signedAmount, vendorCostTotal.value, form.miscExpenses))
+    calcProfitMargin(baseAmount.value, vendorCostTotal.value, form.miscExpenses))
 const siteManagerAmount = computed(() =>
-    calcSiteManagerBonus(props.caseInfo?.signedAmount, vendorCostTotal.value, form.miscExpenses))
+    calcSiteManagerBonus(baseAmount.value, vendorCostTotal.value, form.miscExpenses))
 
 const teamParticipantIds = computed(() => dedupeParticipants(form))
 const teamDefaultPercent = computed(() =>

@@ -225,6 +225,7 @@ describe('buildAdminEntry', () => {
 })
 
 import { dedupeParticipants, buildTeamBonusEntries } from '@/utils/bonusCalc'
+import { bonusBaseAmount } from '@/utils/bonusCalc'
 
 describe('dedupeParticipants', () => {
     it('三個角色的人合併去重', () => {
@@ -314,5 +315,40 @@ describe('buildCaseBonusEntries 併入團隊獎金', () => {
         const entries = buildCaseBonusEntries(caseInfo, bonusData, usersById)
         expect(entries).toHaveLength(1)
         expect(entries[0].role).toBe('sales')
+    })
+})
+
+describe('bonusBaseAmount', () => {
+    it('有收款期程時以期程應收合計為準', () => {
+        const c = { signedAmount: 0, paymentMilestones: [{ amount: 130000 }, { amount: 410000 }] }
+        expect(bonusBaseAmount(c)).toBe(540000)
+    })
+
+    it('期程合計跟簽約金額不同時，仍以期程為準（含追加款）', () => {
+        const c = { signedAmount: 500000, paymentMilestones: [{ amount: 500000 }, { amount: 80000 }] }
+        expect(bonusBaseAmount(c)).toBe(580000)
+    })
+
+    it('沒有收款期程時退回用簽約金額', () => {
+        expect(bonusBaseAmount({ signedAmount: 800000 })).toBe(800000)
+        expect(bonusBaseAmount({ signedAmount: 800000, paymentMilestones: [] })).toBe(800000)
+    })
+
+    it('期程金額都是 0 時退回用簽約金額', () => {
+        expect(bonusBaseAmount({ signedAmount: 800000, paymentMilestones: [{ amount: 0 }] })).toBe(800000)
+    })
+
+    it('兩個都沒有時是 0', () => {
+        expect(bonusBaseAmount({})).toBe(0)
+    })
+})
+
+describe('buildCaseBonusEntries 以收款期程金額計算', () => {
+    it('簽約金額沒填但收款期程超過 50 萬時照樣產生獎金', () => {
+        const caseInfo = { id: 'c1', name: '冷氣空調更換', signedAmount: 0, paymentMilestones: [{ amount: 130000 }, { amount: 410000 }], workTypes: [] }
+        const bonusData = { designContractAmount: 0, constructionContractAmount: 0, salesPersonIds: [], designerIds: ['u1'], siteManagerIds: [], miscExpenses: 0 }
+        const entries = buildCaseBonusEntries(caseInfo, bonusData, { u1: { name: '柏' } })
+        expect(entries).toHaveLength(1)
+        expect(entries[0]).toMatchObject({ role: 'designer', suggestedAmount: 3000 })
     })
 })
