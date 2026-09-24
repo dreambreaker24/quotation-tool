@@ -3,6 +3,8 @@ import { ref } from 'vue'
 import { collection, query, where, orderBy, onSnapshot, addDoc, setDoc, updateDoc, deleteDoc, doc, getDocs, serverTimestamp, Timestamp } from 'firebase/firestore'
 import { db } from '@/firebase'
 
+const CROSS_MONTH_LOOKBACK_DAYS = 62
+
 export const useCalendarEventsStore = defineStore('calendarEvents', () => {
     const events = ref([])
     let unsubscribe = null
@@ -16,15 +18,23 @@ export const useCalendarEventsStore = defineStore('calendarEvents', () => {
         const nextDays = (7 - (startOffset + daysInMonth) % 7) % 7
         const start = new Date(year, month, 1 - startOffset)
         const end = new Date(year, month + 1, nextDays, 23, 59, 59)
+        // 跨天事件可能在畫面第一格之前就開始，往前多抓一段再濾掉「畫面開始前就結束」的
+        const lookbackStart = new Date(year, month, 1 - startOffset - CROSS_MONTH_LOOKBACK_DAYS)
         const q = query(
             collection(db, 'calendarEvents'),
             where('companyId', 'in', ids),
-            where('date', '>=', Timestamp.fromDate(start)),
+            where('date', '>=', Timestamp.fromDate(lookbackStart)),
             where('date', '<=', Timestamp.fromDate(end)),
             orderBy('date')
         )
         unsubscribe = onSnapshot(q, snap => {
-            events.value = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+            events.value = snap.docs
+                .map(d => ({ id: d.id, ...d.data() }))
+                .filter(e => {
+                    const last = e.endDate ?? e.date
+                    const lastDate = last?.toDate?.() ?? new Date(last)
+                    return lastDate >= start
+                })
         })
     }
 

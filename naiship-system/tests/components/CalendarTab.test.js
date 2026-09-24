@@ -1051,3 +1051,87 @@ describe('CalendarTab — 場勘/施工案件狀況預覽', () => {
     expect(wrapper.text()).toContain('未關聯案件')
   })
 })
+
+describe('CalendarTab — 月曆長條與色塊排版', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+  })
+
+  function ts(dateStr) {
+    const [y, m, d] = dateStr.split('-').map(Number)
+    const date = new Date(y, m - 1, d)
+    return { toDate: () => date, toMillis: () => date.getTime() }
+  }
+  function ev(id, date, extra = {}) {
+    return { id, type: 'milestone', date: ts(date), caseNames: ['大同區辦公室'], ...extra }
+  }
+
+  async function mountSeptember(events) {
+    const authStore = useAuthStore()
+    authStore.role = 'admin'
+    authStore.name = '柏'
+    const eventsStore = useCalendarEventsStore()
+    const wrapper = mount(CalendarTab, { props: { region: 'south' } })
+    await flushPromises()
+    wrapper.vm.currentYear = 2026
+    wrapper.vm.currentMonth = 8
+    eventsStore.events = events
+    await wrapper.vm.$nextTick()
+    return wrapper
+  }
+
+  function cellOf(wrapper, dateStr) {
+    return wrapper.vm.weekGroups.flat().find(c => c.dateStr === dateStr)
+  }
+
+  it('畫成長條的跨天事件不會再跟同案場事件合併成色塊（不重複顯示）', async () => {
+    const wrapper = await mountSeptember([
+      ev('water', '2026-09-01', { endDate: ts('2026-09-07'), label: '大同區辦公室 水電進場', startTime: '08:00', endTime: '08:00' }),
+      ev('mud', '2026-09-02', { label: '大同區辦公室 泥作進場', startTime: '08:00', endTime: '08:00' }),
+    ])
+    const cell = cellOf(wrapper, '2026-09-02')
+    expect(cell.events.map(e => e.id)).toEqual(['mud'])
+    expect(cell.events.some(e => e._merged)).toBe(false)
+  })
+
+  it('同一週每一格留給長條的列數一樣，色塊才會水平對齊', async () => {
+    const wrapper = await mountSeptember([
+      ev('wood', '2026-09-15', { endDate: ts('2026-09-16'), label: '木作進場' }),
+      ev('solo', '2026-09-18', { label: '永成案子', caseNames: [] }),
+    ])
+    const week = wrapper.vm.weekGroups.find(w => w.some(c => c.dateStr === '2026-09-15'))
+    expect(new Set(week.map(c => c.barRows))).toEqual(new Set([1]))
+  })
+
+  it('每天各一筆的相同事件接成一條長條，底下每一筆都不再單獨顯示', async () => {
+    const mud = ['2026-09-02', '2026-09-03', '2026-09-04', '2026-09-05'].map((d, i) =>
+      ev(`mud${i}`, d, { label: '大同區辦公室 泥作進場', startTime: '08:00', endTime: '08:00' }))
+    const wrapper = await mountSeptember(mud)
+    const bars = wrapper.vm.weekEventBars.flat()
+    expect(bars).toHaveLength(1)
+    expect(bars[0].event._chain).toBe(true)
+    expect(bars[0].colSpan).toBe(4)
+    for (const d of ['2026-09-02', '2026-09-03', '2026-09-04', '2026-09-05']) {
+      expect(cellOf(wrapper, d).events).toEqual([])
+    }
+  })
+
+  it('請假長條週末斷開，週末也不會冒出單格色塊；施工長條穿過週末', async () => {
+    const wrapper = await mountSeptember([
+      { id: 'leave', type: 'leave', label: 'Ramy 事假 56h', date: ts('2026-10-01'), endDate: ts('2026-10-12') },
+      ev('water', '2026-09-03', { endDate: ts('2026-09-07'), label: '水電進場' }),
+    ])
+    expect(cellOf(wrapper, '2026-10-03').events).toEqual([])
+    expect(cellOf(wrapper, '2026-10-04').events).toEqual([])
+    const leaveBars = wrapper.vm.weekEventBars.flat().filter(b => b.event.id === 'leave')
+    expect(leaveBars.map(b => [b.colStart, b.colSpan])).toEqual([[3, 2]])
+    const waterBars = wrapper.vm.weekEventBars.flat().filter(b => b.event.id === 'water')
+    expect(waterBars.map(b => [b.colStart, b.colSpan])).toEqual([[3, 4], [0, 1]]) // 9/3(四)~9/6(日) 一段、9/7(一) 一段
+  })
+
+  it('串接長條不可拖曳', async () => {
+    const wrapper = await mountSeptember([])
+    const chain = { id: 'chain_x', type: 'milestone', _chain: true, date: ts('2026-09-02') }
+    expect(wrapper.vm.canDragEvent(chain, '2026-09-02')).toBe(false)
+  })
+})

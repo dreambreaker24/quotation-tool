@@ -48,10 +48,10 @@
     </div>
 
     <!-- Calendar grid -->
-    <div class="flex flex-col">
-      <div v-for="(week, wi) in weekGroups" :key="wi" class="relative grid grid-cols-7">
+    <div class="grid auto-rows-fr">
+      <div v-for="(week, wi) in weekGroups" :key="wi" class="relative grid grid-cols-7 [--cell-pad:4px] sm:[--cell-pad:8px]">
         <div v-for="cell in week" :key="cell.dateStr"
-          class="border-r border-b border-gray-100 p-1 sm:p-2 min-h-[70px] sm:min-h-[90px]"
+          class="border-r border-b border-gray-100 p-1 sm:p-2 flex flex-col gap-1 min-w-0 min-h-[70px] sm:min-h-[132px]"
           :class="[
             !cell.currentMonth && 'opacity-40',
             cell.isToday && 'bg-amber-50',
@@ -63,7 +63,7 @@
           @click="onCellClick(cell)"
           @dragover.prevent="onCellDragOver(cell, $event)"
           @drop.prevent="onCellDrop(cell)">
-          <div class="flex items-center gap-1.5">
+          <div class="flex items-center gap-1.5 h-6 flex-shrink-0">
             <span v-if="cell.isToday"
               class="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold text-white flex-shrink-0"
               style="background:#c9a96e">
@@ -84,33 +84,35 @@
               {{ cell.holidayName ? `${cell.lunarLabel}・${cell.holidayName}` : cell.lunarLabel }}
             </span>
           </div>
-          <div v-if="cell.barRows" :style="`height:${cell.barRows * 24}px`" class="flex-shrink-0"></div>
+          <div v-if="cell.barRows" :style="`height:${cell.barRows * 24 - 4}px`" class="flex-shrink-0"></div>
           <div v-for="event in cell.events.slice(0, 4)" :key="event.id"
             @click.stop="onEventTap(event, cell.dateStr)"
             :draggable="canDragEvent(event, cell.dateStr)"
             @dragstart="onEventDragStart(event, cell.dateStr, $event)"
             @dragend="onEventDragEnd"
-            class="mt-1 h-5 leading-5 text-[11px] rounded-md px-2 truncate text-white cursor-pointer hover:opacity-80 transition-opacity"
+            class="h-5 flex-shrink-0 leading-5 text-[11px] rounded-md px-2 truncate text-white cursor-pointer hover:opacity-80 transition-opacity"
             :class="dragState && dragState.event.id === event.id ? 'opacity-50' : ''"
             :style="`background:${eventColor(event.type)}`">
             {{ event.startTime ? `${event.startTime}${event.endTime ? '-' + event.endTime : ''} ` : '' }}{{ event.label }}
           </div>
-          <div v-if="cell.events.length > 4" class="mt-1 text-[9px] text-gray-400 truncate">
+          <div v-if="cell.events.length > 4" class="text-[9px] text-gray-400 truncate">
             還有 {{ cell.events.length - 4 }} 則
           </div>
         </div>
-        <!-- 長條一律代表事件的起始日，canDragEvent 內對「是否為起始日」的檢查對長條路徑永遠成立，是預期行為 -->
+        <!-- 長條一律代表事件的起始日，canDragEvent 內對「是否為起始日」的檢查對長條路徑永遠成立，是預期行為。
+             top 的 28px = 日期列 h-6(24) + gap-1(4)，每列 24px = 長條 h-5(20) + 間距 4，跟格子裡的留白用同一套尺寸 -->
         <div v-for="bar in weekEventBars[wi]" :key="`${wi}-${bar.event.id}-${bar.colStart}`"
           class="absolute h-5 leading-5 text-[11px] rounded-md px-2 truncate text-white cursor-pointer hover:opacity-80 transition-opacity"
           :class="[
             dragState && dragState.event.id === bar.event.id ? 'opacity-50' : '',
-            pendingAction ? 'pointer-events-none' : ''
+            pendingAction ? 'pointer-events-none' : '',
+            bar.outsideMonth ? 'opacity-40' : ''
           ]"
-          :style="`top:${36 + bar.row * 24}px; left:calc(${bar.colStart / 7 * 100}% + 8px); width:calc(${bar.colSpan / 7 * 100}% - 16px); background:${eventColor(bar.event.type)}`"
+          :style="`top:calc(var(--cell-pad) + ${28 + bar.row * 24}px); left:calc(${bar.colStart / 7 * 100}% + var(--cell-pad)); width:calc(${bar.colSpan / 7 * 100}% - 2 * var(--cell-pad)); background:${eventColor(bar.event.type)}`"
           :draggable="canDragEvent(bar.event, tsToDateStr(bar.event.date))"
           @dragstart="onEventDragStart(bar.event, tsToDateStr(bar.event.date), $event)"
           @dragend="onEventDragEnd"
-          @click.stop="onEventTap(bar.event, tsToDateStr(bar.event.date))">
+          @click.stop="onBarTap(bar, wi, $event)">
           {{ bar.event.label }}
         </div>
       </div>
@@ -516,7 +518,7 @@ import { findOverlappingLeave } from '@/utils/leaveConflict'
 import CompensatoryPanel from './CompensatoryPanel.vue'
 import { TAIWAN_HOLIDAY_NAMES } from '@/constants/holidays'
 import { getLunarLabel } from '@/utils/lunarCalendar'
-import { buildWeekEventBars } from '@/utils/calendarEventBars'
+import { buildWeekEventBars, chainConsecutiveDailyEvents } from '@/utils/calendarEventBars'
 import { getBusinessDays } from '@/utils/businessDays'
 import { leaveDedupeId } from '@/utils/leaveDedupeId'
 import { shiftedRange, buildCopyDraft } from '@/utils/eventDateShift'
@@ -774,7 +776,7 @@ const dragState = ref(null)        // { event, origDateStr, mode: 'move' | 'copy
 const dragOverDateStr = ref('')
 
 function canDragEvent(event, cellDateStr) {
-  if (event._merged) return false
+  if (event._merged || event._chain) return false
   if (event.endDate) {
     const startDateStr = tsToDateStr(event.date)
     if (startDateStr !== cellDateStr) return false
@@ -947,7 +949,7 @@ function onCellClick(cell) {
 function onEventTap(event, dateStr) {
   if (pendingAction.value) { pickTargetDate(dateStr); return }
   showDayDetail.value = false
-  if (event._merged) { openDayDetail(dateStr); return }
+  if (event._merged || event._chain) { openDayDetail(dateStr); return }
   if (event.type === 'leave') { openEditEvent(event); return }
   if (event.type === 'milestone') { milestonePreview.value = event; return }
   eventActionModal.value = event
@@ -1330,7 +1332,7 @@ const calendarCells = computed(() => {
   for (let i = startOffset - 1; i >= 0; i--) {
     const date = new Date(currentYear.value, currentMonth.value - 1, prevMonthDays - i)
     const dow = date.getDay()
-    cells.push({ day: prevMonthDays - i, currentMonth: false, dateStr: toDateStr(date), events: mergeMilestonesByCase(eventsForDate(date)), dayOfWeek: dow, isNonWorking: dow === 0 || dow === 6, lunarLabel: getLunarLabel(date) })
+    cells.push({ day: prevMonthDays - i, currentMonth: false, dateStr: toDateStr(date), events: eventsForDate(date), dayOfWeek: dow, isNonWorking: dow === 0 || dow === 6, lunarLabel: getLunarLabel(date) })
   }
 
   for (let d = 1; d <= daysInMonth; d++) {
@@ -1347,7 +1349,7 @@ const calendarCells = computed(() => {
       isNonWorking: isWeekend || Boolean(holidayName),
       holidayName,
       lunarLabel: getLunarLabel(date),
-      events: mergeMilestonesByCase(eventsForDate(date))
+      events: eventsForDate(date)
     })
   }
 
@@ -1355,56 +1357,68 @@ const calendarCells = computed(() => {
   while (cells.length % 7 !== 0) {
     const date = new Date(currentYear.value, currentMonth.value + 1, nextDay)
     const dow = date.getDay()
-    cells.push({ day: nextDay, currentMonth: false, dateStr: toDateStr(date), events: mergeMilestonesByCase(eventsForDate(date)), dayOfWeek: dow, isNonWorking: dow === 0 || dow === 6, lunarLabel: getLunarLabel(date) })
+    cells.push({ day: nextDay, currentMonth: false, dateStr: toDateStr(date), events: eventsForDate(date), dayOfWeek: dow, isNonWorking: dow === 0 || dow === 6, lunarLabel: getLunarLabel(date) })
     nextDay++
   }
   return cells
 })
 
-// 這裡吃的是 eventsStore.events（原始 store 資料），不是 cell 層級的
-// mergeMilestonesByCase() 合併結果，所以永遠不會出現 _merged 物件，不用判斷；
-// 只挑有 endDate 的事件出來排長條
-const multiDayEventLookup = computed(() => {
-  const map = new Map()
+// 要畫成長條的來源：(1) 有 endDate 的跨天事件；(2) 連續幾天每天各建一筆、內容相同的單日事件，
+// 接成一條虛擬事件（_chain，id 為 chain_<第一筆id>，memberIds 記住底下是哪幾筆）。
+// 請假不串接，只有請假的長條遇到週末/假日會斷開。
+const barSources = computed(() => {
+  const sources = []
+  const singleDay = []
   for (const e of eventsStore.events) {
-    if (e.endDate) map.set(e.id, e)
+    const date = tsToDateStr(e.date)
+    const endDate = e.endDate ? tsToDateStr(e.endDate) : ''
+    if (endDate && endDate > date) {
+      sources.push({ id: e.id, date, endDate, skipNonWorking: e.type === 'leave', memberIds: [e.id], event: e })
+    } else if (e.type !== 'leave') {
+      singleDay.push({ id: e.id, date, raw: e })
+    }
   }
-  return map
+  const chainKey = ({ raw }) => [raw.type, raw.label, raw.startTime || '', raw.endTime || '', (raw.caseNames || []).join('、')].join('|')
+  for (const chain of chainConsecutiveDailyEvents(singleDay, chainKey)) {
+    const id = `chain_${chain.first.id}`
+    sources.push({
+      id, date: chain.date, endDate: chain.endDate, skipNonWorking: false, memberIds: chain.memberIds,
+      event: { ...chain.first.raw, id, _chain: true }
+    })
+  }
+  return sources
 })
 
 // 依週分組（每 7 格一組），每週各自算長條，回傳長度依當月週數而定的陣列，每項是這一週要畫的長條清單
 const weekEventBars = computed(() => {
   const cells = calendarCells.value
+  const sourceById = new Map(barSources.value.map(s => [s.id, s]))
   const weeks = []
   for (let wi = 0; wi * 7 < cells.length; wi++) {
     const week = cells.slice(wi * 7, wi * 7 + 7)
     const weekDays = week.map(c => ({ date: c.dateStr, isNonWorking: c.isNonWorking }))
     const weekStart = week[0].dateStr
     const weekEnd = week[6].dateStr
-    const events = []
-    for (const e of multiDayEventLookup.value.values()) {
-      const start = tsToDateStr(e.date)
-      const end = tsToDateStr(e.endDate)
-      if (end >= weekStart && start <= weekEnd) events.push({ id: e.id, date: start, endDate: end })
-    }
-    const bars = buildWeekEventBars(weekDays, events).map(seg => ({
-      event: multiDayEventLookup.value.get(seg.id),
-      colStart: seg.colStart,
-      colSpan: seg.colSpan,
-      row: seg.row,
-    }))
+    const events = barSources.value.filter(s => s.endDate >= weekStart && s.date <= weekEnd)
+    const bars = buildWeekEventBars(weekDays, events).map(seg => {
+      const source = sourceById.get(seg.id)
+      return {
+        event: source.event,
+        memberIds: source.memberIds,
+        colStart: seg.colStart,
+        colSpan: seg.colSpan,
+        row: seg.row,
+        outsideMonth: week.slice(seg.colStart, seg.colStart + seg.colSpan).every(c => !c.currentMonth),
+      }
+    })
     weeks.push(bars)
   }
   return weeks
 })
 
-// 依週分組的最終格子資料，events 已經把「這一天被長條蓋到的跨天事件」濾掉，
-// 樣板的逐日事件迴圈（slice(0,4)）改吃這份資料，不會跟長條重複顯示。
-// 這裡吃的是 cell.events（calendarCells 算出來的、經過 mergeMilestonesByCase()
-// 處理過的結果），才可能真的出現 _merged 合併物件——下面 filter 裡的 !e._merged
-// 是真正生效的防呆：已合併成一個色塊的場勘/施工事件不套用長條顯示，維持原本
-// 逐日顯示的行為（合併只在「同一天同案場多筆場勘」才會發生，機率很低，不強求
-// 這個情況也做成長條）
+// 依週分組的最終格子資料：先濾掉「這一天已經畫進長條」的事件、以及請假長條在週末/假日不顯示的那幾天，
+// 剩下的才做同案場合併（mergeMilestonesByCase），避免同一筆事件同時出現在長條和合併色塊裡。
+// barRows 取整週最多列數，同一週每格留一樣高的空白，下面的色塊才會水平對齊。
 const weekGroups = computed(() => {
   const cells = calendarCells.value
   const bars = weekEventBars.value
@@ -1412,18 +1426,30 @@ const weekGroups = computed(() => {
   for (let wi = 0; wi * 7 < cells.length; wi++) {
     const week = cells.slice(wi * 7, wi * 7 + 7)
     const barsThisWeek = bars[wi]
+    const barRows = barsThisWeek.length ? Math.max(...barsThisWeek.map(b => b.row)) + 1 : 0
     const week7 = week.map((cell, col) => {
-      const barsHere = barsThisWeek.filter(b => col >= b.colStart && col < b.colStart + b.colSpan)
-      return {
-        ...cell,
-        barRows: barsHere.length ? Math.max(...barsHere.map(b => b.row)) + 1 : 0,
-        events: cell.events.filter(e => !(e.endDate && !e._merged && barsHere.some(b => b.event.id === e.id)))
-      }
+      const coveredIds = new Set(
+        barsThisWeek
+          .filter(b => col >= b.colStart && col < b.colStart + b.colSpan)
+          .flatMap(b => b.memberIds)
+      )
+      const visible = cell.events.filter(e =>
+        !coveredIds.has(e.id) && !(e.type === 'leave' && e.endDate && cell.isNonWorking)
+      )
+      return { ...cell, barRows, events: mergeMilestonesByCase(visible) }
     })
     weeks.push(week7)
   }
   return weeks
 })
+
+// 串接出來的虛擬長條（_chain）底下每天是不同筆資料，點哪一天就開哪一天的詳情；一般跨天長條維持開起始日
+function onBarTap(bar, wi, e) {
+  if (!bar.event._chain) { onEventTap(bar.event, tsToDateStr(bar.event.date)); return }
+  const rect = e.currentTarget.getBoundingClientRect()
+  const offset = Math.min(bar.colSpan - 1, Math.floor((e.clientX - rect.left) / rect.width * bar.colSpan))
+  onEventTap(bar.event, weekGroups.value[wi][bar.colStart + Math.max(0, offset)].dateStr)
+}
 
 function openAddOnDate(dateStr) {
     eventForm.value = { ...blankEvent(), date: dateStr }
