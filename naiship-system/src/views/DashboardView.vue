@@ -72,7 +72,7 @@
   </div>
 </template>
 <script setup>
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import StatsSection from '@/components/dashboard/StatsSection.vue'
 import EmployeeTable from '@/components/dashboard/EmployeeTable.vue'
@@ -93,54 +93,6 @@ const clientsStore = useClientsStore()
 const authStore = useAuthStore()
 const logsStore = useWorkLogsStore()
 
-function toDateStr(d) {
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
-function calcOwnerDueDate(startDate) {
-    const d = new Date(startDate + 'T00:00:00')
-    d.setDate(d.getDate() - 7)
-    return toDateStr(d)
-}
-
-function wtPaymentTotal(wt) {
-    if (wt.paymentFree) return 0
-    const items = wt.paymentItems ?? (wt.payment > 0 ? [{ amount: wt.payment }] : [])
-    return (items || []).reduce((s, i) => s + (i.amount || 0), 0)
-}
-
-const BACKFILL_KEY = 'naiship_reminders_backfilled_v6'
-
-async function backfillReminders() {
-    if (localStorage.getItem(BACKFILL_KEY)) return
-    for (const c of casesStore.cases) {
-        for (const wt of (c.workTypes || [])) {
-            if (wt.startDate) {
-                await remindersStore.addAutoReminder(`auto_owner_${wt.id}`, {
-                    source: 'auto', type: 'owner',
-                    dueDate: calcOwnerDueDate(wt.startDate),
-                    caseId: c.id, caseName: c.name,
-                    companyId: c.companyId ?? '',
-                    workTypeId: wt.id, workTypeName: wt.name,
-                    vendorName: wt.vendorName || '',
-                    amount: wtPaymentTotal(wt),
-                    endDate: wt.endDate || '',
-                    createdBy: authStore.user?.uid ?? '',
-                    createdByName: authStore.name ?? '',
-                })
-            }
-        }
-    }
-    localStorage.setItem(BACKFILL_KEY, '1')
-}
-
-const backfillTriggered = ref(false)
-watch(() => casesStore.cases.length, (len) => {
-    if (len > 0 && !backfillTriggered.value && authStore.isManager) {
-        backfillTriggered.value = true
-        backfillReminders()
-    }
-})
 const selectedYear = ref(new Date().getFullYear())
 const currentMonth = new Date().getMonth() + 1
 const years = Array.from({ length: 5 }, (_, i) => selectedYear.value - i)
