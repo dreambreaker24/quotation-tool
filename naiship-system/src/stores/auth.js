@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut } from 'firebase/auth'
 import { doc, getDoc, setDoc, deleteDoc, collection, query, where, getDocs } from 'firebase/firestore'
-import { auth, db } from '@/firebase'
+import { auth, db, clearLocalCache } from '@/firebase'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref(null)
@@ -72,6 +72,8 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function logout() {
     await signOut(auth)
+    await clearLocalCache()
+    window.location.reload()
   }
 
   return { user, role, companyId, name, authReady, isAdmin, isManager, canViewRegion, readyPromise, init, loginWithGoogle, logout }

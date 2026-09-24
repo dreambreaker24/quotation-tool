@@ -29,7 +29,8 @@ export const usePettyCashStore = defineStore('pettyCash', () => {
         const q = query(collection(db, 'pettyCash'), orderBy('date', 'desc'))
         unsubscribe = onSnapshot(q, snap => {
             entries.value = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-            if (!entriesReady) {
+            // 開了本機快取後第一批可能是舊資料，等伺服器最新資料到了才算載入完成（低餘額通知要靠這個判斷）
+            if (!entriesReady && !snap.metadata.fromCache) {
                 entriesReady = true
                 entriesReadyResolvers.forEach(resolve => resolve())
                 entriesReadyResolvers = []
@@ -165,6 +166,6 @@ export const usePettyCashStore = defineStore('pettyCash', () => {
 
     return {
         entries, settings, bunBalance, laiBalance, benBalance, bunExpenseThisMonth, laiExpenseThisMonth,
-        subscribe, cleanup, addEntry, updateEntry, deleteEntry, updateSettings
+        subscribe, cleanup, waitForEntriesReady, addEntry, updateEntry, deleteEntry, updateSettings
     }
 })

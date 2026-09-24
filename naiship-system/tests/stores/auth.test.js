@@ -2,10 +2,13 @@
 import { setActivePinia, createPinia } from 'pinia'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { useAuthStore } from '@/stores/auth'
+import { clearLocalCache } from '@/firebase'
+import { signOut } from 'firebase/auth'
 
 vi.mock('@/firebase', () => ({
   auth: { onAuthStateChanged: vi.fn() },
-  db: {}
+  db: {},
+  clearLocalCache: vi.fn(() => Promise.resolve()),
 }))
 
 vi.mock('firebase/auth', () => ({
@@ -51,5 +54,23 @@ describe('useAuthStore', () => {
     store.companyId = 'south'
     expect(store.canViewRegion('south')).toBe(true)
     expect(store.canViewRegion('north')).toBe(false)
+  })
+})
+
+describe('useAuthStore — 登出清除本機快取', () => {
+  beforeEach(() => setActivePinia(createPinia()))
+
+  it('登出後清掉本機快取並重新載入頁面，避免共用電腦留下資料', async () => {
+    const reload = vi.fn()
+    vi.stubGlobal('location', { reload })
+    const order = []
+    signOut.mockImplementationOnce(() => { order.push('signOut'); return Promise.resolve() })
+    clearLocalCache.mockImplementationOnce(() => { order.push('clear'); return Promise.resolve() })
+
+    await useAuthStore().logout()
+
+    expect(order).toEqual(['signOut', 'clear'])
+    expect(reload).toHaveBeenCalled()
+    vi.unstubAllGlobals()
   })
 })

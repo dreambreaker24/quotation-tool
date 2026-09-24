@@ -2,11 +2,12 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { usePettyCashStore } from '@/stores/pettyCash'
+import { onSnapshot } from 'firebase/firestore'
 
 vi.mock('@/firebase', () => ({ db: {} }))
 vi.mock('firebase/firestore', () => ({
     collection: vi.fn(), query: vi.fn(), orderBy: vi.fn(),
-    onSnapshot: vi.fn((q, cb) => { cb({ docs: [] }); return () => {} }),
+    onSnapshot: vi.fn((q, cb) => { cb({ docs: [], metadata: { fromCache: false } }); return () => {} }),
     addDoc: vi.fn(() => Promise.resolve({ id: 'e1' })),
     updateDoc: vi.fn(() => Promise.resolve()),
     deleteDoc: vi.fn(() => Promise.resolve()),
@@ -78,5 +79,26 @@ describe('pettyCash store — benBalance（柏零用金）', () => {
         ]
         expect(store.bunExpenseThisMonth).toBe(1500)
         expect(store.laiExpenseThisMonth).toBe(300)
+    })
+})
+
+describe('pettyCash store — 本機快取時等伺服器資料到才算載入完成', () => {
+    beforeEach(() => setActivePinia(createPinia()))
+
+    it('只收到快取資料時 waitForEntriesReady 不會完成，收到伺服器資料才完成', async () => {
+        let emit
+        onSnapshot.mockImplementationOnce((q, cb) => { emit = cb; return () => {} })
+        const store = usePettyCashStore()
+        store.subscribe()
+        let ready = false
+        store.waitForEntriesReady().then(() => { ready = true })
+
+        emit({ docs: [], metadata: { fromCache: true } })
+        await new Promise(r => setTimeout(r))
+        expect(ready).toBe(false)
+
+        emit({ docs: [], metadata: { fromCache: false } })
+        await new Promise(r => setTimeout(r))
+        expect(ready).toBe(true)
     })
 })

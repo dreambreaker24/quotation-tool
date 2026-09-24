@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app'
-import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore'
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, terminate, clearIndexedDbPersistence, connectFirestoreEmulator } from 'firebase/firestore'
 import { getAuth, connectAuthEmulator } from 'firebase/auth'
 import { getStorage } from 'firebase/storage'
 
@@ -13,7 +13,10 @@ const firebaseConfig = {
 }
 
 const app = initializeApp(firebaseConfig)
-export const db = getFirestore(app)
+// 本機快取：重新整理/切頁時只向伺服器拿有變動的資料，節省每日讀取額度；支援同時開多個分頁
+export const db = initializeFirestore(app, {
+    localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+})
 export const auth = getAuth(app)
 export const storage = getStorage(app)
 
@@ -22,4 +25,10 @@ export const storage = getStorage(app)
 if (import.meta.env.DEV && import.meta.env.VITE_USE_FIRESTORE_EMULATOR === 'true') {
     connectFirestoreEmulator(db, 'localhost', 8080)
     connectAuthEmulator(auth, 'http://localhost:9099')
+}
+
+// 登出時清掉本機快取，避免共用電腦留下案件/薪資等資料；清完 db 就不能再用，呼叫端要重新載入頁面
+export async function clearLocalCache() {
+    await terminate(db)
+    await clearIndexedDbPersistence(db)
 }
