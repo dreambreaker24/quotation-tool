@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { isEligibleByAmount, calcTier, calcDesignerBonus, calcSalesBonus } from '@/utils/bonusCalc'
+import { isEligibleByAmount, calcTier, calcDesignerBonus, calcSalesBonus, effectiveConstructionAmount } from '@/utils/bonusCalc'
 
 describe('isEligibleByAmount', () => {
     it('案件金額剛好 50 萬時不合格（要求「超過」）', () => {
@@ -302,8 +302,9 @@ describe('buildCaseBonusEntries 併入團隊獎金', () => {
             miscExpenses: 0, teamBonusAmount: 5000,
         }
         const entries = buildCaseBonusEntries(caseInfo, bonusData, usersById)
-        expect(entries).toHaveLength(1)
-        expect(entries[0]).toMatchObject({ role: 'team', personId: 'u1', suggestedAmount: 5000 })
+        expect(entries).toHaveLength(2)
+        expect(entries[0]).toMatchObject({ role: 'sales', suggestedAmount: 12500 })
+        expect(entries[1]).toMatchObject({ role: 'team', personId: 'u1', suggestedAmount: 5000 })
     })
     it('沒有 teamBonusAmount 欄位時（既有舊資料相容）不影響原本三個角色的 entries', () => {
         const caseInfo = { id: 'c1', name: '測試案', signedAmount: 1000000, workTypes: [] }
@@ -350,5 +351,38 @@ describe('buildCaseBonusEntries 以收款期程金額計算', () => {
         const entries = buildCaseBonusEntries(caseInfo, bonusData, { u1: { name: '柏' } })
         expect(entries).toHaveLength(1)
         expect(entries[0]).toMatchObject({ role: 'designer', suggestedAmount: 3000 })
+    })
+})
+
+describe('effectiveConstructionAmount', () => {
+    it('工程約沒填時自動用案件金額扣掉設計約', () => {
+        expect(effectiveConstructionAmount({ designContractAmount: 100000, constructionContractAmount: 0 }, 540000)).toBe(440000)
+    })
+    it('兩格都沒填時工程約等於案件金額', () => {
+        expect(effectiveConstructionAmount({ designContractAmount: 0, constructionContractAmount: 0 }, 540000)).toBe(540000)
+    })
+    it('有手動填工程約就照填的', () => {
+        expect(effectiveConstructionAmount({ designContractAmount: 100000, constructionContractAmount: 300000 }, 540000)).toBe(300000)
+    })
+    it('設計約大於案件金額時自動工程約是 0，不會變負數', () => {
+        expect(effectiveConstructionAmount({ designContractAmount: 600000, constructionContractAmount: 0 }, 540000)).toBe(0)
+    })
+    it('舊資料沒有欄位也能算', () => {
+        expect(effectiveConstructionAmount({}, 540000)).toBe(540000)
+    })
+})
+
+describe('buildCaseBonusEntries 工程約自動帶入', () => {
+    const usersById = { u1: { name: '柯其宏' } }
+    it('冷氣空調更換：收款期程 540,000、兩格沒填，業務獎金 6,750', () => {
+        const caseInfo = { id: 'c1', name: '冷氣空調更換', signedAmount: 0, paymentMilestones: [{ amount: 540000 }], workTypes: [] }
+        const bonusData = { designContractAmount: 0, constructionContractAmount: 0, salesPersonIds: ['u1'], designerIds: [], siteManagerIds: [], miscExpenses: 0 }
+        const entries = buildCaseBonusEntries(caseInfo, bonusData, usersById)
+        expect(entries).toEqual([expect.objectContaining({ role: 'sales', suggestedAmount: 6750 })])
+    })
+    it('設計約填 100,000 時，業務獎金 = 4,000 + 5,500', () => {
+        const caseInfo = { id: 'c1', name: '冷氣空調更換', signedAmount: 0, paymentMilestones: [{ amount: 540000 }], workTypes: [] }
+        const bonusData = { designContractAmount: 100000, constructionContractAmount: 0, salesPersonIds: ['u1'], designerIds: [], siteManagerIds: [], miscExpenses: 0 }
+        expect(buildCaseBonusEntries(caseInfo, bonusData, usersById)[0].suggestedAmount).toBe(9500)
     })
 })

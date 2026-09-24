@@ -16,7 +16,8 @@
           </div>
           <div>
             <label class="text-xs text-gray-500 mb-1 block">工程約金額</label>
-            <input v-model.number="form.constructionContractAmount" type="number" min="0" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1">
+            <input v-model.number="constructionInput" type="number" min="0" :placeholder="`自動 ${autoConstructionAmount.toLocaleString()}`" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1">
+            <div class="text-[11px] text-gray-400 mt-1">沒填時自動＝收款期程合計－設計約</div>
           </div>
         </div>
 
@@ -83,7 +84,7 @@ import { useCaseBonusDataStore, defaultCaseBonusData } from '@/stores/caseBonusD
 import { useUsersStore } from '@/stores/users'
 import { useToast } from '@/composables/useToast'
 import {
-    calcSalesBonus, calcDesignerBonus, calcSiteManagerBonus,
+    calcSalesBonus, calcDesignerBonus, calcSiteManagerBonus, effectiveConstructionAmount,
     calcProfitMargin, sumVendorCost, dedupeParticipants, splitBonus, bonusBaseAmount,
 } from '@/utils/bonusCalc'
 import RoleAssigneePicker from './RoleAssigneePicker.vue'
@@ -107,8 +108,15 @@ onMounted(async () => {
 const vendorCostTotal = computed(() => sumVendorCost(props.caseInfo?.workTypes))
 const baseAmount = computed(() => bonusBaseAmount(props.caseInfo))
 
+const autoConstructionAmount = computed(() =>
+    effectiveConstructionAmount({ designContractAmount: form.designContractAmount }, baseAmount.value))
+const constructionInput = computed({
+    get: () => form.constructionContractAmount || '',
+    set: v => { form.constructionContractAmount = Number(v) || 0 },
+})
+
 const salesAmount = computed(() =>
-    calcSalesBonus(form.designContractAmount, form.constructionContractAmount, baseAmount.value))
+    calcSalesBonus(form.designContractAmount, effectiveConstructionAmount(form, baseAmount.value), baseAmount.value))
 const designerAmount = computed(() => calcDesignerBonus(baseAmount.value))
 const profitMargin = computed(() =>
     calcProfitMargin(baseAmount.value, vendorCostTotal.value, form.miscExpenses))

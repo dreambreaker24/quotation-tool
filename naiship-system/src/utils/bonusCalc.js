@@ -31,6 +31,12 @@ export function calcSalesBonus(designContractAmount, constructionContractAmount,
     return Math.round((designContractAmount || 0) * SALES_DESIGN_RATE + (constructionContractAmount || 0) * SALES_CONSTRUCTION_RATE)
 }
 
+// 工程約金額：沒手動填就用案件金額扣掉設計約（收款期程分不出設計費/工程款）
+export function effectiveConstructionAmount(bonusData, baseAmount) {
+    if ((bonusData?.constructionContractAmount || 0) > 0) return bonusData.constructionContractAmount
+    return Math.max((baseAmount || 0) - (bonusData?.designContractAmount || 0), 0)
+}
+
 export function sumVendorCost(workTypes) {
     return (workTypes || []).reduce((sum, wt) =>
         sum + (wt.vendorCostItems || []).reduce((s, i) => s + (i.amount || 0), 0), 0)
@@ -127,7 +133,7 @@ export function buildCaseBonusEntries(caseInfo, bonusData, usersById = {}) {
     const vendorCostTotal = sumVendorCost(caseInfo.workTypes)
     const baseAmount = bonusBaseAmount(caseInfo)
 
-    const salesAmount = calcSalesBonus(bonusData.designContractAmount, bonusData.constructionContractAmount, baseAmount)
+    const salesAmount = calcSalesBonus(bonusData.designContractAmount, effectiveConstructionAmount(bonusData, baseAmount), baseAmount)
     pushRoleEntries(entries, 'sales', salesAmount, bonusData.salesPersonIds, bonusData.salesSplit, usersById, caseInfo)
 
     const designerAmount = calcDesignerBonus(baseAmount)
