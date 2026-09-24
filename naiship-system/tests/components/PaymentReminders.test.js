@@ -150,3 +150,49 @@ describe('PaymentReminders — 廠商付款排程完成流程', () => {
         expect(patch.workTypes[0].vendorPayments[0].amount).toBe(10000)
     })
 })
+
+describe('PaymentReminders — 廠商付款依日期顯示', () => {
+    beforeEach(() => setActivePinia(createPinia()))
+    afterEach(() => vi.useRealTimers())
+
+    async function mountWithReminders(reminders) {
+        vi.setSystemTime(new Date('2026-09-24T03:00:00Z'))
+        const authStore = useAuthStore()
+        authStore.role = 'admin'
+        useCasesStore().cases = []
+        usePaymentRemindersStore().reminders = reminders
+        const wrapper = mount(PaymentReminders, { global: { plugins: [router] } })
+        await flushPromises()
+        return wrapper
+    }
+
+    function vendorReminder(id, dueDate, source = 'auto') {
+        return { id, type: 'vendor', source, status: 'pending', caseId: 'c1', caseName: '大同區辦公室', workTypeName: '搗擺', amount: 1000, dueDate }
+    }
+
+    it('不再顯示本月底／下月分段標題，直接依付款日期排序', async () => {
+        const wrapper = await mountWithReminders([
+            vendorReminder('r2', '2026-11-17'),
+            vendorReminder('r1', '2026-09-30'),
+            vendorReminder('r3', '2026-10-05', 'manual'),
+        ])
+        const text = wrapper.find('#scheduled-reminders').text()
+        expect(text).not.toContain('本月底')
+        expect(text).not.toContain('下月')
+        const headers = wrapper.findAll('[data-test="due-date-header"]').map(h => h.text())
+        expect(headers).toEqual(['9月30日', '10月5日', '11月17日'])
+    })
+
+    it('逾期日期排最前面並標示逾期天數，未設日期排最後', async () => {
+        const wrapper = await mountWithReminders([
+            vendorReminder('r0', ''),
+            vendorReminder('r1', '2026-10-01'),
+            vendorReminder('r2', '2026-09-20', 'manual'),
+        ])
+        const headers = wrapper.findAll('[data-test="due-date-header"]').map(h => h.text())
+        expect(headers[0]).toContain('9月20日')
+        expect(headers[0]).toContain('逾期 4 天')
+        expect(headers[1]).toBe('10月1日')
+        expect(headers[2]).toBe('未設日期')
+    })
+})

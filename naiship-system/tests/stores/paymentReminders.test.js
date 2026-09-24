@@ -68,12 +68,12 @@ describe('usePaymentRemindersStore — vendorDisplayItems', () => {
         expect(store.vendorDisplayItems).toHaveLength(1)
     })
 
-    it('excludes auto vendor items beyond next month', () => {
+    it('includes auto vendor items beyond next month', () => {
         const store = usePaymentRemindersStore()
         store.reminders = [
-            { id: 'r1', type: 'vendor', source: 'auto', status: 'pending', dueDate: '2026-08-01', caseId: 'c1' }
+            { id: 'r1', type: 'vendor', source: 'auto', status: 'pending', dueDate: '2026-11-17', caseId: 'c1' }
         ]
-        expect(store.vendorDisplayItems).toHaveLength(0)
+        expect(store.vendorDisplayItems).toHaveLength(1)
     })
 
     it('excludes owner type items', () => {
@@ -94,7 +94,7 @@ describe('usePaymentRemindersStore — vendorDisplayItems', () => {
         const ids = store.vendorDisplayItems.map(r => r.id)
         expect(ids).toContain('manual1')
         expect(ids).toContain('auto1')
-        expect(ids).not.toContain('auto2')
+        expect(ids).toContain('auto2')
     })
 })
 

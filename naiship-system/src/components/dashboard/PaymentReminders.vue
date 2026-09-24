@@ -6,76 +6,67 @@
       <!-- 左半：廠商付款排程 -->
       <div id="scheduled-reminders">
         <div class="text-xs font-semibold text-blue-600 mb-2 pl-2 border-l-2 border-blue-300">廠商付款排程</div>
-        <div v-if="groupedSegments.length === 0" class="text-[11px] text-gray-400">目前無廠商付款排程</div>
-        <div class="flex flex-col gap-3">
-          <div v-for="seg in groupedSegments" :key="seg.key"
-            class="rounded-xl overflow-hidden border"
-            :style="`border-color:${seg.border}; background:${seg.bg}`">
-            <!-- 時間段標題 -->
-            <div class="px-3 py-1.5 text-[11px] font-bold border-b"
-              :style="`color:${seg.textColor}; border-color:${seg.border}`">
-              {{ seg.label }}
+        <div v-if="groupedDates.length === 0" class="text-[11px] text-gray-400">目前無廠商付款排程</div>
+        <div v-else class="rounded-xl overflow-hidden border border-sky-200 bg-sky-50/40">
+          <!-- 日期分組 -->
+          <div v-for="dateGroup in groupedDates" :key="dateGroup.date"
+            class="border-b border-sky-200 last:border-0">
+            <!-- 日期 header -->
+            <div data-test="due-date-header" class="px-4 py-2 flex items-center gap-2"
+              :class="dateGroup.overdue ? 'bg-red-50' : 'bg-sky-100/60'">
+              <span class="text-sm font-black tracking-wide"
+                :class="dateGroup.overdue ? 'text-red-600' : 'text-sky-700'">
+                {{ dateGroup.date === '未設日期' ? '未設日期' : formatDate(dateGroup.date) }}
+              </span>
+              <span v-if="dateGroup.overdue"
+                class="text-[10px] text-red-600 bg-red-100 rounded-full px-2 py-0.5 font-bold">
+                逾期 {{ overdueDays(dateGroup.date) }} 天
+              </span>
             </div>
-            <!-- 日期分組 -->
-            <div v-for="dateGroup in seg.dates" :key="dateGroup.date"
-              class="border-b last:border-0"
-              :style="`border-color:${seg.border}`">
-              <!-- 日期 header -->
-              <div class="px-4 py-2 flex items-center gap-2"
-                :style="`background:${seg.border}35`">
-                <span class="text-sm font-black tracking-wide"
-                  :style="`color:${seg.textColor}`">
-                  {{ dateGroup.date === '未設日期' ? '未設日期' : formatDate(dateGroup.date) }}
-                </span>
-                <span v-if="seg.key === 'overdue' && dateGroup.date !== '未設日期'"
-                  class="text-[10px] text-red-600 bg-red-100 rounded-full px-2 py-0.5 font-bold">
-                  逾期 {{ overdueDays(dateGroup.date) }} 天
-                </span>
-              </div>
-              <!-- 案件分組 -->
-              <div class="px-3 py-2.5 flex flex-col gap-2">
-                <div v-for="caseGroup in dateGroup.cases" :key="caseGroup.caseId"
-                  class="bg-white rounded-lg px-3 py-2.5 shadow-sm">
-                  <!-- 案件名稱 -->
-                  <div class="flex items-center gap-1.5 mb-2">
-                    <div class="w-1 h-3.5 rounded-full flex-shrink-0" :style="`background:${seg.textColor}`"></div>
-                    <span class="text-xs font-bold text-gray-800">{{ caseGroup.caseName }}</span>
-                  </div>
-                  <!-- 工種列表 -->
-                  <div class="flex flex-col gap-1.5 pl-2.5">
-                    <div v-for="r in caseGroup.items" :key="r.id"
-                      class="flex items-center gap-2">
-                      <div class="flex-1 min-w-0">
-                        <div class="flex items-center flex-wrap gap-1 text-[11px]">
-                          <span class="font-semibold text-gray-700">{{ r.workTypeName }}</span>
-                          <template v-if="getVendorName(r)">
-                            <span class="text-gray-300">·</span>
-                            <span class="text-gray-400">{{ getVendorName(r) }}</span>
-                          </template>
-                          <button v-else @click="jumpToCase(r)"
-                            class="text-red-600 bg-red-50 border border-red-200 rounded px-1 py-0.5 text-[10px] hover:bg-red-100 transition-colors font-medium">
-                            ⚠️ 未填廠商
-                          </button>
-                        </div>
-                        <div class="flex items-center gap-1.5 mt-0.5">
-                          <span class="text-xs font-bold text-gray-800">${{ (r.amount || 0).toLocaleString() }}</span>
-                          <span class="text-[10px]"
-                            :class="getInvoiceReceived(r) ? 'text-green-600' : 'text-amber-500'">
-                            {{ getInvoiceReceived(r) ? '✓ 發票已到' : '待收發票' }}
-                          </span>
-                          <span v-if="r.needsManualFollowup" class="text-[10px] text-purple-600 bg-purple-50 border border-purple-200 rounded px-1 py-0.5 font-medium">
-                            手動提醒
-                          </span>
-                          <span v-if="r.endDate" class="text-[10px] text-gray-400">工程結束 {{ formatDate(r.endDate) }}</span>
-                        </div>
+            <!-- 案件分組 -->
+            <div class="px-3 py-2.5 flex flex-col gap-2">
+              <div v-for="caseGroup in dateGroup.cases" :key="caseGroup.caseId"
+                class="bg-white rounded-lg px-3 py-2.5 shadow-sm">
+                <!-- 案件名稱 -->
+                <div class="flex items-center gap-1.5 mb-2">
+                  <div class="w-1 h-3.5 rounded-full flex-shrink-0"
+                    :class="dateGroup.overdue ? 'bg-red-500' : 'bg-sky-600'"></div>
+                  <span class="text-xs font-bold text-gray-800">{{ caseGroup.caseName }}</span>
+                </div>
+                <!-- 工種列表 -->
+                <div class="flex flex-col gap-1.5 pl-2.5">
+                  <div v-for="r in caseGroup.items" :key="r.id"
+                    class="flex items-center gap-2">
+                    <div class="flex-1 min-w-0">
+                      <div class="flex items-center flex-wrap gap-1 text-[11px]">
+                        <span class="font-semibold text-gray-700">{{ r.workTypeName }}</span>
+                        <template v-if="getVendorName(r)">
+                          <span class="text-gray-300">·</span>
+                          <span class="text-gray-400">{{ getVendorName(r) }}</span>
+                        </template>
+                        <button v-else @click="jumpToCase(r)"
+                          class="text-red-600 bg-red-50 border border-red-200 rounded px-1 py-0.5 text-[10px] hover:bg-red-100 transition-colors font-medium">
+                          ⚠️ 未填廠商
+                        </button>
                       </div>
-                      <button v-if="authStore.isManager" @click="markDone(r.id)"
-                        :disabled="doneFeedback[r.id]"
-                        class="flex-shrink-0 text-[10px] px-2 py-1 rounded-lg transition-colors whitespace-nowrap"
-                        :class="doneFeedback[r.id] ? 'bg-green-500 text-white cursor-default' : 'bg-gray-50 text-green-700 hover:bg-green-50 border border-green-200'">
-                        {{ doneFeedback[r.id] ? '✓ 完成' : '完成' }}
-                      </button>
+                      <div class="flex items-center gap-1.5 mt-0.5">
+                        <span class="text-xs font-bold text-gray-800">${{ (r.amount || 0).toLocaleString() }}</span>
+                        <span class="text-[10px]"
+                          :class="getInvoiceReceived(r) ? 'text-green-600' : 'text-amber-500'">
+                          {{ getInvoiceReceived(r) ? '✓ 發票已到' : '待收發票' }}
+                        </span>
+                        <span v-if="r.needsManualFollowup" class="text-[10px] text-purple-600 bg-purple-50 border border-purple-200 rounded px-1 py-0.5 font-medium">
+                          手動提醒
+                        </span>
+                        <span v-if="r.endDate" class="text-[10px] text-gray-400">工程結束 {{ formatDate(r.endDate) }}</span>
+                      </div>
                     </div>
+                    <button v-if="authStore.isManager" @click="markDone(r.id)"
+                      :disabled="doneFeedback[r.id]"
+                      class="flex-shrink-0 text-[10px] px-2 py-1 rounded-lg transition-colors whitespace-nowrap"
+                      :class="doneFeedback[r.id] ? 'bg-green-500 text-white cursor-default' : 'bg-gray-50 text-green-700 hover:bg-green-50 border border-green-200'">
+                      {{ doneFeedback[r.id] ? '✓ 完成' : '完成' }}
+                    </button>
                   </div>
                 </div>
               </div>
@@ -250,35 +241,6 @@ function overdueDays(dueDate) {
     return Math.max(0, Math.floor((t - d) / 86400000))
 }
 
-const segmentDefs = computed(() => {
-    const now = new Date()
-    const y = now.getFullYear()
-    const m = now.getMonth()
-    const thisLastDay = new Date(y, m + 1, 0)
-    const nextM = m === 11 ? 1 : m + 2
-    return [
-        { key: 'overdue',   label: `🔴 逾期`,                                bg: '#fef2f2', border: '#fca5a5', textColor: '#dc2626' },
-        { key: 'thisMonth', label: `🟠 本月底（${thisLastDay.getMonth()+1}/${thisLastDay.getDate()} 前）`, bg: '#fff7ed', border: '#fdba74', textColor: '#ea580c' },
-        { key: 'nextEarly', label: `🟡 下月（${nextM}/1–15）`,               bg: '#fefce8', border: '#fde68a', textColor: '#ca8a04' },
-        { key: 'nextLate',  label: `🔵 下月（${nextM}/16 起）`,              bg: '#f0f9ff', border: '#7dd3fc', textColor: '#0284c7' },
-    ]
-})
-
-function getSegment(dueDate) {
-    const t = todayStr()
-    if (!dueDate || dueDate < t) return 'overdue'
-    const now = new Date()
-    const y = now.getFullYear()
-    const m = now.getMonth()
-    const thisEnd = new Date(y, m + 1, 0).toLocaleDateString('sv-SE')
-    if (dueDate <= thisEnd) return 'thisMonth'
-    const nextY = m === 11 ? y + 1 : y
-    const nextM = m === 11 ? 0 : m + 1
-    const mid = `${nextY}-${String(nextM + 1).padStart(2, '0')}-15`
-    if (dueDate <= mid) return 'nextEarly'
-    return 'nextLate'
-}
-
 function formatDate(dateStr) {
     if (!dateStr) return '未設日期'
     const d = new Date(dateStr)
@@ -292,36 +254,34 @@ function formatDoneAt(value) {
     return `${d.getMonth() + 1}月${d.getDate()}日`
 }
 
-const groupedSegments = computed(() => {
-    // Segment → Date → Case → Items
+const groupedDates = computed(() => {
+    // Date → Case → Items，依付款日期排序，未設日期排最後
     const buckets = {}
     for (const r of remindersStore.vendorDisplayItems) {
-        const seg = getSegment(r.dueDate)
         const dateKey = r.dueDate || '未設日期'
         const caseKey = r.caseId || '_'
-        if (!buckets[seg]) buckets[seg] = {}
-        if (!buckets[seg][dateKey]) buckets[seg][dateKey] = {}
-        if (!buckets[seg][dateKey][caseKey]) {
-            buckets[seg][dateKey][caseKey] = {
+        if (!buckets[dateKey]) buckets[dateKey] = {}
+        if (!buckets[dateKey][caseKey]) {
+            buckets[dateKey][caseKey] = {
                 caseId: r.caseId,
                 caseName: r.caseName || '未知案件',
                 companyId: r.companyId || '',
                 items: [],
             }
         }
-        buckets[seg][dateKey][caseKey].items.push(r)
+        buckets[dateKey][caseKey].items.push(r)
     }
-    return segmentDefs.value
-        .map(def => ({
-            ...def,
-            dates: Object.entries(buckets[def.key] || {})
-                .sort(([a], [b]) => a.localeCompare(b))
-                .map(([date, caseMap]) => ({
-                    date,
-                    cases: Object.values(caseMap).sort((a, b) => a.caseName.localeCompare(b.caseName)),
-                }))
+    return Object.entries(buckets)
+        .sort(([a], [b]) => {
+            if (a === '未設日期') return 1
+            if (b === '未設日期') return -1
+            return a.localeCompare(b)
+        })
+        .map(([date, caseMap]) => ({
+            date,
+            overdue: date !== '未設日期' && isOverdue(date),
+            cases: Object.values(caseMap).sort((a, b) => a.caseName.localeCompare(b.caseName)),
         }))
-        .filter(s => s.dates.length > 0)
 })
 
 function sortByOverdueThenDate(items) {
@@ -340,7 +300,7 @@ const ownerItems = computed(() => sortByOverdueThenDate([
 const pendingInvoiceGroups = computed(() => computePendingInvoiceGroups(casesStore.cases))
 const recentlyCompletedInvoiceGroups = computed(() => computeRecentlyReceivedInvoiceGroups(casesStore.cases))
 
-const hasAny = computed(() => groupedSegments.value.length > 0 || ownerItems.value.length > 0 || pendingInvoiceGroups.value.length > 0 || recentlyCompletedInvoiceGroups.value.length > 0)
+const hasAny = computed(() => groupedDates.value.length > 0 || ownerItems.value.length > 0 || pendingInvoiceGroups.value.length > 0 || recentlyCompletedInvoiceGroups.value.length > 0)
 
 function jumpToCase(r) {
     const q = { caseId: r.caseId }
