@@ -1063,10 +1063,10 @@ describe('CalendarTab — 月曆長條與色塊排版', () => {
     return { toDate: () => date, toMillis: () => date.getTime() }
   }
   function ev(id, date, extra = {}) {
-    return { id, type: 'milestone', date: ts(date), caseNames: ['大同區辦公室'], ...extra }
+    return { id, type: 'milestone', date: ts(date), caseIds: ['case-dt'], caseNames: ['大同區辦公室'], ...extra }
   }
 
-  async function mountSeptember(events) {
+  async function mountMonth(events, month = 8) {
     const authStore = useAuthStore()
     authStore.role = 'admin'
     authStore.name = '柏'
@@ -1074,64 +1074,108 @@ describe('CalendarTab — 月曆長條與色塊排版', () => {
     const wrapper = mount(CalendarTab, { props: { region: 'south' } })
     await flushPromises()
     wrapper.vm.currentYear = 2026
-    wrapper.vm.currentMonth = 8
+    wrapper.vm.currentMonth = month
+    await flushPromises()
     eventsStore.events = events
     await wrapper.vm.$nextTick()
     return wrapper
   }
 
-  function cellOf(wrapper, dateStr) {
-    return wrapper.vm.weekGroups.flat().find(c => c.dateStr === dateStr)
+  function weekOf(wrapper, dateStr) {
+    return wrapper.vm.weekLayouts.find(w => w.cells.some(c => c.dateStr === dateStr))
+  }
+  function itemsOn(wrapper, dateStr) {
+    const week = weekOf(wrapper, dateStr)
+    const col = week.cells.findIndex(c => c.dateStr === dateStr)
+    return week.items.filter(i => col >= i.colStart && col < i.colStart + i.colSpan)
   }
 
-  it('畫成長條的跨天事件不會再跟同案場事件合併成色塊（不重複顯示）', async () => {
-    const wrapper = await mountSeptember([
-      ev('water', '2026-09-01', { endDate: ts('2026-09-07'), label: '大同區辦公室 水電進場', startTime: '08:00', endTime: '08:00' }),
-      ev('mud', '2026-09-02', { label: '大同區辦公室 泥作進場', startTime: '08:00', endTime: '08:00' }),
+  it('同案場連續幾天的跨天事件、每日事件、單次事件合成一條長條，標題列出這段的項目', async () => {
+    const wrapper = await mountMonth([
+      ev('water', '2026-09-01', { endDate: ts('2026-09-04'), label: '大同區辦公室 水電進場' }),
+      ev('mud1', '2026-09-02', { label: '大同區辦公室 泥作進場', startTime: '08:00' }),
+      ev('mud2', '2026-09-03', { label: '大同區辦公室 泥作進場', startTime: '08:00' }),
+      ev('clean', '2026-09-04', { label: '大同區辦公室 清運進場' }),
     ])
-    const cell = cellOf(wrapper, '2026-09-02')
-    expect(cell.events.map(e => e.id)).toEqual(['mud'])
-    expect(cell.events.some(e => e._merged)).toBe(false)
+    const week = weekOf(wrapper, '2026-09-01')
+    expect(week.items).toHaveLength(1)
+    const lane = week.items[0]
+    expect(lane.kind).toBe('bar')
+    expect(lane.event._caseLane).toBe(true)
+    expect([lane.colStart, lane.colSpan]).toEqual([1, 4])
+    expect(lane.event.label).toBe('大同區辦公室：水電進場、泥作進場、清運進場')
   })
 
-  it('同一週每一格留給長條的列數一樣，色塊才會水平對齊', async () => {
-    const wrapper = await mountSeptember([
-      ev('wood', '2026-09-15', { endDate: ts('2026-09-16'), label: '木作進場' }),
-      ev('solo', '2026-09-18', { label: '永成案子', caseNames: [] }),
+  it('同案場中間空一天就斷成兩段；只剩一天的變單格並顯示原本的事件', async () => {
+    const wrapper = await mountMonth([
+      ev('a', '2026-09-01', { endDate: ts('2026-09-02'), label: '大同區辦公室 水電進場' }),
+      ev('b', '2026-09-04', { label: '大同區辦公室 對講機 維修', startTime: '10:00' }),
     ])
-    const week = wrapper.vm.weekGroups.find(w => w.some(c => c.dateStr === '2026-09-15'))
-    expect(new Set(week.map(c => c.barRows))).toEqual(new Set([1]))
+    const lane = itemsOn(wrapper, '2026-09-01')[0]
+    expect(lane.event.id).toBe('a')
+    expect(wrapper.vm.canDragEvent(lane.event, '2026-09-01')).toBe(true)
+    const chip = itemsOn(wrapper, '2026-09-04')[0]
+    expect(chip.kind).toBe('chip')
+    expect(chip.event.id).toBe('b')
   })
 
-  it('每天各一筆的相同事件接成一條長條，底下每一筆都不再單獨顯示', async () => {
-    const mud = ['2026-09-02', '2026-09-03', '2026-09-04', '2026-09-05'].map((d, i) =>
-      ev(`mud${i}`, d, { label: '大同區辦公室 泥作進場', startTime: '08:00', endTime: '08:00' }))
-    const wrapper = await mountSeptember(mud)
-    const bars = wrapper.vm.weekEventBars.flat()
-    expect(bars).toHaveLength(1)
-    expect(bars[0].event._chain).toBe(true)
-    expect(bars[0].colSpan).toBe(4)
-    for (const d of ['2026-09-02', '2026-09-03', '2026-09-04', '2026-09-05']) {
-      expect(cellOf(wrapper, d).events).toEqual([])
-    }
+  it('同一天同案場多筆單次事件維持合併成一個色塊', async () => {
+    const wrapper = await mountMonth([
+      ev('x', '2026-09-09', { label: '大同區辦公室 監視器廠勘', startTime: '15:00' }),
+      ev('y', '2026-09-09', { label: '大同區辦公室 結案+場勘', startTime: '10:30' }),
+    ])
+    const items = itemsOn(wrapper, '2026-09-09')
+    expect(items).toHaveLength(1)
+    expect(items[0].event._merged).toBe(true)
   })
 
-  it('請假長條週末斷開，週末也不會冒出單格色塊；施工長條穿過週末', async () => {
-    const wrapper = await mountSeptember([
+  it('單格補進該欄最上面的空位，不會因為別欄有兩條長條就空一格', async () => {
+    const wrapper = await mountMonth([
+      { id: 'leave', type: 'leave', label: 'Ramy 事假', date: ts('2026-10-05'), endDate: ts('2026-10-08') },
+      { id: 'wood', type: 'note', label: '木工進場', date: ts('2026-10-05'), endDate: ts('2026-10-06') },
+      { id: 'chip', type: 'note', label: '水電', date: ts('2026-10-07'), startTime: '08:00' },
+      { id: 'chip2', type: 'note', label: '業主', date: ts('2026-10-13'), startTime: '08:00' },
+      { id: 'leave2', type: 'leave', label: 'Ramy 事假', date: ts('2026-10-12'), endDate: ts('2026-10-12') },
+    ], 9)
+    expect(itemsOn(wrapper, '2026-10-07').find(i => i.event.id === 'chip').row).toBe(1)
+    expect(itemsOn(wrapper, '2026-10-13').find(i => i.event.id === 'chip2').row).toBe(0)
+  })
+
+  it('請假長條週末斷開，週末也不會冒出單格色塊', async () => {
+    const wrapper = await mountMonth([
       { id: 'leave', type: 'leave', label: 'Ramy 事假 56h', date: ts('2026-10-01'), endDate: ts('2026-10-12') },
-      ev('water', '2026-09-03', { endDate: ts('2026-09-07'), label: '水電進場' }),
     ])
-    expect(cellOf(wrapper, '2026-10-03').events).toEqual([])
-    expect(cellOf(wrapper, '2026-10-04').events).toEqual([])
-    const leaveBars = wrapper.vm.weekEventBars.flat().filter(b => b.event.id === 'leave')
-    expect(leaveBars.map(b => [b.colStart, b.colSpan])).toEqual([[3, 2]])
-    const waterBars = wrapper.vm.weekEventBars.flat().filter(b => b.event.id === 'water')
-    expect(waterBars.map(b => [b.colStart, b.colSpan])).toEqual([[3, 4], [0, 1]]) // 9/3(四)~9/6(日) 一段、9/7(一) 一段
+    expect(itemsOn(wrapper, '2026-10-03')).toEqual([])
+    expect(itemsOn(wrapper, '2026-10-04')).toEqual([])
+    expect(itemsOn(wrapper, '2026-10-02')[0].event.id).toBe('leave')
   })
 
-  it('串接長條不可拖曳', async () => {
-    const wrapper = await mountSeptember([])
-    const chain = { id: 'chain_x', type: 'milestone', _chain: true, date: ts('2026-09-02') }
-    expect(wrapper.vm.canDragEvent(chain, '2026-09-02')).toBe(false)
+  it('不屬於案場的每日相同事件仍會接成一條長條', async () => {
+    const wrapper = await mountMonth(['2026-09-14', '2026-09-15', '2026-09-16'].map((d, i) =>
+      ({ id: `n${i}`, type: 'note', label: '早會', date: ts(d), startTime: '09:00' })))
+    const items = weekOf(wrapper, '2026-09-14').items
+    expect(items).toHaveLength(1)
+    expect(items[0].event._chain).toBe(true)
+  })
+
+  it('合併長條與串接長條都不可拖曳', async () => {
+    const wrapper = await mountMonth([])
+    expect(wrapper.vm.canDragEvent({ id: 'case_x', type: 'milestone', _caseLane: true, date: ts('2026-09-02') }, '2026-09-02')).toBe(false)
+    expect(wrapper.vm.canDragEvent({ id: 'chain_x', type: 'note', _chain: true, date: ts('2026-09-02') }, '2026-09-02')).toBe(false)
+  })
+
+  it('不同案場用不同顏色，同案場顏色固定', async () => {
+    const casesStore = useCasesStore()
+    casesStore.cases = [
+      { id: 'case-dt', name: '大同區辦公室', createdAt: ts('2026-08-01') },
+      { id: 'case-yr', name: '鈺潤軒', createdAt: ts('2026-08-02') },
+    ]
+    const wrapper = await mountMonth([
+      ev('a', '2026-09-02', { label: '大同區辦公室 泥作進場' }),
+      ev('b', '2026-09-02', { label: '鈺潤軒 玻璃清潔', caseIds: ['case-yr'], caseNames: ['鈺潤軒'] }),
+    ])
+    const [dt, yr] = ['case-dt', 'case-yr'].map(id => wrapper.vm.itemColor({ type: 'milestone', caseIds: [id] }))
+    expect(dt).not.toBe(yr)
+    expect(wrapper.vm.monthCaseLegend.map(c => c.name)).toEqual(['大同區辦公室', '鈺潤軒'])
   })
 })
